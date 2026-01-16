@@ -5,8 +5,8 @@ import Image from "next/image";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white">
-      <header className="border-b border-neutral-200">
+    <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#e0e7ef]">
+      <header className="border-b border-neutral-200 bg-white/80 backdrop-blur sticky top-0 z-20">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -20,15 +20,8 @@ export default function Home() {
                   priority
                 />
               </Link>
-              {/* Keep an accessible page title for SEO */}
               <h1 className="sr-only">Vouchins</h1>
             </div>
-            {/* <div className="flex items-center space-x-3">
-              <Building2 className="h-6 w-6 text-neutral-700" />
-              <h1 className="text-xl font-semibold text-neutral-900">
-                Vouchins
-              </h1>
-            </div> */}
             <div className="flex items-center space-x-3">
               <Link href="/login">
                 <Button variant="ghost">Log in</Button>
@@ -42,29 +35,31 @@ export default function Home() {
       </header>
 
       <main>
-        <section className="py-20 md:py-32">
-          <div className="container mx-auto px-4 max-w-4xl text-center">
-            <h2 className="text-4xl md:text-5xl font-semibold text-neutral-900 mb-6 leading-tight">
-              A trusted community for
-              <br />
-              corporate employees
+        {/* Hero Section */}
+        <section className="relative py-32 md:py-44 flex items-center justify-center overflow-hidden">
+          {/* Layered gradients for depth */}
+          <div className="absolute inset-0 pointer-events-none select-none z-0">
+            <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1200px] h-[500px] bg-gradient-to-tr from-primary/30 via-blue-200/40 to-transparent rounded-full blur-3xl opacity-70" />
+            <div className="absolute top-1/2 left-0 w-96 h-96 bg-gradient-to-br from-accent/30 to-transparent rounded-full blur-2xl opacity-40" />
+            <div className="absolute bottom-0 right-0 w-[500px] h-[300px] bg-gradient-to-br from-primary/20 to-transparent rounded-full blur-2xl opacity-30" />
+          </div>
+          <div className="container mx-auto px-4 max-w-4xl text-center relative z-10">
+            <h2 className="text-6xl md:text-7xl font-extrabold text-primary mb-8 leading-tight tracking-tight drop-shadow-xl">
+              The <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">trusted</span> platform<br />
+              for corporate communities
             </h2>
-            <p className="text-xl text-neutral-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Find housing, buy and sell items, get recommendations from
-              verified colleagues at your company and beyond.
+            <p className="text-2xl md:text-3xl text-neutral-700 mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
+              Find housing, buy & sell, and get real recommendations from verified colleagues.<br className="hidden md:block" />
+              No noise. No spam. Just trust.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/signup">
-                <Button size="lg" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full sm:w-auto text-lg px-10 py-5 shadow-xl shadow-primary/10 hover:scale-105 transition-transform">
                   Get Started
                 </Button>
               </Link>
               <Link href="/login">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto"
-                >
+                <Button size="lg" variant="outline" className="w-full sm:w-auto text-lg px-10 py-5 hover:scale-105 transition-transform">
                   Log In
                 </Button>
               </Link>
@@ -72,7 +67,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-20 bg-neutral-50 border-y border-neutral-200">
+        <section className="py-24 bg-white/80 border-y border-neutral-200">
           <div className="container mx-auto px-4 max-w-5xl">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
@@ -123,7 +118,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-20">
+        <section className="py-24">
           <div className="container mx-auto px-4 max-w-3xl">
             <div className="text-center mb-12">
               <h3 className="text-3xl font-semibold text-neutral-900 mb-4">
@@ -168,7 +163,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-20 bg-neutral-50 border-t border-neutral-200">
+        <section className="py-24 bg-gradient-to-br from-[#f1f5f9] to-[#e0e7ef] border-t border-neutral-200">
           <div className="container mx-auto px-4 max-w-2xl text-center">
             <h3 className="text-3xl font-semibold text-neutral-900 mb-6">
               Ready to join?
@@ -183,11 +178,12 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-neutral-200 py-8">
+      <footer className="border-t border-neutral-200 py-10 bg-white/80">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-center space-x-2 text-sm text-neutral-600">
-            <Image src="/images/logo.png" alt="" width={20} height={20} className="h-4 w-auto" />
-            <span>Vouchins - A trusted community for corporate employees</span>
+          <div className="flex flex-col items-center justify-center space-y-2 text-sm text-neutral-600">
+            <Image src="/images/logo.png" alt="" width={28} height={28} className="h-6 w-auto" />
+            <span className="font-medium">Vouchins &mdash; A trusted community for corporate employees</span>
+            <span className="text-xs text-neutral-400">&copy; {new Date().getFullYear()} Vouchins. All rights reserved.</span>
           </div>
         </div>
       </footer>

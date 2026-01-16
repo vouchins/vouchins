@@ -57,17 +57,17 @@ export function PostCard({
         <div className="flex-1">
           <div className="flex items-center space-x-2 mb-1">
             <span className="font-medium text-neutral-900">
-              {post.user.first_name}
+              {post.user?.first_name}
             </span>
             <span className="text-neutral-400">·</span>
             <span className="text-sm text-neutral-500 flex items-center">
               <Building2 className="h-3 w-3 mr-1" />
-              {post.user.company.name}
+              {post.user?.company?.name}
             </span>
             <span className="text-neutral-400">·</span>
             <span className="text-sm text-neutral-500 flex items-center">
               <MapPin className="h-3 w-3 mr-1" />
-              {post.user.city}
+              {post.user?.city}
             </span>
           </div>
           <p className="text-xs text-neutral-500">

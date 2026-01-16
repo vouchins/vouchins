@@ -1,96 +1,114 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Building2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { useState } from "react";
+import Link from "next/link";
+import { Building2, AlertCircle } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useRouter } from "next/navigation";
 import {
   isCorporateEmail,
   extractDomainFromEmail,
   deriveCompanyNameFromDomain,
   validateFirstName,
-} from '@/lib/auth/validation';
+} from "@/lib/auth/validation";
+import { validatePassword } from "@/lib/auth/password";
+import { supabase } from "@/lib/supabase/client";
 
 export default function SignupPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const router = useRouter();
+
+  const passwordState = validatePassword(password);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+
+  const canProceed =
+    validateFirstName(firstName) &&
+    isCorporateEmail(email) &&
+    passwordState.isValid &&
+    passwordsMatch &&
+    !loading;
+
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     if (!validateFirstName(firstName)) {
-      setError('First name must be between 2-50 characters');
+      setError("First name must be between 2–50 characters.");
       setLoading(false);
       return;
     }
 
     if (!isCorporateEmail(email)) {
       setError(
-        'Please use your corporate email. Personal email domains (Gmail, Yahoo, etc.) are not allowed.'
+        "Please use your corporate email. Personal email domains are not allowed."
       );
       setLoading(false);
       return;
     }
 
+    // Company domain check (unchanged logic)
+    const domain = extractDomainFromEmail(email)
+      .trim()
+      .toLowerCase()
+      .replace(/^\.+|\.+$/g, "");
+
+    const { data: allCompanies, error: companiesError } = await supabase
+      .from("companies")
+      .select("domain");
+
+    if (companiesError) {
+      setError("Error checking company domains.");
+      setLoading(false);
+      return;
+    }
+
+    const match =
+      allCompanies &&
+      allCompanies.find(
+        (row: any) =>
+          typeof row.domain === "string" &&
+          row.domain.trim().toLowerCase() === domain
+      );
+
+    if (!match) {
+      setShowWaitlist(true);
+      setWaitlistEmail(email);
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (authError) throw authError;
+      const data = await res.json();
+      if (!res.ok)
+        throw new Error(data.error || "Failed to send verification code");
 
-      if (authData.user) {
-        const domain = extractDomainFromEmail(email);
-        const companyName = deriveCompanyNameFromDomain(domain);
-
-        let companyId: string;
-        const { data: existingCompany } = await supabase
-          .from('companies')
-          .select('id')
-          .eq('domain', domain)
-          .maybeSingle();
-
-        if (existingCompany) {
-          companyId = existingCompany.id;
-        } else {
-          const { data: newCompany, error: companyError } = await supabase
-            .from('companies')
-            .insert({ domain, name: companyName })
-            .select('id')
-            .single();
-
-          if (companyError) throw companyError;
-          companyId = newCompany.id;
-        }
-
-        const { error: userError } = await supabase.from('users').insert({
-          id: authData.user.id,
-          email,
-          first_name: firstName,
-          company_id: companyId,
-        });
-
-        if (userError) throw userError;
-
-        router.push('/verify-email');
+      // Store password in localStorage for verify-email page
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(`signup-password:${email}`, password);
       }
+
+      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
-      setError(err.message || 'Failed to sign up. Please try again.');
+      setError(err.message || "Failed to send verification code.");
     } finally {
       setLoading(false);
     }
@@ -99,6 +117,7 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-md">
+        {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <Building2 className="h-10 w-10 text-neutral-700" />
@@ -119,61 +138,112 @@ export default function SignupPage() {
             </Alert>
           )}
 
-          <form onSubmit={handleSignup} className="space-y-5">
-            <div>
-              <Label htmlFor="firstName">First Name</Label>
-              <Input
-                id="firstName"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Enter your first name"
-                required
-                className="mt-1.5"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="email">Corporate Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                required
-                className="mt-1.5"
-              />
-              <p className="text-xs text-neutral-500 mt-1.5">
-                Use your work email. Personal emails are not allowed.
+          {showWaitlist ? (
+            <div className="text-center text-neutral-700">
+              <strong>Your company is not yet supported.</strong>
+              <p className="mt-2 text-sm">
+                <b>{waitlistEmail}</b> has been added to the waitlist.
+                <br />
+                We’ll notify you when Vouchins is available for your
+                organization.
               </p>
             </div>
+          ) : (
+            <form onSubmit={handleSendOtp} className="space-y-5">
+              <div>
+                <Label>First Name</Label>
+                <Input
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Enter your first name"
+                  className="mt-1.5"
+                  required
+                />
+              </div>
 
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Create a secure password"
-                required
-                minLength={8}
-                className="mt-1.5"
-              />
-            </div>
+              <div>
+                <Label>Corporate Email</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className="mt-1.5"
+                  required
+                />
+                <p className="text-xs text-neutral-500 mt-1.5">
+                  Personal email domains are not allowed.
+                </p>
+              </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating account...' : 'Create Account'}
-            </Button>
-          </form>
+              <div>
+                <Label>Password</Label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a strong password"
+                  className="mt-1.5"
+                  required
+                />
+              </div>
+
+              <div>
+                <Label>Confirm Password</Label>
+                <Input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter password"
+                  className="mt-1.5"
+                  required
+                />
+              </div>
+
+              {/* Password rules */}
+              <ul className="text-xs text-neutral-600 space-y-1">
+                <li>
+                  {passwordState.length ? "✅" : "❌"} At least 8 characters
+                </li>
+                <li>
+                  {passwordState.uppercase ? "✅" : "❌"} Uppercase letter
+                </li>
+                <li>
+                  {passwordState.lowercase ? "✅" : "❌"} Lowercase letter
+                </li>
+                <li>{passwordState.number ? "✅" : "❌"} Number</li>
+                <li>
+                  {passwordState.specialChar ? "✅" : "❌"} Special character
+                </li>
+                <li>{passwordsMatch ? "✅" : "❌"} Passwords match</li>
+              </ul>
+
+              {/* Strength bar */}
+              <div className="h-2 w-full bg-neutral-200 rounded">
+                <div
+                  className={`h-2 rounded transition-all ${
+                    passwordState.strengthScore >= 3
+                      ? "bg-green-500"
+                      : "bg-yellow-400"
+                  }`}
+                  style={{
+                    width: `${(passwordState.strengthScore + 1) * 20}%`,
+                  }}
+                />
+              </div>
+
+              <Button type="submit" className="w-full" disabled={!canProceed}>
+                {loading
+                  ? "Sending verification code..."
+                  : "Send verification code"}
+              </Button>
+
+            </form>
+          )}
 
           <div className="mt-6 text-center text-sm">
             <span className="text-neutral-600">Already have an account? </span>
-            <Link
-              href="/login"
-              className="text-neutral-900 font-medium hover:underline"
-            >
+            <Link href="/login" className="font-medium hover:underline">
               Log in
             </Link>
           </div>

@@ -19,8 +19,11 @@ import { Input } from '@/components/ui/input';
 
 export default function OnboardingPage() {
   const router = useRouter();
+
   const [city, setCity] = useState('');
   const [customCity, setCustomCity] = useState('');
+  const [agreed, setAgreed] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -61,10 +64,16 @@ export default function OnboardingPage() {
     setError('');
     setSubmitting(true);
 
+    if (!agreed) {
+      setError('You must agree to the community guidelines to continue.');
+      setSubmitting(false);
+      return;
+    }
+
     const finalCity = city === 'Other' ? customCity.trim() : city;
 
     if (!finalCity) {
-      setError('Please select or enter your city');
+      setError('Please select or enter your city.');
       setSubmitting(false);
       return;
     }
@@ -78,7 +87,6 @@ export default function OnboardingPage() {
         .update({
           city: finalCity,
           onboarded: true,
-          is_verified: true,
         })
         .eq('id', user.id);
 
@@ -114,9 +122,33 @@ export default function OnboardingPage() {
             Welcome to Vouchins
           </h1>
 
-          <p className="text-neutral-600 text-center mb-8">
-           {"Let's complete your profile to get started"}
+          <p className="text-neutral-600 text-center mb-6">
+            Let’s complete your profile to get started
           </p>
+
+          {/* Community Guidelines */}
+          <div className="bg-neutral-50 border rounded-md p-4 text-sm text-neutral-700 mb-6">
+            <p className="font-medium mb-2">Community Guidelines</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Be respectful and professional towards other members</li>
+              <li>No harassment, hate speech, or abusive behavior</li>
+              <li>No illegal activities, scams, or spam content</li>
+              <li>Violations may result in content removal or account suspension</li>
+            </ul>
+
+            <div className="flex items-start gap-2 mt-4">
+              <input
+                id="agree"
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-1"
+              />
+              <Label htmlFor="agree" className="text-sm cursor-pointer">
+                I understand and agree to follow these guidelines
+              </Label>
+            </div>
+          </div>
 
           {error && (
             <Alert variant="destructive" className="mb-6">
@@ -127,8 +159,12 @@ export default function OnboardingPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <Label htmlFor="city">Your City</Label>
-              <Select value={city} onValueChange={setCity}>
+              <Label>Your City</Label>
+              <Select
+                value={city}
+                onValueChange={setCity}
+                disabled={!agreed}
+              >
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select your city" />
                 </SelectTrigger>
@@ -144,20 +180,22 @@ export default function OnboardingPage() {
 
             {city === 'Other' && (
               <div>
-                <Label htmlFor="customCity">Enter your city</Label>
+                <Label>Enter your city</Label>
                 <Input
-                  id="customCity"
-                  type="text"
                   value={customCity}
                   onChange={(e) => setCustomCity(e.target.value)}
                   placeholder="Enter city name"
-                  required
+                  disabled={!agreed}
                   className="mt-1.5"
                 />
               </div>
             )}
 
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={!agreed || submitting}
+            >
               {submitting ? 'Completing...' : 'Complete Setup'}
             </Button>
           </form>

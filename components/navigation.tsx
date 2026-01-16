@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Building2, LogOut, Shield, User } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+} from "@/components/ui/dropdown-menu";
+import { Building2, LogOut, Shield, User } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 interface NavigationProps {
   user: {
@@ -29,7 +29,7 @@ export function Navigation({ user }: NavigationProps) {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/login');
+    router.push("/login");
   };
 
   return (
@@ -38,9 +38,7 @@ export function Navigation({ user }: NavigationProps) {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center space-x-3">
             <Building2 className="h-6 w-6 text-neutral-700" />
-            <h1 className="text-xl font-semibold text-neutral-900">
-              Vouchins
-            </h1>
+            <h1 className="text-xl font-semibold text-neutral-900">Vouchins</h1>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -48,7 +46,7 @@ export function Navigation({ user }: NavigationProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push('/admin')}
+                onClick={() => router.push("/admin")}
                 className="text-neutral-600 hover:text-neutral-900"
               >
                 <Shield className="h-4 w-4 mr-2" />
@@ -58,16 +56,21 @@ export function Navigation({ user }: NavigationProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="flex items-center space-x-2"
-                >
+                <Button variant="ghost" className="flex items-center space-x-2">
                   <div className="flex flex-col items-end">
                     <span className="text-sm font-medium text-neutral-900">
                       {user.first_name}
                     </span>
                     <span className="text-xs text-neutral-500">
-                      {user.company.name} · {user.city}
+                      {user.company?.name ? (
+                        <>
+                          {user.company.name} · {user.city}
+                        </>
+                      ) : (
+                        <span className="text-neutral-400">
+                          {user.city || "Profile incomplete"}
+                        </span>
+                      )}
                     </span>
                   </div>
                   <div className="h-8 w-8 rounded-full bg-neutral-100 flex items-center justify-center">

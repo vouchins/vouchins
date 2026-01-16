@@ -1,5 +1,5 @@
 const PUBLIC_EMAIL_DOMAINS = [
-  'gmail.com',
+  // 'gmail.com', Commentded for testing purposes
   'yahoo.com',
   'hotmail.com',
   'outlook.com',
