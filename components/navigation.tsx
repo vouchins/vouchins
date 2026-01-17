@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Building2, LogOut, Shield, User } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-
+import Link from "next/link";
+import Image from "next/image";
 interface NavigationProps {
   user: {
     first_name: string;
@@ -37,8 +38,17 @@ export function Navigation({ user }: NavigationProps) {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Building2 className="h-6 w-6 text-neutral-700" />
-            <h1 className="text-xl font-semibold text-neutral-900">Vouchins</h1>
+            <Link href="/">
+                    <Image
+                      src="/images/logo.png"
+                      alt="Vouchins"
+                      width={140}
+                      height={40}
+                      className="object-contain"
+                      priority
+                    />
+                  </Link>
+                  <h1 className="sr-only">Vouchins</h1>
           </div>
 
           <div className="flex items-center space-x-4">
