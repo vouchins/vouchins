@@ -162,6 +162,17 @@ Business logic, growth strategy, and go-to-market details are intentionally kept
 
 ---
 
+## Documentation
+
+* 📄 **Developer Setup**: `docs/Vouchins_Developer_Setup_Guide.pdf`
+* 🏗 **Architecture**: `ARCHITECTURE.md`
+* 🔐 **Security Overview**: `SECURITY.md`
+* 🤝 **Contributing**: `CONTRIBUTING.md`
+
+These documents are intentionally high-level and safe for a public repository.
+
+---
+
 ## License
 
 Proprietary.

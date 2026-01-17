@@ -1,4 +1,6 @@
-"use client";
+export const dynamic = "force-dynamic";
+
+("use client");
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -7,6 +9,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function VerifyEmailPage() {
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [verified, setVerified] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -17,18 +23,12 @@ export default function VerifyEmailPage() {
     return null;
   }
 
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [verified, setVerified] = useState(false);
-
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      // Retrieve password from localStorage
       let password = "";
       let firstName = "";
 
@@ -55,7 +55,6 @@ export default function VerifyEmailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Invalid verification code");
 
-      // Cleanup sensitive data
       if (typeof window !== "undefined") {
         localStorage.removeItem(`signup-password:${email}`);
         localStorage.removeItem(`signup-firstname:${email}`);
@@ -102,9 +101,7 @@ export default function VerifyEmailPage() {
         {verified ? (
           <Alert className="mb-4">
             <CheckCircle2 className="h-4 w-4" />
-            <AlertDescription>
-              Email verified. Redirecting…
-            </AlertDescription>
+            <AlertDescription>Email verified. Redirecting…</AlertDescription>
           </Alert>
         ) : (
           <form onSubmit={handleVerify} className="space-y-4">
