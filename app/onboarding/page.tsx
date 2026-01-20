@@ -22,8 +22,12 @@ export default function OnboardingPage() {
 
   const [city, setCity] = useState('');
   const [customCity, setCustomCity] = useState('');
-  const [agreed, setAgreed] = useState(false);
 
+  const [personalEmail, setPersonalEmail] = useState('');
+  const [linkedinUrl, setLinkedinUrl] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -70,6 +74,12 @@ export default function OnboardingPage() {
       return;
     }
 
+    if (!personalEmail.trim()) {
+      setError('Personal email is required.');
+      setSubmitting(false);
+      return;
+    }
+
     const finalCity = city === 'Other' ? customCity.trim() : city;
 
     if (!finalCity) {
@@ -85,6 +95,9 @@ export default function OnboardingPage() {
       const { error: updateError } = await supabase
         .from('users')
         .update({
+          personal_email: personalEmail.trim().toLowerCase(),
+          linkedin_url: linkedinUrl.trim() || null,
+          phone_number: phoneNumber.trim() || null,
           city: finalCity,
           onboarded: true,
         })
@@ -119,21 +132,21 @@ export default function OnboardingPage() {
           </div>
 
           <h1 className="text-2xl font-semibold text-neutral-900 text-center mb-2">
-            Welcome to Vouchins
+            Complete your profile
           </h1>
 
           <p className="text-neutral-600 text-center mb-6">
-            Let’s complete your profile to get started
+            This helps us keep your account accessible even if you change jobs
           </p>
 
           {/* Community Guidelines */}
           <div className="bg-neutral-50 border rounded-md p-4 text-sm text-neutral-700 mb-6">
             <p className="font-medium mb-2">Community Guidelines</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Be respectful and professional towards other members</li>
-              <li>No harassment, hate speech, or abusive behavior</li>
-              <li>No illegal activities, scams, or spam content</li>
-              <li>Violations may result in content removal or account suspension</li>
+              <li>Be respectful and professional</li>
+              <li>No harassment, scams, or spam</li>
+              <li>Use real identity and honest information</li>
+              <li>Violations may lead to suspension</li>
             </ul>
 
             <div className="flex items-start gap-2 mt-4">
@@ -145,7 +158,7 @@ export default function OnboardingPage() {
                 className="mt-1"
               />
               <Label htmlFor="agree" className="text-sm cursor-pointer">
-                I understand and agree to follow these guidelines
+                I understand and agree to these guidelines
               </Label>
             </div>
           </div>
@@ -158,13 +171,51 @@ export default function OnboardingPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Personal Email (Required) */}
+            <div>
+              <Label>Personal Email *</Label>
+              <Input
+                type="email"
+                value={personalEmail}
+                onChange={(e) => setPersonalEmail(e.target.value)}
+                placeholder="you@gmail.com"
+                className="mt-1.5"
+                required
+                disabled={!agreed}
+              />
+              <p className="text-xs text-neutral-500 mt-1">
+                Used only for account recovery, never for spam.
+              </p>
+            </div>
+
+            {/* LinkedIn (Optional) */}
+            <div>
+              <Label>LinkedIn Profile (optional)</Label>
+              <Input
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                placeholder="https://linkedin.com/in/username"
+                className="mt-1.5"
+                disabled={!agreed}
+              />
+            </div>
+
+            {/* Phone (Optional) */}
+            <div>
+              <Label>Phone Number (optional)</Label>
+              <Input
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+91 XXXXX XXXXX"
+                className="mt-1.5"
+                disabled={!agreed}
+              />
+            </div>
+
+            {/* City */}
             <div>
               <Label>Your City</Label>
-              <Select
-                value={city}
-                onValueChange={setCity}
-                disabled={!agreed}
-              >
+              <Select value={city} onValueChange={setCity} disabled={!agreed}>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select your city" />
                 </SelectTrigger>
@@ -174,6 +225,7 @@ export default function OnboardingPage() {
                       {c}
                     </SelectItem>
                   ))}
+                  <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -196,7 +248,7 @@ export default function OnboardingPage() {
               className="w-full"
               disabled={!agreed || submitting}
             >
-              {submitting ? 'Completing...' : 'Complete Setup'}
+              {submitting ? 'Completing…' : 'Complete Setup'}
             </Button>
           </form>
         </div>

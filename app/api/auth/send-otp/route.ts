@@ -9,11 +9,13 @@ const OTP_EXPIRY_MINUTES = 10;
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const { email, firstName, password } = await req.json();
 
-    if (!email) {
+    /* -------------------- validation -------------------- */
+
+    if (!email || !firstName || !password) {
       return NextResponse.json(
-        { error: "Email is required" },
+        { error: "Email, first name and password are required" },
         { status: 400 }
       );
     }
@@ -25,11 +27,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check cooldown using created_at
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: "Password must be at least 8 characters long" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    /* -------------------- OTP cooldown -------------------- */
+
     const { data: lastOtp } = await supabaseAdmin
       .from("email_otps")
       .select("created_at")
-      .eq("email", email)
+      .eq("email", normalizedEmail)
       .maybeSingle();
 
     if (lastOtp?.created_at) {
@@ -48,8 +60,21 @@ export async function POST(req: Request) {
       }
     }
 
-    // Remove any previous OTP
-    await supabaseAdmin.from("email_otps").delete().eq("email", email);
+    /* -------------------- stage signup intent -------------------- */
+
+    await supabaseAdmin.from("signup_intents").upsert({
+  email: normalizedEmail,
+  first_name: firstName.trim(),
+  password, // ✅ CORRECT
+});
+
+
+    /* -------------------- OTP creation -------------------- */
+
+    await supabaseAdmin
+      .from("email_otps")
+      .delete()
+      .eq("email", normalizedEmail);
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = await bcrypt.hash(otp, 10);
@@ -58,11 +83,10 @@ export async function POST(req: Request) {
       Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000
     ).toISOString();
 
-    // ✅ Insert ONLY valid columns
     const { error: insertError } = await supabaseAdmin
       .from("email_otps")
       .insert({
-        email,
+        email: normalizedEmail,
         otp_hash: otpHash,
         expires_at: expiresAt,
         attempts: 0,
@@ -76,7 +100,7 @@ export async function POST(req: Request) {
       );
     }
 
-    await sendOtpEmail(email, otp);
+    await sendOtpEmail(normalizedEmail, otp);
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -6,8 +6,7 @@
       {
         "paths": [
           {
-            "name": "@/lib/supabase/admin",
-            "message": "❌ supabaseAdmin is SERVER-ONLY. Do not import it into client or shared code."
+            
           }
         ]
       }

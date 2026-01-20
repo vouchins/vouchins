@@ -4,30 +4,32 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   try {
-    const { email, otp, password, firstName } = await req.json();
+    const { email, otp } = await req.json();
 
-    if (!email || !otp || !password) {
+    if (!email || !otp) {
       return NextResponse.json(
-        { error: "Email, OTP, and password are required" },
+        { error: "Email and OTP are required" },
         { status: 400 }
       );
     }
 
-    // 1️⃣ Fetch OTP record
-    const { data: otpRow, error: otpError } = await supabaseAdmin
+    const normalizedEmail = email.toLowerCase().trim();
+
+    /* -------------------- fetch OTP -------------------- */
+
+    const { data: otpRow } = await supabaseAdmin
       .from("email_otps")
       .select("*")
-      .eq("email", email)
+      .eq("email", normalizedEmail)
       .maybeSingle();
 
-    if (otpError || !otpRow) {
+    if (!otpRow) {
       return NextResponse.json(
         { error: "OTP not found or already used" },
         { status: 400 }
       );
     }
 
-    // 2️⃣ Check expiry
     if (new Date(otpRow.expires_at) < new Date()) {
       return NextResponse.json(
         { error: "OTP expired" },
@@ -35,7 +37,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3️⃣ Validate OTP
     const isValidOtp = await bcrypt.compare(otp, otpRow.otp_hash);
     if (!isValidOtp) {
       return NextResponse.json(
@@ -44,68 +45,85 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4️⃣ Find existing auth user by email (TYPE-SAFE)
-    let userId: string | null = null;
+    /* -------------------- fetch signup intent -------------------- */
 
-    const { data: usersList, error: listError } =
-      await supabaseAdmin.auth.admin.listUsers();
+    const { data: intent } = await supabaseAdmin
+      .from("signup_intents")
+      .select("*")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
 
-    if (listError) {
+    if (!intent) {
       return NextResponse.json(
-        { error: "Failed to list users" },
-        { status: 500 }
+        { error: "Signup session expired. Please sign up again." },
+        { status: 400 }
       );
     }
 
-    const existingUser = usersList.users.find(
-      (u) => u.email?.toLowerCase() === email.toLowerCase()
-    );
+    /* -------------------- resolve company -------------------- */
 
-    if (existingUser) {
-      userId = existingUser.id;
-    } else {
-      // 5️⃣ Create auth user
-      const { data: newUser, error: createUserError } =
-        await supabaseAdmin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-        });
+    const domain = normalizedEmail.split("@")[1];
 
-      if (createUserError || !newUser?.user) {
-        return NextResponse.json(
-          { error: createUserError?.message || "Failed to create user" },
-          { status: 400 }
-        );
-      }
+    let companyId: string;
 
-      userId = newUser.user.id;
-    }
-
-    // 6️⃣ Ensure public.users profile exists & mark verified
-    const { data: existingProfile } = await supabaseAdmin
-      .from("users")
+    const { data: existingCompany } = await supabaseAdmin
+      .from("companies")
       .select("id")
-      .eq("id", userId)
+      .eq("domain", domain)
       .maybeSingle();
 
-    if (!existingProfile) {
-      await supabaseAdmin.from("users").insert({
-        id: userId,
-        email,
-        first_name: firstName || "",
-        is_verified: true,
-        onboarded: false,
-      });
+    if (existingCompany) {
+      companyId = existingCompany.id;
     } else {
-      await supabaseAdmin
-        .from("users")
-        .update({ is_verified: true })
-        .eq("id", userId);
+      const { data: newCompany, error } = await supabaseAdmin
+        .from("companies")
+        .insert({
+          domain,
+          name: domain.split(".")[0],
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+      companyId = newCompany.id;
     }
 
-    // 7️⃣ Delete OTP (single-use)
-    await supabaseAdmin.from("email_otps").delete().eq("email", email);
+    /* -------------------- create auth user -------------------- */
+
+    const { data: authUser, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: normalizedEmail,
+        password: intent.password, // ✅ plaintext (Supabase hashes internally)
+        email_confirm: true,
+      });
+
+    if (authError || !authUser?.user) {
+      return NextResponse.json(
+        { error: authError?.message || "Failed to create user" },
+        { status: 400 }
+      );
+    }
+
+    const userId = authUser.user.id;
+
+    /* -------------------- create users row -------------------- */
+
+    await supabaseAdmin.from("users").insert({
+      id: userId,
+      email: normalizedEmail,
+      first_name: intent.first_name,
+      company_id: companyId,
+      is_verified: true,
+      onboarded: false,
+    });
+
+    /* -------------------- cleanup -------------------- */
+
+    await supabaseAdmin.from("email_otps").delete().eq("email", normalizedEmail);
+    await supabaseAdmin
+      .from("signup_intents")
+      .delete()
+      .eq("email", normalizedEmail);
 
     return NextResponse.json({ success: true });
   } catch (err) {

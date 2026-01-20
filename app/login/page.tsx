@@ -1,52 +1,54 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, Building2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Building2 } from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data, error: authError } = await supabase.auth.signInWithPassword(
+        {
+          email: email.trim().toLowerCase(),
+          password,
+        }
+      );
 
       if (authError) throw authError;
 
       if (data.user) {
         const { data: userData } = await supabase
-          .from('users')
-          .select('is_verified, onboarded')
-          .eq('id', data.user.id)
+          .from("users")
+          .select("is_verified, onboarded")
+          .eq("id", data.user.id)
           .maybeSingle();
 
         if (!userData?.is_verified) {
-          router.push('/verify-email');
+          router.push("/verify-email");
         } else if (!userData?.onboarded) {
-          router.push('/onboarding');
+          router.push("/onboarding");
         } else {
-          router.push('/feed');
+          router.push("/feed");
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to log in. Please try again.');
+      setError(err.message || "Failed to log in. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -56,8 +58,18 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <Building2 className="h-10 w-10 text-neutral-700" />
+          <div className="flex flex-col items-center mb-4">
+            {/* <Building2 className="h-10 w-10 text-neutral-700" /> */}
+            <Link href="/" aria-label="Go to homepage">
+              <img
+                src="/images/logo.png"
+                alt="Vouchins"
+                className="h-10 mt-4 cursor-pointer"
+              />
+              </Link>
+             <p className="text-sm text-primary text-center mt-4">
+                 A verified professional network for trusted recommendations
+              </p>
           </div>
           <h1 className="text-3xl font-semibold text-neutral-900 mb-2">
             Welcome back
@@ -101,12 +113,14 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Log In'}
+              {loading ? "Logging in..." : "Log In"}
             </Button>
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <span className="text-neutral-600">{"Don't have an account? "}</span>
+            <span className="text-neutral-600">
+              {"Don't have an account? "}
+            </span>
             <Link
               href="/signup"
               className="text-neutral-900 font-medium hover:underline"

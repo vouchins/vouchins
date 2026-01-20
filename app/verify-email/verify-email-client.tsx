@@ -17,7 +17,6 @@ export default function VerifyEmailClient() {
   const [error, setError] = useState("");
   const [verified, setVerified] = useState(false);
 
-  // ✅ Redirect safely AFTER hydration
   useEffect(() => {
     if (!email) {
       router.replace("/signup");
@@ -32,23 +31,12 @@ export default function VerifyEmailClient() {
     setError("");
 
     try {
-      const password =
-        localStorage.getItem(`signup-password:${email}`) || "";
-      const firstName =
-        localStorage.getItem(`signup-firstname:${email}`) || "";
-
-      if (!password) {
-        throw new Error("Signup session expired. Please sign up again.");
-      }
-
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
           otp: otp.trim(),
-          password,
-          firstName,
         }),
       });
 
@@ -56,9 +44,6 @@ export default function VerifyEmailClient() {
       if (!res.ok) {
         throw new Error(data.error || "Invalid verification code");
       }
-
-      localStorage.removeItem(`signup-password:${email}`);
-      localStorage.removeItem(`signup-firstname:${email}`);
 
       setVerified(true);
       setTimeout(() => router.push("/onboarding"), 1000);

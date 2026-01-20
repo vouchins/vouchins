@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Building2, AlertCircle } from "lucide-react";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,13 +11,14 @@ import { useRouter } from "next/navigation";
 import {
   isCorporateEmail,
   extractDomainFromEmail,
-  deriveCompanyNameFromDomain,
   validateFirstName,
 } from "@/lib/auth/validation";
 import { validatePassword } from "@/lib/auth/password";
 import { supabase } from "@/lib/supabase/client";
 
 export default function SignupPage() {
+  const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +28,6 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [showWaitlist, setShowWaitlist] = useState(false);
   const [waitlistEmail, setWaitlistEmail] = useState("");
-  const router = useRouter();
 
   const passwordState = validatePassword(password);
   const passwordsMatch = password.length > 0 && password === confirmPassword;
@@ -90,22 +89,25 @@ export default function SignupPage() {
       return;
     }
 
+    /* ---------------- send OTP ---------------- */
+
     try {
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          firstName,
+          password,
+        }),
       });
 
       const data = await res.json();
-      if (!res.ok)
+      if (!res.ok) {
         throw new Error(data.error || "Failed to send verification code");
-
-      // Store password in localStorage for verify-email page
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(`signup-password:${email}`, password);
       }
 
+      // ✅ NO localStorage usage anymore
       router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message || "Failed to send verification code.");
@@ -119,15 +121,31 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
-            <Building2 className="h-10 w-10 text-neutral-700" />
+            {/* <Building2 className="h-10 w-10 text-neutral-700" /> */}
+            <div className="flex flex-col items-center mb-4">
+              <Link href="/" aria-label="Go to homepage">
+              <img
+                src="/images/logo.png"
+                alt="Vouchins"
+                className="h-10 mt-4 cursor-pointer"
+              />
+              </Link>
+              <p className="text-sm text-primary text-center mt-4">
+                 A verified professional network for trusted recommendations
+              </p>
           </div>
           <h1 className="text-3xl font-semibold text-neutral-900 mb-2">
-            Join Vouchins
+            Create your Vouchins account
           </h1>
-          <p className="text-neutral-600">
-            A trusted community for corporate employees
-          </p>
+        </div>
+
+        <div className="bg-neutral-50 border border-neutral-200 rounded-md p-4 mb-6 text-sm text-neutral-700">
+          <p className="font-medium mb-2">How verification works</p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Sign up using your official work email</li>
+            <li>Verify via a one-time code sent to your inbox</li>
+            <li>Access recommendations from verified professionals</li>
+          </ul>
         </div>
 
         <div className="bg-white rounded-lg border border-neutral-200 p-8">
@@ -231,13 +249,15 @@ export default function SignupPage() {
                   }}
                 />
               </div>
-
+              <p className="text-xs text-neutral-500 mt-2">
+                We never share your email publicly. Your work email is used only
+                for verification.
+              </p>
               <Button type="submit" className="w-full" disabled={!canProceed}>
                 {loading
                   ? "Sending verification code..."
                   : "Send verification code"}
               </Button>
-
             </form>
           )}
 
@@ -247,6 +267,9 @@ export default function SignupPage() {
               Log in
             </Link>
           </div>
+          <p className="text-xs text-neutral-500 text-center mt-4">
+            Built for professionals. Designed for trust.
+          </p>
         </div>
       </div>
     </div>
