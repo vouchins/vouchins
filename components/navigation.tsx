@@ -9,10 +9,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Building2, LogOut, Shield, User } from "lucide-react";
+import {
+  Building2,
+  LogOut,
+  Shield,
+  User,
+  MessageCircle,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
 import Image from "next/image";
+
 interface NavigationProps {
   user: {
     first_name: string;
@@ -37,21 +44,37 @@ export function Navigation({ user }: NavigationProps) {
     <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
+          
+          {/* Left: Logo */}
           <div className="flex items-center space-x-3">
-            <Link href="/">
-                    <Image
-                      src="/images/logo.png"
-                      alt="Vouchins"
-                      width={140}
-                      height={40}
-                      className="object-contain"
-                      priority
-                    />
-                  </Link>
-                  <h1 className="sr-only">Vouchins</h1>
+            <Link href="/feed">
+              <Image
+                src="/images/logo.png"
+                alt="Vouchins"
+                width={140}
+                height={40}
+                className="object-contain"
+                priority
+              />
+            </Link>
+            <h1 className="sr-only">Vouchins</h1>
           </div>
 
-          <div className="flex items-center space-x-4">
+          {/* Right: Actions */}
+          <div className="flex items-center space-x-2">
+            
+            {/* Messages */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/messages")}
+              className="text-neutral-600 hover:text-neutral-900"
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Messages
+            </Button>
+
+            {/* Admin */}
             {user.is_admin && (
               <Button
                 variant="ghost"
@@ -64,9 +87,13 @@ export function Navigation({ user }: NavigationProps) {
               </Button>
             )}
 
+            {/* User Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center space-x-2">
+                <Button
+                  variant="ghost"
+                  className="flex items-center space-x-2"
+                >
                   <div className="flex flex-col items-end">
                     <span className="text-sm font-medium text-neutral-900">
                       {user.first_name}
@@ -88,18 +115,22 @@ export function Navigation({ user }: NavigationProps) {
                   </div>
                 </Button>
               </DropdownMenuTrigger>
+
               <DropdownMenuContent align="end" className="w-56">
                 <div className="px-2 py-1.5">
                   <p className="text-sm font-medium">{user.first_name}</p>
                   <p className="text-xs text-neutral-500">{user.email}</p>
                 </div>
+
                 <DropdownMenuSeparator />
+
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Log out
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
           </div>
         </div>
       </div>

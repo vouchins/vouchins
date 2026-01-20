@@ -15,6 +15,7 @@ import { CATEGORIES } from '@/lib/constants';
 interface FilterBarProps {
   onFilterChange: (filters: {
     category?: string;
+    housingType?: string;
     visibility?: string;
   }) => void;
 }
@@ -22,31 +23,58 @@ interface FilterBarProps {
 export function FilterBar({ onFilterChange }: FilterBarProps) {
   const [showFilters, setShowFilters] = useState(false);
   const [category, setCategory] = useState<string>('');
+  const [housingType, setHousingType] = useState<string>('');
   const [visibility, setVisibility] = useState<string>('');
 
-  const handleCategoryChange = (value: string) => {
-    setCategory(value);
+  const applyFilters = (
+    nextCategory = category,
+    nextHousingType = housingType,
+    nextVisibility = visibility
+  ) => {
     onFilterChange({
-      category: value || undefined,
-      visibility: visibility || undefined,
+      category: nextCategory || undefined,
+      housingType:
+        nextCategory === 'housing' && nextHousingType
+          ? nextHousingType
+          : undefined,
+      visibility: nextVisibility || undefined,
     });
   };
 
+  const handleCategoryChange = (value: string) => {
+    const normalized = value === 'all' ? '' : value;
+    setCategory(normalized);
+
+    // Reset housing sub-type if category changes
+    if (normalized !== 'housing') {
+      setHousingType('');
+    }
+
+    applyFilters(normalized, '', visibility);
+  };
+
+  const handleHousingTypeChange = (value: string) => {
+    const normalized = value === 'all' ? '' : value;
+    setHousingType(normalized);
+    applyFilters(category, normalized, visibility);
+  };
+
   const handleVisibilityChange = (value: string) => {
-    setVisibility(value);
-    onFilterChange({
-      category: category || undefined,
-      visibility: value || undefined,
-    });
+    const normalized = value === 'all' ? '' : value;
+    setVisibility(normalized);
+    applyFilters(category, housingType, normalized);
   };
 
   const clearFilters = () => {
     setCategory('');
+    setHousingType('');
     setVisibility('');
     onFilterChange({});
   };
 
-  const hasActiveFilters = category || visibility;
+  const activeFilterCount = [category, housingType, visibility].filter(
+    Boolean
+  ).length;
 
   return (
     <div className="bg-white border-b border-neutral-200 py-3">
@@ -60,14 +88,14 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
           >
             <Filter className="h-4 w-4 mr-2" />
             Filters
-            {hasActiveFilters && (
+            {activeFilterCount > 0 && (
               <span className="ml-2 px-1.5 py-0.5 text-xs bg-neutral-900 text-white rounded-full">
-                {[category, visibility].filter(Boolean).length}
+                {activeFilterCount}
               </span>
             )}
           </Button>
 
-          {hasActiveFilters && (
+          {activeFilterCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
@@ -82,8 +110,9 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
 
         {showFilters && (
           <div className="mt-3 flex flex-wrap gap-3">
+            {/* Category */}
             <div className="w-full sm:w-48">
-              <Select value={category} onValueChange={handleCategoryChange}>
+              <Select value={category || 'all'} onValueChange={handleCategoryChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="All categories" />
                 </SelectTrigger>
@@ -98,8 +127,33 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
               </Select>
             </div>
 
+            {/* Housing sub-type */}
+            {category === 'housing' && (
+              <div className="w-full sm:w-48">
+                <Select
+                  value={housingType || 'all'}
+                  onValueChange={handleHousingTypeChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All housing" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All housing</SelectItem>
+                    <SelectItem value="flatmates">Flatmates</SelectItem>
+                    <SelectItem value="rentals">Rentals</SelectItem>
+                    <SelectItem value="sale">For Sale</SelectItem>
+                    <SelectItem value="pg">PG</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Visibility */}
             <div className="w-full sm:w-48">
-              <Select value={visibility} onValueChange={handleVisibilityChange}>
+              <Select
+                value={visibility || 'all'}
+                onValueChange={handleVisibilityChange}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All posts" />
                 </SelectTrigger>

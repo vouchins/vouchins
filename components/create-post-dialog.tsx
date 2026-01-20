@@ -23,6 +23,15 @@ import { Plus, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { CATEGORIES, VISIBILITY_OPTIONS } from '@/lib/constants';
 
+const CATEGORY_HELP_TEXT: Record<string, string> = {
+  housing:
+    'Mention location, budget, move-in date and whether it is for rent or flatmates.',
+  buy_sell:
+    'Mention item condition, expected price and pickup location.',
+  recommendations:
+    'Clearly describe what you are looking for so others can help.',
+};
+
 interface CreatePostDialogProps {
   userId: string;
   onPostCreated: () => void;
@@ -35,6 +44,7 @@ export function CreatePostDialog({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
   const [category, setCategory] = useState<string>('');
+  const [housingType, setHousingType] = useState<string>('');
   const [visibility, setVisibility] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -56,11 +66,18 @@ export function CreatePostDialog({
       return;
     }
 
+    if (category === 'housing' && !housingType) {
+      setError('Please select the housing type');
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error: insertError } = await supabase.from('posts').insert({
         user_id: userId,
         text: text.trim(),
         category,
+        housing_type: category === 'housing' ? housingType : null,
         visibility,
       });
 
@@ -68,6 +85,7 @@ export function CreatePostDialog({
 
       setText('');
       setCategory('');
+      setHousingType('');
       setVisibility('all');
       setOpen(false);
       onPostCreated();
@@ -86,6 +104,7 @@ export function CreatePostDialog({
           New Post
         </Button>
       </DialogTrigger>
+
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Create a new post</DialogTitle>
@@ -99,8 +118,9 @@ export function CreatePostDialog({
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Category */}
           <div>
-            <Label htmlFor="category">Category</Label>
+            <Label>Category</Label>
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="mt-1.5">
                 <SelectValue placeholder="Select a category" />
@@ -115,8 +135,27 @@ export function CreatePostDialog({
             </Select>
           </div>
 
+          {/* Housing sub-type */}
+          {category === 'housing' && (
+            <div>
+              <Label>Housing type</Label>
+              <Select value={housingType} onValueChange={setHousingType}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select housing type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="flatmates">Flatmates</SelectItem>
+                  <SelectItem value="rentals">Rentals</SelectItem>
+                  <SelectItem value="sale">For Sale</SelectItem>
+                  <SelectItem value="pg">PG</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Visibility */}
           <div>
-            <Label htmlFor="visibility">Visibility</Label>
+            <Label>Visibility</Label>
             <Select value={visibility} onValueChange={setVisibility}>
               <SelectTrigger className="mt-1.5">
                 <SelectValue />
@@ -129,12 +168,18 @@ export function CreatePostDialog({
                 ))}
               </SelectContent>
             </Select>
+
+            <p className="text-xs text-neutral-500 mt-1">
+              {visibility === 'company'
+                ? 'Visible only to verified professionals from your company.'
+                : 'Visible to verified professionals across all companies.'}
+            </p>
           </div>
 
+          {/* Post text */}
           <div>
-            <Label htmlFor="text">What do you need?</Label>
+            <Label>What do you need?</Label>
             <Textarea
-              id="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Looking for a flat in Koramangala, 2BHK, budget 30k..."
@@ -144,8 +189,15 @@ export function CreatePostDialog({
             <p className="text-xs text-neutral-500 mt-1.5">
               {text.length}/2000 characters
             </p>
+
+            {category && (
+              <p className="text-xs text-neutral-500 mt-2">
+                {CATEGORY_HELP_TEXT[category]}
+              </p>
+            )}
           </div>
 
+          {/* Actions */}
           <div className="flex justify-end space-x-2">
             <Button
               type="button"

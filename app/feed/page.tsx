@@ -13,13 +13,15 @@ import { supabase } from '@/lib/supabase/client';
 interface Post {
   id: string;
   text: string;
-  category: 'housing' | 'buy_sell' | 'recommendations';
-  visibility: 'company' | 'all';
+  category: "housing" | "buy_sell" | "recommendations";
+  housing_type?: "flatmates" | "rentals" | "sale" | "pg" | null;
+  visibility: "company" | "all";
   image_url: string | null;
   is_flagged: boolean;
   flag_reasons: string[];
   created_at: string;
   user: {
+    id: string;
     first_name: string;
     city: string;
     company: {
@@ -46,7 +48,9 @@ export default function FeedPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
 
       if (!authUser) {
         router.push('/login');
@@ -55,10 +59,12 @@ export default function FeedPage() {
 
       const { data: userData } = await supabase
         .from('users')
-        .select(`
+        .select(
+          `
           *,
           company:companies(*)
-        `)
+        `
+        )
         .eq('id', authUser.id)
         .maybeSingle();
 
@@ -89,9 +95,11 @@ export default function FeedPage() {
 
     let query = supabase
       .from('posts')
-      .select(`
+      .select(
+        `
         *,
         user:users!posts_user_id_fkey(
+          id,
           first_name,
           city,
           company:companies(name)
@@ -104,12 +112,17 @@ export default function FeedPage() {
             first_name
           )
         )
-      `)
+      `
+      )
       .eq('is_removed', false)
       .order('created_at', { ascending: false });
 
-    if (filters.category && filters.category !== 'all') {
+    if (filters.category) {
       query = query.eq('category', filters.category);
+    }
+
+    if (filters.category === 'housing' && filters.housingType) {
+      query = query.eq('housing_type', filters.housingType);
     }
 
     if (filters.visibility === 'company') {
@@ -176,10 +189,20 @@ export default function FeedPage() {
 
         <div className="mt-6 space-y-4">
           {posts.length === 0 ? (
-            <div className="bg-white border border-neutral-200 rounded-lg p-12 text-center">
-              <p className="text-neutral-600">
-                No posts yet. Be the first to post!
+            <div className="bg-white border border-neutral-200 rounded-lg p-10 text-center">
+              <h3 className="text-lg font-medium text-neutral-900 mb-2">
+                Start the conversation
+              </h3>
+              <p className="text-sm text-neutral-600 mb-4">
+                Ask your professional community for trusted help.
               </p>
+
+              <ul className="text-sm text-neutral-600 space-y-1">
+                <li>🏠 Looking for flatmates or rentals</li>
+                <li>🛒 Buying or selling items</li>
+                <li>🤝 Trusted service recommendations</li>
+                <li>📍 Local advice from verified professionals</li>
+              </ul>
             </div>
           ) : (
             posts.map((post) => (
