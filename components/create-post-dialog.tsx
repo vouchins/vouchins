@@ -35,11 +35,13 @@ const CATEGORY_HELP_TEXT: Record<string, string> = {
 interface CreatePostDialogProps {
   userId: string;
   onPostCreated: () => void;
+  children?: React.ReactNode;
 }
 
 export function CreatePostDialog({
   userId,
   onPostCreated,
+  children
 }: CreatePostDialogProps) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -229,12 +231,22 @@ export function CreatePostDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-primary text-primary-foreground hover:opacity-90 h-9 px-3 sm:px-4 shrink-0">
+        {/* <Button className="bg-primary text-primary-foreground hover:opacity-90 h-9 px-3 sm:px-4 shrink-0">
           <Plus className="h-4 w-4 sm:mr-2" />
           <span className="hidden sm:inline text-sm font-semibold">
             New Post
           </span>
-        </Button>
+        </Button> */}
+        {children ? (
+          children
+        ) : (
+          <Button className="bg-primary text-primary-foreground hover:opacity-90 h-9 px-3 sm:px-4 shrink-0">
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline text-sm font-semibold">
+              New Post
+            </span>
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[600px]">

@@ -117,7 +117,7 @@ export default function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <Navigation user={me} />
+      <Navigation />
 
       <div className="container mx-auto px-4 py-10 max-w-2xl">
         <h1 className="text-2xl font-semibold text-neutral-900 mb-6">
