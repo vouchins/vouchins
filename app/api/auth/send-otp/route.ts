@@ -7,8 +7,18 @@ import { isCorporateEmail } from "@/lib/auth/validation";
 const OTP_COOLDOWN_SECONDS = 60;
 const OTP_EXPIRY_MINUTES = 10;
 
+// IP rate limits
+const MAX_IP_PER_HOUR = 5;
+const MAX_IP_PER_DAY = 10;
+
 export async function POST(req: Request) {
   try {
+    /* -------------------- extract IP -------------------- */
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0] ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+
     const { email, firstName, password } = await req.json();
 
     /* -------------------- validation -------------------- */
@@ -36,7 +46,54 @@ export async function POST(req: Request) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    /* -------------------- OTP cooldown -------------------- */
+    /* -------------------- IP rate limiting -------------------- */
+
+    const oneHourAgo = new Date(
+      Date.now() - 60 * 60 * 1000
+    ).toISOString();
+
+    const { count: hourlyCount } = await supabaseAdmin
+      .from("otp_ip_rate_limits")
+      .select("ip", { count: "exact", head: true })
+      .eq("ip", ip)
+      .gte("created_at", oneHourAgo);
+
+    if ((hourlyCount ?? 0) >= MAX_IP_PER_HOUR) {
+      return NextResponse.json(
+        { error: "Too many OTP requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const { count: dailyCount } = await supabaseAdmin
+      .from("otp_ip_rate_limits")
+      .select("ip", { count: "exact", head: true })
+      .eq("ip", ip)
+      .gte("created_at", todayStart.toISOString());
+
+    if ((dailyCount ?? 0) >= MAX_IP_PER_DAY) {
+      return NextResponse.json(
+        { error: "Daily OTP limit reached. Try again tomorrow." },
+        { status: 429 }
+      );
+    }
+
+    // Log this IP request
+    await supabaseAdmin
+      .from("otp_ip_rate_limits")
+      .insert({ ip });
+
+    /* -------------------- cleanup expired OTPs -------------------- */
+
+    await supabaseAdmin
+      .from("email_otps")
+      .delete()
+      .lt("expires_at", new Date().toISOString());
+
+    /* -------------------- OTP cooldown per email -------------------- */
 
     const { data: lastOtp } = await supabaseAdmin
       .from("email_otps")
@@ -63,14 +120,14 @@ export async function POST(req: Request) {
     /* -------------------- stage signup intent -------------------- */
 
     await supabaseAdmin.from("signup_intents").upsert({
-  email: normalizedEmail,
-  first_name: firstName.trim(),
-  password, // ✅ CORRECT
-});
-
+      email: normalizedEmail,
+      first_name: firstName.trim(),
+      password, // stored temporarily, used only after OTP verification
+    });
 
     /* -------------------- OTP creation -------------------- */
 
+    // Remove any existing OTP for this email
     await supabaseAdmin
       .from("email_otps")
       .delete()

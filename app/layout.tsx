@@ -22,6 +22,9 @@ export const metadata: Metadata = {
       },
     ],
   },
+  icons: {
+    icon: '/favicon.png', // Points to public/favicon.png
+  }
 };
 
 export default function RootLayout({

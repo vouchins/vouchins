@@ -58,36 +58,37 @@ export default function SignupPage() {
       return;
     }
 
-    // Company domain check (unchanged logic)
-    const domain = extractDomainFromEmail(email)
-      .trim()
-      .toLowerCase()
-      .replace(/^\.+|\.+$/g, "");
+    //TODO UnComment to add Waitlist functionality
+    // // Company domain check (unchanged logic)
+    // const domain = extractDomainFromEmail(email)
+    //   .trim()
+    //   .toLowerCase()
+    //   .replace(/^\.+|\.+$/g, "");
 
-    const { data: allCompanies, error: companiesError } = await supabase
-      .from("companies")
-      .select("domain");
+    // const { data: allCompanies, error: companiesError } = await supabase
+    //   .from("companies")
+    //   .select("domain");
 
-    if (companiesError) {
-      setError("Error checking company domains.");
-      setLoading(false);
-      return;
-    }
+    // if (companiesError) {
+    //   setError("Error checking company domains.");
+    //   setLoading(false);
+    //   return;
+    // }
 
-    const match =
-      allCompanies &&
-      allCompanies.find(
-        (row: any) =>
-          typeof row.domain === "string" &&
-          row.domain.trim().toLowerCase() === domain
-      );
+    // const match =
+    //   allCompanies &&
+    //   allCompanies.find(
+    //     (row: any) =>
+    //       typeof row.domain === "string" &&
+    //       row.domain.trim().toLowerCase() === domain
+    //   );
 
-    if (!match) {
-      setShowWaitlist(true);
-      setWaitlistEmail(email);
-      setLoading(false);
-      return;
-    }
+    // if (!match) {
+    //   setShowWaitlist(true);
+    //   setWaitlistEmail(email);
+    //   setLoading(false);
+    //   return;
+    // }
 
     /* ---------------- send OTP ---------------- */
 

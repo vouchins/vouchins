@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+const MAX_OTP_ATTEMPTS = 5;
+
 export async function POST(req: Request) {
   try {
     const { email, otp } = await req.json();
@@ -30,20 +32,59 @@ export async function POST(req: Request) {
       );
     }
 
+    /* -------------------- expiry check -------------------- */
+
     if (new Date(otpRow.expires_at) < new Date()) {
+      await supabaseAdmin
+        .from("email_otps")
+        .delete()
+        .eq("email", normalizedEmail);
+
       return NextResponse.json(
-        { error: "OTP expired" },
+        { error: "OTP expired. Please request a new code." },
         { status: 400 }
       );
     }
 
-    const isValidOtp = await bcrypt.compare(otp, otpRow.otp_hash);
+    /* -------------------- attempt limit -------------------- */
+
+    if (otpRow.attempts >= MAX_OTP_ATTEMPTS) {
+      await supabaseAdmin
+        .from("email_otps")
+        .delete()
+        .eq("email", normalizedEmail);
+
+      return NextResponse.json(
+        {
+          error:
+            "Too many incorrect attempts. Please request a new verification code.",
+        },
+        { status: 429 }
+      );
+    }
+
+    /* -------------------- verify OTP -------------------- */
+    const cleanedOtp = String(otp).trim();
+    const isValidOtp = await bcrypt.compare(cleanedOtp, otpRow.otp_hash);
+
     if (!isValidOtp) {
+      await supabaseAdmin
+        .from("email_otps")
+        .update({ attempts: otpRow.attempts + 1 })
+        .eq("email", normalizedEmail);
+
       return NextResponse.json(
         { error: "Invalid OTP" },
         { status: 400 }
       );
     }
+
+    // ✅ Mark OTP as consumed to prevent race conditions
+    await supabaseAdmin
+      .from("email_otps")
+      .update({ attempts: MAX_OTP_ATTEMPTS })
+      .eq("email", normalizedEmail);
+
 
     /* -------------------- fetch signup intent -------------------- */
 
@@ -93,7 +134,7 @@ export async function POST(req: Request) {
     const { data: authUser, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email: normalizedEmail,
-        password: intent.password, // ✅ plaintext (Supabase hashes internally)
+        password: intent.password,
         email_confirm: true,
       });
 
@@ -119,7 +160,11 @@ export async function POST(req: Request) {
 
     /* -------------------- cleanup -------------------- */
 
-    await supabaseAdmin.from("email_otps").delete().eq("email", normalizedEmail);
+    await supabaseAdmin
+      .from("email_otps")
+      .delete()
+      .eq("email", normalizedEmail);
+
     await supabaseAdmin
       .from("signup_intents")
       .delete()

@@ -1,19 +1,53 @@
-const PUBLIC_EMAIL_DOMAINS = [
-  // 'gmail.com', Commentded for testing purposes
-  'yahoo.com',
-  'hotmail.com',
-  'outlook.com',
-  'icloud.com',
-  'aol.com',
-  'protonmail.com',
-  'mail.com',
-  'zoho.com',
-  'yandex.com',
-  'gmx.com',
-  'inbox.com',
-  'live.com',
-  'msn.com',
+export const PUBLIC_EMAIL_DOMAINS = [
+  // Global mainstream
+  "gmail.com",
+  "yahoo.com",
+  "hotmail.com",
+  "outlook.com",
+  "live.com",
+  "msn.com",
+  "icloud.com",
+  "aol.com",
+  "rocketmail.com",
+
+  // Privacy / anonymous-focused
+  "protonmail.com",
+  "tutanota.com",
+  "posteo.net",
+  "lavabit.com",
+  "safe-mail.net",
+  "runbox.com",
+
+  // Generic free mailboxes
+  "mail.com",
+  "email.com",
+  "inbox.com",
+  "gmx.com",
+
+  // India-specific
+  "rediffmail.com",
+  "indiatimes.com",
+  "sify.com",
+
+  // Russia / Eastern Europe
+  "mail.ru",
+  "yandex.com",
+
+  // Korea
+  "nate.com",
+  "daum.net",
+
+  // UK consumer ISPs
+  "btinternet.com",
+  "talktalk.net",
+
+  // Legacy / less common but still active
+  "lycos.com",
+
+  // Personal Zoho (keep blocked for MVP)
+  "zoho.com",
 ];
+
 
 export function isCorporateEmail(email: string): boolean {
   const domain = email.split('@')[1]?.toLowerCase();

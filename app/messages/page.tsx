@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
+import { formatDistanceToNow } from "date-fns";
 
 interface User {
   id: string;
@@ -17,16 +18,23 @@ interface User {
   };
 }
 
+interface ConversationPreview {
+  user: User;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+}
+
 export default function MessagesPage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<User | null>(null);
-  const [conversations, setConversations] = useState<User[]>([]);
+  const [me, setMe] = useState<User | null>(null);
+  const [conversations, setConversations] = useState<ConversationPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const init = async () => {
-      // 1️⃣ Get auth user
+      /* ---------------- auth ---------------- */
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser();
@@ -36,27 +44,30 @@ export default function MessagesPage() {
         return;
       }
 
-      // 2️⃣ Get app user
-      const { data: userData } = await supabase
+      const { data: meData } = await supabase
         .from("users")
         .select("*, company:companies(*)")
         .eq("id", authUser.id)
         .maybeSingle();
 
-      if (!userData) {
+      if (!meData) {
         router.push("/login");
         return;
       }
 
-      setUser(userData);
+      setMe(meData);
 
-      // 3️⃣ Fetch conversations
+      /* ---------------- fetch messages ---------------- */
       const { data: messages } = await supabase
         .from("messages")
         .select(
           `
+          id,
+          text,
+          created_at,
           sender_id,
           receiver_id,
+          is_read,
           sender:users!messages_sender_id_fkey(id, first_name),
           receiver:users!messages_receiver_id_fkey(id, first_name)
         `
@@ -64,14 +75,28 @@ export default function MessagesPage() {
         .or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`)
         .order("created_at", { ascending: false });
 
-      const map = new Map<string, User>();
+      const map = new Map<string, ConversationPreview>();
 
       messages?.forEach((msg: any) => {
-        const other =
-          msg.sender_id === authUser.id ? msg.receiver : msg.sender;
+        const isMeSender = msg.sender_id === authUser.id;
+        const otherUser = isMeSender ? msg.receiver : msg.sender;
 
-        if (other?.id && !map.has(other.id)) {
-          map.set(other.id, other);
+        if (!otherUser?.id) return;
+
+        const existing = map.get(otherUser.id);
+
+        if (!existing) {
+          map.set(otherUser.id, {
+            user: otherUser,
+            lastMessage: msg.text,
+            lastMessageAt: msg.created_at,
+            unreadCount:
+              !isMeSender && !msg.is_read ? 1 : 0,
+          });
+        } else {
+          if (!isMeSender && !msg.is_read) {
+            existing.unreadCount += 1;
+          }
         }
       });
 
@@ -82,7 +107,7 @@ export default function MessagesPage() {
     init();
   }, [router]);
 
-  if (loading || !user) {
+  if (loading || !me) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <p className="text-neutral-600">Loading…</p>
@@ -92,8 +117,7 @@ export default function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      {/* ✅ Global Navigation */}
-      <Navigation user={user} />
+      <Navigation user={me} />
 
       <div className="container mx-auto px-4 py-10 max-w-2xl">
         <h1 className="text-2xl font-semibold text-neutral-900 mb-6">
@@ -120,19 +144,39 @@ export default function MessagesPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-2">
-            {conversations.map((otherUser) => (
+          <div className="divide-y bg-white border rounded-lg">
+            {conversations.map((conv) => (
               <Link
-                key={otherUser.id}
-                href={`/messages/${otherUser.id}`}
-                className="flex items-center justify-between p-4 bg-white border rounded-lg hover:bg-neutral-50 transition"
+                key={conv.user.id}
+                href={`/messages/${conv.user.id}`}
+                className="flex items-center justify-between px-4 py-3 hover:bg-neutral-50 transition"
               >
-                <span className="font-medium text-neutral-900">
-                  {otherUser.first_name}
-                </span>
-                <span className="text-xs text-neutral-500">
-                  View conversation →
-                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-neutral-900">
+                      {conv.user.first_name}
+                    </span>
+
+                    <span className="text-xs text-neutral-500">
+                      {formatDistanceToNow(
+                        new Date(conv.lastMessageAt),
+                        { addSuffix: true }
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-sm text-neutral-600 truncate">
+                      {conv.lastMessage}
+                    </p>
+
+                    {conv.unreadCount > 0 && (
+                      <span className="ml-2 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-xs flex items-center justify-center px-1">
+                        {conv.unreadCount > 9 ? "9+" : conv.unreadCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </Link>
             ))}
           </div>

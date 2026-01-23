@@ -164,7 +164,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <Navigation user={user} />
+      <Navigation />
 
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         <div className="mb-6">
