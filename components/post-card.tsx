@@ -104,7 +104,7 @@ export function PostCard({
   const companyLogoUrl = `https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-all shadow-sm">
+    <div className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-all shadow-sm overflow-visible">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-3">
@@ -170,46 +170,6 @@ export function PostCard({
               Company Only
             </Badge>
           )}
-
-          {isOwner && (
-            <div className="flex items-center gap-1">
-              {isEditing ? (
-                <>
-                  <button
-                    onClick={saveEdit}
-                    disabled={saving}
-                    className="p-1 rounded hover:bg-neutral-100"
-                  >
-                    <Check className="h-4 w-4 text-green-600" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditing(false);
-                      setEditedText(post.text);
-                    }}
-                    className="p-1 rounded hover:bg-neutral-100"
-                  >
-                    <X className="h-4 w-4 text-neutral-500" />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="p-1 rounded hover:bg-neutral-100"
-                  >
-                    <Edit2 className="h-3.5 w-3.5 text-neutral-400" />
-                  </button>
-                  <button
-                    onClick={deletePost}
-                    className="p-1 rounded hover:bg-neutral-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                  </button>
-                </>
-              )}
-            </div>
-          )}
         </div>
       </div>
 
@@ -267,17 +227,18 @@ export function PostCard({
       </div>
       {/* Between Content and Actions */}
       {!isEditing && post.image_url && (
-        <div className="mt-3 rounded-lg overflow-hidden border border-neutral-100 ml-[52px]">
+        <div className="mt-3 rounded-lg border border-neutral-100 ml-[52px] overflow-visible">
           <img
             src={post.image_url}
             alt="Post attachment"
-            className="w-full max-h-96 object-cover"
+            className="w-full h-auto object-contain pointer-events-none select-none"
           />
         </div>
       )}
 
       {/* Footer Actions (Preserved reply and report triggers) */}
-      <div className="flex items-center space-x-1 pt-2 border-t border-neutral-50 ml-[52px]">
+      <div className="flex items-center gap-1 pt-2 border-t border-neutral-50 ml-[52px] overflow-x-auto whitespace-nowrap no-scrollbar">
+
         <Button
           variant="ghost"
           size="sm"
@@ -285,7 +246,7 @@ export function PostCard({
             setShowComments(!showComments);
             onReply(post.id);
           }}
-          className="text-neutral-500 hover:text-indigo-600 h-8 px-2"
+          className="h-8 px-3 flex-shrink-0"
         >
           <MessageCircle className="h-4 w-4 mr-1.5" />
           <span className="text-xs font-semibold">
@@ -302,6 +263,61 @@ export function PostCard({
           <Flag className="h-3.5 w-3.5 mr-1.5" />
           <span className="text-xs font-medium">Report</span>
         </Button>
+
+        {/* OWNER ACTIONS */}
+        {isOwner && (
+          <>
+            {!isEditing ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                  className="text-neutral-400 hover:text-indigo-600 h-8 px-2"
+                >
+                  <Edit2 className="h-3.5 w-3.5 mr-1.5" />
+                  <span className="text-xs font-medium">Edit</span>
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={deletePost}
+                  className="text-red-500 hover:text-red-600 h-8 px-2"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  <span className="text-xs font-medium">Delete</span>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={saveEdit}
+                  disabled={saving}
+                  className="text-green-600 hover:text-green-700 h-8 px-2"
+                >
+                  <Check className="h-3.5 w-3.5 mr-1.5" />
+                  <span className="text-xs font-medium">Save</span>
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditedText(post.text);
+                  }}
+                  className="text-neutral-400 hover:text-neutral-600 h-8 px-2"
+                >
+                  <X className="h-3.5 w-3.5 mr-1.5" />
+                  <span className="text-xs font-medium">Cancel</span>
+                </Button>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       {/* --- RESTORED: COMMENTS SECTION --- */}
