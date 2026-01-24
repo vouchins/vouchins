@@ -85,7 +85,7 @@ export default function FeedPage() {
           id,
           text,
           created_at,
-          user:users!comments_user_id_fkey(first_name)
+          user:users!comments_user_id_fkey(id,first_name)
         )
       `)
       .eq('is_removed', false)

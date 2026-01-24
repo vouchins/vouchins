@@ -93,6 +93,23 @@ export default function SignupPage() {
     /* ---------------- send OTP ---------------- */
 
     try {
+      /* ---------------- Check Existence ---------------- */
+      const { data: existingUser, error: checkError } = await supabase
+        .from("users")
+        .select("email")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (checkError) {
+        throw new Error("Error checking user existence.");
+      }
+
+      if (existingUser) {
+        setError("An account with this email already exists. Please log in.");
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -108,7 +125,6 @@ export default function SignupPage() {
         throw new Error(data.error || "Failed to send verification code");
       }
 
-      // ✅ NO localStorage usage anymore
       router.push(`/verify-email?email=${encodeURIComponent(email)}`);
     } catch (err: any) {
       setError(err.message || "Failed to send verification code.");
