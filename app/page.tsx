@@ -178,7 +178,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-neutral-200 py-10 bg-white/80">
+      {/* <footer className="border-t border-neutral-200 py-10 bg-white/80">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center justify-center space-y-2 text-sm text-neutral-600">
             <Image src="/images/logo.png" alt="" width={28} height={28} className="h-6 w-auto" />
@@ -186,7 +186,7 @@ export default function Home() {
             <span className="text-xs text-neutral-400">&copy; {new Date().getFullYear()} Vouchins. All rights reserved.</span>
           </div>
         </div>
-      </footer>
+      </footer> */}
     </div>
   );
 }

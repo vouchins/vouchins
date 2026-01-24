@@ -16,7 +16,7 @@ interface Post {
   category: "housing" | "buy_sell" | "recommendations";
   housing_type?: "flatmates" | "rentals" | "sale" | "pg" | null;
   visibility: "company" | "all";
-  image_url: string | null;
+  image_urls: string[];
   is_flagged: boolean;
   flag_reasons: string[];
   created_at: string;
@@ -251,6 +251,7 @@ export default function FeedPage() {
                   currentUserId={user.id}
                   onReply={handleReply}
                   onReport={handleReport}
+                  onPostUpdated={fetchPosts}
                 />
                 {activeReplyPostId === post.id && (
                   <div className="mt-1">

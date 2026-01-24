@@ -255,6 +255,7 @@ export default function UserProfilePage() {
                   currentUserId={me.id}
                   onReply={() => {}}
                   onReport={() => {}}
+                  onPostUpdated={() => {}}
                 />
               ))}
             </div>
