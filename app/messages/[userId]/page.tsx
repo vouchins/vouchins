@@ -12,7 +12,8 @@ export default function ConversationPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [me, setMe] = useState<any>(null);
   const [receiver, setReceiver] = useState<any>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   /* -------------------- load conversation -------------------- */
   useEffect(() => {
@@ -55,9 +56,17 @@ export default function ConversationPage() {
     load();
   }, [userId]);
 
-  /* -------------------- auto scroll -------------------- */
+  /* -------------------- auto scroll (FIXED) -------------------- */
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const isNearBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+
+    if (isNearBottom) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages]);
 
   /* -------------------- handle send (optimistic) -------------------- */
@@ -83,59 +92,63 @@ export default function ConversationPage() {
 
   return (
     <>
-    <Navigation />
-    <div className="min-h-screen bg-neutral-50 flex justify-center">
-      
-      <div className="w-full max-w-3xl flex flex-col h-[calc(100vh-14px)] bg-white border-x">
-        {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b bg-white">
-          <button
-            onClick={() => window.history.back()}
-            className="text-sm text-neutral-600 hover:underline"
+      <Navigation />
+
+      <div className="min-h-screen bg-neutral-50 flex justify-center">
+        <div className="w-full max-w-3xl flex flex-col h-[calc(100vh-14px)] bg-white border-x">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b bg-white">
+            <button
+              onClick={() => window.history.back()}
+              className="text-sm text-neutral-600 hover:underline"
+            >
+              ← Back
+            </button>
+
+            <h2 className="font-semibold text-neutral-900">
+              {receiver?.first_name || "Conversation"}
+            </h2>
+          </div>
+
+          {/* Messages */}
+          <div
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto px-4 py-6 space-y-4 bg-neutral-50"
           >
-            ← Back
-          </button>
-
-          <h2 className="font-semibold text-neutral-900">
-            {receiver?.first_name || "Conversation"}
-          </h2>
-        </div>
-
-        {/* Messages (scrollable only area) */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 bg-neutral-50">
-          {messages.length === 0 ? (
-            <p className="text-sm text-neutral-500 text-center">
-              Start the conversation 👋
-            </p>
-          ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${
-                  msg.sender_id === me?.id ? "justify-end" : "justify-start"
-                }`}
-              >
+            {messages.length === 0 ? (
+              <p className="text-sm text-neutral-500 text-center">
+                Start the conversation 👋
+              </p>
+            ) : (
+              messages.map((msg) => (
                 <div
-                  className={`max-w-[70%] px-4 py-2 rounded-2xl text-sm leading-relaxed ${
+                  key={msg.id}
+                  className={`flex ${
                     msg.sender_id === me?.id
-                      ? "bg-neutral-900 text-white rounded-br-sm"
-                      : "bg-white border rounded-bl-sm"
+                      ? "justify-end"
+                      : "justify-start"
                   }`}
                 >
-                  {msg.text}
+                  <div
+                    className={`max-w-[70%] px-4 py-2 rounded-2xl text-sm leading-relaxed ${
+                      msg.sender_id === me?.id
+                        ? "bg-neutral-900 text-white rounded-br-sm"
+                        : "bg-white border rounded-bl-sm"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-          <div ref={bottomRef} />
-        </div>
+              ))
+            )}
+          </div>
 
-        {/* Fixed input */}
-        <div className="border-t px-4 py-3 bg-white sticky bottom-0">
-          <MessageInput onSend={handleSend} />
+          {/* Input */}
+          <div className="border-t px-4 py-3 bg-white sticky bottom-0">
+            <MessageInput onSend={handleSend} />
+          </div>
         </div>
       </div>
-    </div>
     </>
   );
 }

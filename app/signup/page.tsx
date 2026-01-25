@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Building2, AlertCircle } from "lucide-react";
+import {AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,9 @@ export default function SignupPage() {
   const [firstName, setFirstName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -138,18 +141,17 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-            {/* <Building2 className="h-10 w-10 text-neutral-700" /> */}
-            <div className="flex flex-col items-center mb-4">
-              <Link href="/" aria-label="Go to homepage">
+          <div className="flex flex-col items-center mb-4">
+            <Link href="/" aria-label="Go to homepage">
               <img
                 src="/images/logo.png"
                 alt="Vouchins"
                 className="h-10 mt-4 cursor-pointer"
               />
-              </Link>
-              <p className="text-sm text-primary text-center mt-4">
-                 A verified professional network for trusted recommendations
-              </p>
+            </Link>
+            <p className="text-sm text-primary text-center mt-4">
+              A verified professional network for trusted recommendations
+            </p>
           </div>
           <h1 className="text-3xl font-semibold text-neutral-900 mb-2">
             Create your Vouchins account
@@ -165,7 +167,7 @@ export default function SignupPage() {
           </ul>
         </div>
 
-        <div className="bg-white rounded-lg border border-neutral-200 p-8">
+        <div className="bg-white rounded-lg border border-neutral-200 p-8 mb-4">
           {error && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
@@ -186,11 +188,11 @@ export default function SignupPage() {
           ) : (
             <form onSubmit={handleSendOtp} className="space-y-5">
               <div>
-                <Label>First Name</Label>
+                <Label>Full Name</Label>
                 <Input
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Enter your first name"
+                  placeholder="Enter your full name"
                   className="mt-1.5"
                   required
                 />
@@ -213,26 +215,52 @@ export default function SignupPage() {
 
               <div>
                 <Label>Password</Label>
-                <Input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Create a strong password"
-                  className="mt-1.5"
-                  required
-                />
+                <div className="relative mt-1.5">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Create a strong password"
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div>
                 <Label>Confirm Password</Label>
-                <Input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter password"
-                  className="mt-1.5"
-                  required
-                />
+                <div className="relative mt-1.5">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter password"
+                    className="pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Password rules */}

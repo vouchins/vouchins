@@ -359,7 +359,7 @@ export function PostCard({
             )}
           </div>
         ) : (
-          <p className="text-neutral-800 text-[15px] leading-relaxed">
+          <p className="text-neutral-800 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
             {post.text}
           </p>
         )}

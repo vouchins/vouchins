@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Building2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -55,11 +56,38 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+    <>
+    <header className="border-b border-neutral-200 bg-white/80 backdrop-blur sticky top-0 z-20">
+        <div className="container mx-auto px-4">
+          <div className="flex h-16 items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <Link href="/">
+                <Image
+                  src="/images/logo.png"
+                  alt="Vouchins"
+                  width={140}
+                  height={40}
+                  className="object-contain"
+                  priority
+                />
+              </Link>
+              <h1 className="sr-only">Vouchins</h1>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Link href="/login">
+                <Button variant="ghost">Log in</Button>
+              </Link>
+              <Link href="/signup">
+                <Button>Sign up</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </header>
+    <div className="flex items-center justify-center bg-neutral-50 px-4 py-16">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="flex flex-col items-center mb-4">
-            {/* <Building2 className="h-10 w-10 text-neutral-700" /> */}
+          {/* <div className="flex flex-col items-center mb-4">
             <Link href="/" aria-label="Go to homepage">
               <img
                 src="/images/logo.png"
@@ -70,7 +98,7 @@ export default function LoginPage() {
              <p className="text-sm text-primary text-center mt-4">
                  A verified professional network for trusted recommendations
               </p>
-          </div>
+          </div> */}
           <h1 className="text-3xl font-semibold text-neutral-900 mb-2">
             Welcome back
           </h1>
@@ -131,5 +159,6 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

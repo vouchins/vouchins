@@ -80,6 +80,12 @@ export default function OnboardingPage() {
       return;
     }
 
+    if (!city) {
+      setError("Please select your city to continue.");
+      setSubmitting(false);
+      return;
+    }
+
     const finalCity = city === 'Other' ? customCity.trim() : city;
 
     if (!finalCity) {
@@ -214,8 +220,8 @@ export default function OnboardingPage() {
 
             {/* City */}
             <div>
-              <Label>Your City</Label>
-              <Select value={city} onValueChange={setCity} disabled={!agreed}>
+              <Label>Your City *</Label>
+              <Select value={city} onValueChange={setCity} disabled={!agreed} required>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select your city" />
                 </SelectTrigger>
