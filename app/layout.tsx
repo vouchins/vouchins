@@ -6,25 +6,35 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Vouchins - Verified Marketplace for Professionals',
-  description: 'Verified Professional Network',
+  metadataBase: new URL('https://www.vouchins.com'), // Essential for OG images to work
+  title: {
+    default: 'Vouchins - Verified Marketplace for Professionals',
+    template: '%s | Vouchins' 
+  },
+  description: 'The trusted private marketplace and network for verified corporate professionals.',
   openGraph: {
+    title: 'Vouchins',
+    description: 'Verified Professional Network',
+    url: 'https://www.vouchins.com',
+    siteName: 'Vouchins',
     images: [
       {
-        url: 'https://www.vouchins.com/images/logo.png',
+        url: '/images/logo.png', // Relative path works because of metadataBase
+        width: 1200,
+        height: 630,
       },
     ],
+    locale: 'en_US',
+    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    images: [
-      {
-        url: 'https://www.vouchins.com/images/logo.png',
-      },
-    ],
+    title: 'Vouchins - Verified Professional Network',
+    description: 'The private marketplace for verified corporate employees.',
+    images: ['/images/logo.png'],
   },
   icons: {
-    icon: '/favicon.png', // Points to public/favicon.png
+    icon: '/favicon.png',
   }
 };
 
