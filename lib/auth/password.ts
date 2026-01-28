@@ -8,7 +8,7 @@ export function validatePassword(rawPassword: string) {
   const zxcvbnResult = zxcvbn(password);
 
   return {
-    isValid: regex.test(password) && zxcvbnResult.score >= 2,
+    isValid: regex.test(password) && zxcvbnResult.score >= 1,
     length: password.length >= 8,
     uppercase: /[A-Z]/.test(password),
     lowercase: /[a-z]/.test(password),

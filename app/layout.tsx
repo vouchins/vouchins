@@ -12,6 +12,15 @@ export const metadata: Metadata = {
     template: '%s | Vouchins' 
   },
   description: 'The trusted private marketplace and network for verified corporate professionals.',
+  keywords: [
+    'Vouchins',
+    'corporate network',
+    'verified marketplace',
+    'professional community',
+    'private networking',
+    'employee marketplace',
+    'trusted recommendations'
+  ],
   openGraph: {
     title: 'Vouchins',
     description: 'Verified Professional Network',
