@@ -80,3 +80,39 @@ export async function sendRejectionEmail(to: string) {
     `,
   });
 }
+
+export async function sendResetPasswordEmail(to: string, resetLink: string) {
+  if (!process.env.SES_FROM_EMAIL) {
+    throw new Error("SES_FROM_EMAIL not configured");
+  }
+
+  await transporter.sendMail({
+    from: `Vouchins <${process.env.SES_FROM_EMAIL}>`,
+    to,
+    subject: "Reset your Vouchins password",
+    text: `Click the following link to reset your password: ${resetLink}. This link will expire shortly.`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #171717;">Reset your password</h2>
+        <p style="color: #404040; line-height: 1.5;">
+          We received a request to reset the password for your Vouchins account. 
+          Click the button below to set a new password:
+        </p>
+        <div style="margin: 32px 0;">
+          <a href="${resetLink}" 
+             style="background-color: #171717; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500;">
+            Reset Password
+          </a>
+        </div>
+        <p style="color: #737373; font-size: 14px;">
+          If you didn't request this, you can safely ignore this email. 
+          The link will expire in 1 hour.
+        </p>
+        <hr style="border: 0; border-top: 1px solid #e5e5e5; margin: 32px 0;" />
+        <p style="color: #a3a3a3; font-size: 12px;">
+          Vouchins - A verified professional network
+        </p>
+      </div>
+    `,
+  });
+}

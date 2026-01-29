@@ -18,6 +18,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -87,18 +88,6 @@ export default function LoginPage() {
       <div className="flex items-center justify-center bg-neutral-50 px-4 py-16 min-h-[calc(100vh-16vh)]">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            {/* <div className="flex flex-col items-center mb-4">
-            <Link href="/" aria-label="Go to homepage">
-              <img
-                src="/images/logo.png"
-                alt="Vouchins"
-                className="h-10 mt-4 cursor-pointer"
-              />
-              </Link>
-             <p className="text-sm text-primary text-center mt-4">
-                 A verified professional network for trusted recommendations
-              </p>
-          </div> */}
             <h1 className="text-3xl font-semibold text-neutral-900 mb-2">
               Welcome back
             </h1>
@@ -128,7 +117,15 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <Label htmlFor="password">Password</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <div className="relative mt-1.5">
                   <Input
                     id="password"
