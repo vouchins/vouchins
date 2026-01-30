@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { formatDistanceToNow } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import Link from 'next/link';
+import { useState } from "react";
+import { formatDistanceToNow } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import {
   MessageCircle,
   Flag,
@@ -19,18 +19,18 @@ import {
   BadgeCheck,
   ImageIcon,
   Plus,
-} from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
-import { CATEGORIES } from '@/lib/constants';
-import imageCompression from 'browser-image-compression';
+} from "lucide-react";
+import { supabase } from "@/lib/supabase/client";
+import { CATEGORIES } from "@/lib/constants";
+import imageCompression from "browser-image-compression";
 
 interface PostCardProps {
   post: {
     id: string;
     text: string;
-    category: 'housing' | 'buy_sell' | 'recommendations';
-    housing_type?: 'flatmates' | 'rentals' | 'sale' | 'pg' | null;
-    visibility: 'company' | 'all';
+    category: "housing" | "buy_sell" | "recommendations";
+    housing_type?: "flatmates" | "rentals" | "sale" | "pg" | null;
+    visibility: "company" | "all";
     image_urls: string[];
     is_flagged: boolean;
     flag_reasons: string[];
@@ -54,10 +54,10 @@ interface PostCardProps {
 }
 
 const HOUSING_TYPE_LABELS: Record<string, string> = {
-  flatmates: 'Flatmates',
-  rentals: 'Rental',
-  sale: 'For Sale',
-  pg: 'PG',
+  flatmates: "Flatmates",
+  rentals: "Rental",
+  sale: "For Sale",
+  pg: "PG",
 };
 
 export function PostCard({
@@ -65,7 +65,7 @@ export function PostCard({
   currentUserId,
   onReply,
   onReport,
-  onPostUpdated
+  onPostUpdated,
 }: PostCardProps) {
   // --- START: YOUR ORIGINAL LOGIC (FULLY PRESERVED) ---
   const isOwner = post.user.id === currentUserId;
@@ -74,8 +74,19 @@ export function PostCard({
   const [editedText, setEditedText] = useState(post.text);
   const [saving, setSaving] = useState(false);
 
+  //Turncate long posts
+  const [isExpanded, setIsExpanded] = useState(false);
+  const CHARACTER_LIMIT = 400; // Adjust this number to your preference
+  const shouldTruncate = post.text.length > CHARACTER_LIMIT;
+  const displayedText =
+    isExpanded || !shouldTruncate
+      ? post.text
+      : `${post.text.substring(0, CHARACTER_LIMIT)}...`;
+
   // --- NEW: IMAGE EDITING STATE ---
-  const [editedImages, setEditedImages] = useState<string[]>(post.image_urls || []);
+  const [editedImages, setEditedImages] = useState<string[]>(
+    post.image_urls || []
+  );
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [newPreviews, setNewPreviews] = useState<string[]>([]);
 
@@ -86,8 +97,7 @@ export function PostCard({
 
   const isEdited =
     post.updated_at &&
-    new Date(post.updated_at).getTime() >
-      new Date(post.created_at).getTime();
+    new Date(post.updated_at).getTime() > new Date(post.created_at).getTime();
 
   // Helper for uploading new images during edit
   const uploadNewImages = async (files: File[]) => {
@@ -100,15 +110,17 @@ export function PostCard({
     const uploadPromises = files.map(async (file) => {
       try {
         const compressedFile = await imageCompression(file, options);
-        const fileExt = file.name.split('.').pop();
+        const fileExt = file.name.split(".").pop();
         const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-        
+
         const { data, error } = await supabase.storage
-          .from('post-images')
+          .from("post-images")
           .upload(fileName, compressedFile);
 
         if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(fileName);
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("post-images").getPublicUrl(fileName);
         return publicUrl;
       } catch (error) {
         console.error("Upload error:", error);
@@ -117,7 +129,7 @@ export function PostCard({
     });
 
     const results = await Promise.all(uploadPromises);
-    return results.filter(url => url !== null) as string[];
+    return results.filter((url) => url !== null) as string[];
   };
 
   const saveEdit = async () => {
@@ -145,7 +157,7 @@ export function PostCard({
       if (error) throw error;
 
       // Success cleanup
-      newPreviews.forEach(url => URL.revokeObjectURL(url));
+      newPreviews.forEach((url) => URL.revokeObjectURL(url));
       setNewFiles([]);
       setNewPreviews([]);
       setIsEditing(false);
@@ -159,9 +171,12 @@ export function PostCard({
   };
 
   const deletePost = async () => {
-    const confirmed = confirm('Delete this post? This cannot be undone.');
+    const confirmed = confirm("Delete this post? This cannot be undone.");
     if (!confirmed) return;
-    const {error} = await supabase.from('posts').update({ is_removed: true }).eq('id', post.id);
+    const { error } = await supabase
+      .from("posts")
+      .update({ is_removed: true })
+      .eq("id", post.id);
     if (error) {
       console.error("Delete error:", error);
       return;
@@ -177,7 +192,7 @@ export function PostCard({
     }
     const updatedFiles = [...newFiles, ...files];
     setNewFiles(updatedFiles);
-    setNewPreviews(updatedFiles.map(f => URL.createObjectURL(f)));
+    setNewPreviews(updatedFiles.map((f) => URL.createObjectURL(f)));
   };
 
   const companyLogoUrl = `https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`;
@@ -250,7 +265,7 @@ export function PostCard({
       </div>
 
       {/* Flag Warning */}
-      {isOwner && post.is_flagged && post.flag_reasons.length > 0 && (
+      {/* {isOwner && post.is_flagged && post.flag_reasons.length > 0 && (
         <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-start space-x-2 ml-[52px]">
           <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5" />
           <div>
@@ -262,7 +277,7 @@ export function PostCard({
             </p>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Content */}
       <div className="mb-4 pl-[52px]">
@@ -359,9 +374,32 @@ export function PostCard({
             )}
           </div>
         ) : (
-          <p className="text-neutral-800 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
-            {post.text}
-          </p>
+          // <p className="text-neutral-800 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+          //   {post.text}
+          // </p>
+          <div className="relative">
+            <p className="text-neutral-800 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+              {displayedText}
+            </p>
+
+            {shouldTruncate && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
+                className="underline text-sm font-bold text-primary hover:opacity-80 mt-2 flex items-center gap-1 transition-all"
+              >
+                {isExpanded ? (
+                  <>
+                    Show less <X className="h-3 w-3" />
+                  </>
+                ) : (
+                  <>Read more...</>
+                )}
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -408,16 +446,17 @@ export function PostCard({
           </span>
         </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => onReport(post.id)}
-          className="text-neutral-400 hover:text-red-600 h-8 px-2"
-        >
-          <Flag className="h-3.5 w-3.5 mr-1.5" />
-          <span className="text-xs font-medium">Report</span>
-        </Button>
-
+        {!isOwner && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onReport(post.id)}
+            className="text-neutral-400 hover:text-red-600 h-8 px-2"
+          >
+            <Flag className="h-3.5 w-3.5 mr-1.5" />
+            <span className="text-xs font-medium">Report</span>
+          </Button>
+        )}
         {isOwner && (
           <>
             {!isEditing ? (

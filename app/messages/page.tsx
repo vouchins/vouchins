@@ -6,7 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { formatDistanceToNow } from "date-fns";
-
+import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 interface User {
   id: string;
   first_name: string;
@@ -90,8 +91,7 @@ export default function MessagesPage() {
             user: otherUser,
             lastMessage: msg.text,
             lastMessageAt: msg.created_at,
-            unreadCount:
-              !isMeSender && !msg.is_read ? 1 : 0,
+            unreadCount: !isMeSender && !msg.is_read ? 1 : 0,
           });
         } else {
           if (!isMeSender && !msg.is_read) {
@@ -118,8 +118,15 @@ export default function MessagesPage() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <Navigation />
-
       <div className="container mx-auto px-4 py-10 max-w-2xl">
+        <Button
+          variant="ghost"
+          onClick={() => router.back()}
+          className="-ml-4 mb-4 text-neutral-500 hover:text-primary hover:bg-transparent flex items-center gap-1 transition-all"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          <span className="text-sm font-medium">Back</span>
+        </Button>
         <h1 className="text-2xl font-semibold text-neutral-900 mb-6">
           Messages
         </h1>
@@ -158,10 +165,9 @@ export default function MessagesPage() {
                     </span>
 
                     <span className="text-xs text-neutral-500">
-                      {formatDistanceToNow(
-                        new Date(conv.lastMessageAt),
-                        { addSuffix: true }
-                      )}
+                      {formatDistanceToNow(new Date(conv.lastMessageAt), {
+                        addSuffix: true,
+                      })}
                     </span>
                   </div>
 

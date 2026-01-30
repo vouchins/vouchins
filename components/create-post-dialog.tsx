@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,7 @@ import { Plus, AlertCircle, ImageIcon, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { CATEGORIES, VISIBILITY_OPTIONS } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
+import filter from "leo-profanity";
 
 const CATEGORY_HELP_TEXT: Record<string, string> = {
   housing:
@@ -70,6 +71,22 @@ export function CreatePostDialog({
     previewUrls.forEach((url) => URL.revokeObjectURL(url));
     setPreviewUrls(newFiles.map((file) => URL.createObjectURL(file)));
   };
+
+  // 1. Initialize the filter
+  useEffect(() => {
+    filter.loadDictionary("en"); // Load English words
+    // Add custom words you want to block (e.g., specific slurs or scam keywords)
+    // Add keywords specific to Housing & Marketplace safety
+    const customBlocklist = [
+      "escort",
+      "hookup",
+      "drugs",
+      "cocaine",
+      "heroin",
+      "mdma",
+    ];
+    filter.add(customBlocklist);
+  }, []);
 
   const uploadImage = async (files: File[]) => {
     const options = {
@@ -126,6 +143,13 @@ export function CreatePostDialog({
 
     if (category === "housing" && !housingType) {
       setError("Please select the housing type");
+      setLoading(false);
+      return;
+    }
+
+    // 2. Profanity check
+    if (filter.check(text)) {
+      setError("Your post contains inappropriate language. Please revise it.");
       setLoading(false);
       return;
     }
