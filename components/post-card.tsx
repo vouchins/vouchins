@@ -5,6 +5,9 @@ import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import Linkify from "linkify-react";
+import { PhotoProvider, PhotoView } from "react-photo-view";
+import "react-photo-view/dist/react-photo-view.css";
 import {
   MessageCircle,
   Flag,
@@ -316,24 +319,28 @@ export function PostCard({
                   : "grid-cols-1"
               }`}
             >
-              {editedImages.map((url, index) => (
-                <div
-                  key={url}
-                  className="relative rounded-lg overflow-hidden border aspect-video"
-                >
-                  <img src={url} className="w-full h-full object-cover" />
-                  <button
-                    onClick={() =>
-                      setEditedImages(
-                        editedImages.filter((_, i) => i !== index)
-                      )
-                    }
-                    className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-red-500"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
+              <PhotoProvider>
+                {editedImages.map((url, index) => (
+                  <PhotoView key={index} src={url}>
+                    <div
+                      key={url}
+                      className="relative rounded-lg overflow-hidden border aspect-video"
+                    >
+                      <img src={url} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() =>
+                          setEditedImages(
+                            editedImages.filter((_, i) => i !== index)
+                          )
+                        }
+                        className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </PhotoView>
+                ))}
+              </PhotoProvider>
               {newPreviews.map((url, index) => (
                 <div
                   key={url}
@@ -374,12 +381,17 @@ export function PostCard({
             )}
           </div>
         ) : (
-          // <p className="text-neutral-800 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
-          //   {post.text}
-          // </p>
           <div className="relative">
             <p className="text-neutral-800 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
-              {displayedText}
+              {/* {displayedText} */}
+              <Linkify
+                options={{
+                  target: "_blank",
+                  className: "text-indigo-600 hover:underline",
+                }}
+              >
+                {displayedText}
+              </Linkify>
             </p>
 
             {shouldTruncate && (
@@ -405,28 +417,34 @@ export function PostCard({
 
       {/* Static Image Display */}
       {!isEditing && post.image_urls && post.image_urls.length > 0 && (
-        <div
-          className={`mt-3 gap-2 ml-[52px] grid ${
-            post.image_urls.length > 1 ? "grid-cols-2" : "grid-cols-1"
-          }`}
-        >
-          {post.image_urls.map((url, index) => (
-            <div
-              key={index}
-              className={`rounded-lg overflow-hidden border border-neutral-100 ${
-                post.image_urls.length === 3 && index === 0 ? "col-span-2" : ""
-              }`}
-            >
-              <img
-                src={url}
-                alt={`Attachment ${index + 1}`}
-                loading="lazy"
-                decoding="async"
-                className="w-full h-48 sm:h-64 object-cover hover:scale-105 transition-transform duration-300"
-              />
-            </div>
-          ))}
-        </div>
+        <PhotoProvider>
+          <div
+            className={`mt-3 gap-2 ml-[52px] grid ${
+              post.image_urls.length > 1 ? "grid-cols-2" : "grid-cols-1"
+            }`}
+          >
+            {post.image_urls.map((url, index) => (
+              <PhotoView key={index} src={url}>
+                <div
+                  key={index}
+                  className={`rounded-lg overflow-hidden border border-neutral-100 ${
+                    post.image_urls.length === 3 && index === 0
+                      ? "col-span-2"
+                      : ""
+                  }`}
+                >
+                  <img
+                    src={url}
+                    alt={`Attachment ${index + 1}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-48 sm:h-64 object-cover hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+              </PhotoView>
+            ))}
+          </div>
+        </PhotoProvider>
       )}
 
       {/* Footer Actions */}
