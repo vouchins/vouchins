@@ -35,204 +35,161 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f8fafc] via-[#f1f5f9] to-[#e0e7ef]">
-      <header className="border-b border-neutral-200 bg-white/80 backdrop-blur sticky top-0 z-20">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Image
-                  src="/images/logo.png"
-                  alt="Vouchins"
-                  width={140}
-                  height={40}
-                  className="object-contain"
-                  priority
-                />
-              </Link>
+      <header className="fixed top-4 left-0 right-0 z-50 transition-all duration-300">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <nav className="bg-white/70 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] rounded-2xl px-6 py-3">
+            <div className="flex items-center justify-between">
+              {/* Logo Section */}
+              <div className="flex items-center">
+                <Link href="/" className="hover:opacity-80 transition-opacity">
+                  <Image
+                    src="/images/logo.png"
+                    alt="Vouchins"
+                    width={130}
+                    height={36}
+                    className="object-contain"
+                    priority
+                  />
+                </Link>
+              </div>
+
+              {/* Navigation Links - Optional but adds "Modern" feel */}
+              <div className="hidden md:flex items-center space-x-8">
+                <Link
+                  href="#how-it-works"
+                  className="text-sm font-semibold text-neutral-600 hover:text-primary transition-colors"
+                >
+                  How it works
+                </Link>
+                <Link
+                  href="privacy"
+                  className="text-sm font-semibold text-neutral-600 hover:text-primary transition-colors"
+                >
+                  Privacy
+                </Link>
+                <Link
+                  href="#community"
+                  className="text-sm font-semibold text-neutral-600 hover:text-primary transition-colors"
+                >
+                  Communities
+                </Link>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-2">
+                <Link href="/login">
+                  <Button
+                    variant="ghost"
+                    className="text-primary font-bold hover:bg-primary/5 rounded-xl px-5"
+                  >
+                    Log in
+                  </Button>
+                </Link>
+                <Link href="/signup">
+                  <Button className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95">
+                    Join Now
+                  </Button>
+                </Link>
+              </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <Link href="/login">
-                <Button variant="ghost" className="text-primary font-bold">
-                  Log in
-                </Button>
-              </Link>
-              <Link href="/signup">
-                <Button className="bg-primary hover:bg-primary/90">
-                  Sign up
-                </Button>
-              </Link>
-            </div>
-          </div>
+          </nav>
         </div>
       </header>
 
       <main>
         {/* Hero Section */}
-        <section className="relative py-24 md:py-32 flex items-center justify-center overflow-hidden">
-          <div className="container mx-auto px-4 max-w-4xl text-center relative z-10">
-            {/* <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ff6600]/10 border border-[#ff6600]/20 text-[#ff6600] text-[10px] md:text-xs font-bold transition-all hover:bg-[#ff6600]/20">
-              
-              <div className="h-3.5 w-3.5 bg-[#ff6600] text-white flex items-center justify-center text-[9px] font-black rounded-sm leading-none shrink-0">
-                Y
+        <section className="relative pt-28 pb-16 md:pt-28 md:pb-32 flex items-center justify-center overflow-hidden">
+          {/* Modern Background Decor */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10">
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
+            <div className="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] bg-accent/10 rounded-full blur-[100px]" />
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.02]" />
+          </div>
+
+          <div className="container mx-auto px-4 max-w-5xl text-center relative z-10">
+            {/* Floating Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-neutral-100 text-primary text-xs md:text-sm font-bold mb-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+              <div className="flex -space-x-2 mr-1">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-6 w-6 rounded-full border-2 border-white bg-neutral-200 overflow-hidden"
+                  >
+                    <img
+                      src={`https://i.pravatar.cc/100?img=${i + 10}`}
+                      alt="user"
+                    />
+                  </div>
+                ))}
               </div>
-              <span>Backed by Y Combinator</span>
-            </div> */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary border border-primary/10 text-primary text-xs font-bold mb-6">
-              <CheckCircle2 className="h-3 w-3 text-accent" /> Exclusively for
-              Verified Professionals
+              <span className="text-neutral-500">
+                Joined by 2,000+ tech pros this month
+              </span>
             </div>
-            <h2 className="text-5xl md:text-7xl font-extrabold text-primary mb-8 leading-tight tracking-tight drop-shadow-xl">
-              The{" "}
-              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                trusted
-              </span>{" "}
-              platform
-              <br />
-              for corporate communities
-            </h2>
-            <p className="text-xl md:text-2xl text-neutral-700 mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
-              Find housing, buy & sell, and get real recommendations from
-              verified colleagues.{" "}
-              <strong className="text-primary">
-                No noise. No spam. Just trust.
-              </strong>
+
+            {/* Main Headline */}
+            <h1 className="text-6xl md:text-8xl font-black text-primary mb-8 leading-[1.1] tracking-tighter italic-not-really">
+              Work life, <br />
+              <span className="relative">
+                <span className="relative z-10 bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent">
+                  Verified.
+                </span>
+                <svg
+                  className="absolute -bottom-2 left-0 w-full h-3 text-accent/30 -z-10"
+                  viewBox="0 0 100 10"
+                  preserveAspectRatio="none"
+                >
+                  <path
+                    d="M0 5 Q 25 0 50 5 T 100 5"
+                    stroke="currentColor"
+                    strokeWidth="8"
+                    fill="transparent"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </span>
+            </h1>
+
+            {/* Description */}
+            <p className="text-lg md:text-xl text-neutral-600 mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
+              The private marketplace for corporate professionals to
+              <span className="text-primary font-bold">
+                {" "}
+                buy, sell, and settle{" "}
+              </span>
+              within a circle of trust. No anonymous noise—just verified
+              colleagues.
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+
+            {/* Primary Actions */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
               <Link href="/signup">
                 <Button
                   size="lg"
-                  className="w-full sm:w-auto text-lg px-10 py-5 shadow-xl shadow-primary/10 hover:scale-105 transition-transform bg-primary"
+                  className="group w-full sm:w-auto text-lg px-12 py-7 rounded-2xl shadow-2xl shadow-primary/20 hover:shadow-primary/40 transition-all bg-primary hover:-translate-y-1"
                 >
-                  Get Started
+                  Join the Circle
+                  <Shield className="ml-2 h-5 w-5 group-hover:rotate-12 transition-transform" />
                 </Button>
               </Link>
-              <Link href="/login">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto text-lg px-10 py-5 border-primary text-primary hover:bg-secondary transition-transform"
-                >
-                  Log In
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
 
-        {/* Social Proof: Favicon API Banner */}
-        <section className="py-12 border-y border-neutral-200 bg-white/50 backdrop-blur-sm">
-          <div className="container mx-auto px-4 text-center">
-            <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-10">
-              Professionals from world-class companies are already on Vouchins
-            </p>
-            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 opacity-80">
-              {companyDomains.map((domain) => (
-                <div
-                  key={domain}
-                  className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300"
-                >
-                  <div className="h-8 w-8 rounded-lg bg-white shadow-sm border border-neutral-100 flex items-center justify-center overflow-hidden p-1.5">
-                    <img
-                      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-                      alt={domain}
-                      className="h-full w-full object-contain"
-                    />
-                  </div>
-                  <span className="text-sm font-bold text-neutral-400 capitalize">
-                    {domain.split(".")[0]}
+              <div className="flex items-center gap-4 px-6 py-3 rounded-2xl bg-white/50 backdrop-blur-sm border border-neutral-200/60 shadow-sm">
+                <div className="flex flex-col items-start">
+                  <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-bold">
+                    Launching in
+                  </span>
+                  <span className="text-sm font-bold text-primary flex items-center gap-1">
+                    <MapPin className="h-3 w-3 text-accent" /> Hyderabad &
+                    Bangalore
                   </span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Step 2: Modernized Journey with Privacy focus */}
-        <section className="py-32 bg-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-secondary/30 rounded-full blur-3xl" />
-
-          <div className="container mx-auto px-4 max-w-6xl relative z-10">
-            <div className="text-center max-w-2xl mx-auto mb-20">
-              <h3 className="text-4xl font-extrabold text-primary mb-6 tracking-tight">
-                A walled garden for <br />
-                <span className="text-accent">verified professionals</span>
-              </h3>
-              <p className="text-lg text-neutral-600 font-medium">
-                Our one-time verification process ensures that Vouchins remains
-                a safe, high-intent space for real corporate employees.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-              <div className="hidden md:block absolute top-12 left-0 w-full h-0.5 bg-neutral-100 -z-10" />
-
-              {[
-                {
-                  step: "01",
-                  title: "One-Time Verification",
-                  desc: "Enter your corporate email. This is a one-time process used exclusively to confirm your workplace.",
-                  icon: <Mail className="h-7 w-7" />,
-                  color: "bg-primary",
-                },
-                {
-                  step: "02",
-                  title: "Instant Handshake",
-                  desc: "A secure OTP is sent to your work inbox. We never store or use this email for any other purpose.",
-                  icon: <Key className="h-7 w-7" />,
-                  color: "bg-primary/90",
-                },
-                {
-                  step: "03",
-                  title: "Access the Circle",
-                  desc: "Once verified, you're in. You can switch to your personal email for all future logins and notifications.",
-                  icon: <Unlock className="h-7 w-7" />,
-                  color: "bg-accent",
-                },
-              ].map((item, i) => (
-                <div
-                  key={i}
-                  className="group relative bg-white p-8 rounded-3xl border border-neutral-100 shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-500"
-                >
-                  <div
-                    className={`h-16 w-16 rounded-2xl ${item.color} text-white flex items-center justify-center mb-8 shadow-lg group-hover:scale-110 transition-transform`}
-                  >
-                    {item.icon}
-                  </div>
-                  <div className="absolute top-8 right-8 text-4xl font-black text-neutral-50">
-                    {item.step}
-                  </div>
-                  <h4 className="text-xl font-bold text-primary mb-3">
-                    {item.title}
-                  </h4>
-                  <p className="text-neutral-500 leading-relaxed text-sm font-medium">
-                    {item.desc}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Security Assurance Bar */}
-            <div className="mt-20 flex flex-wrap justify-center items-center gap-8 py-6 px-10 rounded-2xl bg-secondary border border-primary/5">
-              <div className="flex items-center gap-2 text-sm font-bold text-primary/70">
-                <Shield className="h-4 w-4 text-accent" />
-                No Employer Access
-              </div>
-              <div className="w-px h-4 bg-primary/10 hidden md:block" />
-              <div className="flex items-center gap-2 text-sm font-bold text-primary/70">
-                <Shield className="h-4 w-4 text-accent" />
-                Privacy First: No Spam
-              </div>
-              <div className="w-px h-4 bg-primary/10 hidden md:block" />
-              <div className="flex items-center gap-2 text-sm font-bold text-primary/70">
-                <Shield className="h-4 w-4 text-accent" />
-                Verified & Location Specific
               </div>
             </div>
           </div>
         </section>
 
         {/* Product Mockup Section */}
-        <section className="py-24 bg-neutral-50/50">
+        <section className="py-16 bg-neutral-50/50">
           <div className="container mx-auto px-4 max-w-6xl">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <div className="order-2 lg:order-1 relative">
@@ -319,6 +276,127 @@ export default function Home() {
             </div>
           </div>
         </section>
+        {/* Step 2: Modernized Journey with Privacy focus */}
+        <section
+          className="py-32 bg-white relative overflow-hidden"
+          id="how-it-works"
+        >
+          <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-96 h-96 bg-secondary/30 rounded-full blur-3xl" />
+
+          <div className="container mx-auto px-4 max-w-6xl relative z-10">
+            <div className="text-center max-w-2xl mx-auto mb-20">
+              <h3 className="text-4xl font-extrabold text-primary mb-6 tracking-tight">
+                A walled garden for <br />
+                <span className="text-accent">verified professionals</span>
+              </h3>
+              <p className="text-lg text-neutral-600 font-medium">
+                We value your privacy. Our verification is a one-time "proof of
+                work" that ensures Vouchins remains a safe, high-intent space.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+              <div className="hidden md:block absolute top-12 left-0 w-full h-0.5 bg-neutral-100 -z-10" />
+
+              {[
+                {
+                  step: "01",
+                  title: "One-Time Check",
+                  desc: "Enter your work email. We use this strictly to confirm your company domain—never for marketing or tracking.",
+                  icon: <Mail className="h-7 w-7" />,
+                  color: "bg-primary",
+                },
+                {
+                  step: "02",
+                  title: "Verify & Forget",
+                  desc: "Receive a secure code in your work inbox. Once entered, we hash your email for privacy and never contact it again.",
+                  icon: <Key className="h-7 w-7" />,
+                  color: "bg-primary/90",
+                },
+                {
+                  step: "03",
+                  title: "Personal Access",
+                  desc: "Link your personal email for notifications and account recovery. Your activity on Vouchins stays completely private from your employer.",
+                  icon: <Unlock className="h-7 w-7" />,
+                  color: "bg-accent",
+                },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="group relative bg-white p-8 rounded-3xl border border-neutral-100 shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-500"
+                >
+                  <div
+                    className={`h-16 w-16 rounded-2xl ${item.color} text-white flex items-center justify-center mb-8 shadow-lg group-hover:scale-110 transition-transform`}
+                  >
+                    {item.icon}
+                  </div>
+                  <div className="absolute top-8 right-8 text-4xl font-black text-neutral-50">
+                    {item.step}
+                  </div>
+                  <h4 className="text-xl font-bold text-primary mb-3">
+                    {item.title}
+                  </h4>
+                  <p className="text-neutral-500 leading-relaxed text-sm font-medium">
+                    {item.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Security Assurance Bar - Enhanced for Trust */}
+            <div className="mt-20 flex flex-wrap justify-center items-center gap-8 py-6 px-10 rounded-2xl bg-secondary border border-primary/5">
+              <div className="flex items-center gap-2 text-sm font-bold text-primary/70">
+                <Shield className="h-4 w-4 text-accent" />
+                100% Employer Private
+              </div>
+              <div className="w-px h-4 bg-primary/10 hidden md:block" />
+              <div className="flex items-center gap-2 text-sm font-bold text-primary/70">
+                <Shield className="h-4 w-4 text-accent" />
+                Zero Data Sharing
+              </div>
+              <div className="w-px h-4 bg-primary/10 hidden md:block" />
+              <div className="flex items-center gap-2 text-sm font-bold text-primary/70">
+                <Shield className="h-4 w-4 text-accent" />
+                Personal Mail Logins
+              </div>
+              <div className="w-px h-4 bg-primary/10 hidden md:block" />
+              <div className="flex items-center gap-2 text-sm font-bold text-primary/70">
+                <Shield className="h-4 w-4 text-accent" />
+                Bank-Grade Encryption
+              </div>
+            </div>
+          </div>
+        </section>
+        {/* Social Proof: Favicon API Banner */}
+        <section
+          className="py-12 border-y border-neutral-200 bg-white/50 backdrop-blur-sm"
+          id="community"
+        >
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-10">
+              Professionals from world-class companies are already on Vouchins
+            </p>
+            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12 opacity-80">
+              {companyDomains.map((domain) => (
+                <div
+                  key={domain}
+                  className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all duration-300"
+                >
+                  <div className="h-8 w-8 rounded-lg bg-white shadow-sm border border-neutral-100 flex items-center justify-center overflow-hidden p-1.5">
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                      alt={domain}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <span className="text-sm font-bold text-neutral-400 capitalize">
+                    {domain.split(".")[0]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {/* CTA Section */}
         <section className="py-24 bg-gradient-to-br from-secondary to-white border-t border-neutral-200">
@@ -341,23 +419,6 @@ export default function Home() {
           </div>
         </section>
       </main>
-
-      {/* <footer className="border-t border-neutral-200 py-12 bg-white">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex flex-col items-center space-y-4">
-            <Image
-              src="/images/logo.png"
-              alt="Vouchins"
-              width={100}
-              height={30}
-              className="grayscale opacity-50"
-            />
-            <div className="text-xs text-neutral-400 font-medium">
-              &copy; {new Date().getFullYear()} Vouchins. All rights reserved.
-            </div>
-          </div>
-        </div>
-      </footer> */}
     </div>
   );
 }
