@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import {AlertCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth/validation";
 import { validatePassword } from "@/lib/auth/password";
 import { supabase } from "@/lib/supabase/client";
+import posthog from "posthog-js";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -63,11 +64,15 @@ export default function SignupPage() {
 
     //TODO UnComment to add Waitlist functionality
     // // Company domain check (unchanged logic)
-    // const domain = extractDomainFromEmail(email)
-    //   .trim()
-    //   .toLowerCase()
-    //   .replace(/^\.+|\.+$/g, "");
+    const domain = extractDomainFromEmail(email)
+      .trim()
+      .toLowerCase()
+      .replace(/^\.+|\.+$/g, "");
 
+    if (domain) {
+      // 2. Fire the event to PostHog
+      posthog.capture("work_email_entered", { company_domain: domain });
+    }
     // const { data: allCompanies, error: companiesError } = await supabase
     //   .from("companies")
     //   .select("domain");
