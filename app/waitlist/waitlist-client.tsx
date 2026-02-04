@@ -9,6 +9,14 @@ import { CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import Link from "next/link";
 import Image from "next/image";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { INDIAN_CITIES } from "@/lib/constants";
 
 export default function WaitlistPage() {
   const searchParams = useSearchParams();
@@ -120,17 +128,26 @@ export default function WaitlistPage() {
                 onChange={(e) => setLinkedin(e.target.value)}
                 required
               />
+              <p className="text-xs text-neutral-500 mt-1.5">
+                Ensure to enter a valid LinkedIn profile URL for verification.
+              </p>
             </div>
 
             <div>
-              <Label htmlFor="city">City*</Label>
-              <Input
-                id="city"
-                placeholder="Where are you based?"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                required
-              />
+              <Label>Your City *</Label>
+              <Select value={city} onValueChange={setCity} required>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select your city" />
+                </SelectTrigger>
+                <SelectContent>
+                  {INDIAN_CITIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Button type="submit" className="w-full" disabled={loading}>
