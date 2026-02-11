@@ -35,13 +35,22 @@ const CATEGORY_HELP_TEXT: Record<string, string> = {
 };
 
 interface CreatePostDialogProps {
-  userId: string;
+  user: {
+    id: string;
+    first_name: string;
+    city: string;
+    company: {
+      name: string;
+      domain: string;
+    };
+    is_admin: boolean;
+  };
   onPostCreated: () => void;
   children?: React.ReactNode;
 }
 
 export function CreatePostDialog({
-  userId,
+  user,
   onPostCreated,
   children,
 }: CreatePostDialogProps) {
@@ -155,17 +164,19 @@ export function CreatePostDialog({
     }
 
     try {
-      const { data: canPost, error: fnError } = await supabase.rpc(
-        "can_create_post",
-        { uid: userId }
-      );
+      if (!user.is_admin) {
+        const { data: canPost, error: fnError } = await supabase.rpc(
+          "can_create_post",
+          { uid: user.id }
+        );
 
-      if (fnError) throw new Error("Unable to verify posting limits.");
+        if (fnError) throw new Error("Unable to verify posting limits.");
 
-      if (!canPost) {
-        setError("You’re posting too frequently. Please wait a few minutes.");
-        setLoading(false);
-        return;
+        if (!canPost) {
+          setError("You’re posting too frequently. Please wait a few minutes.");
+          setLoading(false);
+          return;
+        }
       }
 
       let uploadedUrls = null;
@@ -177,7 +188,7 @@ export function CreatePostDialog({
       }
 
       const { error: insertError } = await supabase.from("posts").insert({
-        user_id: userId,
+        user_id: user.id,
         text: text.trim(),
         category,
         housing_type: category === "housing" ? housingType : null,

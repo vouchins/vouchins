@@ -103,8 +103,8 @@ export default function WaitlistPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <Label>Corporate Email (Account)</Label>
-              <Input value={corpEmail} disabled className="bg-neutral-50" />
+              <Label>Corporate Email (Account)*</Label>
+              <Input value={corpEmail} className="bg-neutral-50" required />
             </div>
 
             <div>

@@ -262,7 +262,7 @@ export default function FeedPage() {
                 : `Inside ${user.company?.name}`}
             </h2>
             <CreatePostDialog
-              userId={user.id}
+              user={user}
               onPostCreated={() =>
                 fetchPosts(user, activeTab, activeCategory, 0, searchQuery)
               }
