@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -9,15 +9,30 @@ export function Footer() {
         <div className="text-sm text-neutral-500">
           © {currentYear} Vouchins. Built for the Circle of Trust.
         </div>
-        
+
         <nav className="flex items-center gap-6 text-sm font-medium text-neutral-600">
-          <Link href="/about" className="hover:text-indigo-600 transition-colors">
+          <Link
+            href="/about"
+            className="hover:text-indigo-600 transition-colors"
+          >
             About Us
           </Link>
-          <Link href="/privacy" className="hover:text-indigo-600 transition-colors">
+          <Link
+            href="/privacy"
+            className="hover:text-indigo-600 transition-colors"
+          >
             Privacy Policy
           </Link>
-          <a href="mailto:connect@vouchins.com" className="hover:text-indigo-600 transition-colors">
+          <Link
+            href="/terms"
+            className="hover:text-indigo-600 transition-colors"
+          >
+            Terms
+          </Link>
+          <a
+            href="mailto:connect@vouchins.com"
+            className="hover:text-indigo-600 transition-colors"
+          >
             Contact
           </a>
         </nav>
