@@ -50,10 +50,12 @@ interface PostCardProps {
     };
     comments?: any[];
   };
+  isVerifiedUser: boolean;
   currentUserId: string;
   onReply: (postId: string) => void;
   onReport: (postId: string) => void;
   onPostUpdated: () => void;
+  onVerifyClick?: (postId: string) => void;
 }
 
 const HOUSING_TYPE_LABELS: Record<string, string> = {

@@ -60,7 +60,7 @@ export default function UserProfilePage() {
           bio,
           personal_email,
           company:companies(name)
-        `
+        `,
         )
         .eq("id", id)
         .maybeSingle();
@@ -94,7 +94,7 @@ export default function UserProfilePage() {
             created_at,
             user:users!comments_user_id_fkey(first_name)
           )
-        `
+        `,
         )
         .eq("user_id", id)
         .eq("is_removed", false)
@@ -114,7 +114,7 @@ export default function UserProfilePage() {
       !formDraft.linkedin_url.includes("linkedin.com/")
     ) {
       alert(
-        "Please enter a valid LinkedIn URL (e.g., https://linkedin.com/in/username)"
+        "Please enter a valid LinkedIn URL (e.g., https://linkedin.com/in/username)",
       );
       return;
     }
@@ -165,9 +165,9 @@ export default function UserProfilePage() {
               <h1 className="text-2xl font-bold text-primary tracking-tight">
                 {profile.first_name}
               </h1>
-              <div className="flex items-center gap-2 text-sm font-semibold text-neutral-500 uppercase tracking-wide">
+              <div className="flex items-center gap-2 text-sm font-semibold text-neutral-500 tracking-wide">
                 <Building2 className="h-4 w-4 text-accent" />
-                {profile.company?.name}
+                {profile.company?.name || "My Company"}
               </div>
               <div className="flex items-center gap-2 text-sm font-medium text-neutral-400">
                 <MapPin className="h-4 w-4" />
@@ -364,6 +364,7 @@ export default function UserProfilePage() {
                   onReply={() => {}}
                   onReport={() => {}}
                   onPostUpdated={() => {}}
+                  isVerifiedUser={me.is_verified}
                 />
               ))}
             </div>

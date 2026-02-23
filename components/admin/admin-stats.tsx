@@ -39,7 +39,7 @@ export function AdminStats({
       primary: false,
     },
     {
-      label: "Access Management",
+      label: "Manual Verfication Requests",
       value: pendingWaitlist,
       description: "Pending manual approvals",
       primary: true,

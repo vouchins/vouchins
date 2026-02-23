@@ -27,7 +27,7 @@ export const INDIAN_CITIES = [
   'Pune',
   'Surat',
   'Other',
-].sort();
+];
 
 export const REPORT_REASONS = [
   'Spam or misleading',

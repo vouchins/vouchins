@@ -20,9 +20,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, AlertCircle, ImageIcon, X } from "lucide-react";
+import {
+  Plus,
+  AlertCircle,
+  ImageIcon,
+  X,
+  Globe,
+  ShieldCheck,
+  Building2,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { CATEGORIES, VISIBILITY_OPTIONS } from "@/lib/constants";
+import { CATEGORIES } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
 import filter from "leo-profanity";
 
@@ -44,21 +52,24 @@ interface CreatePostDialogProps {
       domain: string;
     };
     is_admin: boolean;
+    is_verified: boolean; // Added for tier gating
   };
   onPostCreated: () => void;
   children?: React.ReactNode;
+  defaultVisibility?: string; // Optional: prepopulate based on active tab
 }
 
 export function CreatePostDialog({
   user,
   onPostCreated,
   children,
+  defaultVisibility = "all",
 }: CreatePostDialogProps) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [category, setCategory] = useState<string>("");
   const [housingType, setHousingType] = useState<string>("");
-  const [visibility, setVisibility] = useState<string>("all");
+  const [visibility, setVisibility] = useState<string>(defaultVisibility);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -76,16 +87,12 @@ export function CreatePostDialog({
     const newFiles = [...selectedFiles, ...files];
     setSelectedFiles(newFiles);
 
-    // Clean up old previews before generating new ones to manage memory
     previewUrls.forEach((url) => URL.revokeObjectURL(url));
     setPreviewUrls(newFiles.map((file) => URL.createObjectURL(file)));
   };
 
-  // 1. Initialize the filter
   useEffect(() => {
-    filter.loadDictionary("en"); // Load English words
-    // Add custom words you want to block (e.g., specific slurs or scam keywords)
-    // Add keywords specific to Housing & Marketplace safety
+    filter.loadDictionary("en");
     const customBlocklist = [
       "escort",
       "hookup",
@@ -108,20 +115,16 @@ export function CreatePostDialog({
       try {
         const compressedFile = await imageCompression(file, options);
         const fileExt = file.name.split(".").pop();
-        const fileName = `${Math.random()
-          .toString(36)
-          .substring(2)}-${Date.now()}.${fileExt}`;
+        const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
 
         const { data, error } = await supabase.storage
           .from("post-images")
           .upload(fileName, compressedFile);
-
         if (error) throw error;
 
         const {
           data: { publicUrl },
         } = supabase.storage.from("post-images").getPublicUrl(fileName);
-
         return publicUrl;
       } catch (error) {
         console.error("Compression/Upload error:", error);
@@ -156,7 +159,6 @@ export function CreatePostDialog({
       return;
     }
 
-    // 2. Profanity check
     if (filter.check(text)) {
       setError("Your post contains inappropriate language. Please revise it.");
       setLoading(false);
@@ -164,14 +166,12 @@ export function CreatePostDialog({
     }
 
     try {
-      if (!user.is_admin) {
+      if (!user?.is_admin) {
         const { data: canPost, error: fnError } = await supabase.rpc(
           "can_create_post",
-          { uid: user.id }
+          { uid: user?.id }
         );
-
         if (fnError) throw new Error("Unable to verify posting limits.");
-
         if (!canPost) {
           setError("You’re posting too frequently. Please wait a few minutes.");
           setLoading(false);
@@ -188,7 +188,7 @@ export function CreatePostDialog({
       }
 
       const { error: insertError } = await supabase.from("posts").insert({
-        user_id: user.id,
+        user_id: user?.id,
         text: text.trim(),
         category,
         housing_type: category === "housing" ? housingType : null,
@@ -207,12 +207,11 @@ export function CreatePostDialog({
         return;
       }
 
-      // Cleanup and Reset
       previewUrls.forEach((url) => URL.revokeObjectURL(url));
       setText("");
       setCategory("");
       setHousingType("");
-      setVisibility("all");
+      setVisibility(defaultVisibility);
       setSelectedFiles([]);
       setPreviewUrls([]);
       setOpen(false);
@@ -230,7 +229,15 @@ export function CreatePostDialog({
         {children ? (
           children
         ) : (
-          <Button className="bg-primary text-primary-foreground hover:opacity-90 h-9 px-3 sm:px-4 shrink-0">
+          <Button
+            className="bg-primary text-primary-foreground hover:opacity-90 h-9 px-3 sm:px-4 shrink-0"
+            disabled={!user?.is_verified}
+            title={
+              !user?.is_verified
+                ? "Get verified to create posts"
+                : "Create a new post"
+            }
+          >
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline text-sm font-semibold">
               New Post
@@ -239,13 +246,11 @@ export function CreatePostDialog({
         )}
       </DialogTrigger>
 
-      {/* FIXED: Added max-height, flex-col, and overflow-hidden to the main container */}
       <DialogContent className="sm:max-w-[600px] max-h-[95vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle>Create a new post</DialogTitle>
         </DialogHeader>
 
-        {/* FIXED: This middle section now scrolls while Header and Footer stay fixed */}
         <div className="flex-1 overflow-y-auto px-6 py-2 space-y-4">
           {error && (
             <Alert variant="destructive">
@@ -255,7 +260,6 @@ export function CreatePostDialog({
           )}
 
           <div className="space-y-4">
-            {/* Category */}
             <div>
               <Label>Category</Label>
               <Select value={category} onValueChange={setCategory}>
@@ -272,7 +276,6 @@ export function CreatePostDialog({
               </Select>
             </div>
 
-            {/* Housing sub-type */}
             {category === "housing" && (
               <div>
                 <Label>Housing type</Label>
@@ -290,7 +293,7 @@ export function CreatePostDialog({
               </div>
             )}
 
-            {/* Visibility */}
+            {/* NEW: Tiered Visibility Logic */}
             <div>
               <Label>Visibility</Label>
               <Select value={visibility} onValueChange={setVisibility}>
@@ -298,46 +301,64 @@ export function CreatePostDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {VISIBILITY_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-3.5 w-3.5 text-neutral-500" />
+                      <span>Public ({user?.city})</span>
+                    </div>
+                  </SelectItem>
+                  {user?.is_verified && (
+                    <>
+                      <SelectItem value="verified">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                          <span>Verified Circle (All Companies)</span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="company">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-3.5 w-3.5 text-green-600" />
+                          <span>My Company ({user?.company?.name})</span>
+                        </div>
+                      </SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-neutral-500 mt-1">
-                {visibility === "company"
-                  ? "Visible only to verified professionals from your company."
-                  : "Visible to verified professionals across all companies."}
+              <p className="text-[11px] text-neutral-500 mt-1.5 leading-relaxed">
+                {visibility === "all" &&
+                  "Public: Anyone in your city can see this post."}
+                {visibility === "verified" &&
+                  "Verified: Only professionals with a verified work email can see this."}
+                {visibility === "company" &&
+                  `Private: Only your colleagues at ${user?.company?.name} can see this.`}
               </p>
             </div>
 
-            {/* Post text */}
             <div>
               <Label>What do you need?</Label>
               <Textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Looking for a flat in Koramangala, 2BHK, budget 30k..."
+                placeholder="Describe your requirement clearly..."
                 className="mt-1.5 min-h-[120px]"
                 maxLength={2000}
               />
-              <p className="text-xs text-neutral-500 mt-1.5">
-                {text.length}/2000 characters
-              </p>
-              {category && (
-                <p className="text-xs text-neutral-500 mt-2">
-                  {CATEGORY_HELP_TEXT[category]}
+              <div className="flex justify-between items-center mt-1.5">
+                <p className="text-[11px] text-neutral-500">
+                  {category
+                    ? CATEGORY_HELP_TEXT[category]
+                    : "Choose a category to see helpful tips."}
                 </p>
-              )}
+                <p className="text-[11px] text-neutral-400">
+                  {text.length}/2000
+                </p>
+              </div>
             </div>
 
-            {/* Preview Area */}
             {previewUrls.length > 0 && (
               <div
-                className={`grid gap-2 mt-2 ${
-                  previewUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"
-                }`}
+                className={`grid gap-2 mt-2 ${previewUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}
               >
                 {previewUrls.map((url, index) => (
                   <div
@@ -369,11 +390,10 @@ export function CreatePostDialog({
               </div>
             )}
 
-            {/* File Input */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-primary cursor-pointer hover:opacity-80 py-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-primary cursor-pointer hover:opacity-80 py-2 w-fit">
                 <ImageIcon className="h-5 w-5" />
-                <span>Add a photo (Room, Item, etc.)</span>
+                <span>Add photos (Max 3)</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -386,7 +406,6 @@ export function CreatePostDialog({
           </div>
         </div>
 
-        {/* FIXED: Footer stays at the bottom */}
         <DialogFooter className="p-6 pt-2 border-t border-neutral-100 shrink-0">
           <div className="flex justify-end space-x-2 w-full">
             <Button
@@ -396,7 +415,7 @@ export function CreatePostDialog({
             >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button onClick={handleSubmit} disabled={loading} className="px-8">
               {loading ? "Posting..." : "Post"}
             </Button>
           </div>

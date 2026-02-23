@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileText, ExternalLink, CheckCircle2, XCircle } from "lucide-react";
-
+import { isValidDomain } from "@/lib/utils";
 interface WaitlistEntry {
   id: string;
   corporate_email: string;
@@ -21,6 +21,12 @@ interface WaitlistEntry {
   status: "pending" | "approved" | "rejected";
   created_at: string;
   notes?: string;
+  company_name: string;
+  email: string;
+  user: {
+    city: string;
+    email: string;
+  };
 }
 
 interface WaitlistTabProps {
@@ -28,12 +34,14 @@ interface WaitlistTabProps {
   onAction: (
     id: string,
     action: "approve" | "reject",
-    notes: string
+    notes: string,
+    domain?: string
   ) => Promise<void>;
 }
 
 export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
   const [notes, setNotes] = useState<{ [key: string]: string }>({});
+  const [domain, setDomain] = useState<{ [key: string]: string }>({});
 
   if (entries.length === 0) {
     return (
@@ -87,10 +95,18 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4 bg-neutral-50 rounded-lg border border-neutral-100">
               <div>
                 <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
+                  Company
+                </p>
+                <p className="text-sm font-medium text-neutral-800">
+                  {entry?.company_name || "N/A"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
                   Personal Email
                 </p>
                 <p className="text-sm font-medium text-neutral-800">
-                  {entry.personal_email}
+                  {entry?.user?.email || "N/A"}
                 </p>
               </div>
               <div>
@@ -98,7 +114,15 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
                   Location
                 </p>
                 <p className="text-sm font-medium text-neutral-800">
-                  {entry.city}
+                  {entry?.user?.city || "N/A"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-1">
+                  Corporate Email
+                </p>
+                <p className="text-sm font-medium text-neutral-800">
+                  {entry?.corporate_email || "N/A"}
                 </p>
               </div>
               <div className="sm:col-span-2">
@@ -127,7 +151,7 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
               </p>
               {entry.status === "pending" ? (
                 <Input
-                  placeholder="Add context for approval/rejection..."
+                  placeholder="Add corporate domain for approval..."
                   value={notes[entry.id] || ""}
                   onChange={(e) =>
                     setNotes({ ...notes, [entry.id]: e.target.value })
@@ -141,12 +165,39 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
               )}
             </div>
 
+            {!entry.corporate_email && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                  Enter Domain
+                </p>
+
+                <Input
+                  placeholder="Enter valid domain (e.g. company.com)"
+                  value={domain[entry.id] || ""}
+                  onChange={(e) =>
+                    setDomain({ ...domain, [entry.id]: e.target.value })
+                  }
+                  className="bg-white"
+                  required
+                />
+              </div>
+            )}
+
             {entry.status === "pending" && (
               <div className="flex items-center gap-3 pt-2">
                 <Button
-                  onClick={() =>
-                    onAction(entry.id, "approve", notes[entry.id] || "")
-                  }
+                  onClick={() => {
+                    if (!domain[entry.id] || !isValidDomain(domain[entry.id])) {
+                      alert("Please provide a valid domain for approval.");
+                      return;
+                    }
+                    onAction(
+                      entry.id,
+                      "approve",
+                      notes[entry.id] || "",
+                      domain[entry.id] || ""
+                    );
+                  }}
                   className="flex-1 sm:flex-none px-8"
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" /> Approve

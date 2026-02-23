@@ -1,10 +1,45 @@
-import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
-import { sendApprovalEmail, sendRejectionEmail } from '@/lib/email';
+import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+import { sendApprovalEmail, sendRejectionEmail } from "@/lib/email";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
-    const { waitlistId, notes, action } = await req.json();
+    const { waitlistId, notes, action, domain } = await req.json();
+
+    if (!waitlistId || !action) {
+      return NextResponse.json(
+        { error: "Invalid request payload" },
+        { status: 400 }
+      );
+    }
+
+    /* ---------------- AUTH CHECK ---------------- */
+
+    const cookieStore = await cookies();
+
+    const supabaseUser = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+    } = await supabaseUser.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    /* ---------------- SERVICE ROLE CLIENT ---------------- */
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,135 +52,90 @@ export async function POST(req: Request) {
       }
     );
 
-    // 1. Get the Waitlist Entry
-    const { data: entry, error: fetchError } = await supabaseAdmin
-      .from('waitlist')
-      .select('*')
-      .eq('id', waitlistId)
+    /* ---------------- ADMIN CHECK ---------------- */
+
+    const { data: adminUser, error: adminError } = await supabaseAdmin
+      .from("users")
+      .select("is_admin")
+      .eq("id", user.id)
       .single();
 
-    if (fetchError || !entry) {
-      return NextResponse.json({ error: 'Waitlist record not found' }, { status: 404 });
+    if (adminError || !adminUser?.is_admin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Handle Rejection Action
-    if (action === 'reject') {
-      await supabaseAdmin.from('waitlist').update({
-        status: 'rejected',
-        notes,
-        rejected_at: new Date().toISOString()
-      }).eq('id', waitlistId);
+    /* ---------------- REJECTION FLOW ---------------- */
 
-      // Send the rejection email
-      try {
-        await sendRejectionEmail(entry.personal_email);
-      } catch (e) {
-        console.error("Rejection email failed:", e);
-      }
+    if (action === "reject") {
+      const { error } = await supabaseAdmin.rpc(
+        "reject_manual_verification",
+        {
+          p_waitlist_id: waitlistId,
+          p_admin_id: user.id,
+          p_notes: notes || null,
+        }
+      );
 
-      return NextResponse.json({ message: 'User rejected and notified.' });
-    }
+      if (error) throw error;
 
-    /* ---------------- Start Approval Flow ---------------- */
-
-    const normalizedEmail = entry.corporate_email.toLowerCase().trim();
-
-    // 2. Fetch the Staged Intent (Source of Truth for password and name)
-    const { data: intent } = await supabaseAdmin
-      .from('signup_intents')
-      .select('*')
-      .eq('email', normalizedEmail)
-      .maybeSingle();
-
-    if (!intent) {
-      return NextResponse.json({
-        error: 'No signup intent found. User must fill the signup form before manual approval.'
-      }, { status: 404 });
-    }
-
-    // 3. Resolve Company (Mirrors verify-otp logic)
-    const domain = normalizedEmail.split("@")[1];
-    let companyId: string;
-
-    const { data: existingCompany } = await supabaseAdmin
-      .from("companies")
-      .select("id")
-      .eq("domain", domain)
-      .maybeSingle();
-
-    if (existingCompany) {
-      companyId = existingCompany.id;
-    } else {
-      const { data: newCompany, error: compError } = await supabaseAdmin
-        .from("companies")
-        .insert({
-          domain,
-          name: domain.split(".")[0],
-        })
-        .select("id")
+      // Fetch email after successful transaction
+      const { data: entry } = await supabaseAdmin
+        .from("manual_verification_requests")
+        .select("email")
+        .eq("id", waitlistId)
         .single();
 
-      if (compError) throw compError;
-      companyId = newCompany.id;
+      if (entry?.email) {
+        try {
+          await sendRejectionEmail(entry.email);
+        } catch (e) {
+          console.error("Rejection email failed:", e);
+        }
+      }
+
+      return NextResponse.json({
+        message: "User rejected and notified.",
+      });
     }
 
-    // 4. Create Auth Identity (The Secure Layer)
-    const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: normalizedEmail,
-      password: intent.password, // Uses plain text from signup_intents as per your setup
-      email_confirm: true,
-      user_metadata: { first_name: intent.first_name }
-    });
+    /* ---------------- APPROVAL FLOW (ATOMIC) ---------------- */
 
-    if (authError) throw authError;
+    const { error } = await supabaseAdmin.rpc(
+      "approve_manual_verification",
+      {
+        p_waitlist_id: waitlistId,
+        p_admin_id: user.id,
+        p_notes: notes || null,
+        p_domain: domain || null,
+      }
+    );
 
-    // 5. Create Public User Record (The Application Layer)
-    // We inject waitlist data here to skip the onboarding page (onboarded: true)
-    const { error: publicUserError } = await supabaseAdmin
-      .from('users')
-      .insert([{
-        id: authUser.user.id,
-        email: normalizedEmail,
-        first_name: intent.first_name,
-        company_id: companyId,
-        personal_email: entry.personal_email, // From Waitlist
-        linkedin_url: entry.linkedin_url,     // From Waitlist
-        city: entry.city,                     // From Waitlist
-        is_verified: true,
-        onboarded: true,                      // User bypasses onboarding screen
-        created_at: new Date().toISOString()
-      }]);
+    if (error) throw error;
 
-    if (publicUserError) {
-      // Rollback Auth user if public record fails to prevent ghost accounts
-      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
-      throw publicUserError;
-    }
+    // Fetch email after successful transaction
+    const { data: entry } = await supabaseAdmin
+      .from("manual_verification_requests")
+      .select("email")
+      .eq("id", waitlistId)
+      .single();
 
-    // 6. Final Status Updates & Cleanup
-    await supabaseAdmin.from('waitlist').update({
-      status: 'approved',
-      notes,
-      approved_at: new Date().toISOString()
-    }).eq('id', waitlistId);
-
-    // Delete Intent and leftover OTPs to keep DB clean
-    await supabaseAdmin.from('signup_intents').delete().eq('email', normalizedEmail);
-    await supabaseAdmin.from('email_otps').delete().eq('email', normalizedEmail);
-
-    // 7. Notify via Personal Email (Gmail)
-    try {
-      await sendApprovalEmail(entry.personal_email);
-    } catch (e) {
-      console.error("Email notification failed:", e);
+    if (entry?.email) {
+      try {
+        await sendApprovalEmail(entry.email);
+      } catch (e) {
+        console.error("Approval email failed:", e);
+      }
     }
 
     return NextResponse.json({
-      message: 'User approved. Account provisioned and onboarding completed.'
+      message: "User approved. Account provisioned successfully.",
     });
 
   } catch (error: any) {
-    console.error('Manual Approval API Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error("Manual Approval API Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }

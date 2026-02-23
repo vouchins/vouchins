@@ -7,8 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, Clock, Flag, AlertTriangle, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-
-// Import your new components
 import { AdminStats } from "@/components/admin/admin-stats";
 import { UsersTab } from "@/components/admin/users-tab";
 import { WaitlistTab } from "@/components/admin/waitlist-tab";
@@ -93,10 +91,31 @@ export default function AdminPage() {
   };
 
   const fetchWaitlist = async () => {
-    const { data } = await supabase
-      .from("waitlist")
-      .select("*")
+    const { data, error } = await supabase
+      .from("manual_verification_requests")
+      .select(
+        `
+  *,
+  user:users!manual_verification_requests_user_id_fkey(
+    id,
+    first_name,
+    city,
+    email,
+    personal_email,
+    linkedin_url
+  )
+`
+      )
+
       .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching verification requests:", error);
+      return;
+    }
+
+    console.log("Fetched waitlist entries:", data);
+
     setWaitlist(data || []);
   };
 
@@ -193,14 +212,15 @@ export default function AdminPage() {
   const handleWaitlistAction = async (
     waitlistId: string,
     action: "approve" | "reject",
-    notes: string
+    notes: string,
+    domain?: string
   ) => {
     if (action === "reject" && !confirm("Reject this applicant?")) return;
     try {
       const res = await fetch("/api/auth/approve-waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ waitlistId, notes, action }),
+        body: JSON.stringify({ waitlistId, notes, action, domain }),
       });
       if (!res.ok) throw new Error("Action failed");
       await fetchWaitlist();

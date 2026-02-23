@@ -1,19 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Chrome, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useRouter } from "next/navigation";
 import {
-  isCorporateEmail,
   extractDomainFromEmail,
   validateFirstName,
 } from "@/lib/auth/validation";
-import { validatePassword } from "@/lib/auth/password";
 import { supabase } from "@/lib/supabase/client";
 import posthog from "posthog-js";
 
@@ -27,152 +25,110 @@ export default function SignupPage() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showWaitlist, setShowWaitlist] = useState(false);
-  const [waitlistEmail, setWaitlistEmail] = useState("");
 
-  const passwordState = validatePassword(password);
+  // Tracking interaction for Progressive Disclosure
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [confirmTouched, setConfirmTouched] = useState(false);
+
+  const isPasswordLongEnough = password.length >= 8;
   const passwordsMatch = password.length > 0 && password === confirmPassword;
+
+  useEffect(() => {
+    if (email.includes("@")) {
+      const domain = extractDomainFromEmail(email);
+      if (domain) {
+        posthog.capture("email_entered_at_signup", { domain });
+      }
+    }
+  }, [email]);
 
   const canProceed =
     validateFirstName(firstName) &&
-    isCorporateEmail(email) &&
-    passwordState.isValid &&
+    email.includes("@") &&
+    isPasswordLongEnough &&
     passwordsMatch &&
     !loading;
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const handleOAuthSignup = async (provider: "google" | "linkedin") => {
+    setLoading(true);
+    setError("");
+
+    const supabaseProvider =
+      provider === "linkedin" ? "linkedin_oidc" : "google";
+
+    const scopes = provider === "linkedin" ? "openid profile email" : undefined;
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: supabaseProvider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: scopes,
+          skipBrowserRedirect: false,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message || "An error occurred during social signup.");
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!passwordsMatch) {
+      setError("Passwords do not match");
+      return;
+    }
     setError("");
     setLoading(true);
 
-    if (!validateFirstName(firstName)) {
-      setError("First name must be between 2–50 characters.");
-      setLoading(false);
-      return;
-    }
-
-    if (!isCorporateEmail(email)) {
-      setError(
-        "Please use your corporate email. Personal email domains are not allowed."
-      );
-      setLoading(false);
-      return;
-    }
-
-    //TODO UnComment to add Waitlist functionality
-    // // Company domain check (unchanged logic)
-    const domain = extractDomainFromEmail(email)
-      .trim()
-      .toLowerCase()
-      .replace(/^\.+|\.+$/g, "");
-
-    if (domain) {
-      // 2. Fire the event to PostHog
-      posthog.capture("work_email_entered", { company_domain: domain });
-    }
-    // const { data: allCompanies, error: companiesError } = await supabase
-    //   .from("companies")
-    //   .select("domain");
-
-    // if (companiesError) {
-    //   setError("Error checking company domains.");
-    //   setLoading(false);
-    //   return;
-    // }
-
-    // const match =
-    //   allCompanies &&
-    //   allCompanies.find(
-    //     (row: any) =>
-    //       typeof row.domain === "string" &&
-    //       row.domain.trim().toLowerCase() === domain
-    //   );
-
-    // if (!match) {
-    //   setShowWaitlist(true);
-    //   setWaitlistEmail(email);
-    //   setLoading(false);
-    //   return;
-    // }
-
-    /* ---------------- send OTP ---------------- */
-
     try {
-      /* ---------------- Check Existence ---------------- */
-      const { data: existingUser, error: checkError } = await supabase
-        .from("users")
-        .select("email")
-        .eq("email", email)
-        .maybeSingle();
-
-      if (checkError) {
-        throw new Error("Error checking user existence.");
-      }
-
-      if (existingUser) {
-        setError("An account with this email already exists. Please log in.");
-        setLoading(false);
-        return;
-      }
-
-      const res = await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          firstName,
-          password,
-        }),
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.toLowerCase().trim(),
+        password,
+        options: { data: { first_name: firstName } },
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to send verification code");
-      }
+      if (signUpError) throw signUpError;
 
-      router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+      if (data.user) {
+        await supabase.from("users").insert({
+          id: data.user.id,
+          email: email.toLowerCase().trim(),
+          first_name: firstName,
+          is_verified: false,
+          onboarded: false,
+        });
+      }
+      router.push("/onboarding");
     } catch (err: any) {
-      setError(err.message || "Failed to send verification code.");
+      setError(err.message || "Failed to create account.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-12">
       <div className="w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex flex-col items-center mb-4">
-            <Link href="/" aria-label="Go to homepage">
-              <img
-                src="/images/logo.png"
-                alt="Vouchins"
-                className="h-10 mt-4 cursor-pointer"
-              />
-            </Link>
-            <p className="text-sm text-primary text-center mt-4">
-              A verified professional network for trusted recommendations
-            </p>
-          </div>
+          <Link href="/">
+            <img
+              src="/images/logo.png"
+              alt="Vouchins"
+              className="h-10 mx-auto mb-4"
+            />
+          </Link>
           <h1 className="text-3xl font-semibold text-neutral-900 mb-2">
-            Create your Vouchins account
+            Create your account
           </h1>
         </div>
 
-        <div className="bg-neutral-50 border border-neutral-200 rounded-md p-4 mb-6 text-sm text-neutral-700">
-          <p className="font-medium mb-2">How verification works</p>
-          <ul className="list-disc pl-5 space-y-1">
-            <li>Sign up using your official work email</li>
-            <li>Verify via a one-time code sent to your inbox</li>
-            <li>Access recommendations from verified professionals</li>
-          </ul>
-        </div>
-
-        <div className="bg-white rounded-lg border border-neutral-200 p-8 mb-4">
+        <div className="bg-white rounded-lg border border-neutral-200 p-8 shadow-sm">
           {error && (
             <Alert variant="destructive" className="mb-6">
               <AlertCircle className="h-4 w-4" />
@@ -180,136 +136,124 @@ export default function SignupPage() {
             </Alert>
           )}
 
-          {showWaitlist ? (
-            <div className="text-center text-neutral-700">
-              <strong>Your company is not yet supported.</strong>
-              <p className="mt-2 text-sm">
-                <b>{waitlistEmail}</b> has been added to the waitlist.
-                <br />
-                We’ll notify you when Vouchins is available for your
-                organization.
-              </p>
+          {/* Social Auth Buttons */}
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <Button
+              variant="outline"
+              onClick={() => handleOAuthSignup("google")}
+              disabled={loading}
+            >
+              <Chrome className="h-4 w-4 text-[#4285F4] mr-2" />
+              Google
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleOAuthSignup("linkedin")}
+              disabled={loading}
+            >
+              <Linkedin className="h-4 w-4 text-[#0A66C2] fill-[#0A66C2] mr-2" />
+              LinkedIn
+            </Button>
+          </div>
+
+          <div className="relative mb-8 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-neutral-200" />
             </div>
-          ) : (
-            <form onSubmit={handleSendOtp} className="space-y-5">
-              <div>
-                <Label>Full Name</Label>
-                <Input
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="mt-1.5"
-                  required
-                />
-              </div>
+            <span className="relative bg-white px-4 text-xs text-neutral-500 uppercase">
+              Or use email
+            </span>
+          </div>
 
-              <div>
-                <Label>Corporate Email</Label>
+          <form onSubmit={handleSignup} className="space-y-5">
+            <div>
+              <Label>Full Name</Label>
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                required
+                className="mt-1.5"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="mt-1.5"
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <Label>Password</Label>
+              <div className="relative mt-1.5">
                 <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="mt-1.5"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => setPasswordTouched(true)}
                   required
+                  className="pr-10"
+                  disabled={loading}
                 />
-                <p className="text-xs text-neutral-500 mt-1.5">
-                  Personal email domains are not allowed.
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-neutral-500" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-neutral-500" />
+                  )}
+                </button>
+              </div>
+              {passwordTouched && !isPasswordLongEnough && (
+                <p className="text-[11px] text-red-500 mt-1 animate-in fade-in slide-in-from-top-1">
+                  Password must be at least 8 characters.
                 </p>
-              </div>
+              )}
+            </div>
 
-              <div>
-                <Label>Password</Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Create a strong password"
-                    className="pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <Label>Confirm Password</Label>
-                <div className="relative mt-1.5">
-                  <Input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password"
-                    className="pr-10"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Password rules */}
-              <ul className="text-xs text-neutral-600 space-y-1">
-                <li>
-                  {passwordState.length ? "✅" : "❌"} At least 8 characters
-                </li>
-                <li>
-                  {passwordState.uppercase ? "✅" : "❌"} Uppercase letter
-                </li>
-                <li>
-                  {passwordState.lowercase ? "✅" : "❌"} Lowercase letter
-                </li>
-                <li>{passwordState.number ? "✅" : "❌"} Number</li>
-                <li>
-                  {passwordState.specialChar ? "✅" : "❌"} Special character
-                </li>
-                <li>{passwordsMatch ? "✅" : "❌"} Passwords match</li>
-              </ul>
-
-              {/* Strength bar */}
-              <div className="h-2 w-full bg-neutral-200 rounded">
-                <div
-                  className={`h-2 rounded transition-all ${
-                    passwordState.strengthScore >= 3
-                      ? "bg-green-500"
-                      : "bg-yellow-400"
-                  }`}
-                  style={{
-                    width: `${(passwordState.strengthScore + 1) * 20}%`,
-                  }}
+            <div>
+              <Label>Confirm Password</Label>
+              <div className="relative mt-1.5">
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onBlur={() => setConfirmTouched(true)}
+                  required
+                  className="pr-10"
+                  disabled={loading}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-neutral-500" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-neutral-500" />
+                  )}
+                </button>
               </div>
-              <p className="text-xs text-neutral-500 mt-2">
-                We never share your email publicly. Your work email is used only
-                for verification.
-              </p>
-              <Button type="submit" className="w-full" disabled={!canProceed}>
-                {loading
-                  ? "Sending verification code..."
-                  : "Send verification code"}
-              </Button>
-            </form>
-          )}
+              {confirmTouched && !passwordsMatch && (
+                <p className="text-[11px] text-red-500 mt-1 animate-in fade-in slide-in-from-top-1">
+                  Passwords do not match.
+                </p>
+              )}
+            </div>
+
+            <Button type="submit" className="w-full" disabled={!canProceed}>
+              {loading ? "Processing..." : "Create Account"}
+            </Button>
+          </form>
 
           <div className="mt-6 text-center text-sm">
             <span className="text-neutral-600">Already have an account? </span>
@@ -317,9 +261,6 @@ export default function SignupPage() {
               Log in
             </Link>
           </div>
-          <p className="text-xs text-neutral-500 text-center mt-4">
-            Built for professionals. Designed for trust.
-          </p>
         </div>
       </div>
     </div>

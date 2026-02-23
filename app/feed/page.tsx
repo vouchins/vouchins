@@ -9,8 +9,18 @@ import { CommentForm } from "@/components/comment-form";
 import { ReportDialog } from "@/components/report-dialog";
 import { FeedSearch } from "@/components/feed-search";
 import { supabase } from "@/lib/supabase/client";
-import { MapPin, Building2, Loader2, X } from "lucide-react";
+import {
+  MapPin,
+  Building2,
+  Loader2,
+  X,
+  Lock,
+  ShieldCheck,
+  Badge,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { VerificationModal } from "@/components/verification-modal"; // Verified Import
+import { cn } from "@/lib/utils";
 
 interface Post {
   id: string;
@@ -26,6 +36,8 @@ interface Post {
     id: string;
     first_name: string;
     city: string;
+    is_admin: boolean;
+
     company: {
       name: string;
       domain: string;
@@ -48,7 +60,7 @@ export default function FeedPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
-
+  const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<FeedTab>("city");
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,6 +83,12 @@ export default function FeedPage() {
       queryStr: string = ""
     ) => {
       if (!currentUser) return;
+      // Gating Logic: If unverified and accessing Company tab, stop
+      if (!currentUser.is_verified && tab === "company") {
+        setPosts([]);
+        setHasMore(false);
+        return;
+      }
 
       const from = pageNum * POSTS_PER_PAGE;
       const to = from + POSTS_PER_PAGE - 1;
@@ -78,18 +96,9 @@ export default function FeedPage() {
       let query = supabase
         .from("posts")
         .select(
-          `
-          *,
-          user:users!posts_user_id_fkey!inner(
-            id, first_name, city, company_id,
-            company:companies(name, domain) 
-          ),
-          comments(
-            id, text, created_at,
-            user:users!comments_user_id_fkey(id, first_name)
-          )
-        `
+          `*, user:users!posts_user_id_fkey!inner(id, first_name, city, is_admin, company_id, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, first_name))`
         )
+
         .eq("is_removed", false)
         .eq("user.city", currentUser.city);
 
@@ -99,6 +108,10 @@ export default function FeedPage() {
           .eq("user.company_id", currentUser.company_id);
       } else {
         query = query.eq("visibility", "all");
+        // Walled Garden: Unverified users only see Admin/Announcements
+        if (!currentUser.is_verified) {
+          query = query.eq("user.is_admin", true);
+        }
       }
 
       if (category !== "all") {
@@ -170,14 +183,8 @@ export default function FeedPage() {
         .eq("id", authUser.id)
         .maybeSingle();
 
-      if (!userData || !userData.is_verified || !userData.onboarded) {
-        router.push(
-          !userData
-            ? "/login"
-            : !userData.is_verified
-              ? "/verify-email"
-              : "/onboarding"
-        );
+      if (!userData || !userData.onboarded) {
+        router.push(!userData ? "/login" : "/onboarding");
         return;
       }
 
@@ -203,14 +210,6 @@ export default function FeedPage() {
   const handleCommentAdded = () =>
     fetchPosts(user, activeTab, activeCategory, 0, searchQuery);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <p className="text-neutral-600 font-medium">Loading your feed...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-neutral-50">
       <Navigation />
@@ -226,7 +225,7 @@ export default function FeedPage() {
             }`}
           >
             <MapPin className="h-4 w-4" />
-            {user.city || "My City"}
+            {user?.city || "My City"}
           </button>
 
           <button
@@ -237,10 +236,13 @@ export default function FeedPage() {
                 : "border-transparent text-neutral-500 hover:text-neutral-700"
             }`}
           >
+            {!user?.is_verified && (
+              <Lock className="h-4 w-4 text-neutral-800" />
+            )}
             <div className="h-5 w-5 rounded bg-neutral-50 flex items-center justify-center overflow-hidden border border-neutral-100">
-              {user.company?.domain ? (
+              {user?.company?.domain ? (
                 <img
-                  src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=32`}
+                  src={`https://www.google.com/s2/favicons?domain=${user?.company.domain}&sz=32`}
                   alt=""
                   className="h-3.5 w-3.5 object-contain"
                 />
@@ -248,7 +250,7 @@ export default function FeedPage() {
                 <Building2 className="h-3 w-3 text-neutral-400" />
               )}
             </div>
-            {user.company?.name || "My Company"}
+            {user?.company?.name || "My Company"}
           </button>
         </div>
       </div>
@@ -258,8 +260,8 @@ export default function FeedPage() {
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-foreground truncate">
               {activeTab === "city"
-                ? `Feed in ${user.city}`
-                : `Inside ${user.company?.name}`}
+                ? `Feed in ${user?.city}`
+                : `Inside ${user?.company?.name || "Your Company"}`}
             </h2>
             <CreatePostDialog
               user={user}
@@ -304,18 +306,104 @@ export default function FeedPage() {
           ))}
         </div>
 
+        {/* {!user?.is_verified && (
+          <div className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-all shadow-sm overflow-visible">
+            <div className="flex items-start justify-between mb-4">
+              <div className="bg-primary h-16 w-16 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 rotate-3 shadow-xl shadow-primary/20">
+                <Lock className="h-8 w-8 text-primary-foreground" />
+              </div>
+              <h3 className="text-2xl font-black text-foreground mb-3 uppercase tracking-tighter">
+                Walled Garden
+              </h3>
+              <p className="text-[12px] text-muted-foreground max-w-[320px] mx-auto mb-8 font-bold uppercase tracking-tight leading-relaxed">
+                {activeTab === "company"
+                  ? "Verify your professional identity to enter your private company feed."
+                  : "Only Admin posts are visible. Verify to unlock the full community feed."}
+              </p>
+              <Button
+                onClick={() => setIsVerifyModalOpen(true)} // Wired up to modal
+                className="rounded-full px-12 h-12 bg-primary hover:opacity-90 text-primary-foreground font-black uppercase tracking-widest text-[11px] transition-all active:scale-95"
+              >
+                Verify Now
+              </Button>
+            </div>
+          </div>
+        )} */}
+        {!user?.is_verified && (
+          <div className="bg-white border border-neutral-200 rounded-lg p-5 mb-4 shadow-sm relative overflow-hidden transition-all hover:border-neutral-300">
+            {/* Header-style Alignment */}
+            <div className="flex items-start gap-3">
+              {/* Lock Icon in the Avatar Slot */}
+              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20 rotate-3">
+                <Lock
+                  className="h-5 w-5 text-primary-foreground"
+                  strokeWidth={2.5}
+                />
+              </div>
+
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-[13px] font-black text-foreground uppercase tracking-widest leading-none">
+                      Identity Locked
+                    </h3>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight mt-1">
+                      Walled Garden Security
+                    </p>
+                  </div>
+                  <Badge className="bg-primary text-primary-foreground border-none text-[9px] font-black uppercase px-2 py-0.5 rounded-full">
+                    Restricted
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Content aligned to the 52px gutter (10px avatar + 12px gap = 52px offset) */}
+            <div className="mt-4 pl-[52px]">
+              <div className="mb-4">
+                <p className="text-neutral-800 text-[14px] leading-relaxed font-medium">
+                  {activeTab === "company"
+                    ? "Verify your professional identity to enter your private company feed and discuss office insights safely."
+                    : "Only Admin posts are visible here. Verify your account to unlock peer discussions, referrals, and housing leads in your city."}
+                </p>
+              </div>
+
+              <Button
+                onClick={() => setIsVerifyModalOpen(true)}
+                className="rounded-full px-8 h-10 bg-primary hover:opacity-90 text-primary-foreground font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-md"
+              >
+                Verify Now to Unlock
+              </Button>
+
+              <div className="mt-4 pt-4 border-t border-neutral-50 flex items-center gap-2 opacity-40">
+                <ShieldCheck className="h-3 w-3 text-muted-foreground" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                  Verified Professionals Only
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
-          {posts.length === 0 ? (
+          {user?.is_verified && posts.length === 0 ? (
             <div className="bg-white border border-neutral-200 rounded-xl p-12 text-center shadow-sm">
               <div className="text-4xl mb-4">💬</div>
               <h3 className="text-lg font-bold text-neutral-900 mb-2">
                 No posts here yet
               </h3>
-              <p className="text-sm text-neutral-500 max-w-xs mx-auto">
+              <div className="text-sm text-neutral-500 max-w-xs mx-auto">
                 {searchQuery
                   ? `No matches for "${searchQuery}" in your ${activeTab} feed.`
                   : `Be the first to share something with your ${activeTab} community.`}
-              </p>
+                {loading && (
+                  <div className="flex items-center justify-center bg-neutral-50">
+                    <p className="text-neutral-600 font-medium">
+                      Loading your feed...
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <>
@@ -326,7 +414,7 @@ export default function FeedPage() {
                 >
                   <PostCard
                     post={post}
-                    currentUserId={user.id}
+                    currentUserId={user?.id}
                     onReply={handleReply}
                     onReport={handleReport}
                     onPostUpdated={() =>
@@ -338,12 +426,13 @@ export default function FeedPage() {
                         searchQuery
                       )
                     }
+                    isVerifiedUser={user?.is_verified}
                   />
                   {activeReplyPostId === post.id && (
                     <div className="mt-1">
                       <CommentForm
                         postId={post.id}
-                        userId={user.id}
+                        userId={user?.id}
                         onCommentAdded={handleCommentAdded}
                       />
                     </div>
@@ -372,12 +461,19 @@ export default function FeedPage() {
         </div>
       </div>
 
+      <VerificationModal
+        isOpen={isVerifyModalOpen}
+        onClose={() => setIsVerifyModalOpen(false)}
+        user={user}
+        onVerified={() => window.location.reload()}
+      />
+
       <ReportDialog
         open={reportDialogOpen}
         onOpenChange={setReportDialogOpen}
         postId={reportTarget.postId}
         commentId={reportTarget.commentId}
-        userId={user.id}
+        userId={user?.id}
       />
     </div>
   );
