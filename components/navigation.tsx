@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Shield, User, MessageCircle } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -57,7 +57,7 @@ export function Navigation() {
         city, 
         is_admin,
         company:companies(name)
-      `
+      `,
         )
         .eq("id", authUser.id)
         .maybeSingle();

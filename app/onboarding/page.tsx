@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, MapPin } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import { INDIAN_CITIES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner"; // Assuming you use sonner or similar for toasts

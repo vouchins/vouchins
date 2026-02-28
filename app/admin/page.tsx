@@ -6,7 +6,7 @@ import { Navigation } from "@/components/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ShieldCheck, Clock, Flag, AlertTriangle, Users } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import { AdminStats } from "@/components/admin/admin-stats";
 import { UsersTab } from "@/components/admin/users-tab";
 import { WaitlistTab } from "@/components/admin/waitlist-tab";
@@ -72,7 +72,7 @@ export default function AdminPage() {
         *,
         reporter:users!reports_reporter_id_fkey(first_name, email),
         post:posts(id, text, user:users!posts_user_id_fkey(first_name, email))
-      `
+      `,
       )
       .order("created_at", { ascending: false });
     setReports(data || []);
@@ -82,7 +82,7 @@ export default function AdminPage() {
     const { data } = await supabase
       .from("posts")
       .select(
-        `*, user:users!posts_user_id_fkey(first_name, email, company:companies(name))`
+        `*, user:users!posts_user_id_fkey(first_name, email, company:companies(name))`,
       )
       .eq("is_flagged", true)
       .eq("is_removed", false)
@@ -104,7 +104,7 @@ export default function AdminPage() {
     personal_email,
     linkedin_url
   )
-`
+`,
       )
 
       .order("created_at", { ascending: false });
@@ -135,7 +135,7 @@ export default function AdminPage() {
       onboarded, 
       created_at, 
       company:companies(name)
-    `
+    `,
       )
       .order("created_at", { ascending: false });
     setAllUsers(data || []);
@@ -144,7 +144,7 @@ export default function AdminPage() {
   // --- Global Handlers (Passed to children) ---
   const handleReviewReport = async (
     reportId: string,
-    status: "reviewed" | "dismissed"
+    status: "reviewed" | "dismissed",
   ) => {
     const { error } = await supabase
       .from("reports")
@@ -213,7 +213,7 @@ export default function AdminPage() {
     waitlistId: string,
     action: "approve" | "reject",
     notes: string,
-    domain?: string
+    domain?: string,
   ) => {
     if (action === "reject" && !confirm("Reject this applicant?")) return;
     try {
@@ -243,10 +243,10 @@ export default function AdminPage() {
   }
 
   const pendingWaitlistCount = waitlist.filter(
-    (w) => w.status === "pending"
+    (w) => w.status === "pending",
   ).length;
   const pendingReportsCount = reports.filter(
-    (r) => r.status === "pending"
+    (r) => r.status === "pending",
   ).length;
 
   return (

@@ -12,7 +12,6 @@ import {
   extractDomainFromEmail,
   validateFirstName,
 } from "@/lib/auth/validation";
-import { supabase } from "@/lib/supabase/client";
 import posthog from "posthog-js";
 
 export default function SignupPage() {
@@ -55,55 +54,57 @@ export default function SignupPage() {
     setLoading(true);
     setError("");
 
-    const supabaseProvider =
-      provider === "linkedin" ? "linkedin_oidc" : "google";
-
-    const scopes = provider === "linkedin" ? "openid profile email" : undefined;
-
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: supabaseProvider,
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-          scopes: scopes,
-          skipBrowserRedirect: false,
-        },
+      const supabaseProvider =
+        provider === "linkedin" ? "linkedin_oidc" : "google";
+
+      const res = await fetch("/api/auth/oauth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: supabaseProvider }),
       });
 
-      if (error) throw error;
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error);
+      }
+
+      window.location.href = data.url;
     } catch (err: any) {
-      setError(err.message || "An error occurred during social signup.");
+      setError(err.message || "Social signup failed.");
       setLoading(false);
     }
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!passwordsMatch) {
       setError("Passwords do not match");
       return;
     }
+
     setError("");
     setLoading(true);
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.toLowerCase().trim(),
-        password,
-        options: { data: { first_name: firstName } },
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.toLowerCase().trim(),
+          password,
+          first_name: firstName,
+        }),
       });
 
-      if (signUpError) throw signUpError;
+      const data = await res.json();
 
-      if (data.user) {
-        await supabase.from("users").insert({
-          id: data.user.id,
-          email: email.toLowerCase().trim(),
-          first_name: firstName,
-          is_verified: false,
-          onboarded: false,
-        });
+      if (!res.ok) {
+        throw new Error(data.error);
       }
+
       router.push("/onboarding");
     } catch (err: any) {
       setError(err.message || "Failed to create account.");

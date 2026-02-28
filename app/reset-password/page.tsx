@@ -14,7 +14,7 @@ import {
   EyeOff,
   ShieldCheck,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import { validatePassword } from "@/lib/auth/password";
 import Image from "next/image";
 

@@ -8,7 +8,7 @@ import { PostCard } from "@/components/post-card";
 import { CommentForm } from "@/components/comment-form";
 import { ReportDialog } from "@/components/report-dialog";
 import { FeedSearch } from "@/components/feed-search";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import {
   MapPin,
   Building2,
@@ -66,7 +66,7 @@ export default function FeedPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [activeReplyPostId, setActiveReplyPostId] = useState<string | null>(
-    null
+    null,
   );
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
@@ -80,7 +80,7 @@ export default function FeedPage() {
       tab: FeedTab,
       category: string,
       pageNum: number = 0,
-      queryStr: string = ""
+      queryStr: string = "",
     ) => {
       if (!currentUser) return;
       // Gating Logic: If unverified and accessing Company tab, stop
@@ -96,7 +96,7 @@ export default function FeedPage() {
       let query = supabase
         .from("posts")
         .select(
-          `*, user:users!posts_user_id_fkey!inner(id, first_name, city, is_admin, company_id, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, first_name))`
+          `*, user:users!posts_user_id_fkey!inner(id, first_name, city, is_admin, company_id, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, first_name))`,
         )
 
         .eq("is_removed", false)
@@ -143,7 +143,7 @@ export default function FeedPage() {
       }
       setHasMore(newPosts.length === POSTS_PER_PAGE);
     },
-    []
+    [],
   );
 
   const handleSearch = (q: string) => {
@@ -423,7 +423,7 @@ export default function FeedPage() {
                         activeTab,
                         activeCategory,
                         0,
-                        searchQuery
+                        searchQuery,
                       )
                     }
                     isVerifiedUser={user?.is_verified}

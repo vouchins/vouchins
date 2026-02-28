@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import MessageInput from "@/components/message-input";
 import { Navigation } from "@/components/navigation";
 
@@ -30,7 +30,7 @@ export default function ConversationPage() {
         .from("messages")
         .select("*")
         .or(
-          `and(sender_id.eq.${user.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${user.id})`
+          `and(sender_id.eq.${user.id},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${user.id})`,
         )
         .order("created_at");
 
@@ -62,7 +62,8 @@ export default function ConversationPage() {
     if (!container) return;
 
     const isNearBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      120;
 
     if (isNearBottom) {
       container.scrollTop = container.scrollHeight;
@@ -124,9 +125,7 @@ export default function ConversationPage() {
                 <div
                   key={msg.id}
                   className={`flex ${
-                    msg.sender_id === me?.id
-                      ? "justify-end"
-                      : "justify-start"
+                    msg.sender_id === me?.id ? "justify-end" : "justify-start"
                   }`}
                 >
                   <div

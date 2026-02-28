@@ -23,7 +23,7 @@ import {
   ImageIcon,
   Plus,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import { CATEGORIES } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
 
@@ -90,7 +90,7 @@ export function PostCard({
 
   // --- NEW: IMAGE EDITING STATE ---
   const [editedImages, setEditedImages] = useState<string[]>(
-    post.image_urls || []
+    post.image_urls || [],
   );
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [newPreviews, setNewPreviews] = useState<string[]>([]);
@@ -332,7 +332,7 @@ export function PostCard({
                       <button
                         onClick={() =>
                           setEditedImages(
-                            editedImages.filter((_, i) => i !== index)
+                            editedImages.filter((_, i) => i !== index),
                           )
                         }
                         className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-red-500"

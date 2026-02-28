@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase/browser";
 
 interface CommentFormProps {
   postId: string;
@@ -18,23 +18,23 @@ export function CommentForm({
   userId,
   onCommentAdded,
 }: CommentFormProps) {
-  const [text, setText] = useState('');
+  const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     if (!text.trim()) {
-      setError('Please enter a comment');
+      setError("Please enter a comment");
       setLoading(false);
       return;
     }
 
     try {
-      const { error: insertError } = await supabase.from('comments').insert({
+      const { error: insertError } = await supabase.from("comments").insert({
         post_id: postId,
         user_id: userId,
         text: text.trim(),
@@ -42,10 +42,10 @@ export function CommentForm({
 
       if (insertError) throw insertError;
 
-      setText('');
+      setText("");
       onCommentAdded();
     } catch (err: any) {
-      setError(err.message || 'Failed to add comment');
+      setError(err.message || "Failed to add comment");
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ export function CommentForm({
         <div className="flex items-center justify-between">
           <p className="text-xs text-neutral-500">{text.length}/1000</p>
           <Button type="submit" size="sm" disabled={loading}>
-            {loading ? 'Posting...' : 'Reply'}
+            {loading ? "Posting..." : "Reply"}
           </Button>
         </div>
       </form>

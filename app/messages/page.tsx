@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
@@ -71,7 +71,7 @@ export default function MessagesPage() {
           is_read,
           sender:users!messages_sender_id_fkey(id, first_name),
           receiver:users!messages_receiver_id_fkey(id, first_name)
-        `
+        `,
         )
         .or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`)
         .order("created_at", { ascending: false });

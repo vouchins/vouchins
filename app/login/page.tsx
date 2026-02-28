@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Eye, EyeOff, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
 import Image from "next/image";
 
 export default function LoginPage() {
@@ -21,26 +20,34 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     setError("");
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+    const res = await fetch("/api/auth/oauth", {
+      method: "POST",
+      body: JSON.stringify({ provider: "google" }),
     });
-    if (authError) setError(authError.message);
+
+    const data = await res.json();
+
+    if (data.error) {
+      setError(data.error);
+    } else {
+      window.location.href = data.url;
+    }
   };
 
   const handleLinkedInLogin = async () => {
     setError("");
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "linkedin_oidc", // Note: Use linkedin_oidc for the modern OpenID flow
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        // Optional: Request specific scopes if needed
-        scopes: "openid profile email",
-      },
+    const res = await fetch("/api/auth/oauth", {
+      method: "POST",
+      body: JSON.stringify({ provider: "linkedin_oidc" }),
     });
-    if (authError) setError(authError.message);
+
+    const data = await res.json();
+
+    if (data.error) {
+      setError(data.error);
+    } else {
+      window.location.href = data.url;
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -49,40 +56,24 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword(
-        {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           email: email.trim().toLowerCase(),
           password,
-        },
-      );
+        }),
+      });
 
-      if (authError) {
-        if (authError.message.includes("provider")) {
-          setError(
-            "This account is linked with Google. Please Sign in with Google.",
-          );
-        } else {
-          throw authError;
-        }
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error);
       }
 
-      if (data.user) {
-        const { data: userData } = await supabase
-          .from("users")
-          .select("onboarded")
-          .eq("id", data.user.id)
-          .single();
-
-        router.push(userData?.onboarded ? "/feed" : "/onboarding");
-      }
+      router.push("/feed");
     } catch (err: any) {
-      if (err.message.includes("Invalid login credentials")) {
-        setError(
-          "Invalid email or password. If you signed up with Google or Linkedin, please use the button above.",
-        );
-      } else {
-        setError(err.message || "Failed to log in. Please try again.");
-      }
+      setError(err.message || "Login failed");
     } finally {
       setLoading(false);
     }

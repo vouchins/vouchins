@@ -1,6 +1,6 @@
 'use server';
 
-import { supabase } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/browser';
 import { cookies } from 'next/headers';
 
 export async function getSession() {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
 
 export default function MessageInput({
@@ -38,9 +38,7 @@ export default function MessageInput({
       .gte("created_at", oneHourAgo);
 
     if ((hourlyCount ?? 0) >= 5) {
-      alert(
-        "You’ve reached the hourly message limit. Please try again later."
-      );
+      alert("You’ve reached the hourly message limit. Please try again later.");
       setLoading(false);
       return;
     }
@@ -84,10 +82,7 @@ export default function MessageInput({
         }}
       />
 
-      <Button
-        onClick={handleSend}
-        disabled={loading || !text.trim()}
-      >
+      <Button onClick={handleSend} disabled={loading || !text.trim()}>
         Send
       </Button>
     </div>

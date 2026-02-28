@@ -29,7 +29,7 @@ import {
   ShieldCheck,
   Building2,
 } from "lucide-react";
-import { supabase } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/browser";
 import { CATEGORIES } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
 import filter from "leo-profanity";
@@ -79,7 +79,7 @@ export function CreatePostDialog({
     const files = Array.from(e.target.files || []);
     if (selectedFiles.length + files.length > 3) {
       alert(
-        "Vouchins allows a maximum of 3 images per post to keep the feed clean."
+        "Vouchins allows a maximum of 3 images per post to keep the feed clean.",
       );
       return;
     }
@@ -169,7 +169,7 @@ export function CreatePostDialog({
       if (!user?.is_admin) {
         const { data: canPost, error: fnError } = await supabase.rpc(
           "can_create_post",
-          { uid: user?.id }
+          { uid: user?.id },
         );
         if (fnError) throw new Error("Unable to verify posting limits.");
         if (!canPost) {
