@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,24 @@ export default function ResetPasswordPage() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  useEffect(() => {
+    // This listener catches the session from the URL hash automatically
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        console.log("Password recovery session established");
+      }
+
+      // If there is no session and no hash in URL, redirect them away
+      if (!session && !window.location.hash) {
+        setStatus({ type: "error", text: "Invalid or expired reset link." });
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Use your existing validation utility
   const validation = useMemo(() => validatePassword(password), [password]);

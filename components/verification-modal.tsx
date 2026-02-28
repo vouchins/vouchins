@@ -255,7 +255,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
               <Button
                 className="w-full h-14 rounded-2xl bg-primary font-bold"
                 onClick={handleVerifyOtp}
-                disabled={loading}
+                disabled={loading || otp.length !== 6}
               >
                 {loading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -328,7 +328,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
                       "relative h-28 rounded-[1.5rem] border-2 border-dashed flex flex-col items-center justify-center transition-all",
                       selectedFile
                         ? "border-primary/20 bg-primary/[0.02]"
-                        : "border-neutral-100 bg-neutral-50/50 hover:bg-neutral-50"
+                        : "border-neutral-100 bg-neutral-50/50 hover:bg-neutral-50",
                     )}
                   >
                     {!selectedFile ? (

@@ -35,7 +35,7 @@ interface WaitlistTabProps {
     id: string,
     action: "approve" | "reject",
     notes: string,
-    domain?: string
+    domain?: string,
   ) => Promise<void>;
 }
 
@@ -195,10 +195,13 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
                       entry.id,
                       "approve",
                       notes[entry.id] || "",
-                      domain[entry.id] || ""
+                      domain[entry.id] || "",
                     );
                   }}
                   className="flex-1 sm:flex-none px-8"
+                  disabled={
+                    !domain[entry.id] || !isValidDomain(domain[entry.id])
+                  }
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" /> Approve
                 </Button>
