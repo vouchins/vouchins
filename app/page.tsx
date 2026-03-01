@@ -108,6 +108,16 @@ export default function Home() {
 
           <div className="container mx-auto px-4 max-w-5xl text-center relative z-10">
             {/* Floating Badge */}
+            <div className="inline-flex items-center gap-2 px-4 py-2  border border-neutral-100 text-primary text-xs md:text-sm font-bold mb-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+              <div className="flex -space-x-2 mr-1">
+                <div className="bg-yellow-50 border-b border-yellow-200 text-yellow-800 text-sm px-4 py-3 text-center">
+                  ⚠️ Notice: Some users on certain Indian networks may
+                  experience login issues due to temporary ISP restrictions
+                  affecting our authentication provider. We are monitoring the
+                  situation.
+                </div>
+              </div>
+            </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white shadow-[0_2px_15px_-3px_rgba(0,0,0,0.07),0_10px_20px_-2px_rgba(0,0,0,0.04)] border border-neutral-100 text-primary text-xs md:text-sm font-bold mb-10 animate-in fade-in slide-in-from-bottom-4 duration-1000">
               <div className="flex -space-x-2 mr-1">
                 {[1, 2, 3].map((i) => (

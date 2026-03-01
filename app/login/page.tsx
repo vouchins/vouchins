@@ -117,6 +117,13 @@ export default function LoginPage() {
               Welcome back
             </h1>
             <p className="text-neutral-600">Log in to your Vouchins account</p>
+            <div className="flex -space-x-2 mr-1">
+              <div className="bg-yellow-50 border-b border-yellow-200 text-yellow-800 text-sm px-4 py-3 text-center">
+                ⚠️ Notice: Some users on certain Indian networks may experience
+                login issues due to temporary ISP restrictions affecting our
+                authentication provider. We are monitoring the situation.
+              </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-[var(--radius)] border border-neutral-200 p-8 shadow-sm">

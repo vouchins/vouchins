@@ -127,6 +127,13 @@ export default function SignupPage() {
           <h1 className="text-3xl font-semibold text-neutral-900 mb-2">
             Create your account
           </h1>
+          <div className="flex -space-x-2 mr-1">
+            <div className="bg-yellow-50 border-b border-yellow-200 text-yellow-800 text-sm px-4 py-3 text-center">
+              ⚠️ Notice: Some users on certain Indian networks may experience
+              login issues due to temporary ISP restrictions affecting our
+              authentication provider. We are monitoring the situation.
+            </div>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg border border-neutral-200 p-8 shadow-sm">
