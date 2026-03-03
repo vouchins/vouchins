@@ -133,7 +133,7 @@ export function MobileNav({
 
         {/* 2. Company Feed */}
         <button
-          onClick={() => router.push("/company")}
+          onClick={() => setActiveTab("company")}
           className={cn(
             "flex flex-col items-center gap-1 min-w-[64px]",
             pathname === "/company" ? "text-primary" : "text-neutral-500",
