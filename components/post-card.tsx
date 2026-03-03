@@ -285,7 +285,7 @@ export function PostCard({
       )} */}
 
       {/* Content */}
-      <div className="mb-4 pl-[52px]">
+      <div className="mb-4">
         <div className="flex gap-2 mb-2">
           <Badge
             variant="secondary"
@@ -421,7 +421,7 @@ export function PostCard({
       {!isEditing && post.image_urls && post.image_urls.length > 0 && (
         <PhotoProvider>
           <div
-            className={`mt-3 gap-2 ml-[52px] grid ${
+            className={`mt-3 gap-2 grid ${
               post.image_urls.length > 1 ? "grid-cols-2" : "grid-cols-1"
             }`}
           >
@@ -450,7 +450,7 @@ export function PostCard({
       )}
 
       {/* Footer Actions */}
-      <div className="flex items-center gap-1 pt-2 border-t border-neutral-50 ml-[52px] overflow-x-auto whitespace-nowrap no-scrollbar">
+      <div className="flex items-center gap-1 pt-2 border-t border-neutral-50 overflow-x-auto whitespace-nowrap no-scrollbar">
         <Button
           variant="ghost"
           size="sm"

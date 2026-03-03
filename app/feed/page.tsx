@@ -1,70 +1,36 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { CreatePostDialog } from "@/components/create-post-dialog";
 import { PostCard } from "@/components/post-card";
 import { CommentForm } from "@/components/comment-form";
 import { ReportDialog } from "@/components/report-dialog";
-import { FeedSearch } from "@/components/feed-search";
 import { supabase } from "@/lib/supabase/browser";
-import {
-  MapPin,
-  Building2,
-  Loader2,
-  X,
-  Lock,
-  ShieldCheck,
-  Badge,
-} from "lucide-react";
+import { MapPin, Building2, Loader2, Lock, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { VerificationModal } from "@/components/verification-modal"; // Verified Import
+import { VerificationModal } from "@/components/verification-modal";
 import { cn } from "@/lib/utils";
+import { BlurredPostCard } from "@/components/blurred-post-card";
+import { RightSidebar } from "./side-bars/right/right-sidebar";
+import { MobileNav } from "@/components/mobile-nav";
+import { Suspense } from "react";
 
-interface Post {
-  id: string;
-  text: string;
-  category: "housing" | "buy_sell" | "recommendations";
-  housing_type?: "flatmates" | "rentals" | "sale" | "pg" | null;
-  visibility: "company" | "all";
-  image_urls: string[];
-  is_flagged: boolean;
-  flag_reasons: string[];
-  created_at: string;
-  user: {
-    id: string;
-    first_name: string;
-    city: string;
-    is_admin: boolean;
-
-    company: {
-      name: string;
-      domain: string;
-    };
-  };
-  comments?: any[];
-}
-
-type FeedTab = "city" | "company";
-
-const POSTS_PER_PAGE = 50;
-
-export default function FeedPage() {
+function FeedContent() {
   const router = useRouter();
   const isInitialMount = useRef(true);
 
   const [user, setUser] = useState<any>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<FeedTab>("city");
+  const [activeTab, setActiveTab] = useState<"city" | "company">("city");
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
-
   const [activeReplyPostId, setActiveReplyPostId] = useState<string | null>(
     null,
   );
@@ -74,108 +40,72 @@ export default function FeedPage() {
     commentId?: string;
   }>({});
 
+  //Search related state and effect
+  const searchParams = useSearchParams();
+  const queryStr = searchParams.get("q") || "";
+  useEffect(() => {
+    if (queryStr) {
+      // Reset the UI state so the sidebar correctly shows "# all" as active
+      setActiveCategory("all");
+      setPage(0);
+    }
+  }, [queryStr]);
+  useEffect(() => {
+    // Now every time the URL changes via the header search,
+    // this effect re-runs and calls fetchPosts automatically.
+    if (user) {
+      const categoryToUse = queryStr ? "all" : activeCategory;
+      fetchPosts(user, activeTab, categoryToUse, 0, queryStr);
+      setPage(0); // Reset pagination on new search
+    }
+  }, [user, activeTab, activeCategory, queryStr]);
+
   const fetchPosts = useCallback(
     async (
       currentUser: any,
-      tab: FeedTab,
+      tab: "city" | "company",
       category: string,
       pageNum: number = 0,
       queryStr: string = "",
     ) => {
       if (!currentUser) return;
-      // Gating Logic: If unverified and accessing Company tab, stop
-      if (!currentUser.is_verified && tab === "company") {
-        setPosts([]);
-        setHasMore(false);
-        return;
-      }
 
-      const from = pageNum * POSTS_PER_PAGE;
-      const to = from + POSTS_PER_PAGE - 1;
-
-      let query = supabase
-        .from("posts")
-        .select(
-          `*, user:users!posts_user_id_fkey!inner(id, first_name, city, is_admin, company_id, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, first_name))`,
-        )
-
-        .eq("is_removed", false)
-        .eq("user.city", currentUser.city);
-
-      if (tab === "company") {
-        query = query
-          .eq("visibility", "company")
-          .eq("user.company_id", currentUser.company_id);
-      } else {
-        query = query.eq("visibility", "all");
-        // Walled Garden: Unverified users only see Admin/Announcements
-        if (!currentUser.is_verified) {
-          query = query.eq("user.is_admin", true);
-        }
-      }
-
-      if (category !== "all") {
-        query = query.eq("category", category);
-      }
-
-      // Integrated Text Search using the GIN index
-      if (queryStr.trim()) {
-        query = query.textSearch("text", queryStr, {
-          config: "english",
-          type: "websearch",
+      try {
+        // Build the URL with search params
+        const params = new URLSearchParams({
+          tab,
+          category,
+          page: pageNum.toString(),
+          query: queryStr,
         });
-      }
 
-      const { data, error } = await query
-        .order("created_at", { ascending: false })
-        .range(from, to);
+        const response = await fetch(
+          `/api/posts/get-posts?${params.toString()}`,
+        );
+        const result = await response.json();
 
-      if (error) {
-        console.error("Error fetching feed:", error);
-        return;
-      }
+        if (result.error) throw new Error(result.error);
 
-      const newPosts = data || [];
-      if (pageNum === 0) {
-        setPosts(newPosts);
-      } else {
-        setPosts((prev) => [...prev, ...newPosts]);
+        if (pageNum === 0) {
+          setPosts(result.posts);
+        } else {
+          setPosts((prev) => [...prev, ...result.posts]);
+        }
+
+        setHasMore(result.hasMore);
+      } catch (error) {
+        console.error("Failed to fetch posts:", error);
       }
-      setHasMore(newPosts.length === POSTS_PER_PAGE);
     },
     [],
   );
-
-  const handleSearch = (q: string) => {
-    setSearchQuery(q);
-    setPage(0);
-    fetchPosts(user, activeTab, activeCategory, 0, q);
-  };
-
-  const handleLoadMore = async () => {
-    setLoadingMore(true);
-    const nextPage = page + 1;
-    await fetchPosts(user, activeTab, activeCategory, nextPage, searchQuery);
-    setPage(nextPage);
-    setLoadingMore(false);
-  };
-
-  const resetAndFetch = async (tab: FeedTab, category: string) => {
-    setLoading(true);
-    setPage(0);
-    await fetchPosts(user, tab, category, 0, searchQuery);
-    setLoading(false);
-  };
 
   useEffect(() => {
     const initPage = async () => {
       const {
         data: { user: authUser },
       } = await supabase.auth.getUser();
-      if (!authUser) {
-        router.push("/login");
-        return;
-      }
+      if (!authUser) return router.push("/login");
 
       const { data: userData } = await supabase
         .from("users")
@@ -196,50 +126,64 @@ export default function FeedPage() {
     initPage();
   }, [router, activeTab, activeCategory, fetchPosts]);
 
-  useEffect(() => {
-    if (isInitialMount.current || loading) return;
-    resetAndFetch(activeTab, activeCategory);
-  }, [activeTab, activeCategory]);
-
-  const handleReply = (postId: string) =>
-    setActiveReplyPostId(activeReplyPostId === postId ? null : postId);
-  const handleReport = (postId: string) => {
-    setReportTarget({ postId });
-    setReportDialogOpen(true);
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    await fetchPosts(user, activeTab, activeCategory, nextPage, searchQuery);
+    setPage(nextPage);
+    setLoadingMore(false);
   };
-  const handleCommentAdded = () =>
-    fetchPosts(user, activeTab, activeCategory, 0, searchQuery);
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      <Navigation />
+    <div className="min-h-screen bg-[#F8F9FB]">
+      <Suspense fallback={<div className="h-16 border-b bg-white" />}>
+        <Navigation />
+      </Suspense>
 
-      <div className="sticky top-0 z-10 bg-white border-b border-neutral-200">
-        <div className="container mx-auto max-w-3xl flex">
+      {/* Horizontal Scroll for Filters on Mobile */}
+      <div className="sticky top-14 z-30 flex gap-2 overflow-x-auto bg-white p-3 no-scrollbar lg:hidden border-b border-neutral-100">
+        {["All", "Recommendations", "Housing", "Buy & Sell"].map((tab) => (
+          <button
+            key={tab}
+            className={cn(
+              "whitespace-nowrap rounded-full bg-neutral-100 px-4 py-1.5 text-xs font-bold text-neutral-700 active:bg-primary active:text-white",
+              activeCategory === tab.toLowerCase().replace(" & ", "_") &&
+                "bg-primary text-white",
+            )}
+            onClick={() =>
+              setActiveCategory(tab.toLowerCase().replace(" & ", "_"))
+            }
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="container mx-auto max-w-7xl flex gap-8 p-4 lg:p-8">
+        {/* --- LEFT SIDEBAR (The Navigation) --- */}
+        <aside className="hidden lg:flex w-64 flex-col gap-2 sticky top-24 h-fit">
           <button
             onClick={() => setActiveTab("city")}
-            className={`flex-1 py-4 text-sm font-semibold transition-all border-b-2 flex items-center justify-center gap-2 ${
+            className={cn(
+              "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
               activeTab === "city"
-                ? "border-primary text-primary"
-                : "border-transparent text-neutral-500 hover:text-neutral-700"
-            }`}
+                ? "bg-white shadow-sm text-primary ring-1 ring-black/5"
+                : "text-neutral-500 hover:bg-neutral-200/50",
+            )}
           >
-            <MapPin className="h-4 w-4" />
-            {user?.city || "My City"}
+            <MapPin className="h-4 w-4" /> {user?.city || "My City"}
           </button>
 
           <button
             onClick={() => setActiveTab("company")}
-            className={`flex-1 py-4 text-sm font-semibold transition-all border-b-2 flex items-center justify-center gap-2 ${
+            className={cn(
+              "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all relative group",
               activeTab === "company"
-                ? "border-primary text-primary"
-                : "border-transparent text-neutral-500 hover:text-neutral-700"
-            }`}
-          >
-            {!user?.is_verified && (
-              <Lock className="h-4 w-4 text-neutral-800" />
+                ? "bg-white shadow-sm text-primary ring-1 ring-black/5"
+                : "text-neutral-500 hover:bg-neutral-200/50",
             )}
-            <div className="h-5 w-5 rounded bg-neutral-50 flex items-center justify-center overflow-hidden border border-neutral-100">
+          >
+            <div className="h-5 w-5 rounded bg-neutral-100 flex items-center justify-center overflow-hidden">
               {user?.company?.domain ? (
                 <img
                   src={`https://www.google.com/s2/favicons?domain=${user?.company.domain}&sz=32`}
@@ -250,215 +194,172 @@ export default function FeedPage() {
                 <Building2 className="h-3 w-3 text-neutral-400" />
               )}
             </div>
-            {user?.company?.name || "My Company"}
+            <span className="truncate">{user?.company?.name || "Company"}</span>
+            {!user?.is_verified && (
+              <Lock className="h-3 w-3 ml-auto text-neutral-400 group-hover:text-primary" />
+            )}
           </button>
-        </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-6 max-w-3xl">
-        <div className="mb-6 space-y-4">
+          <hr className="my-4 border-neutral-200" />
+
+          <div className="px-4 py-2">
+            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-4">
+              Marketplace
+            </p>
+            <div className="space-y-1">
+              {["all", "recommendations", "housing", "buy_sell"].map((id) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveCategory(id)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-lg text-[13px] font-bold transition-all",
+                    activeCategory === id
+                      ? "bg-primary/5 text-primary"
+                      : "text-neutral-500 hover:text-neutral-800",
+                  )}
+                >
+                  # {id.replace("_", " & ")}
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+        {/* --- MAIN FEED --- */}
+        <main className="flex-1 max-w-2xl mx-auto w-full space-y-6">
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-foreground truncate">
               {activeTab === "city"
                 ? `Feed in ${user?.city}`
-                : `Inside ${user?.company?.name || "Your Company"}`}
+                : `Inside ${user?.company?.name}`}
             </h2>
             <CreatePostDialog
               user={user}
-              onPostCreated={() =>
-                fetchPosts(user, activeTab, activeCategory, 0, searchQuery)
-              }
+              onPostCreated={() => fetchPosts(user, activeTab, activeCategory)}
             />
           </div>
 
-          <FeedSearch onSearch={handleSearch} isSearching={loading} />
-
-          {searchQuery && (
-            <div className="flex items-center gap-2 py-1 px-3 bg-secondary rounded-lg w-fit">
-              <span className="text-xs font-medium text-primary tracking-tight">
-                Searching for: {searchQuery}
-              </span>
-              <button
-                onClick={() => handleSearch("")}
-                className="hover:text-red-500 transition-colors"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 no-scrollbar">
-          {["all", "recommendations", "housing", "buy_sell"].map((id) => (
-            <button
-              key={id}
-              onClick={() => setActiveCategory(id)}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap ${
-                activeCategory === id
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-white text-muted-foreground border-border hover:bg-secondary hover:text-foreground"
-              }`}
-            >
-              {id === "all"
-                ? "All Posts"
-                : id.charAt(0).toUpperCase() + id.slice(1).replace("_", " & ")}
-            </button>
-          ))}
-        </div>
-
-        {/* {!user?.is_verified && (
-          <div className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-all shadow-sm overflow-visible">
-            <div className="flex items-start justify-between mb-4">
-              <div className="bg-primary h-16 w-16 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 rotate-3 shadow-xl shadow-primary/20">
-                <Lock className="h-8 w-8 text-primary-foreground" />
+          {/* Locked State for Company Tab */}
+          {!user?.is_verified && activeTab === "company" ? (
+            <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center shadow-sm">
+              <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Lock className="h-8 w-8 text-primary" />
               </div>
-              <h3 className="text-2xl font-black text-foreground mb-3 uppercase tracking-tighter">
-                Walled Garden
-              </h3>
-              <p className="text-[12px] text-muted-foreground max-w-[320px] mx-auto mb-8 font-bold uppercase tracking-tight leading-relaxed">
-                {activeTab === "company"
-                  ? "Verify your professional identity to enter your private company feed."
-                  : "Only Admin posts are visible. Verify to unlock the full community feed."}
+              <h2 className="text-2xl font-black mb-2">Workspace Locked</h2>
+              <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
+                Verify your professional identity to join colleague-only
+                discussions at {user?.company?.name}.
               </p>
               <Button
-                onClick={() => setIsVerifyModalOpen(true)} // Wired up to modal
-                className="rounded-full px-12 h-12 bg-primary hover:opacity-90 text-primary-foreground font-black uppercase tracking-widest text-[11px] transition-all active:scale-95"
+                onClick={() => setIsVerifyModalOpen(true)}
+                className="rounded-full px-12 h-12 font-black uppercase tracking-widest text-[11px]"
               >
                 Verify Now
               </Button>
             </div>
-          </div>
-        )} */}
-        {!user?.is_verified && (
-          <div className="bg-white border border-neutral-200 rounded-lg p-5 mb-4 shadow-sm relative overflow-hidden transition-all hover:border-neutral-300">
-            {/* Header-style Alignment */}
-            <div className="flex items-start gap-3">
-              {/* Lock Icon in the Avatar Slot */}
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20 rotate-3">
-                <Lock
-                  className="h-5 w-5 text-primary-foreground"
-                  strokeWidth={2.5}
-                />
-              </div>
-
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-[13px] font-black text-foreground uppercase tracking-widest leading-none">
-                      Identity Locked
-                    </h3>
-                    <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight mt-1">
-                      Walled Garden Security
-                    </p>
-                  </div>
-                  <Badge className="bg-primary text-primary-foreground border-none text-[9px] font-black uppercase px-2 py-0.5 rounded-full">
-                    Restricted
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            {/* Content aligned to the 52px gutter (10px avatar + 12px gap = 52px offset) */}
-            <div className="mt-4 pl-[52px]">
-              <div className="mb-4">
-                <p className="text-neutral-800 text-[14px] leading-relaxed font-medium">
-                  {activeTab === "company"
-                    ? "Verify your professional identity to enter your private company feed and discuss office insights safely."
-                    : "Only Admin posts are visible here. Verify your account to unlock peer discussions, referrals, and housing leads in your city."}
-                </p>
-              </div>
-
-              <Button
-                onClick={() => setIsVerifyModalOpen(true)}
-                className="rounded-full px-8 h-10 bg-primary hover:opacity-90 text-primary-foreground font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-md"
-              >
-                Verify Now to Unlock
-              </Button>
-
-              <div className="mt-4 pt-4 border-t border-neutral-50 flex items-center gap-2 opacity-40">
-                <ShieldCheck className="h-3 w-3 text-muted-foreground" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
-                  Verified Professionals Only
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {user?.is_verified && posts.length === 0 ? (
-            <div className="bg-white border border-neutral-200 rounded-xl p-12 text-center shadow-sm">
-              <div className="text-4xl mb-4">💬</div>
-              <h3 className="text-lg font-bold text-neutral-900 mb-2">
-                No posts here yet
-              </h3>
-              <div className="text-sm text-neutral-500 max-w-xs mx-auto">
-                {searchQuery
-                  ? `No matches for "${searchQuery}" in your ${activeTab} feed.`
-                  : `Be the first to share something with your ${activeTab} community.`}
-                {loading && (
-                  <div className="flex items-center justify-center bg-neutral-50">
-                    <p className="text-neutral-600 font-medium">
-                      Loading your feed...
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
           ) : (
-            <>
-              {posts.map((post) => (
-                <div
-                  key={post.id}
-                  className="transition-transform active:scale-[0.99]"
-                >
-                  <PostCard
-                    post={post}
-                    currentUserId={user?.id}
-                    onReply={handleReply}
-                    onReport={handleReport}
-                    onPostUpdated={() =>
-                      fetchPosts(
-                        user,
-                        activeTab,
-                        activeCategory,
-                        0,
-                        searchQuery,
-                      )
-                    }
-                    isVerifiedUser={user?.is_verified}
-                  />
-                  {activeReplyPostId === post.id && (
-                    <div className="mt-1">
-                      <CommentForm
-                        postId={post.id}
-                        userId={user?.id}
-                        onCommentAdded={handleCommentAdded}
-                      />
+            <div className="space-y-4">
+              {!loading && posts.length === 0 ? (
+                <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-16 text-center">
+                  <div className="mb-4 flex justify-center">
+                    <div className="p-3 bg-neutral-50 rounded-full">
+                      <TrendingUp className="h-6 w-6 text-neutral-300" />
                     </div>
-                  )}
+                  </div>
+                  <h3 className="text-lg font-bold text-neutral-900">
+                    No posts yet
+                  </h3>
+                  <p className="text-neutral-500 text-sm mt-1">
+                    Be the first to share something with your{" "}
+                    {activeTab === "city" ? "city" : "colleagues"}!
+                  </p>
                 </div>
-              ))}
+              ) : (
+                posts.map((post) => {
+                  // BLURRING LOGIC:
+                  // Blur if: User is NOT verified AND the post belongs to a verified user (not admin)
+                  const shouldBlur = !user?.is_verified && !post.user?.is_admin;
 
-              {hasMore && (
-                <div className="pt-4 flex justify-center">
-                  <Button
-                    onClick={handleLoadMore}
-                    disabled={loadingMore}
-                    variant="outline"
-                    className="w-full max-w-xs"
-                  >
-                    {loadingMore ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Load More"
-                    )}
-                  </Button>
-                </div>
+                  return shouldBlur ? (
+                    <BlurredPostCard
+                      key={post.id}
+                      post={post}
+                      onVerify={() => setIsVerifyModalOpen(true)}
+                    />
+                  ) : (
+                    <div
+                      key={post.id}
+                      className="transition-transform active:scale-[0.99]"
+                    >
+                      <PostCard
+                        post={post}
+                        currentUserId={user?.id}
+                        onReply={(pid) =>
+                          setActiveReplyPostId(
+                            activeReplyPostId === pid ? null : pid,
+                          )
+                        }
+                        onReport={(pid) => {
+                          setReportTarget({ postId: pid });
+                          setReportDialogOpen(true);
+                        }}
+                        onPostUpdated={() =>
+                          fetchPosts(
+                            user,
+                            activeTab,
+                            activeCategory,
+                            0,
+                            searchQuery,
+                          )
+                        }
+                        isVerifiedUser={user?.is_verified}
+                      />
+                      {activeReplyPostId === post.id && (
+                        <div className="mt-1">
+                          <CommentForm
+                            postId={post.id}
+                            userId={user?.id}
+                            onCommentAdded={() =>
+                              fetchPosts(
+                                user,
+                                activeTab,
+                                activeCategory,
+                                0,
+                                searchQuery,
+                              )
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
-            </>
+            </div>
           )}
-        </div>
+
+          {hasMore && posts.length > 0 && (
+            <Button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              variant="outline"
+              className="w-full"
+            >
+              {loadingMore ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Load More"
+              )}
+            </Button>
+          )}
+        </main>
+        {/* NEW RIGHT SIDEBAR */}
+        <RightSidebar user={user} />
+        <MobileNav
+          user={user}
+          onOpenCreatePost={() => fetchPosts(user, activeTab, activeCategory)}
+          setActiveTab={(tab) => setActiveTab(tab)}
+        />
+        {/* Mobile Nav at the bottom */}
       </div>
 
       <VerificationModal
@@ -472,9 +373,16 @@ export default function FeedPage() {
         open={reportDialogOpen}
         onOpenChange={setReportDialogOpen}
         postId={reportTarget.postId}
-        commentId={reportTarget.commentId}
         userId={user?.id}
       />
     </div>
+  );
+}
+
+export default function FeedPage() {
+  return (
+    <Suspense fallback={<div>Loading Feed...</div>}>
+      <FeedContent />
+    </Suspense>
   );
 }
