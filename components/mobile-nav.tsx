@@ -31,6 +31,11 @@ export function MobileNav({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Internal state to track which icon is highlighted
+  const [localActiveTab, setLocalActiveTab] = useState<
+    "city" | "company" | "search" | "create"
+  >("city");
+
   // --- Search Logic from navigation.tsx ---
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
@@ -44,7 +49,7 @@ export function MobileNav({
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/feed?q=${encodeURIComponent(searchQuery.trim())}`);
-      setIsSearching(false); // Close search overlay after submitting
+      // setIsSearching(false); // Close search overlay after submitting
     } else {
       router.push("/feed");
     }
@@ -61,21 +66,6 @@ export function MobileNav({
   const companyLogoUrl = user?.company?.domain
     ? `https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=64`
     : null;
-
-  // MobileNav.tsx
-
-  const handleMobileCreate = () => {
-    // We query for the button inside our specific bridge ID
-    const trigger = document.querySelector("#desktop-post-trigger button");
-
-    if (trigger instanceof HTMLElement) {
-      // This simulates a real user click on the hidden desktop button
-      trigger.click();
-    } else {
-      // Helpful log for debugging during your YC Spring 2026 build phase
-      console.warn("Vouchins: Post trigger button not found in DOM.");
-    }
-  };
 
   return (
     <>
@@ -108,7 +98,10 @@ export function MobileNav({
             </div>
             <button
               type="button"
-              onClick={() => setIsSearching(false)}
+              onClick={() => {
+                clearSearch();
+                setIsSearching(false);
+              }}
               className="text-xs font-black text-neutral-500 uppercase px-2"
             >
               Cancel
@@ -119,10 +112,13 @@ export function MobileNav({
       <div className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-between border-t border-neutral-200 bg-white px-6 lg:hidden shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
         {/* 1. City Feed */}
         <button
-          onClick={() => setActiveTab("city")}
+          onClick={() => {
+            setLocalActiveTab("city");
+            setActiveTab("city");
+          }}
           className={cn(
             "flex flex-col items-center gap-1 min-w-[64px]",
-            pathname === "/feed" ? "text-primary" : "text-neutral-500",
+            localActiveTab === "city" ? "text-primary" : "text-neutral-500",
           )}
         >
           <MapPin className="h-5 w-5" />
@@ -133,10 +129,13 @@ export function MobileNav({
 
         {/* 2. Company Feed */}
         <button
-          onClick={() => setActiveTab("company")}
+          onClick={() => {
+            setLocalActiveTab("company");
+            setActiveTab("company");
+          }}
           className={cn(
             "flex flex-col items-center gap-1 min-w-[64px]",
-            pathname === "/company" ? "text-primary" : "text-neutral-500",
+            localActiveTab === "company" ? "text-primary" : "text-neutral-500",
           )}
         >
           {/* Icon Container */}
@@ -173,10 +172,13 @@ export function MobileNav({
 
         {/* 3. Search */}
         <button
-          onClick={() => setIsSearching(!isSearching)}
+          onClick={() => {
+            setLocalActiveTab("search");
+            setIsSearching(!isSearching);
+          }}
           className={cn(
             "flex flex-col items-center gap-1 min-w-[64px]",
-            pathname === "/feed/search" ? "text-primary" : "text-neutral-500",
+            localActiveTab === "search" ? "text-primary" : "text-neutral-500",
           )}
         >
           <Search className="h-5 w-5" />
