@@ -78,7 +78,7 @@ function FeedContent() {
           page: pageNum.toString(),
           query: queryStr,
         });
-
+        setLoading(true);
         const response = await fetch(
           `/api/posts/get-posts?${params.toString()}`,
         );
@@ -93,8 +93,10 @@ function FeedContent() {
         }
 
         setHasMore(result.hasMore);
+        setLoading(false);
       } catch (error) {
         console.error("Failed to fetch posts:", error);
+        setLoading(false);
       }
     },
     [],
@@ -132,6 +134,119 @@ function FeedContent() {
     await fetchPosts(user, activeTab, activeCategory, nextPage, searchQuery);
     setPage(nextPage);
     setLoadingMore(false);
+  };
+
+  const renderContent = () => {
+    // Scenario A: Workspace is locked
+    if (!user?.is_verified && activeTab === "company") {
+      return (
+        <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center shadow-sm">
+          <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Lock className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="text-2xl font-black mb-2">Workspace Locked</h2>
+          <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
+            Verify your professional identity to join colleague-only discussions
+            at {user?.company?.name}.
+          </p>
+          <Button
+            onClick={() => setIsVerifyModalOpen(true)}
+            className="rounded-full px-12 h-12 font-black uppercase tracking-widest text-[11px]"
+          >
+            Verify Now
+          </Button>
+        </div>
+      );
+    }
+
+    // Scenario B: Initial Loading
+    if (loading && posts.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
+          <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-4">
+            Updating Feed...
+          </p>
+        </div>
+      );
+    }
+
+    // Scenario C: No Results Found
+    if (!loading && posts.length === 0) {
+      return (
+        <div className="space-y-4">
+          <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-16 text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="p-3 bg-neutral-50 rounded-full">
+                <TrendingUp className="h-6 w-6 text-neutral-300" />
+              </div>
+            </div>
+            <h3 className="text-lg font-bold text-neutral-900">No posts yet</h3>
+            <p className="text-neutral-500 text-sm mt-1">
+              Be the first to share something with your{" "}
+              {activeTab === "city" ? "city" : "colleagues"}!
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Scenario D: Display Posts
+    return (
+      <div className="space-y-4">
+        {posts.map((post) => {
+          // BLURRING LOGIC:
+          // Blur if: User is NOT verified AND the post belongs to a verified user (not admin)
+          const shouldBlur = !user?.is_verified && !post.user?.is_admin;
+
+          return shouldBlur ? (
+            <BlurredPostCard
+              key={post.id}
+              post={post}
+              onVerify={() => setIsVerifyModalOpen(true)}
+            />
+          ) : (
+            <div
+              key={post.id}
+              className="transition-transform active:scale-[0.99]"
+            >
+              <PostCard
+                post={post}
+                currentUserId={user?.id}
+                onReply={(pid) =>
+                  setActiveReplyPostId(activeReplyPostId === pid ? null : pid)
+                }
+                onReport={(pid) => {
+                  setReportTarget({ postId: pid });
+                  setReportDialogOpen(true);
+                }}
+                onPostUpdated={() =>
+                  fetchPosts(user, activeTab, activeCategory, 0, searchQuery)
+                }
+                isVerifiedUser={user?.is_verified}
+              />
+              {activeReplyPostId === post.id && (
+                <div className="mt-1">
+                  <CommentForm
+                    postId={post.id}
+                    userId={user?.id}
+                    onCommentAdded={() =>
+                      fetchPosts(
+                        user,
+                        activeTab,
+                        activeCategory,
+                        0,
+                        searchQuery,
+                      )
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -229,8 +344,8 @@ function FeedContent() {
           <div className="flex items-center justify-between gap-4">
             <h2 className="text-xl font-bold text-foreground truncate">
               {activeTab === "city"
-                ? `Feed in ${user?.city}`
-                : `Inside ${user?.company?.name}`}
+                ? `Feed in ${user?.city || "Your city"}`
+                : `Inside ${user?.company?.name || "Your Workplace"}`}
             </h2>
             <CreatePostDialog
               user={user}
@@ -239,103 +354,7 @@ function FeedContent() {
           </div>
 
           {/* Locked State for Company Tab */}
-          {!user?.is_verified && activeTab === "company" ? (
-            <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center shadow-sm">
-              <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Lock className="h-8 w-8 text-primary" />
-              </div>
-              <h2 className="text-2xl font-black mb-2">Workspace Locked</h2>
-              <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
-                Verify your professional identity to join colleague-only
-                discussions at {user?.company?.name}.
-              </p>
-              <Button
-                onClick={() => setIsVerifyModalOpen(true)}
-                className="rounded-full px-12 h-12 font-black uppercase tracking-widest text-[11px]"
-              >
-                Verify Now
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {!loading && posts.length === 0 ? (
-                <div className="bg-white border border-dashed border-neutral-300 rounded-2xl p-16 text-center">
-                  <div className="mb-4 flex justify-center">
-                    <div className="p-3 bg-neutral-50 rounded-full">
-                      <TrendingUp className="h-6 w-6 text-neutral-300" />
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-bold text-neutral-900">
-                    No posts yet
-                  </h3>
-                  <p className="text-neutral-500 text-sm mt-1">
-                    Be the first to share something with your{" "}
-                    {activeTab === "city" ? "city" : "colleagues"}!
-                  </p>
-                </div>
-              ) : (
-                posts.map((post) => {
-                  // BLURRING LOGIC:
-                  // Blur if: User is NOT verified AND the post belongs to a verified user (not admin)
-                  const shouldBlur = !user?.is_verified && !post.user?.is_admin;
-
-                  return shouldBlur ? (
-                    <BlurredPostCard
-                      key={post.id}
-                      post={post}
-                      onVerify={() => setIsVerifyModalOpen(true)}
-                    />
-                  ) : (
-                    <div
-                      key={post.id}
-                      className="transition-transform active:scale-[0.99]"
-                    >
-                      <PostCard
-                        post={post}
-                        currentUserId={user?.id}
-                        onReply={(pid) =>
-                          setActiveReplyPostId(
-                            activeReplyPostId === pid ? null : pid,
-                          )
-                        }
-                        onReport={(pid) => {
-                          setReportTarget({ postId: pid });
-                          setReportDialogOpen(true);
-                        }}
-                        onPostUpdated={() =>
-                          fetchPosts(
-                            user,
-                            activeTab,
-                            activeCategory,
-                            0,
-                            searchQuery,
-                          )
-                        }
-                        isVerifiedUser={user?.is_verified}
-                      />
-                      {activeReplyPostId === post.id && (
-                        <div className="mt-1">
-                          <CommentForm
-                            postId={post.id}
-                            userId={user?.id}
-                            onCommentAdded={() =>
-                              fetchPosts(
-                                user,
-                                activeTab,
-                                activeCategory,
-                                0,
-                                searchQuery,
-                              )
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
+          {renderContent()}
 
           {hasMore && posts.length > 0 && (
             <Button
