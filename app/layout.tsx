@@ -1,5 +1,6 @@
 import { Footer } from "@/components/footer";
 import { PHProvider } from "@/components/PostHogProvider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import "./globals.css";
 import type { Metadata } from "next";
@@ -60,6 +61,7 @@ export default function RootLayout({
       <PHProvider>
         <body className={inter.className}>
           {children}
+          <SpeedInsights />
           <Footer />
         </body>
       </PHProvider>
