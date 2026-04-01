@@ -27,6 +27,7 @@ export async function GET(request: Request) {
   // 1. Get query parameters
   const tab = searchParams.get("tab") || "city";
   const category = searchParams.get("category") || "all";
+  const subCategory = searchParams.get("subCategory") || "all";
   const page = parseInt(searchParams.get("page") || "0");
   const queryStr = searchParams.get("query") || "";
   const limit = 50;
@@ -71,6 +72,7 @@ export async function GET(request: Request) {
 
   // Filters
   if (category !== "all") query = query.eq("category", category);
+  if (subCategory !== "all") query = query.eq("sub_category", subCategory);
   if (queryStr.trim()) query = query.textSearch("text", queryStr);
 
   const { data, error } = await query

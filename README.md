@@ -10,9 +10,9 @@ Unlike open forums or anonymous apps, every interaction on Vouchins is tied to a
 
 Professionals rely on informal office groups, internal Slack channels, or word-of-mouth for:
 
-* finding flatmates
-* buying or selling items
-* getting trusted recommendations
+- finding flatmates
+- buying or selling items
+- getting trusted recommendations
 
 These solutions **do not scale beyond a single company** and break down the moment you leave that network.
 
@@ -22,48 +22,43 @@ Vouchins extends the trust of your workplace into a **location-based, cross-comp
 
 ## Core Principles
 
-* **Verified by Default**
+- **Verified by Default**
   Only corporate email addresses are allowed. No personal email domains.
 
-* **Accountability Over Anonymity**
+- **Accountability Over Anonymity**
   Real names and company affiliation create high-signal interactions.
 
-* **Text-First, Signal-First**
+- **Text-First, Signal-First**
   No feeds optimized for engagement farming. Content over cosmetics.
 
-* **Local + Professional Context**
+- **Local + Professional Context**
   See posts from colleagues in your company and professionals in your city.
 
 ---
 
 ## Product Capabilities
 
-* **Verified Signup Flow**
+- **Verified Signup Flow**
+  - Corporate email verification
+  - Mandatory onboarding before access
 
-  * Corporate email verification
-  * Mandatory onboarding before access
+- **Structured Posting**
+  - Categories: Housing, Buy/Sell, Recommendations, Jobs
+  - Visibility controls: company-only or cross-company
 
-* **Structured Posting**
+- **Built-in Trust Controls**
+  - Database-level access control
+  - No anonymous posting
+  - Ownership-based edits and deletes
 
-  * Categories: Housing, Buy/Sell, Recommendations
-  * Visibility controls: company-only or cross-company
+- **Auto-Moderation**
+  - Posts containing broker-like language or phone numbers are automatically flagged
+  - Human review before any action
 
-* **Built-in Trust Controls**
-
-  * Database-level access control
-  * No anonymous posting
-  * Ownership-based edits and deletes
-
-* **Auto-Moderation**
-
-  * Posts containing broker-like language or phone numbers are automatically flagged
-  * Human review before any action
-
-* **Admin & Safety Tooling**
-
-  * Reported content review
-  * User activity controls
-  * No automated bans
+- **Admin & Safety Tooling**
+  - Reported content review
+  - User activity controls
+  - No automated bans
 
 ---
 
@@ -71,29 +66,25 @@ Vouchins extends the trust of your workplace into a **location-based, cross-comp
 
 This repository represents a **production-grade MVP**, optimized for correctness, security, and clarity.
 
-* **Frontend**
+- **Frontend**
+  - Next.js (App Router)
+  - TypeScript
+  - Tailwind CSS
+  - shadcn/ui
 
-  * Next.js (App Router)
-  * TypeScript
-  * Tailwind CSS
-  * shadcn/ui
+- **Backend & Data**
+  - PostgreSQL (Supabase)
+  - Row Level Security (RLS) enforced at database level
+  - Server-side privileged operations isolated
 
-* **Backend & Data**
+- **Authentication**
+  - Supabase Auth
+  - Corporate email verification
+  - No password storage outside the auth provider
 
-  * PostgreSQL (Supabase)
-  * Row Level Security (RLS) enforced at database level
-  * Server-side privileged operations isolated
-
-* **Authentication**
-
-  * Supabase Auth
-  * Corporate email verification
-  * No password storage outside the auth provider
-
-* **Deployment**
-
-  * Vercel-ready
-  * Stateless, horizontally scalable
+- **Deployment**
+  - Vercel-ready
+  - Stateless, horizontally scalable
 
 This repo intentionally avoids premature abstractions and focuses on **clean boundaries between trust, identity, and application state**.
 
@@ -101,17 +92,17 @@ This repo intentionally avoids premature abstractions and focuses on **clean bou
 
 ## Security & Trust Model
 
-* Email ownership is verified **before** account creation
-* Application permissions are enforced **in the database**, not just in code
-* Users can only access content they are entitled to
-* Sensitive flows (verification, moderation) are server-only
+- Email ownership is verified **before** account creation
+- Application permissions are enforced **in the database**, not just in code
+- Users can only access content they are entitled to
+- Sensitive flows (verification, moderation) are server-only
 
 This architecture minimizes:
 
-* spam
-* impersonation
-* privilege escalation
-* data leakage
+- spam
+- impersonation
+- privilege escalation
+- data leakage
 
 ---
 
@@ -119,15 +110,15 @@ This architecture minimizes:
 
 **This is:**
 
-* A functional MVP
-* A reference architecture for verified communities
-* Built with long-term scalability in mind
+- A functional MVP
+- A reference architecture for verified communities
+- Built with long-term scalability in mind
 
 **This is not:**
 
-* A growth-hacked consumer app
-* A fully polished product
-* A final UX or feature set
+- A growth-hacked consumer app
+- A fully polished product
+- A final UX or feature set
 
 Several features are intentionally deferred to maintain focus.
 
@@ -137,12 +128,12 @@ Several features are intentionally deferred to maintain focus.
 
 The following are deliberately excluded at this stage:
 
-* Direct messaging
-* Payments or transactions
-* Ratings / reviews
-* AI-driven recommendations
-* Mobile applications
-* Influencer or creator mechanics
+- Direct messaging
+- Payments or transactions
+- Ratings / reviews
+- AI-driven recommendations
+- Mobile applications
+- Influencer or creator mechanics
 
 The current focus is **trust density**, not feature breadth.
 
@@ -154,9 +145,9 @@ Vouchins is in active development and early validation.
 
 This repository is public to demonstrate:
 
-* product thinking
-* security discipline
-* engineering quality
+- product thinking
+- security discipline
+- engineering quality
 
 Business logic, growth strategy, and go-to-market details are intentionally kept outside the codebase.
 
@@ -164,10 +155,10 @@ Business logic, growth strategy, and go-to-market details are intentionally kept
 
 ## Documentation
 
-* 📄 **Developer Setup**: `docs/Vouchins_Developer_Setup_Guide.pdf`
-* 🏗 **Architecture**: `ARCHITECTURE.md`
-* 🔐 **Security Overview**: `SECURITY.md`
-* 🤝 **Contributing**: `CONTRIBUTING.md`
+- 📄 **Developer Setup**: `docs/Vouchins_Developer_Setup_Guide.pdf`
+- 🏗 **Architecture**: `ARCHITECTURE.md`
+- 🔐 **Security Overview**: `SECURITY.md`
+- 🤝 **Contributing**: `CONTRIBUTING.md`
 
 These documents are intentionally high-level and safe for a public repository.
 

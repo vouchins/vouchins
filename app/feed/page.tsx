@@ -16,6 +16,7 @@ import { BlurredPostCard } from "@/components/blurred-post-card";
 import { RightSidebar } from "./side-bars/right/right-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { Suspense } from "react";
+import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 
 function FeedContent() {
   const router = useRouter();
@@ -30,6 +31,7 @@ function FeedContent() {
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"city" | "company">("city");
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [activeSubCategory, setActiveSubCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeReplyPostId, setActiveReplyPostId] = useState<string | null>(
     null,
@@ -47,6 +49,7 @@ function FeedContent() {
     if (queryStr) {
       // Reset the UI state so the sidebar correctly shows "# all" as active
       setActiveCategory("all");
+      setActiveSubCategory("all");
       setPage(0);
     }
   }, [queryStr]);
@@ -55,16 +58,18 @@ function FeedContent() {
     // this effect re-runs and calls fetchPosts automatically.
     if (user) {
       const categoryToUse = queryStr ? "all" : activeCategory;
-      fetchPosts(user, activeTab, categoryToUse, 0, queryStr);
+      const subCategoryToUse = queryStr ? "all" : activeSubCategory;
+      fetchPosts(user, activeTab, categoryToUse, subCategoryToUse, 0, queryStr);
       setPage(0); // Reset pagination on new search
     }
-  }, [user, activeTab, activeCategory, queryStr]);
+  }, [user, activeTab, activeCategory, activeSubCategory, queryStr]);
 
   const fetchPosts = useCallback(
     async (
       currentUser: any,
       tab: "city" | "company",
       category: string,
+      subCategory: string,
       pageNum: number = 0,
       queryStr: string = "",
     ) => {
@@ -75,6 +80,7 @@ function FeedContent() {
         const params = new URLSearchParams({
           tab,
           category,
+          subCategory,
           page: pageNum.toString(),
           query: queryStr,
         });
@@ -121,17 +127,31 @@ function FeedContent() {
       }
 
       setUser(userData);
-      await fetchPosts(userData, activeTab, activeCategory, 0, searchQuery);
+      await fetchPosts(
+        userData,
+        activeTab,
+        activeCategory,
+        activeSubCategory,
+        0,
+        searchQuery,
+      );
       setLoading(false);
       isInitialMount.current = false;
     };
     initPage();
-  }, [router, activeTab, activeCategory, fetchPosts]);
+  }, [router, activeTab, activeCategory, activeSubCategory, fetchPosts]);
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
     const nextPage = page + 1;
-    await fetchPosts(user, activeTab, activeCategory, nextPage, searchQuery);
+    await fetchPosts(
+      user,
+      activeTab,
+      activeCategory,
+      activeSubCategory,
+      nextPage,
+      searchQuery,
+    );
     setPage(nextPage);
     setLoadingMore(false);
   };
@@ -221,7 +241,14 @@ function FeedContent() {
                   setReportDialogOpen(true);
                 }}
                 onPostUpdated={() =>
-                  fetchPosts(user, activeTab, activeCategory, 0, searchQuery)
+                  fetchPosts(
+                    user,
+                    activeTab,
+                    activeCategory,
+                    activeSubCategory,
+                    0,
+                    searchQuery,
+                  )
                 }
                 isVerifiedUser={user?.is_verified}
               />
@@ -235,6 +262,7 @@ function FeedContent() {
                         user,
                         activeTab,
                         activeCategory,
+                        activeSubCategory,
                         0,
                         searchQuery,
                       )
@@ -257,19 +285,19 @@ function FeedContent() {
 
       {/* Horizontal Scroll for Filters on Mobile */}
       <div className="sticky top-14 z-30 flex gap-2 overflow-x-auto bg-white p-3 no-scrollbar lg:hidden border-b border-neutral-100">
-        {["All", "Recommendations", "Housing", "Buy & Sell"].map((tab) => (
+        {[{ value: "all", label: "All" }, ...CATEGORIES].map((cat) => (
           <button
-            key={tab}
+            key={cat.value}
             className={cn(
               "whitespace-nowrap rounded-full bg-neutral-100 px-4 py-1.5 text-xs font-bold text-neutral-700 active:bg-primary active:text-white",
-              activeCategory === tab.toLowerCase().replace(" & ", "_") &&
-                "bg-primary text-white",
+              activeCategory === cat.value && "bg-primary text-white",
             )}
-            onClick={() =>
-              setActiveCategory(tab.toLowerCase().replace(" & ", "_"))
-            }
+            onClick={() => {
+              setActiveCategory(cat.value);
+              setActiveSubCategory("all");
+            }}
           >
-            {tab}
+            {cat.label}
           </button>
         ))}
       </div>
@@ -322,22 +350,55 @@ function FeedContent() {
               Marketplace
             </p>
             <div className="space-y-1">
-              {["all", "recommendations", "housing", "buy_sell"].map((id) => (
+              {[{ value: "all", label: "All" }, ...CATEGORIES].map((cat) => (
                 <button
-                  key={id}
-                  onClick={() => setActiveCategory(id)}
+                  key={cat.value}
+                  onClick={() => {
+                    setActiveCategory(cat.value);
+                    setActiveSubCategory("all");
+                  }}
                   className={cn(
                     "w-full text-left px-3 py-2 rounded-lg text-[13px] font-bold transition-all",
-                    activeCategory === id
+                    activeCategory === cat.value
                       ? "bg-primary/5 text-primary"
                       : "text-neutral-500 hover:text-neutral-800",
                   )}
                 >
-                  # {id.replace("_", " & ")}
+                  # {cat.label}
                 </button>
               ))}
             </div>
           </div>
+
+          {SUB_CATEGORIES[activeCategory] && (
+            <div className="px-4 py-2 mt-2 space-y-1 animate-in fade-in zoom-in duration-300">
+              <button
+                onClick={() => setActiveSubCategory("all")}
+                className={cn(
+                  "w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all",
+                  activeSubCategory === "all"
+                    ? "bg-neutral-100 text-neutral-900"
+                    : "text-neutral-400 hover:text-neutral-700",
+                )}
+              >
+                All {activeCategory}
+              </button>
+              {SUB_CATEGORIES[activeCategory].map((sub) => (
+                <button
+                  key={sub.value}
+                  onClick={() => setActiveSubCategory(sub.value)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all",
+                    activeSubCategory === sub.value
+                      ? "bg-neutral-100 text-neutral-900"
+                      : "text-neutral-400 hover:text-neutral-700",
+                  )}
+                >
+                  {sub.label}
+                </button>
+              ))}
+            </div>
+          )}
         </aside>
         {/* --- MAIN FEED --- */}
         <main className="flex-1 max-w-2xl mx-auto w-full space-y-6">
@@ -349,7 +410,16 @@ function FeedContent() {
             </h2>
             <CreatePostDialog
               user={user}
-              onPostCreated={() => fetchPosts(user, activeTab, activeCategory)}
+              onPostCreated={() =>
+                fetchPosts(
+                  user,
+                  activeTab,
+                  activeCategory,
+                  activeSubCategory,
+                  0,
+                  searchQuery,
+                )
+              }
             />
           </div>
 
@@ -375,7 +445,16 @@ function FeedContent() {
         <RightSidebar user={user} />
         <MobileNav
           user={user}
-          onOpenCreatePost={() => fetchPosts(user, activeTab, activeCategory)}
+          onOpenCreatePost={() =>
+            fetchPosts(
+              user,
+              activeTab,
+              activeCategory,
+              activeSubCategory,
+              0,
+              searchQuery,
+            )
+          }
           setActiveTab={(tab) => setActiveTab(tab)}
         />
         {/* Mobile Nav at the bottom */}

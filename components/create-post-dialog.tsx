@@ -30,7 +30,7 @@ import {
   Building2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
-import { CATEGORIES } from "@/lib/constants";
+import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
 import filter from "leo-profanity";
 
@@ -68,7 +68,7 @@ export function CreatePostDialog({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [category, setCategory] = useState<string>("");
-  const [housingType, setHousingType] = useState<string>("");
+  const [subCategory, setSubCategory] = useState<string>("");
   const [visibility, setVisibility] = useState<string>(defaultVisibility);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -153,8 +153,9 @@ export function CreatePostDialog({
       return;
     }
 
-    if (category === "housing" && !housingType) {
-      setError("Please select the housing type");
+    const availableSubCategories = SUB_CATEGORIES[category] || [];
+    if (availableSubCategories.length > 0 && !subCategory) {
+      setError("Please select a sub-category");
       setLoading(false);
       return;
     }
@@ -191,7 +192,7 @@ export function CreatePostDialog({
         user_id: user?.id,
         text: text.trim(),
         category,
-        housing_type: category === "housing" ? housingType : null,
+        sub_category: availableSubCategories.length > 0 ? subCategory : null,
         visibility,
         image_urls: uploadedUrls,
       });
@@ -210,7 +211,7 @@ export function CreatePostDialog({
       previewUrls.forEach((url) => URL.revokeObjectURL(url));
       setText("");
       setCategory("");
-      setHousingType("");
+      setSubCategory("");
       setVisibility(defaultVisibility);
       setSelectedFiles([]);
       setPreviewUrls([]);
@@ -222,6 +223,8 @@ export function CreatePostDialog({
       setLoading(false);
     }
   };
+
+  const availableSubCategories = SUB_CATEGORIES[category] || [];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -262,7 +265,13 @@ export function CreatePostDialog({
           <div className="space-y-4">
             <div>
               <Label>Category</Label>
-              <Select value={category} onValueChange={setCategory}>
+              <Select
+                value={category}
+                onValueChange={(val) => {
+                  setCategory(val);
+                  setSubCategory("");
+                }}
+              >
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
@@ -276,18 +285,19 @@ export function CreatePostDialog({
               </Select>
             </div>
 
-            {category === "housing" && (
+            {availableSubCategories.length > 0 && (
               <div>
-                <Label>Housing type</Label>
-                <Select value={housingType} onValueChange={setHousingType}>
+                <Label>Sub-category</Label>
+                <Select value={subCategory} onValueChange={setSubCategory}>
                   <SelectTrigger className="mt-1.5">
-                    <SelectValue placeholder="Select housing type" />
+                    <SelectValue placeholder="Select an option" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="flatmates">Flatmates</SelectItem>
-                    <SelectItem value="rentals">Rentals</SelectItem>
-                    <SelectItem value="sale">For Sale</SelectItem>
-                    <SelectItem value="pg">PG</SelectItem>
+                    {availableSubCategories.map((sub) => (
+                      <SelectItem key={sub.value} value={sub.value}>
+                        {sub.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

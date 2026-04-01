@@ -24,7 +24,7 @@ import {
   Plus,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
-import { CATEGORIES } from "@/lib/constants";
+import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
 
 interface PostCardProps {
@@ -32,7 +32,16 @@ interface PostCardProps {
     id: string;
     text: string;
     category: "housing" | "buy_sell" | "recommendations";
-    housing_type?: "flatmates" | "rentals" | "sale" | "pg" | null;
+    sub_category?:
+      | "flatmates"
+      | "rentals"
+      | "sale"
+      | "pg"
+      | "hiring"
+      | "seeking_referral"
+      | "offering_referral"
+      | "seeking_job"
+      | null;
     visibility: "company" | "all";
     image_urls: string[];
     is_flagged: boolean;
@@ -57,13 +66,6 @@ interface PostCardProps {
   onPostUpdated: () => void;
   onVerifyClick?: (postId: string) => void;
 }
-
-const HOUSING_TYPE_LABELS: Record<string, string> = {
-  flatmates: "Flatmates",
-  rentals: "Rental",
-  sale: "For Sale",
-  pg: "PG",
-};
 
 export function PostCard({
   post,
@@ -97,6 +99,11 @@ export function PostCard({
 
   const categoryLabel =
     CATEGORIES.find((c) => c.value === post.category)?.label || post.category;
+
+  const subCategoryLabel = post.sub_category
+    ? SUB_CATEGORIES[post.category]?.find((s) => s.value === post.sub_category)
+        ?.label
+    : null;
 
   const commentCount = post.comments?.length || 0;
 
@@ -293,13 +300,15 @@ export function PostCard({
           >
             {categoryLabel}
           </Badge>
-          {post.category === "housing" && post.housing_type && (
+          {post.sub_category && subCategoryLabel && (
             <Badge
               variant="outline"
               className="text-muted-foreground border-border text-[10px] py-0 px-2 h-5 font-medium"
             >
-              <Home className="h-2.5 w-2.5 mr-1" />
-              {HOUSING_TYPE_LABELS[post.housing_type]}
+              {post.category === "housing" && (
+                <Home className="h-2.5 w-2.5 mr-1" />
+              )}
+              {subCategoryLabel}
             </Badge>
           )}
         </div>

@@ -1,80 +1,75 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Filter, X } from 'lucide-react';
-import { CATEGORIES } from '@/lib/constants';
+} from "@/components/ui/select";
+import { Filter, X } from "lucide-react";
+import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 
 interface FilterBarProps {
   onFilterChange: (filters: {
     category?: string;
-    housingType?: string;
+    subCategory?: string;
     visibility?: string;
   }) => void;
 }
 
 export function FilterBar({ onFilterChange }: FilterBarProps) {
   const [showFilters, setShowFilters] = useState(false);
-  const [category, setCategory] = useState<string>('');
-  const [housingType, setHousingType] = useState<string>('');
-  const [visibility, setVisibility] = useState<string>('');
+  const [category, setCategory] = useState<string>("");
+  const [subCategory, setSubCategory] = useState<string>("");
+  const [visibility, setVisibility] = useState<string>("");
 
   const applyFilters = (
     nextCategory = category,
-    nextHousingType = housingType,
-    nextVisibility = visibility
+    nextSubCategory = subCategory,
+    nextVisibility = visibility,
   ) => {
     onFilterChange({
       category: nextCategory || undefined,
-      housingType:
-        nextCategory === 'housing' && nextHousingType
-          ? nextHousingType
-          : undefined,
+      subCategory: nextSubCategory || undefined,
       visibility: nextVisibility || undefined,
     });
   };
 
   const handleCategoryChange = (value: string) => {
-    const normalized = value === 'all' ? '' : value;
+    const normalized = value === "all" ? "" : value;
     setCategory(normalized);
 
-    // Reset housing sub-type if category changes
-    if (normalized !== 'housing') {
-      setHousingType('');
-    }
-
-    applyFilters(normalized, '', visibility);
+    setSubCategory("");
+    applyFilters(normalized, undefined, visibility);
   };
 
-  const handleHousingTypeChange = (value: string) => {
-    const normalized = value === 'all' ? '' : value;
-    setHousingType(normalized);
+  const handleSubCategoryChange = (value: string) => {
+    const normalized = value === "all" ? "" : value;
+    setSubCategory(normalized);
     applyFilters(category, normalized, visibility);
   };
 
   const handleVisibilityChange = (value: string) => {
-    const normalized = value === 'all' ? '' : value;
+    const normalized = value === "all" ? "" : value;
     setVisibility(normalized);
-    applyFilters(category, housingType, normalized);
+    applyFilters(category, subCategory, normalized);
   };
 
   const clearFilters = () => {
-    setCategory('');
-    setHousingType('');
-    setVisibility('');
+    setCategory("");
+    setSubCategory("");
+    setVisibility("");
     onFilterChange({});
   };
 
-  const activeFilterCount = [category, housingType, visibility].filter(
-    Boolean
+  const activeFilterCount = [category, subCategory, visibility].filter(
+    Boolean,
   ).length;
+
+  const availableSubCategories = SUB_CATEGORIES[category] || [];
 
   return (
     <div className="bg-white border-b border-neutral-200 py-3">
@@ -112,7 +107,10 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
           <div className="mt-3 flex flex-wrap gap-3">
             {/* Category */}
             <div className="w-full sm:w-48">
-              <Select value={category || 'all'} onValueChange={handleCategoryChange}>
+              <Select
+                value={category || "all"}
+                onValueChange={handleCategoryChange}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="All categories" />
                 </SelectTrigger>
@@ -127,22 +125,23 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
               </Select>
             </div>
 
-            {/* Housing sub-type */}
-            {category === 'housing' && (
+            {/* Sub-category */}
+            {availableSubCategories.length > 0 && (
               <div className="w-full sm:w-48">
                 <Select
-                  value={housingType || 'all'}
-                  onValueChange={handleHousingTypeChange}
+                  value={subCategory || "all"}
+                  onValueChange={handleSubCategoryChange}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="All housing" />
+                    <SelectValue placeholder="All options" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All housing</SelectItem>
-                    <SelectItem value="flatmates">Flatmates</SelectItem>
-                    <SelectItem value="rentals">Rentals</SelectItem>
-                    <SelectItem value="sale">For Sale</SelectItem>
-                    <SelectItem value="pg">PG</SelectItem>
+                    <SelectItem value="all">All options</SelectItem>
+                    {availableSubCategories.map((sub) => (
+                      <SelectItem key={sub.value} value={sub.value}>
+                        {sub.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -151,7 +150,7 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
             {/* Visibility */}
             <div className="w-full sm:w-48">
               <Select
-                value={visibility || 'all'}
+                value={visibility || "all"}
                 onValueChange={handleVisibilityChange}
               >
                 <SelectTrigger>

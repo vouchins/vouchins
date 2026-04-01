@@ -11,19 +11,12 @@ import {
   Home,
   BadgeCheck,
 } from "lucide-react";
-import { CATEGORIES } from "@/lib/constants";
+import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 
 interface BlurredPostCardProps {
   post: any;
   onVerify: () => void;
 }
-
-const HOUSING_TYPE_LABELS: Record<string, string> = {
-  flatmates: "Flatmates",
-  rentals: "Rental",
-  sale: "For Sale",
-  pg: "PG",
-};
 
 export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
   // Clipping logic: exactly 10 words
@@ -45,6 +38,12 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
 
   const categoryLabel =
     CATEGORIES.find((c) => c.value === post.category)?.label || post.category;
+
+  const subCategoryLabel = post.sub_category
+    ? SUB_CATEGORIES[post.category]?.find((s) => s.value === post.sub_category)
+        ?.label
+    : null;
+
   const companyLogoUrl = `https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`;
 
   return (
@@ -106,13 +105,15 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
           >
             {categoryLabel}
           </Badge>
-          {post.category === "housing" && post.housing_type && (
+          {post.sub_category && subCategoryLabel && (
             <Badge
               variant="outline"
               className="text-muted-foreground border-border text-[10px] py-0 px-2 h-5 font-medium"
             >
-              <Home className="h-2.5 w-2.5 mr-1" />
-              {HOUSING_TYPE_LABELS[post.housing_type]}
+              {post.category === "housing" && (
+                <Home className="h-2.5 w-2.5 mr-1" />
+              )}
+              {subCategoryLabel}
             </Badge>
           )}
         </div>

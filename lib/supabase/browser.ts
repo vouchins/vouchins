@@ -7,7 +7,7 @@ export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     flowType: 'pkce',
     autoRefreshToken: true,
-    persistSession: false,
+    persistSession: true,
     detectSessionInUrl: true
   },
 });
@@ -81,8 +81,9 @@ export type Database = {
           id: string;
           user_id: string;
           text: string;
-          category: 'housing' | 'buy_sell' | 'recommendations';
+          category: 'housing' | 'buy_sell' | 'recommendations' | 'jobs';
           visibility: 'company' | 'all';
+          sub_category: 'flatmates' | 'rentals' | 'sale' | 'pg' | 'hiring' | 'seeking_referral' | 'offering_referral' | 'seeking_job' | null;
           image_url: string | null;
           is_flagged: boolean;
           flag_reasons: string[];
@@ -94,8 +95,9 @@ export type Database = {
           id?: string;
           user_id: string;
           text: string;
-          category: 'housing' | 'buy_sell' | 'recommendations';
+          category: 'housing' | 'buy_sell' | 'recommendations' | 'jobs';
           visibility: 'company' | 'all';
+          sub_category?: 'flatmates' | 'rentals' | 'sale' | 'pg' | 'hiring' | 'seeking_referral' | 'offering_referral' | 'seeking_job' | null;
           image_url?: string | null;
           is_flagged?: boolean;
           flag_reasons?: string[];
@@ -107,8 +109,9 @@ export type Database = {
           id?: string;
           user_id?: string;
           text?: string;
-          category?: 'housing' | 'buy_sell' | 'recommendations';
+          category?: 'housing' | 'buy_sell' | 'recommendations' | 'jobs';
           visibility?: 'company' | 'all';
+          sub_category?: 'flatmates' | 'rentals' | 'sale' | 'pg' | 'hiring' | 'seeking_referral' | 'offering_referral' | 'seeking_job' | null;
           image_url?: string | null;
           is_flagged?: boolean;
           flag_reasons?: string[];
