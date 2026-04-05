@@ -165,29 +165,36 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
               )}
             </div>
 
-            {!entry.corporate_email && (
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
-                  Enter Domain
-                </p>
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">
+                Enter Domain
+              </p>
 
-                <Input
-                  placeholder="Enter valid domain (e.g. company.com)"
-                  value={domain[entry.id] || ""}
-                  onChange={(e) =>
-                    setDomain({ ...domain, [entry.id]: e.target.value })
-                  }
-                  className="bg-white"
-                  required
-                />
-              </div>
-            )}
+              <Input
+                placeholder="Enter valid domain (e.g. company.com)"
+                value={
+                  entry.corporate_email
+                    ? entry.corporate_email.split("@")[1] ||
+                      entry.corporate_email
+                    : domain[entry.id] || ""
+                }
+                onChange={(e) =>
+                  setDomain({ ...domain, [entry.id]: e.target.value })
+                }
+                className="bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                required
+                disabled={!!entry.corporate_email || entry.status !== "pending"}
+              />
+            </div>
 
             {entry.status === "pending" && (
               <div className="flex items-center gap-3 pt-2">
                 <Button
                   onClick={() => {
-                    if (!domain[entry.id] || !isValidDomain(domain[entry.id])) {
+                    if (
+                      !entry.corporate_email &&
+                      (!domain[entry.id] || !isValidDomain(domain[entry.id]))
+                    ) {
                       alert("Please provide a valid domain for approval.");
                       return;
                     }
@@ -200,7 +207,8 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
                   }}
                   className="flex-1 sm:flex-none px-8"
                   disabled={
-                    !domain[entry.id] || !isValidDomain(domain[entry.id])
+                    !entry.corporate_email &&
+                    (!domain[entry.id] || !isValidDomain(domain[entry.id]))
                   }
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" /> Approve
