@@ -1,166 +1,49 @@
-# Vouchins
+# Vouchins: The Verified Corporate Network & Professional Marketplace
 
-**Vouchins** is a trust-based community platform for verified corporate professionals to exchange recommendations, housing leads, and buy/sell requests — without anonymity, spam, or broker noise.
+**Vouchins** is a high-trust digital ecosystem designed exclusively for verified corporate professionals (MNC employees). It serves as a secure, accountability-driven marketplace to exchange housing leads, buy/sell requests, and trusted professional recommendations—free from anonymity, spam, and broker noise.
 
-Unlike open forums or anonymous apps, every interaction on Vouchins is tied to a **real person, real company, and verified corporate identity**.
+## System Purpose & Platform Context
 
----
+Vouchins acts as a "Circle of Trust" for the corporate world. By anchoring every user's identity to a verified corporate email address, Vouchins extends workplace accountability into a location-based, cross-company professional network. It is built to solve the scalability limitations of internal Slack channels and the trust deficits of open, anonymous forums.
 
-## Why Vouchins
+## Why Vouchins?
 
-Professionals rely on informal office groups, internal Slack channels, or word-of-mouth for:
+Professionals frequently rely on fragmented informal office groups, internal corporate messaging, or word-of-mouth for:
 
-- finding flatmates
-- buying or selling items
-- getting trusted recommendations
+- Finding trusted flatmates and housing
+- Buying or selling premium items
+- Seeking high-signal professional and local recommendations
 
-These solutions **do not scale beyond a single company** and break down the moment you leave that network.
+These traditional solutions **do not scale beyond a single company** and lose their value once an employee leaves that immediate network. Vouchins bridges this gap by creating a secure, cross-organizational professional marketplace.
 
-Vouchins extends the trust of your workplace into a **location-based, cross-company professional network**, while preserving accountability.
+## Core Principles (The Circle of Trust)
 
----
+- **Verified by Default:** Access is strictly gated by corporate email verification. No personal email domains are permitted, ensuring a high-signal environment.
+- **Accountability Over Anonymity:** Real names and verified company affiliations drive all interactions, naturally filtering out bad actors and low-effort content.
+- **Signal-First Design:** Optimized for utility and trust, prioritizing structured, valuable interactions over engagement farming and algorithmic noise.
+- **Local & Professional Context:** Users seamlessly connect with colleagues within their own company and verified professionals across their city.
 
-## Core Principles
+## Platform Capabilities
 
-- **Verified by Default**
-  Only corporate email addresses are allowed. No personal email domains.
+- **Verified Access Flow:** Mandatory corporate email verification and onboarding before granting platform access.
+- **Structured Professional Marketplace:** Dedicated, noise-free spaces for Housing, Buy/Sell, Recommendations, and Jobs.
+- **Granular Visibility Controls:** Users can choose to share posts exclusively within their company or broadcast to the broader cross-company local network.
+- **Proactive Trust & Safety:** Automated flagging of broker-like language and dedicated moderation tooling to preserve the platform's integrity.
 
-- **Accountability Over Anonymity**
-  Real names and company affiliation create high-signal interactions.
+## Project Status & Vision
 
-- **Text-First, Signal-First**
-  No feeds optimized for engagement farming. Content over cosmetics.
-
-- **Local + Professional Context**
-  See posts from colleagues in your company and professionals in your city.
-
----
-
-## Product Capabilities
-
-- **Verified Signup Flow**
-  - Corporate email verification
-  - Mandatory onboarding before access
-
-- **Structured Posting**
-  - Categories: Housing, Buy/Sell, Recommendations, Jobs
-  - Visibility controls: company-only or cross-company
-
-- **Built-in Trust Controls**
-  - Database-level access control
-  - No anonymous posting
-  - Ownership-based edits and deletes
-
-- **Auto-Moderation**
-  - Posts containing broker-like language or phone numbers are automatically flagged
-  - Human review before any action
-
-- **Admin & Safety Tooling**
-  - Reported content review
-  - User activity controls
-  - No automated bans
+Vouchins is in active development and early validation, focusing heavily on maximizing **trust density** rather than feature breadth. The current roadmap intentionally defers mechanics like influencer ecosystems, gamification, or anonymous feeds to maintain the absolute integrity of the professional signal.
 
 ---
 
-## Technical Overview (High-Level)
+## Technical Documentation
 
-This repository represents a **production-grade MVP**, optimized for correctness, security, and clarity.
-
-- **Frontend**
-  - Next.js (App Router)
-  - TypeScript
-  - Tailwind CSS
-  - shadcn/ui
-
-- **Backend & Data**
-  - PostgreSQL (Supabase)
-  - Row Level Security (RLS) enforced at database level
-  - Server-side privileged operations isolated
-
-- **Authentication**
-  - Supabase Auth
-  - Corporate email verification
-  - No password storage outside the auth provider
-
-- **Deployment**
-  - Vercel-ready
-  - Stateless, horizontally scalable
-
-This repo intentionally avoids premature abstractions and focuses on **clean boundaries between trust, identity, and application state**.
-
----
-
-## Security & Trust Model
-
-- Email ownership is verified **before** account creation
-- Application permissions are enforced **in the database**, not just in code
-- Users can only access content they are entitled to
-- Sensitive flows (verification, moderation) are server-only
-
-This architecture minimizes:
-
-- spam
-- impersonation
-- privilege escalation
-- data leakage
-
----
-
-## What This Repo Is (and Is Not)
-
-**This is:**
-
-- A functional MVP
-- A reference architecture for verified communities
-- Built with long-term scalability in mind
-
-**This is not:**
-
-- A growth-hacked consumer app
-- A fully polished product
-- A final UX or feature set
-
-Several features are intentionally deferred to maintain focus.
-
----
-
-## Roadmap (Non-MVP)
-
-The following are deliberately excluded at this stage:
-
-- Direct messaging
-- Payments or transactions
-- Ratings / reviews
-- AI-driven recommendations
-- Mobile applications
-- Influencer or creator mechanics
-
-The current focus is **trust density**, not feature breadth.
-
----
-
-## Status
-
-Vouchins is in active development and early validation.
-
-This repository is public to demonstrate:
-
-- product thinking
-- security discipline
-- engineering quality
-
-Business logic, growth strategy, and go-to-market details are intentionally kept outside the codebase.
-
----
-
-## Documentation
+For internal technical details, architectural decisions, and setup instructions, please refer to our dedicated documentation files:
 
 - 📄 **Developer Setup**: `docs/Vouchins_Developer_Setup_Guide.pdf`
 - 🏗 **Architecture**: `ARCHITECTURE.md`
 - 🔐 **Security Overview**: `SECURITY.md`
 - 🤝 **Contributing**: `CONTRIBUTING.md`
-
-These documents are intentionally high-level and safe for a public repository.
 
 ---
 
@@ -168,7 +51,3 @@ These documents are intentionally high-level and safe for a public repository.
 
 Proprietary.
 All rights reserved.
-
----
-
-Built with a focus on **trust, accountability, and professional signal**.

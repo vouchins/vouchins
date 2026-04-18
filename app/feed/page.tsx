@@ -16,6 +16,7 @@ import { BlurredPostCard } from "@/components/blurred-post-card";
 import { RightSidebar } from "./side-bars/right/right-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 
 function FeedContent() {
@@ -182,11 +183,30 @@ function FeedContent() {
     // Scenario B: Initial Loading
     if (loading && posts.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary/20" />
-          <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-4">
-            Updating Feed...
-          </p>
+        <div className="space-y-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div
+              key={i}
+              className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-2 flex-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-[90%]" />
+                <Skeleton className="h-4 w-[75%]" />
+              </div>
+              <div className="flex items-center gap-4 pt-2">
+                <Skeleton className="h-8 w-16 rounded-md" />
+                <Skeleton className="h-8 w-16 rounded-md" />
+              </div>
+            </div>
+          ))}
         </div>
       );
     }

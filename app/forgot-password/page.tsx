@@ -25,7 +25,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const result = await requestPasswordReset(
-        identifier.trim().toLowerCase()
+        identifier.trim().toLowerCase(),
       );
 
       if (result.error) throw new Error(result.error);

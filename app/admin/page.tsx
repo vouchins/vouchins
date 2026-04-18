@@ -5,13 +5,21 @@ import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Clock, Flag, AlertTriangle, Users } from "lucide-react";
+import {
+  ShieldCheck,
+  Clock,
+  Flag,
+  AlertTriangle,
+  Users,
+  MessageSquare,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { AdminStats } from "@/components/admin/admin-stats";
 import { UsersTab } from "@/components/admin/users-tab";
 import { WaitlistTab } from "@/components/admin/waitlist-tab";
 import { ReportsTab } from "@/components/admin/reports-tab";
 import { FlaggedTab } from "@/components/admin/flagged-tab";
+import { FeedbackTab } from "@/components/admin/feedback-tab";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -23,6 +31,7 @@ export default function AdminPage() {
   const [flaggedPosts, setFlaggedPosts] = useState<any[]>([]);
   const [waitlist, setWaitlist] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [feedback, setFeedback] = useState<any[]>([]);
 
   useEffect(() => {
     checkAuth();
@@ -60,6 +69,7 @@ export default function AdminPage() {
       fetchFlaggedPosts(),
       fetchWaitlist(),
       fetchAllUsers(),
+      fetchFeedback(),
     ]);
   };
 
@@ -139,6 +149,17 @@ export default function AdminPage() {
       )
       .order("created_at", { ascending: false });
     setAllUsers(data || []);
+  };
+
+  const fetchFeedback = async () => {
+    try {
+      const res = await fetch("/api/feedback/get-feedback");
+      const data = await res.json();
+      setFeedback(data.feedback || []);
+    } catch (error) {
+      console.error("Failed to fetch feedback:", error);
+      setFeedback([]);
+    }
   };
 
   // --- Global Handlers (Passed to children) ---
@@ -229,6 +250,22 @@ export default function AdminPage() {
     }
   };
 
+  const handleReviewFeedback = async (feedbackId: string) => {
+    try {
+      const res = await fetch("/api/feedback/update-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedbackId, status: "reviewed" }),
+      });
+
+      if (res.ok) {
+        await fetchFeedback();
+      }
+    } catch (error) {
+      console.error("Failed to update feedback:", error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
@@ -247,6 +284,9 @@ export default function AdminPage() {
   ).length;
   const pendingReportsCount = reports.filter(
     (r) => r.status === "pending",
+  ).length;
+  const pendingFeedbackCount = feedback.filter(
+    (f) => f.status === "pending",
   ).length;
 
   return (
@@ -271,7 +311,7 @@ export default function AdminPage() {
         />
 
         <Tabs defaultValue="waitlist" className="space-y-6">
-          <TabsList className="bg-neutral-100/50 p-1 h-12">
+          <TabsList className="bg-neutral-100/50 p-1 h-12 overflow-x-auto flex-nowrap w-full justify-start">
             <TabsTrigger value="waitlist" className="px-6">
               <Clock className="h-4 w-4 mr-2" />
               Waitlist{" "}
@@ -295,6 +335,18 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="flagged" className="px-6">
               <AlertTriangle className="h-4 w-4 mr-2" /> Flagged
+            </TabsTrigger>
+            <TabsTrigger value="feedback" className="px-6">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Feedback{" "}
+              {pendingFeedbackCount > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="ml-2 bg-indigo-100 text-indigo-700"
+                >
+                  {pendingFeedbackCount}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -324,6 +376,10 @@ export default function AdminPage() {
               onRemovePost={handleRemovePost}
               onSuspendUser={handleDisableUser}
             />
+          </TabsContent>
+
+          <TabsContent value="feedback">
+            <FeedbackTab feedbacks={feedback} onReview={handleReviewFeedback} />
           </TabsContent>
         </Tabs>
       </div>

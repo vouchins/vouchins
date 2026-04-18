@@ -81,8 +81,19 @@ export async function GET(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  let processedPosts = data || [];
+
+  // Trim content for unverified users to enforce the "Circle of Trust" at the network level
+  if (!userData.is_verified) {
+    processedPosts = processedPosts.map((post: any) => ({
+      ...post,
+      text: post.text && post.text.length > 150 ? post.text.substring(0, 150) + "..." : post.text,
+      comments: [], // Hide comments from unverified users
+    }));
+  }
+
   return NextResponse.json({
-    posts: data || [],
+    posts: processedPosts,
     hasMore: (data || []).length === limit,
   });
 }

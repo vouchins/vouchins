@@ -151,7 +151,7 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
               </p>
               {entry.status === "pending" ? (
                 <Input
-                  placeholder="Add corporate domain for approval..."
+                  placeholder="Enter review notes"
                   value={notes[entry.id] || ""}
                   onChange={(e) =>
                     setNotes({ ...notes, [entry.id]: e.target.value })
