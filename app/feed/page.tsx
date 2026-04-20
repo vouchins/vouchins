@@ -7,8 +7,14 @@ import { CreatePostDialog } from "@/components/create-post-dialog";
 import { PostCard } from "@/components/post-card";
 import { CommentForm } from "@/components/comment-form";
 import { ReportDialog } from "@/components/report-dialog";
-import { supabase } from "@/lib/supabase/browser";
-import { MapPin, Building2, Loader2, Lock, TrendingUp } from "lucide-react";
+import {
+  MapPin,
+  Building2,
+  Loader2,
+  Lock,
+  TrendingUp,
+  ExternalLink,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VerificationModal } from "@/components/verification-modal";
 import { cn } from "@/lib/utils";
@@ -18,6 +24,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
+import { supabase } from "@/lib/supabase/browser";
 
 function FeedContent() {
   const router = useRouter();
@@ -25,6 +32,7 @@ function FeedContent() {
 
   const [user, setUser] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [inlineAds, setInlineAds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -109,6 +117,16 @@ function FeedContent() {
     [],
   );
 
+  const fetchInlineAds = async () => {
+    try {
+      const res = await fetch("/api/advertisement?placement=inline&limit=5");
+      const data = await res.json();
+      setInlineAds(data.ads || []);
+    } catch (e) {
+      console.error("Ad fetch failed", e);
+    }
+  };
+
   useEffect(() => {
     const initPage = async () => {
       const {
@@ -136,6 +154,7 @@ function FeedContent() {
         0,
         searchQuery,
       );
+      // fetchInlineAds();
       setLoading(false);
       isInitialMount.current = false;
     };
@@ -234,10 +253,15 @@ function FeedContent() {
     // Scenario D: Display Posts
     return (
       <div className="space-y-4">
-        {posts.map((post) => {
+        {posts.map((post, index) => {
           // BLURRING LOGIC:
           // Blur if: User is NOT verified AND the post belongs to a verified user (not admin)
           const shouldBlur = !user?.is_verified && !post.user?.is_admin;
+
+          const adIndex = Math.floor(index / 5) - 1;
+          const adToDisplay =
+            inlineAds.length > 0 ? inlineAds[adIndex % inlineAds.length] : null;
+          const showAd = index > 0 && index % 5 === 0 && adToDisplay;
 
           return shouldBlur ? (
             <BlurredPostCard
@@ -246,50 +270,72 @@ function FeedContent() {
               onVerify={() => setIsVerifyModalOpen(true)}
             />
           ) : (
-            <div
-              key={post.id}
-              className="transition-transform active:scale-[0.99]"
-            >
-              <PostCard
-                post={post}
-                currentUserId={user?.id}
-                onReply={(pid) =>
-                  setActiveReplyPostId(activeReplyPostId === pid ? null : pid)
-                }
-                onReport={(pid) => {
-                  setReportTarget({ postId: pid });
-                  setReportDialogOpen(true);
-                }}
-                onPostUpdated={() =>
-                  fetchPosts(
-                    user,
-                    activeTab,
-                    activeCategory,
-                    activeSubCategory,
-                    0,
-                    searchQuery,
-                  )
-                }
-                isVerifiedUser={user?.is_verified}
-              />
-              {activeReplyPostId === post.id && (
-                <div className="mt-1">
-                  <CommentForm
-                    postId={post.id}
-                    userId={user?.id}
-                    onCommentAdded={() =>
-                      fetchPosts(
-                        user,
-                        activeTab,
-                        activeCategory,
-                        activeSubCategory,
-                        0,
-                        searchQuery,
-                      )
-                    }
-                  />
-                </div>
+            <div key={post.id} className="space-y-4">
+              {/* Ad Injection */}
+              {showAd && (
+                <a
+                  href={adToDisplay.target_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block bg-gradient-to-r from-indigo-50 to-white border border-indigo-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all group"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                      Sponsored
+                    </span>
+                    <ExternalLink className="h-4 w-4 text-indigo-300 group-hover:text-indigo-600 transition-colors" />
+                  </div>
+                  <h4 className="font-bold text-neutral-900">
+                    {adToDisplay.title}
+                  </h4>
+                  <p className="text-sm text-neutral-600 mt-1">
+                    {adToDisplay.description}
+                  </p>
+                </a>
               )}
+
+              <div className="transition-transform active:scale-[0.99]">
+                <PostCard
+                  post={post}
+                  currentUserId={user?.id}
+                  onReply={(pid) =>
+                    setActiveReplyPostId(activeReplyPostId === pid ? null : pid)
+                  }
+                  onReport={(pid) => {
+                    setReportTarget({ postId: pid });
+                    setReportDialogOpen(true);
+                  }}
+                  onPostUpdated={() =>
+                    fetchPosts(
+                      user,
+                      activeTab,
+                      activeCategory,
+                      activeSubCategory,
+                      0,
+                      searchQuery,
+                    )
+                  }
+                  isVerifiedUser={user?.is_verified}
+                />
+                {activeReplyPostId === post.id && (
+                  <div className="mt-1">
+                    <CommentForm
+                      postId={post.id}
+                      userId={user?.id}
+                      onCommentAdded={() =>
+                        fetchPosts(
+                          user,
+                          activeTab,
+                          activeCategory,
+                          activeSubCategory,
+                          0,
+                          searchQuery,
+                        )
+                      }
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}

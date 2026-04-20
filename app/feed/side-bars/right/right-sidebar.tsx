@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   TrendingUp,
   Sparkles,
@@ -21,6 +22,20 @@ interface RightSidebarProps {
 export function RightSidebar({ user }: RightSidebarProps) {
   const city = user?.city || "Hyderabad";
   const isVerified = user?.is_verified;
+  const [sidebarAd, setSidebarAd] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchAd = async () => {
+      try {
+        const res = await fetch(
+          "/api/advertisement?placement=right_sidebar&limit=1",
+        );
+        const data = await res.json();
+        if (data.ads?.length > 0) setSidebarAd(data.ads[0]);
+      } catch (e) {}
+    };
+    // fetchAd();
+  }, []);
 
   const handleShare = async () => {
     const shareData = {
@@ -116,6 +131,37 @@ export function RightSidebar({ user }: RightSidebarProps) {
             </p>
           </div>
         </div>
+
+        {/* SPONSORED CONTENT SLOT */}
+        {sidebarAd && (
+          <div className="mt-6 pt-5 border-t border-neutral-100">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">
+                Sponsored
+              </span>
+            </div>
+            <a
+              href={sidebarAd.target_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block group"
+            >
+              {sidebarAd.media_url && (
+                <img
+                  src={sidebarAd.media_url}
+                  alt="Ad"
+                  className="w-full h-32 object-cover rounded-md mb-3"
+                />
+              )}
+              <h4 className="text-sm font-bold text-neutral-900 group-hover:text-primary transition-colors">
+                {sidebarAd.title}
+              </h4>
+              <p className="text-xs text-neutral-500 mt-1 line-clamp-2">
+                {sidebarAd.description}
+              </p>
+            </a>
+          </div>
+        )}
 
         {/* Action Button - Exact replica of your "New Post" button styles */}
         <div className="mt-6 pt-5 border-t border-neutral-50">
