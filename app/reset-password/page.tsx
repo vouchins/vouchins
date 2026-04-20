@@ -30,17 +30,53 @@ export default function ResetPasswordPage() {
   } | null>(null);
 
   useEffect(() => {
-    // This listener catches the session from the URL hash automatically
+    // 1. Check for hash in URL (Implicit Flow from email link)
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        // Explicitly set the session using the tokens from the hash
+        supabase.auth
+          .setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          .then(({ error }) => {
+            if (error) {
+              setStatus({
+                type: "error",
+                text: "Failed to establish session. Please request a new link.",
+              });
+            } else {
+              // Clean up the URL hash for security
+              window.history.replaceState(
+                null,
+                "",
+                window.location.pathname + window.location.search,
+              );
+              setStatus(null);
+            }
+          });
+      }
+    } else {
+      // 2. Fallback: Verify if a session was already established
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+          setStatus({ type: "error", text: "Invalid or expired reset link." });
+        }
+      });
+    }
+
+    // Listen for the recovery event just in case Supabase auto-detects it first
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") {
         console.log("Password recovery session established");
-      }
-
-      // If there is no session and no hash in URL, redirect them away
-      if (!session && !window.location.hash) {
-        setStatus({ type: "error", text: "Invalid or expired reset link." });
+        setStatus(null);
       }
     });
 
