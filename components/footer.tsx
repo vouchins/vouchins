@@ -32,6 +32,12 @@ export function Footer() {
               Terms
             </Link>
             <Link
+              href="/blog"
+              className="hover:text-indigo-600 transition-colors"
+            >
+              Blog
+            </Link>
+            <Link
               href="/contact"
               className="hover:text-indigo-600 transition-colors"
             >

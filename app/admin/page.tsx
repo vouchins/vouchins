@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Users,
   MessageSquare,
+  FileText,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { AdminStats } from "@/components/admin/admin-stats";
@@ -20,6 +21,7 @@ import { WaitlistTab } from "@/components/admin/waitlist-tab";
 import { ReportsTab } from "@/components/admin/reports-tab";
 import { FlaggedTab } from "@/components/admin/flagged-tab";
 import { FeedbackTab } from "@/components/admin/feedback-tab";
+import { BlogTab } from "@/components/admin/blog-tab";
 
 export default function AdminPage() {
   const router = useRouter();
@@ -32,6 +34,7 @@ export default function AdminPage() {
   const [waitlist, setWaitlist] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [feedback, setFeedback] = useState<any[]>([]);
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
 
   useEffect(() => {
     checkAuth();
@@ -70,6 +73,7 @@ export default function AdminPage() {
       fetchWaitlist(),
       fetchAllUsers(),
       fetchFeedback(),
+      fetchBlogPosts(),
     ]);
   };
 
@@ -160,6 +164,14 @@ export default function AdminPage() {
       console.error("Failed to fetch feedback:", error);
       setFeedback([]);
     }
+  };
+
+  const fetchBlogPosts = async () => {
+    const { data } = await supabase
+      .from("blog_posts")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setBlogPosts(data || []);
   };
 
   // --- Global Handlers (Passed to children) ---
@@ -266,6 +278,45 @@ export default function AdminPage() {
     }
   };
 
+  const handleCreateBlog = async (post: any) => {
+    const { error } = await supabase.from("blog_posts").insert({
+      ...post,
+      author_id: user.id,
+      published_at:
+        post.status === "published" ? new Date().toISOString() : null,
+    });
+    if (error) {
+      alert("Error creating post: " + error.message);
+    } else {
+      await fetchBlogPosts();
+    }
+  };
+
+  const handleUpdateBlog = async (id: string, updates: any) => {
+    if (updates.status === "published" && !updates.published_at) {
+      updates.published_at = new Date().toISOString();
+    }
+    const { error } = await supabase
+      .from("blog_posts")
+      .update(updates)
+      .eq("id", id);
+    if (error) {
+      alert("Error updating post: " + error.message);
+    } else {
+      await fetchBlogPosts();
+    }
+  };
+
+  const handleDeleteBlog = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this blog post?")) return;
+    const { error } = await supabase.from("blog_posts").delete().eq("id", id);
+    if (error) {
+      alert("Error deleting post: " + error.message);
+    } else {
+      await fetchBlogPosts();
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
@@ -348,6 +399,10 @@ export default function AdminPage() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="blog" className="px-6">
+              <FileText className="h-4 w-4 mr-2" />
+              Blog
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="waitlist">
@@ -380,6 +435,15 @@ export default function AdminPage() {
 
           <TabsContent value="feedback">
             <FeedbackTab feedbacks={feedback} onReview={handleReviewFeedback} />
+          </TabsContent>
+
+          <TabsContent value="blog">
+            <BlogTab
+              posts={blogPosts}
+              onCreate={handleCreateBlog}
+              onUpdate={handleUpdateBlog}
+              onDelete={handleDeleteBlog}
+            />
           </TabsContent>
         </Tabs>
       </div>
