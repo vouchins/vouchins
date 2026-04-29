@@ -57,8 +57,23 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Vouchins",
+    url: "https://www.vouchins.com",
+    logo: "https://www.vouchins.com/images/logo.png",
+    description: "The trusted private marketplace and network for verified corporate professionals to buy, sell, and connect safely.",
+  };
+
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <PHProvider>
         <body className={inter.className}>
           <RecoveryRedirect />
@@ -70,3 +85,4 @@ export default function RootLayout({
     </html>
   );
 }
+

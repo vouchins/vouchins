@@ -1,0 +1,25 @@
+# Vouchins - Verified Corporate Professional Marketplace
+
+Vouchins is a private, secure marketplace and professional network built exclusively for verified corporate employees.
+
+## What is Vouchins?
+Unlike public platforms where anonymity leads to spam and scams, Vouchins requires users to verify their identity using their active corporate email address. This creates a "walled garden" where professionals can safely:
+- Buy, sell, and trade items (electronics, furniture, vehicles) with trusted colleagues.
+- Find hyper-local housing, flatmates, and rental properties.
+- Seek and offer trusted professional recommendations and services.
+
+## Core Security & Privacy Principles
+- **Corporate Verification**: Users must prove they work at a recognized corporation by verifying a one-time passcode sent to their work email.
+- **Employer Privacy**: After verification, the corporate email is hashed. All account access, notifications, and communications are routed through the user's personal email to ensure strict privacy from employers.
+- **Zero Anonymous Noise**: Every user is verified, eliminating anonymous bots, scammers, and brokers.
+
+## Features
+- **Housing & Rentals**: A closed marketplace for finding reliable flatmates and verified properties.
+- **Buy & Sell**: A secure trading platform for high-value items within a circle of trust.
+- **Recommendations**: Trusted service provider suggestions from verified corporate peers.
+
+## Technical Infrastructure
+- Built on Next.js 14 App Router.
+- Authentication and database managed by Supabase, protected by strict Row Level Security (RLS) policies.
+
+For more information, visit our official website at https://www.vouchins.com.
