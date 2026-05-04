@@ -17,6 +17,7 @@ import {
   Mail,
   Linkedin,
 } from "lucide-react";
+import { INDIAN_CITIES } from "@/lib/constants";
 import { Navigation } from "@/components/navigation";
 
 export default function UserProfilePage() {
@@ -34,7 +35,9 @@ export default function UserProfilePage() {
     bio: "",
     linkedin_url: "",
     personal_email: "",
+    city: "",
   });
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -75,6 +78,7 @@ export default function UserProfilePage() {
         bio: profileData.bio || "",
         linkedin_url: profileData.linkedin_url || "",
         personal_email: profileData.personal_email || "",
+        city: profileData.city || "",
       });
 
       const { data: postsData } = await supabase
@@ -126,6 +130,7 @@ export default function UserProfilePage() {
         bio: formDraft.bio.trim(),
         linkedin_url: formDraft.linkedin_url.trim(),
         personal_email: formDraft.personal_email.trim(),
+        city: formDraft.city.trim(),
       })
       .eq("id", me.id);
 
@@ -259,6 +264,57 @@ export default function UserProfilePage() {
                       />
                     </div>
                   </div>
+
+                  <div className="md:col-span-2 relative">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase mb-1.5 block">
+                      Location (City)
+                    </label>
+                    <div className="relative">
+                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+                      <input
+                        type="text"
+                        value={formDraft.city}
+                        onChange={(e) => {
+                          setFormDraft({
+                            ...formDraft,
+                            city: e.target.value,
+                          });
+                          setShowCitySuggestions(true);
+                        }}
+                        onFocus={() => setShowCitySuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
+                        placeholder="Search for your city..."
+                        className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+
+                    {/* City Suggestions Dropdown */}
+                    {showCitySuggestions && formDraft.city.length >= 1 && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-neutral-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {INDIAN_CITIES.filter(c =>
+                          c.toLowerCase().includes(formDraft.city.toLowerCase())
+                        ).length > 0 ? (
+                          INDIAN_CITIES.filter(c =>
+                            c.toLowerCase().includes(formDraft.city.toLowerCase())
+                          ).slice(0, 10).map((suggestion) => (
+                            <button
+                              key={suggestion}
+                              type="button"
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-50 transition-colors border-b border-neutral-50 last:border-none"
+                              onClick={() => {
+                                setFormDraft({ ...formDraft, city: suggestion });
+                                setShowCitySuggestions(false);
+                              }}
+                            >
+                              {suggestion}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-neutral-500 italic">No cities found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex gap-2 pt-2 justify-end">
@@ -270,7 +326,9 @@ export default function UserProfilePage() {
                         bio: profile.bio || "",
                         linkedin_url: profile.linkedin_url || "",
                         personal_email: profile.personal_email || "",
+                        city: profile.city || "",
                       });
+                      setShowCitySuggestions(false);
                       setIsEditing(false);
                     }}
                   >
@@ -361,9 +419,9 @@ export default function UserProfilePage() {
                   key={post.id}
                   post={post}
                   currentUserId={me.id}
-                  onReply={() => {}}
-                  onReport={() => {}}
-                  onPostUpdated={() => {}}
+                  onReply={() => { }}
+                  onReport={() => { }}
+                  onPostUpdated={() => { }}
                   isVerifiedUser={me.is_verified}
                 />
               ))}
