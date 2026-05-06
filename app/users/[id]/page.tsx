@@ -18,6 +18,7 @@ import {
   Linkedin,
 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
+import { ChangeCompanyModal } from "@/components/change-company-modal";
 
 export default function UserProfilePage() {
   const { id } = useParams();
@@ -36,6 +37,7 @@ export default function UserProfilePage() {
     personal_email: "",
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isChangeCompanyOpen, setIsChangeCompanyOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -168,6 +170,14 @@ export default function UserProfilePage() {
               <div className="flex items-center gap-2 text-sm font-semibold text-neutral-500 tracking-wide">
                 <Building2 className="h-4 w-4 text-accent" />
                 {profile.company?.name || "My Company"}
+                {isOwner && !isEditing && (
+                  <button
+                    onClick={() => setIsChangeCompanyOpen(true)}
+                    className="ml-2 px-2 py-0.5 text-[10px] font-bold bg-neutral-100 text-neutral-500 hover:bg-neutral-200 rounded-full transition-colors uppercase tracking-wider"
+                  >
+                    Change
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2 text-sm font-medium text-neutral-400">
                 <MapPin className="h-4 w-4" />
@@ -371,6 +381,15 @@ export default function UserProfilePage() {
           )}
         </div>
       </div>
+
+      {isOwner && (
+        <ChangeCompanyModal
+          isOpen={isChangeCompanyOpen}
+          onClose={() => setIsChangeCompanyOpen(false)}
+          user={profile}
+          onVerified={() => window.location.reload()}
+        />
+      )}
     </div>
   );
 }
