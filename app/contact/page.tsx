@@ -106,9 +106,9 @@ export default function ContactPage() {
             </Link>
 
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+              {/* <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
                 <MessageSquare className="h-6 w-6" />
-              </div>
+              </div> */}
               <h1 className="text-3xl font-bold text-neutral-900 tracking-tight">
                 Contact Us
               </h1>
