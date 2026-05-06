@@ -92,8 +92,7 @@ export default function AboutPage() {
               A Verified Community
             </h2>
             <p className="text-lg font-medium text-neutral-800">
-              To build a verified community that helps people to facilitate high
-              value transactions.
+              To build a verified community that empowers professionals to facilitate high value transactions with total accountability
             </p>
             <p>
               We eliminate broker interference and marketplace scams by creating
