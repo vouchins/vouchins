@@ -10,7 +10,7 @@ import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 interface User {
   id: string;
-  first_name: string;
+  full_name: string;
   email: string;
   city: string;
   is_admin: boolean;
@@ -69,8 +69,8 @@ export default function MessagesPage() {
           sender_id,
           receiver_id,
           is_read,
-          sender:users!messages_sender_id_fkey(id, first_name),
-          receiver:users!messages_receiver_id_fkey(id, first_name)
+          sender:users!messages_sender_id_fkey(id, full_name),
+          receiver:users!messages_receiver_id_fkey(id, full_name)
         `,
         )
         .or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`)
@@ -161,7 +161,7 @@ export default function MessagesPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-neutral-900">
-                      {conv.user.first_name}
+                      {conv.user.full_name}
                     </span>
 
                     <span className="text-xs text-neutral-500">

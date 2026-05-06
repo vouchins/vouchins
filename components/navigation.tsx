@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 interface NavigationUser {
   id: string;
-  first_name: string;
+  full_name: string;
   email: string;
   city: string;
   is_admin: boolean;
@@ -54,7 +54,7 @@ export function Navigation() {
       const { data, error } = await supabase
         .from("users")
         .select(
-          `id, first_name, email, city, is_admin, company:companies(name)`,
+          `id, full_name, email, city, is_admin, company:companies(name)`,
         )
         .eq("id", authUser.id)
         .maybeSingle();
@@ -62,7 +62,7 @@ export function Navigation() {
       if (data && !error) {
         const formattedUser: NavigationUser = {
           id: data.id,
-          first_name: data.first_name,
+          full_name: data.full_name,
           email: data.email,
           city: data.city,
           is_admin: data.is_admin,
@@ -209,7 +209,7 @@ export function Navigation() {
                 >
                   <div className="flex flex-col items-end text-right hidden xs:flex">
                     <span className="text-sm font-bold text-neutral-900 leading-none">
-                      {user.first_name}
+                      {user.full_name}
                     </span>
                     <span className="text-[10px] font-semibold text-neutral-400 mt-1 uppercase tracking-tight">
                       {user.company?.name || user.city}
@@ -228,7 +228,7 @@ export function Navigation() {
                 <Link href={`/users/${user.id}`}>
                   <div className="px-3 py-3 hover:bg-neutral-50 rounded-t-xl transition-colors cursor-pointer">
                     <p className="text-sm font-bold text-neutral-900">
-                      {user.first_name}
+                      {user.full_name}
                     </p>
                     <p className="text-xs text-neutral-500 truncate">
                       {user.email}

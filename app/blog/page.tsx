@@ -27,7 +27,7 @@ export default async function BlogIndexPage() {
     .select(
       `
       id, slug, title, excerpt, cover_image_url, published_at, created_at,
-      author:users!blog_posts_author_id_fkey(first_name)
+      author:users!blog_posts_author_id_fkey(full_name)
     `,
     )
     .eq("status", "published")

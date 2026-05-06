@@ -41,7 +41,7 @@ export async function GET(request: Request) {
     await supabase.from("users").insert({
       id: data?.user?.id,
       email: data?.user?.email,
-      first_name:
+      full_name:
         data?.user?.user_metadata?.full_name ||
         data?.user?.user_metadata?.name ||
         "New Professional",

@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS companies (
 CREATE TABLE IF NOT EXISTS users (
   id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email text UNIQUE NOT NULL,
-  first_name text,
+  full_name text,
   company_id uuid REFERENCES companies(id) ON DELETE SET NULL,
   city text,
   is_verified boolean DEFAULT false,

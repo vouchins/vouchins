@@ -36,7 +36,7 @@ export default async function BlogPostPage({
     .select(
       `
       *,
-      author:users!blog_posts_author_id_fkey(first_name)
+      author:users!blog_posts_author_id_fkey(full_name)
     `,
     )
     .eq("slug", resolvedParams.slug)
@@ -66,7 +66,7 @@ export default async function BlogPostPage({
             </h1>
             <div className="flex items-center gap-4 text-neutral-500 text-sm border-y border-neutral-100 py-4">
               <span className="font-bold text-neutral-900">
-                {post.author?.first_name || "Vouchins Team"}
+                {post.author?.full_name || "Vouchins Team"}
               </span>
               <span>•</span>
               <time>

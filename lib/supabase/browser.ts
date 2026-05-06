@@ -39,7 +39,7 @@ export type Database = {
         Row: {
           id: string;
           email: string;
-          first_name: string;
+          full_name: string;
           company_id: string | null;
           city: string | null;
           is_verified: boolean;
@@ -52,7 +52,7 @@ export type Database = {
         Insert: {
           id: string;
           email: string;
-          first_name: string;
+          full_name: string;
           company_id?: string | null;
           city?: string | null;
           is_verified?: boolean;
@@ -65,7 +65,7 @@ export type Database = {
         Update: {
           id?: string;
           email?: string;
-          first_name?: string;
+          full_name?: string;
           company_id?: string | null;
           city?: string | null;
           is_verified?: boolean;

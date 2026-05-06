@@ -50,7 +50,7 @@ interface PostCardProps {
     updated_at?: string;
     user: {
       id: string;
-      first_name: string;
+      full_name: string;
       city: string;
       company: {
         name: string;
@@ -235,7 +235,7 @@ export function PostCard({
                 href={`/users/${post.user.id}`}
                 className="font-bold text-neutral-900 hover:text-indigo-600 flex items-center"
               >
-                {post.user.first_name}
+                {post.user.full_name}
                 <BadgeCheck
                   className="h-3.5 w-3.5 ml-1 text-blue-500"
                   fill="currentColor"
@@ -556,7 +556,7 @@ export function PostCard({
                   className="font-bold text-neutral-900 hover:text-indigo-600 text-xs flex items-center"
                 >
                   <span className="text-xs font-bold text-neutral-900">
-                    {comment.user.first_name}
+                    {comment.user.full_name}
                   </span>
                 </Link>
                 <span className="text-[10px] text-neutral-400">

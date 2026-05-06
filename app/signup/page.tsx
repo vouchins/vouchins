@@ -95,7 +95,7 @@ export default function SignupPage() {
         body: JSON.stringify({
           email: email.toLowerCase().trim(),
           password,
-          first_name: firstName,
+          full_name: firstName,
         }),
       });
 

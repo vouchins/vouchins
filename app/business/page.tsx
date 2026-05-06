@@ -134,7 +134,7 @@ export default function BusinessDashboard() {
             {
               id: data.user.id,
               email: authEmail,
-              first_name: authName || "Business User",
+              full_name: authName || "Business User",
               is_verified: true,
               onboarded: true,
             },

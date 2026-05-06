@@ -60,7 +60,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
         method: "POST",
         body: JSON.stringify({
           email: corporateEmail,
-          firstName: user.first_name,
+          firstName: user.full_name,
         }),
       });
       if (res.ok) navigateTo(2);

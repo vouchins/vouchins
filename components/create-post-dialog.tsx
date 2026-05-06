@@ -45,7 +45,7 @@ const CATEGORY_HELP_TEXT: Record<string, string> = {
 interface CreatePostDialogProps {
   user: {
     id: string;
-    first_name: string;
+    full_name: string;
     city: string;
     company: {
       name: string;

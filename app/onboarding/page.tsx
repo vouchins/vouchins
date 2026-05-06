@@ -73,7 +73,7 @@ export default function OnboardingPage() {
       // We use .single() because the SQL Trigger guarantees this row exists
       const { data: userData } = await supabase
         .from("users")
-        .select("onboarded, first_name")
+        .select("onboarded, full_name")
         .eq("id", user.id)
         .single();
 
@@ -84,7 +84,7 @@ export default function OnboardingPage() {
 
       // Show welcome toast for first-time Google signups
       if (user.app_metadata.provider === "google") {
-        toast.success(`Welcome to Vouchins, ${userData?.first_name}!`);
+        toast.success(`Welcome to Vouchins, ${userData?.full_name}!`);
       }
 
       setLoading(false);

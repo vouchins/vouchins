@@ -46,7 +46,7 @@ export default function ConversationPage() {
       // fetch receiver
       const { data: receiverData } = await supabase
         .from("users")
-        .select("id, first_name")
+        .select("id, full_name")
         .eq("id", userId)
         .maybeSingle();
 
@@ -107,7 +107,7 @@ export default function ConversationPage() {
             </button>
 
             <h2 className="font-semibold text-neutral-900">
-              {receiver?.first_name || "Conversation"}
+              {receiver?.full_name || "Conversation"}
             </h2>
           </div>
 

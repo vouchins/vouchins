@@ -66,7 +66,7 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <div className="font-bold text-neutral-400 flex items-center">
-                {maskName(post.user.first_name)}
+                {maskName(post.user.full_name)}
                 {/* Verified Symbol Mirror */}
                 <BadgeCheck
                   className="h-3.5 w-3.5 ml-1 text-blue-500/50"

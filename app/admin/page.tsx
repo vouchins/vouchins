@@ -84,8 +84,8 @@ export default function AdminPage() {
       .select(
         `
         *,
-        reporter:users!reports_reporter_id_fkey(first_name, email),
-        post:posts(id, text, user:users!posts_user_id_fkey(first_name, email))
+        reporter:users!reports_reporter_id_fkey(full_name, email),
+        post:posts(id, text, user:users!posts_user_id_fkey(full_name, email))
       `,
       )
       .order("created_at", { ascending: false });
@@ -96,7 +96,7 @@ export default function AdminPage() {
     const { data } = await supabase
       .from("posts")
       .select(
-        `*, user:users!posts_user_id_fkey(first_name, email, company:companies(name))`,
+        `*, user:users!posts_user_id_fkey(full_name, email, company:companies(name))`,
       )
       .eq("is_flagged", true)
       .eq("is_removed", false)
@@ -112,7 +112,7 @@ export default function AdminPage() {
   *,
   user:users!manual_verification_requests_user_id_fkey(
     id,
-    first_name,
+    full_name,
     city,
     email,
     personal_email,
@@ -139,7 +139,7 @@ export default function AdminPage() {
       .select(
         `
       id, 
-      first_name, 
+      full_name, 
       email, 
       personal_email, 
       linkedin_url, 

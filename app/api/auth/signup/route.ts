@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
-  const { email, password, first_name } = await req.json();
+  const { email, password, full_name } = await req.json();
   const origin = new URL(req.url).origin;
 
   const cookieStore = await cookies();
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     password,
     options: {
       data: {
-        full_name: first_name,
+        full_name: full_name,
       },
     },
   });
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   const { error: profileError } = await supabase.from("users").insert({
     id: data.user.id,
     email,
-    first_name,
+    full_name,
     is_verified: false,
     onboarded: false,
     is_active: true,

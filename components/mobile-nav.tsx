@@ -9,7 +9,7 @@ import { CreatePostDialog } from "@/components/create-post-dialog";
 interface MobileNavProps {
   user: {
     id: string;
-    first_name: string;
+    full_name: string;
     city: string;
     company: {
       name: string;

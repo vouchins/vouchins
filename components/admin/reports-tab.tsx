@@ -14,8 +14,8 @@ interface Report {
   reason: string;
   status: "pending" | "reviewed" | "dismissed";
   created_at: string;
-  reporter: { first_name: string };
-  post?: { id: string; text: string; user: { first_name: string } };
+  reporter: { full_name: string };
+  post?: { id: string; text: string; user: { full_name: string } };
 }
 
 interface ReportsTabProps {
@@ -37,7 +37,7 @@ export function ReportsTab({
             <div className="flex items-start justify-between">
               <div className="space-y-1">
                 <CardTitle className="text-base font-bold">
-                  Report by {report.reporter.first_name}
+                  Report by {report.reporter.full_name}
                 </CardTitle>
                 <CardDescription>
                   {formatDistanceToNow(new Date(report.created_at), {
@@ -64,7 +64,7 @@ export function ReportsTab({
             {report.post && (
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-neutral-50 px-3 py-2 border-b text-[11px] font-medium text-neutral-500 uppercase">
-                  Reported Post by {report.post.user.first_name}
+                  Reported Post by {report.post.user.full_name}
                 </div>
                 <div className="p-3 text-sm italic">"{report.post.text}"</div>
               </div>

@@ -53,7 +53,7 @@ export default function UserProfilePage() {
         .select(
           `
           id,
-          first_name,
+          full_name,
           city,
           created_at,
           linkedin_url,
@@ -84,7 +84,7 @@ export default function UserProfilePage() {
           *,
           user:users!posts_user_id_fkey(
             id,
-            first_name,
+            full_name,
             city,
             company:companies(name)
           ),
@@ -92,7 +92,7 @@ export default function UserProfilePage() {
             id,
             text,
             created_at,
-            user:users!comments_user_id_fkey(first_name)
+            user:users!comments_user_id_fkey(full_name)
           )
         `,
         )
@@ -158,12 +158,12 @@ export default function UserProfilePage() {
         <div className="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-4 mb-8">
             <div className="h-20 w-20 rounded-2xl bg-primary text-2xl font-bold text-white flex items-center justify-center shadow-inner">
-              {profile.first_name.charAt(0)}
+              {profile.full_name.charAt(0)}
             </div>
 
             <div className="space-y-1">
               <h1 className="text-2xl font-bold text-primary tracking-tight">
-                {profile.first_name}
+                {profile.full_name}
               </h1>
               <div className="flex items-center gap-2 text-sm font-semibold text-neutral-500 tracking-wide">
                 <Building2 className="h-4 w-4 text-accent" />
@@ -326,7 +326,7 @@ export default function UserProfilePage() {
                     onClick={() => router.push(`/messages/${profile.id}`)}
                   >
                     <MessageCircle className="h-5 w-5 mr-2" />
-                    Message {profile.first_name}
+                    Message {profile.full_name}
                   </Button>
                 )}
               </div>

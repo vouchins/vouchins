@@ -27,7 +27,7 @@ import {
 
 interface User {
   id: string;
-  first_name: string;
+  full_name: string;
   email: string; // Corporate
   personal_email?: string;
   linkedin_url?: string;
@@ -53,7 +53,7 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
 
   const filteredUsers = users.filter(
     (u) =>
-      u.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.company?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.personal_email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -69,7 +69,7 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
     setLoading(true);
     try {
       await onUpdateUser(selectedUser.id, {
-        first_name: selectedUser.first_name,
+        full_name: selectedUser.full_name,
         personal_email: selectedUser.personal_email,
         linkedin_url: selectedUser.linkedin_url,
         is_active: selectedUser.is_active,
@@ -119,7 +119,7 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-neutral-900">
-                        {u.first_name}
+                        {u.full_name}
                       </span>
                       {u.is_admin && (
                         <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
@@ -234,11 +234,11 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
                 </Label>
                 <Input
                   id="name"
-                  value={selectedUser.first_name}
+                  value={selectedUser.full_name}
                   onChange={(e) =>
                     setSelectedUser({
                       ...selectedUser,
-                      first_name: e.target.value,
+                      full_name: e.target.value,
                     })
                   }
                 />
