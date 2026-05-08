@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Log In",
+  title: {
+    absolute: "Log in to Vouchins",
+  },
   description: "Log in to your Vouchins account to access the verified corporate marketplace and network with your trusted colleagues.",
   openGraph: {
     title: "Log In | Vouchins",

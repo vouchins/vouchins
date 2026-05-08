@@ -62,16 +62,16 @@ export default function Home() {
                   How it works
                 </Link>
                 <Link
-                  href="privacy"
+                  href="/privacy"
                   className="text-sm font-semibold text-neutral-600 hover:text-primary transition-colors"
                 >
                   Privacy
                 </Link>
                 <Link
-                  href="#community"
+                  href="/blog"
                   className="text-sm font-semibold text-neutral-600 hover:text-primary transition-colors"
                 >
-                  Communities
+                  Blog
                 </Link>
               </div>
 
