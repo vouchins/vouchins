@@ -27,8 +27,31 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // This refreshes the session if it's expired
-  await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  const url = request.nextUrl.clone()
+  const isAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
+  const isPublicRoute = isAuthRoute || url.pathname === '/' || url.pathname === '/about' || url.pathname === '/privacy' || url.pathname === '/terms' || url.pathname === '/contact' || url.pathname === '/blog'
+
+  // If user is logged in and trying to access an auth route, redirect to feed
+  if (user && isAuthRoute) {
+    url.pathname = '/feed'
+    return NextResponse.redirect(url)
+  }
+
+  // If user is logged in and visits the landing page, redirect to feed (Industry Standard)
+  if (user && url.pathname === '/') {
+    url.pathname = '/feed'
+    return NextResponse.redirect(url)
+  }
+
+  // If user is not logged in and trying to access a protected route, redirect to login
+  if (!user && !isPublicRoute && !url.pathname.startsWith('/api/')) {
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
 
   return supabaseResponse
 }
