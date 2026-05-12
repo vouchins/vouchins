@@ -10,6 +10,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { FileText, ExternalLink, CheckCircle2, XCircle } from "lucide-react";
 import { isValidDomain } from "@/lib/utils";
 interface WaitlistEntry {
@@ -42,20 +50,41 @@ interface WaitlistTabProps {
 export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
   const [notes, setNotes] = useState<{ [key: string]: string }>({});
   const [domain, setDomain] = useState<{ [key: string]: string }>({});
+  const [filter, setFilter] = useState<"pending" | "approved" | "rejected">("pending");
 
-  if (entries.length === 0) {
-    return (
-      <Card className="border-dashed border-2">
-        <CardContent className="py-20 text-center text-neutral-500">
-          No waitlist applications found.
-        </CardContent>
-      </Card>
-    );
-  }
+  const filteredEntries = entries.filter((entry) => entry.status === filter);
 
   return (
     <div className="space-y-4">
-      {entries.map((entry) => (
+      <div className="flex flex-wrap gap-2 mb-2">
+        <Button
+          variant={filter === "pending" ? "default" : "outline"}
+          onClick={() => setFilter("pending")}
+        >
+          Pending Approval
+        </Button>
+        <Button
+          variant={filter === "approved" ? "default" : "outline"}
+          onClick={() => setFilter("approved")}
+        >
+          Approved
+        </Button>
+        <Button
+          variant={filter === "rejected" ? "default" : "outline"}
+          onClick={() => setFilter("rejected")}
+        >
+          Rejected
+        </Button>
+      </div>
+
+      {filteredEntries.length === 0 ? (
+        <Card className="border-dashed border-2 mt-4">
+          <CardContent className="py-20 text-center text-neutral-500">
+            No {filter} waitlist applications found.
+          </CardContent>
+        </Card>
+      ) : filter === "pending" ? (
+        filteredEntries.map((entry) => (
         <Card
           key={entry.id}
           className={`overflow-hidden transition-all ${
@@ -226,7 +255,54 @@ export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
             )}
           </CardContent>
         </Card>
-      ))}
+        ))
+      ) : (
+        <div className="rounded-md border bg-white overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date Applied</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Personal Email</TableHead>
+                <TableHead>Corporate Email</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>LinkedIn</TableHead>
+                <TableHead>Notes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredEntries.map((entry) => (
+                <TableRow key={entry.id}>
+                  <TableCell className="whitespace-nowrap">
+                    {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
+                  </TableCell>
+                  <TableCell>{entry.company_name || "N/A"}</TableCell>
+                  <TableCell>{entry.user?.email || "N/A"}</TableCell>
+                  <TableCell>{entry.corporate_email || "N/A"}</TableCell>
+                  <TableCell>{entry.user?.city || "N/A"}</TableCell>
+                  <TableCell>
+                    <a
+                      href={
+                        entry.linkedin_url.startsWith("http")
+                          ? entry.linkedin_url
+                          : `https://${entry.linkedin_url}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline flex items-center whitespace-nowrap"
+                    >
+                      Profile <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate" title={entry.notes || ""}>
+                    {entry.notes || "N/A"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }
