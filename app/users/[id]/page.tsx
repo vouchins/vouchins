@@ -9,13 +9,18 @@ import { PostCard } from "@/components/post-card";
 import {
   Building2,
   MapPin,
-  ExternalLink,
   MessageCircle,
   Edit2,
   Check,
   X,
   Mail,
   Linkedin,
+  Lock,
+  Camera,
+  Loader2,
+  Phone,
+  ShieldCheck,
+  ChevronDown,
 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { ChangeCompanyModal } from "@/components/change-company-modal";
@@ -35,9 +40,62 @@ export default function UserProfilePage() {
     bio: "",
     linkedin_url: "",
     personal_email: "",
+    phone_country_code: "+91",
+    phone_number: "",
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isChangeCompanyOpen, setIsChangeCompanyOpen] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [hasVouchedProfile, setHasVouchedProfile] = useState(false);
+
+  const parsePhone = (phone: string | null) => {
+    if (!phone) return { code: "+91", num: "" };
+    const clean = phone.replace(/[^\d+]/g, "");
+    const match = clean.match(/^(\+\d{1,4})(\d+)$/);
+    if (match) return { code: match[1], num: match[2] };
+    if (clean.length > 10 && !clean.startsWith("+")) {
+      return { code: "+" + clean.slice(0, clean.length - 10), num: clean.slice(-10) };
+    }
+    return { code: "+91", num: clean.replace("+", "") };
+  };
+
+  const COUNTRY_CODES = [
+    { code: "+91", label: "IN (+91)" },
+    { code: "+1", label: "US/CA (+1)" },
+    { code: "+44", label: "UK (+44)" },
+    { code: "+61", label: "AU (+61)" },
+    { code: "+971", label: "AE (+971)" },
+    { code: "+65", label: "SG (+65)" },
+    { code: "+49", label: "DE (+49)" },
+    { code: "+33", label: "FR (+33)" },
+    { code: "+81", label: "JP (+81)" },
+    { code: "+86", label: "CN (+86)" },
+    { code: "+55", label: "BR (+55)" },
+    { code: "+7", label: "RU (+7)" },
+    { code: "+39", label: "IT (+39)" },
+    { code: "+34", label: "ES (+34)" },
+    { code: "+82", label: "KR (+82)" },
+    { code: "+31", label: "NL (+31)" },
+    { code: "+46", label: "SE (+46)" },
+    { code: "+41", label: "CH (+41)" },
+    { code: "+64", label: "NZ (+64)" },
+    { code: "+27", label: "ZA (+27)" },
+    { code: "+353", label: "IE (+353)" },
+    { code: "+972", label: "IL (+972)" },
+    { code: "+60", label: "MY (+60)" },
+    { code: "+62", label: "ID (+62)" },
+    { code: "+66", label: "TH (+66)" },
+    { code: "+63", label: "PH (+63)" },
+    { code: "+886", label: "TW (+886)" },
+    { code: "+852", label: "HK (+852)" },
+    { code: "+966", label: "SA (+966)" },
+    { code: "+20", label: "EG (+20)" },
+    { code: "+234", label: "NG (+234)" },
+    { code: "+254", label: "KE (+254)" },
+    { code: "+52", label: "MX (+52)" },
+    { code: "+54", label: "AR (+54)" },
+    { code: "+56", label: "CL (+56)" },
+  ];
 
   useEffect(() => {
     const load = async () => {
@@ -48,7 +106,13 @@ export default function UserProfilePage() {
         router.push("/login");
         return;
       }
-      setMe(user);
+      const { data: meData } = await supabase
+        .from("users")
+        .select("id, is_verified")
+        .eq("id", user.id)
+        .single();
+        
+      setMe({ ...user, ...meData });
 
       const { data: profileData } = await supabase
         .from("users")
@@ -61,7 +125,11 @@ export default function UserProfilePage() {
           linkedin_url,
           bio,
           personal_email,
-          company:companies(name)
+          avatar_url,
+          phone_number,
+          vouch_points,
+          is_verified,
+          company:companies(name, domain)
         `,
         )
         .eq("id", id)
@@ -73,11 +141,23 @@ export default function UserProfilePage() {
       }
 
       setProfile(profileData);
+      const parsedPhone = parsePhone(profileData.phone_number);
       setFormDraft({
         bio: profileData.bio || "",
         linkedin_url: profileData.linkedin_url || "",
         personal_email: profileData.personal_email || "",
+        phone_country_code: parsedPhone.code,
+        phone_number: parsedPhone.num,
       });
+
+      const { data: vouchData } = await supabase
+        .from('vouches')
+        .select('id')
+        .eq('target_user_id', profileData.id)
+        .eq('vouching_user_id', user.id)
+        .eq('is_profile_vouch', true)
+        .maybeSingle();
+      if (vouchData) setHasVouchedProfile(true);
 
       const { data: postsData } = await supabase
         .from("posts")
@@ -88,7 +168,9 @@ export default function UserProfilePage() {
             id,
             full_name,
             city,
-            company:companies(name)
+            avatar_url,
+            vouch_points,
+            company:companies(name, domain)
           ),
           comments(
             id,
@@ -121,6 +203,17 @@ export default function UserProfilePage() {
       return;
     }
 
+    const fullPhone = formDraft.phone_number ? `${formDraft.phone_country_code}${formDraft.phone_number.trim()}` : "";
+    if (
+      fullPhone &&
+      !/^\+?[0-9]{10,15}$/.test(fullPhone)
+    ) {
+      alert(
+        "Please enter a valid phone number with 10-15 digits only (e.g., 9876543210)",
+      );
+      return;
+    }
+
     setIsSaving(true);
     const { error } = await supabase
       .from("users")
@@ -128,6 +221,7 @@ export default function UserProfilePage() {
         bio: formDraft.bio.trim(),
         linkedin_url: formDraft.linkedin_url.trim(),
         personal_email: formDraft.personal_email.trim(),
+        phone_number: fullPhone,
       })
       .eq("id", me.id);
 
@@ -141,6 +235,66 @@ export default function UserProfilePage() {
     setIsSaving(false);
   };
 
+  const handleProfileVouch = async () => {
+    if (isOwner || hasVouchedProfile) return;
+    const { error } = await supabase.from('vouches').insert({
+      vouching_user_id: me.id,
+      target_user_id: profile.id,
+      is_profile_vouch: true,
+    });
+    if (error) {
+      if (error.code === '23505') {
+        setHasVouchedProfile(true);
+      } else {
+        console.error("Vouch error:", error);
+      }
+    } else {
+      setHasVouchedProfile(true);
+      setProfile({...profile, vouch_points: (profile.vouch_points || 0) + 1});
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploadingAvatar(true);
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert("File must be less than 5MB");
+        return;
+      }
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${me.id}-${Math.random()}.${fileExt}`;
+      const filePath = `public/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', me.id);
+
+      if (updateError) throw updateError;
+
+      setProfile({ ...profile, avatar_url: publicUrl });
+    } catch (error) {
+      console.error("Error uploading avatar:", error);
+      alert("Error uploading avatar");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 font-medium text-neutral-600">
@@ -152,6 +306,31 @@ export default function UserProfilePage() {
   if (!profile) return null;
   const isOwner = me?.id === profile.id;
 
+  if (!isOwner && !me?.is_verified) {
+    return (
+      <div className="min-h-screen bg-neutral-50 flex flex-col">
+        <Navigation />
+        <div className="flex-1 flex flex-col items-center justify-center px-4">
+          <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center shadow-sm max-w-md w-full">
+            <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Lock className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-2xl font-black mb-2">Profile Locked</h2>
+            <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
+              You must be verified to view other professionals' profiles.
+            </p>
+            <Button
+              onClick={() => router.push("/feed")}
+              className="rounded-full px-12 h-12 font-black uppercase tracking-widest text-[11px] w-full"
+            >
+              Return to Feed
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-neutral-50">
       <Navigation />
@@ -159,14 +338,36 @@ export default function UserProfilePage() {
         {/* ---------------- Profile Card ---------------- */}
         <div className="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-4 mb-8">
-            <div className="h-20 w-20 rounded-2xl bg-primary text-2xl font-bold text-white flex items-center justify-center shadow-inner">
-              {profile.full_name.charAt(0)}
+            <div className="relative group">
+              <div className="h-20 w-20 rounded-2xl bg-white border border-neutral-100 text-2xl font-bold text-neutral-400 flex items-center justify-center shadow-sm overflow-hidden">
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
+                ) : profile.company?.[0]?.domain || profile.company?.domain ? (
+                  <img src={`https://www.google.com/s2/favicons?domain=${profile.company[0]?.domain || profile.company?.domain}&sz=128`} alt={profile.full_name} className="h-full w-full object-contain p-3" />
+                ) : (
+                  profile.full_name.charAt(0)
+                )}
+              </div>
+              {isOwner && (
+                <label className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl">
+                  {uploadingAvatar ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-6 w-6" />}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                </label>
+              )}
             </div>
 
             <div className="space-y-1">
-              <h1 className="text-2xl font-bold text-primary tracking-tight">
-                {profile.full_name}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-primary tracking-tight">
+                  {profile.full_name}
+                </h1>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-full">
+                  <ShieldCheck className="h-4 w-4 text-indigo-500" />
+                  <span className="text-xs font-black text-indigo-700 uppercase tracking-wide">
+                    {profile.vouch_points || 0} Vouch Points
+                  </span>
+                </div>
+              </div>
               <div className="flex items-center gap-2 text-sm font-semibold text-neutral-500 tracking-wide">
                 <Building2 className="h-4 w-4 text-accent" />
                 {profile.company?.name || "My Company"}
@@ -178,10 +379,6 @@ export default function UserProfilePage() {
                     Change
                   </button>
                 )}
-              </div>
-              <div className="flex items-center gap-2 text-sm font-medium text-neutral-400">
-                <MapPin className="h-4 w-4" />
-                {profile.city}
               </div>
             </div>
           </div>
@@ -269,6 +466,48 @@ export default function UserProfilePage() {
                       />
                     </div>
                   </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase mb-1.5 block">
+                      Phone Number <span className="lowercase font-medium text-neutral-400">(Private, visible only to you)</span>
+                    </label>
+                    <div className="flex border border-neutral-200 rounded-md focus-within:ring-1 focus-within:ring-primary overflow-hidden relative shadow-sm">
+                      <div className="relative flex items-center bg-neutral-50 border-r border-neutral-200 hover:bg-neutral-100 transition-colors">
+                        <select
+                          value={formDraft.phone_country_code}
+                          onChange={(e) =>
+                            setFormDraft({
+                              ...formDraft,
+                              phone_country_code: e.target.value,
+                            })
+                          }
+                          className="appearance-none bg-transparent pl-3 pr-8 py-2 text-sm font-bold text-neutral-700 outline-none cursor-pointer w-[90px] md:w-[105px] z-10"
+                        >
+                          {COUNTRY_CODES.map((country) => (
+                            <option key={country.code} value={country.code}>
+                              {country.label}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
+                      </div>
+                      <input
+                        type="number"
+                        value={formDraft.phone_number}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val.length <= 15) {
+                            setFormDraft({
+                              ...formDraft,
+                              phone_number: val,
+                            });
+                          }
+                        }}
+                        placeholder="9876543210"
+                        className="w-full px-4 py-2 text-sm font-medium outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 pt-2 justify-end">
@@ -276,10 +515,13 @@ export default function UserProfilePage() {
                     size="sm"
                     variant="ghost"
                     onClick={() => {
+                      const parsedPhone = parsePhone(profile.phone_number);
                       setFormDraft({
                         bio: profile.bio || "",
                         linkedin_url: profile.linkedin_url || "",
                         personal_email: profile.personal_email || "",
+                        phone_country_code: parsedPhone.code,
+                        phone_number: parsedPhone.num,
                       });
                       setIsEditing(false);
                     }}
@@ -316,10 +558,10 @@ export default function UserProfilePage() {
                       }
                       target="_external"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm font-bold text-primary hover:text-accent transition-colors"
+                      className="flex items-center gap-2 text-sm font-bold text-primary hover:text-accent transition-colors truncate max-w-sm"
                     >
-                      <Linkedin className="h-4 w-4" />
-                      LinkedIn Profile
+                      <Linkedin className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{profile.linkedin_url.replace(/^https?:\/\/(www\.)?/, '')}</span>
                     </a>
                   )}
                   {isOwner && profile.personal_email && (
@@ -328,16 +570,45 @@ export default function UserProfilePage() {
                       {profile.personal_email}
                     </div>
                   )}
+                  {isOwner && profile.phone_number && (
+                    <div className="flex items-center gap-2 text-sm text-neutral-500 font-medium">
+                      <Phone className="h-4 w-4 text-neutral-300" />
+                      {profile.phone_number}
+                      <span className="text-[9px] font-bold uppercase tracking-widest bg-neutral-100 text-neutral-400 px-1.5 py-0.5 rounded-sm">
+                        Private
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {!isOwner && (
-                  <Button
-                    className="w-full bg-primary hover:bg-primary/90 shadow-md py-6 rounded-xl text-md font-bold"
-                    onClick={() => router.push(`/messages/${profile.id}`)}
-                  >
-                    <MessageCircle className="h-5 w-5 mr-2" />
-                    Message {profile.full_name}
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                      className="flex-1 bg-primary hover:bg-primary/90 shadow-md py-6 rounded-xl text-md font-bold"
+                      onClick={() => router.push(`/messages/${profile.id}`)}
+                    >
+                      <MessageCircle className="h-5 w-5 mr-2" />
+                      Message {profile.full_name}
+                    </Button>
+                    <Button
+                      variant={hasVouchedProfile ? "secondary" : "outline"}
+                      className={`flex-1 shadow-sm py-6 rounded-xl text-md font-bold ${hasVouchedProfile ? 'bg-indigo-50 text-indigo-700 border-transparent' : 'border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
+                      onClick={handleProfileVouch}
+                      disabled={hasVouchedProfile}
+                    >
+                      {hasVouchedProfile ? (
+                        <>
+                          <Check className="h-5 w-5 mr-2 text-indigo-500" />
+                          Vouched
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-5 w-5 mr-2" />
+                          Vouch for {profile.full_name.split(' ')[0]}
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 )}
               </div>
             )}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -17,18 +18,27 @@ import { supabase } from "@/lib/supabase/browser";
 import { INDIAN_CITIES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner"; // Assuming you use sonner or similar for toasts
+import { isCorporateEmail, extractDomainFromEmail, deriveCompanyNameFromDomain } from "@/lib/auth/validation";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [city, setCity] = useState("");
-  const [customCity, setCustomCity] = useState("");
-  const [linkedinUrl, setLinkedinUrl] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [company, setCompany] = useState("");
+
+  const [userEmail, setUserEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [isCorporate, setIsCorporate] = useState(false);
+  
+  // OTP related
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [manualVerification, setManualVerification] = useState(false);
+  const [linkedinUrl, setLinkedinUrl] = useState("");
 
   // New states for company search
   const [companySuggestions, setCompanySuggestions] = useState<any[]>([]);
@@ -87,6 +97,24 @@ export default function OnboardingPage() {
         toast.success(`Welcome to Vouchins, ${userData?.full_name}!`);
       }
 
+      setUserEmail(user.email || "");
+      setUserId(user.id);
+      setFirstName(userData?.full_name?.split(" ")[0] || "Professional");
+
+      const emailToCheck = user.email || "";
+      const isCorp = isCorporateEmail(emailToCheck);
+      setIsCorporate(isCorp);
+
+      let initialCompany = "";
+      if (isCorp) {
+        const domain = extractDomainFromEmail(emailToCheck);
+        initialCompany = deriveCompanyNameFromDomain(domain);
+      }
+      
+      if (initialCompany) {
+        setCompany(initialCompany);
+      }
+
       setLoading(false);
     };
 
@@ -108,15 +136,74 @@ export default function OnboardingPage() {
       setError("You must agree to the community guidelines.");
       return;
     }
-    if (!city) {
-      setError("Please select your city.");
-      return;
-    }
     if (!company.trim()) {
       setError("Please enter your company name.");
       return;
     }
 
+    if (isCorporate) {
+       setSubmitting(true);
+       try {
+         const res = await fetch("/api/auth/send-otp", {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ email: userEmail, firstName: firstName })
+         });
+         const data = await res.json();
+         if (!res.ok) throw new Error(data.error);
+         
+         setShowOtpModal(true);
+       } catch (err: any) {
+         setError(err.message || "Failed to send OTP. Please try again.");
+       } finally {
+         setSubmitting(false);
+       }
+    } else {
+       await completeOnboarding(false, null);
+    }
+  };
+
+  const verifyOtp = async () => {
+    setSubmitting(true);
+    setOtpError("");
+    
+    // Attempt verification via API
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userEmail,
+          otp: otp.trim(),
+          userId: userId
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setOtpError("Invalid verification code. You can request manual verification below.");
+        setManualVerification(true);
+        setSubmitting(false);
+        return;
+      }
+
+      await completeOnboarding(true, null);
+    } catch (err: any) {
+      setOtpError("Failed to verify OTP.");
+      setManualVerification(true);
+      setSubmitting(false);
+    }
+  };
+
+  const handleManualVerificationSubmit = async () => {
+    if (!linkedinUrl.trim()) {
+      setOtpError("Please provide your LinkedIn URL for manual verification.");
+      return;
+    }
+    await completeOnboarding(false, linkedinUrl.trim());
+  };
+
+  const completeOnboarding = async (isVerified: boolean, manualLinkedinUrl: string | null) => {
     setSubmitting(true);
     try {
       const {
@@ -148,22 +235,27 @@ export default function OnboardingPage() {
         }
       }
 
+      const updates: any = {
+        onboarded: true,
+        company_id: finalCompanyId,
+      };
+
+      if (isVerified) {
+         updates.is_verified = true;
+      }
+      if (manualLinkedinUrl) {
+         updates.linkedin_url = manualLinkedinUrl;
+      }
+
       const { error: updateError } = await supabase
         .from("users")
-        .update({
-          city: city === "Other" ? customCity.trim() : city,
-          linkedin_url: linkedinUrl.trim() || null,
-          phone_number: phoneNumber.trim() || null,
-          onboarded: true,
-          company_id: finalCompanyId,
-        })
+        .update(updates)
         .eq("id", authUser?.id);
 
       if (updateError) throw updateError;
       router.push("/feed");
     } catch (err: any) {
       setError(err.message);
-    } finally {
       setSubmitting(false);
     }
   };
@@ -188,44 +280,7 @@ export default function OnboardingPage() {
         <h1 className="text-2xl font-semibold text-neutral-900 text-center mb-2">
           Complete your profile
         </h1>
-        <p className="text-neutral-600 text-center mb-6 text-sm">
-          Set your location to see what's happening in your city.
-        </p>
-
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <Label>Your City *</Label>
-            <Select value={city} onValueChange={setCity} required>
-              <SelectTrigger className="mt-1.5">
-                <SelectValue placeholder="Select your city" />
-              </SelectTrigger>
-              <SelectContent>
-                {INDIAN_CITIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-                {/* <SelectItem value="Other">Other</SelectItem> */}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {city === "Other" && (
-            <Input
-              value={customCity}
-              onChange={(e) => setCustomCity(e.target.value)}
-              placeholder="Enter city name"
-              className="mt-2"
-              required
-            />
-          )}
 
           <div className="space-y-1.5 relative">
             <Label className="text-[11px] font-black uppercase tracking-widest text-muted-foreground ml-1">
@@ -266,26 +321,6 @@ export default function OnboardingPage() {
               </div>
             )}
           </div>
-          <div>
-            <Label>LinkedIn Profile (optional)</Label>
-            <Input
-              value={linkedinUrl}
-              onChange={(e) => setLinkedinUrl(e.target.value)}
-              placeholder="https://linkedin.com/in/username"
-              className="mt-1.5"
-            />
-          </div>
-
-          <div>
-            <Label>Phone Number (optional)</Label>
-            <Input
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="+91 XXXXX XXXXX"
-              className="mt-1.5"
-            />
-          </div>
-
           <div className="flex items-start gap-2 py-2">
             <input
               id="agree"
@@ -298,7 +333,7 @@ export default function OnboardingPage() {
               htmlFor="agree"
               className="text-xs text-neutral-500 leading-normal cursor-pointer"
             >
-              I agree to the Vouchins community guidelines and terms of service.
+              I agree to the Vouchins <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline font-medium">community guidelines and terms of service</a>.
             </Label>
           </div>
 
@@ -310,6 +345,70 @@ export default function OnboardingPage() {
             {submitting ? "Finalizing..." : "Enter Vouchins"}
           </Button>
         </form>
+
+        {showOtpModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-lg">
+              <h2 className="text-xl font-semibold mb-2">Verify Corporate Email</h2>
+              <p className="text-sm text-neutral-600 mb-4">
+                We sent a 6-digit code to <strong>{userEmail}</strong>.
+              </p>
+              
+              {otpError && (
+                <Alert variant="destructive" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{otpError}</AlertDescription>
+                </Alert>
+              )}
+
+              {!manualVerification ? (
+                <>
+                  <Input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="6-digit code"
+                    className="w-full text-center tracking-[0.5em] text-lg font-bold mb-4"
+                    maxLength={6}
+                  />
+                  <Button 
+                    className="w-full mb-2" 
+                    onClick={verifyOtp}
+                    disabled={submitting || otp.length !== 6}
+                  >
+                    {submitting ? "Verifying..." : "Verify"}
+                  </Button>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-xs font-semibold uppercase">LinkedIn Profile URL</Label>
+                    <Input
+                      value={linkedinUrl}
+                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                      placeholder="https://linkedin.com/in/username"
+                      className="mt-1.5"
+                    />
+                    <p className="text-[10px] text-neutral-500 mt-1">
+                      Required for manual verification.
+                    </p>
+                  </div>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleManualVerificationSubmit}
+                    disabled={submitting || !linkedinUrl.trim()}
+                  >
+                    {submitting ? "Submitting..." : "Submit for Manual Verification"}
+                  </Button>
+                </div>
+              )}
+              
+              <Button variant="ghost" className="w-full mt-2" onClick={() => setShowOtpModal(false)} disabled={submitting}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

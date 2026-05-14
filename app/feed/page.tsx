@@ -23,8 +23,9 @@ import { RightSidebar } from "./side-bars/right/right-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
+import { CATEGORIES, SUB_CATEGORIES, INDIAN_CITIES } from "@/lib/constants";
 import { supabase } from "@/lib/supabase/browser";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function FeedContent() {
   const router = useRouter();
@@ -145,6 +146,25 @@ function FeedContent() {
         return;
       }
 
+      let finalCity = userData.city;
+      if (!finalCity) {
+        finalCity = "Hyderabad"; // Default fallback
+        if ("geolocation" in navigator) {
+          try {
+             const pos: any = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 }));
+             const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`);
+             const data = await res.json();
+             if (data.city && INDIAN_CITIES.includes(data.city)) {
+                finalCity = data.city;
+             }
+          } catch (e) {
+             console.error("Location detection failed", e);
+          }
+        }
+        await supabase.from("users").update({ city: finalCity }).eq("id", authUser.id);
+        userData.city = finalCity;
+      }
+
       setUser(userData);
       await fetchPosts(
         userData,
@@ -160,6 +180,20 @@ function FeedContent() {
     };
     initPage();
   }, [router, activeTab, activeCategory, activeSubCategory, fetchPosts]);
+
+  const handleCityChange = async (newCity: string) => {
+    setUser((prev: any) => ({ ...prev, city: newCity }));
+    window.dispatchEvent(new CustomEvent("user-updated", { detail: { city: newCity } }));
+    await supabase.from("users").update({ city: newCity }).eq("id", user?.id);
+    fetchPosts(
+      { ...user, city: newCity },
+      activeTab,
+      activeCategory,
+      activeSubCategory,
+      0,
+      searchQuery
+    );
+  };
 
   const handleLoadMore = async () => {
     setLoadingMore(true);
@@ -322,6 +356,7 @@ function FeedContent() {
                     <CommentForm
                       postId={post.id}
                       userId={user?.id}
+                      isVerifiedUser={user?.is_verified}
                       onCommentAdded={() =>
                         fetchPosts(
                           user,
@@ -371,17 +406,20 @@ function FeedContent() {
       <div className="container mx-auto max-w-7xl flex gap-8 p-4 lg:p-8">
         {/* --- LEFT SIDEBAR (The Navigation) --- */}
         <aside className="hidden lg:flex w-64 flex-col gap-2 sticky top-24 h-fit">
-          <button
-            onClick={() => setActiveTab("city")}
-            className={cn(
-              "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all",
+          <div className={cn(
+              "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all group cursor-pointer",
               activeTab === "city"
-                ? "bg-white shadow-sm text-primary ring-1 ring-black/5"
-                : "text-neutral-500 hover:bg-neutral-200/50",
-            )}
-          >
-            <MapPin className="h-4 w-4" /> {user?.city || "My City"}
-          </button>
+                ? "bg-white shadow-sm ring-1 ring-black/5"
+                : "hover:bg-neutral-200/50"
+            )}>
+             <div 
+               className={cn("flex items-center gap-3 flex-1", activeTab === "city" ? "text-primary" : "text-neutral-500")}
+               onClick={() => setActiveTab("city")}
+             >
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span className="truncate max-w-[150px]">{user?.city || "Local"}</span>
+             </div>
+          </div>
 
           <button
             onClick={() => setActiveTab("company")}
@@ -469,24 +507,42 @@ function FeedContent() {
         {/* --- MAIN FEED --- */}
         <main className="flex-1 max-w-2xl mx-auto w-full space-y-6">
           <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl font-bold text-foreground truncate">
-              {activeTab === "city"
-                ? `Feed in ${user?.city || "Your city"}`
-                : `Inside ${user?.company?.name || "Your Workplace"}`}
-            </h2>
-            <CreatePostDialog
-              user={user}
-              onPostCreated={() =>
-                fetchPosts(
-                  user,
-                  activeTab,
-                  activeCategory,
-                  activeSubCategory,
-                  0,
-                  searchQuery,
-                )
-              }
-            />
+            <div className="flex items-center gap-2 text-xl font-bold text-foreground truncate">
+              {activeTab === "city" ? (
+                <>
+                  <span>Feed in</span>
+                  <Select value={user?.city || "Hyderabad"} onValueChange={handleCityChange}>
+                    <SelectTrigger className="border-0 bg-transparent p-0 h-auto shadow-none focus:ring-0 font-bold hover:bg-transparent data-[state=open]:bg-transparent text-xl text-primary underline decoration-primary/30 underline-offset-4">
+                       <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INDIAN_CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </>
+              ) : (
+                `Inside ${user?.company?.name || "Your Workplace"}`
+              )}
+            </div>
+            {user?.is_verified ? (
+              <CreatePostDialog
+                user={user}
+                onPostCreated={() =>
+                  fetchPosts(
+                    user,
+                    activeTab,
+                    activeCategory,
+                    activeSubCategory,
+                    0,
+                    searchQuery,
+                  )
+                }
+              />
+            ) : (
+              <Button onClick={() => setIsVerifyModalOpen(true)} className="rounded-full font-bold">
+                Get Verified to Post
+              </Button>
+            )}
           </div>
 
           {/* Locked State for Company Tab */}

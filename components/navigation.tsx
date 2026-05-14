@@ -10,7 +10,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LogOut, Shield, User, MessageCircle, Search, X } from "lucide-react";
+import {
+  LogOut,
+  Shield,
+  User,
+  MessageCircle,
+  Search,
+  X,
+  Menu,
+  AlertTriangle,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
 import Image from "next/image";
@@ -21,10 +30,15 @@ interface NavigationUser {
   full_name: string;
   email: string;
   city: string;
+  avatar_url?: string;
+  vouch_points: number;
   is_admin: boolean;
   company: {
     name: string;
+    domain: string;
   };
+  is_profile_complete: boolean;
+  profile_completion_percentage: number;
 }
 
 export function Navigation() {
@@ -54,7 +68,7 @@ export function Navigation() {
       const { data, error } = await supabase
         .from("users")
         .select(
-          `id, full_name, email, city, is_admin, company:companies(name)`,
+          `id, full_name, email, city, avatar_url, vouch_points, is_admin, is_verified, linkedin_url, phone_number, company:companies(name, domain)`,
         )
         .eq("id", authUser.id)
         .maybeSingle();
@@ -65,10 +79,14 @@ export function Navigation() {
           full_name: data.full_name,
           email: data.email,
           city: data.city,
+          avatar_url: data.avatar_url,
+          vouch_points: data.vouch_points || 0,
           is_admin: data.is_admin,
           company: Array.isArray(data.company)
             ? data.company[0]
-            : (data.company as unknown as { name: string }),
+            : (data.company as unknown as { name: string; domain: string }),
+          is_profile_complete: Boolean(data.is_verified && data.avatar_url && data.linkedin_url && data.phone_number),
+          profile_completion_percentage: ([data.is_verified, data.avatar_url, data.linkedin_url, data.phone_number].filter(Boolean).length / 4) * 100,
         };
 
         setUser(formattedUser);
@@ -86,6 +104,17 @@ export function Navigation() {
 
     fetchNavData();
   }, [pathname]);
+
+  // Listen for user updates from other components (e.g. city change in feed)
+  useEffect(() => {
+    const handleUserUpdate = (e: any) => {
+      if (e.detail?.city) {
+        setUser((prev) => (prev ? { ...prev, city: e.detail.city } : prev));
+      }
+    };
+    window.addEventListener("user-updated", handleUserUpdate);
+    return () => window.removeEventListener("user-updated", handleUserUpdate);
+  }, []);
 
   /* ---------------- Search Handler ---------------- */
   const handleSearch = (e: React.FormEvent) => {
@@ -141,7 +170,7 @@ export function Navigation() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Search in ${user.city}...`}
+              placeholder={`Search in ${user.city || "your city"}...`}
               className="w-full h-10 pl-10 pr-10 bg-neutral-100 border-transparent focus:bg-white focus:border-neutral-200 focus:ring-4 focus:ring-primary/5 rounded-full text-sm font-medium transition-all outline-none"
             />
             {searchQuery && (
@@ -208,15 +237,34 @@ export function Navigation() {
                   className="h-10 px-2 flex items-center space-x-2 hover:bg-neutral-50 rounded-lg"
                 >
                   <div className="flex flex-col items-end text-right hidden xs:flex">
-                    <span className="text-sm font-bold text-neutral-900 leading-none">
-                      {user.full_name}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-bold text-neutral-900 leading-none">
+                        {user.full_name}
+                      </span>
+                      {user.vouch_points > 0 && (
+                        <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded text-indigo-600" title={`${user.vouch_points} Vouch Points`}>
+                          <Shield className="h-3 w-3" />
+                          <span className="text-[10px] font-black">{user.vouch_points}</span>
+                        </div>
+                      )}
+                    </div>
                     <span className="text-[10px] font-semibold text-neutral-400 mt-1 uppercase tracking-tight">
                       {user.company?.name || user.city}
                     </span>
                   </div>
-                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-                    <User className="h-4 w-4" />
+                  <div className="relative">
+                    <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-neutral-400 overflow-hidden shadow-sm border border-neutral-100">
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt={user.full_name} className="h-full w-full object-cover" />
+                      ) : user.company?.domain ? (
+                        <img src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=64`} alt={user.company.name} className="h-full w-full object-contain p-1" />
+                      ) : (
+                        <User className="h-4 w-4" />
+                      )}
+                    </div>
+                    {!user.is_profile_complete && (
+                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-amber-500 border-2 border-white rounded-full shadow-sm" title="Profile Incomplete" />
+                    )}
                   </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -230,9 +278,15 @@ export function Navigation() {
                     <p className="text-sm font-bold text-neutral-900">
                       {user.full_name}
                     </p>
-                    <p className="text-xs text-neutral-500 truncate">
+                    <p className="text-xs text-neutral-500 truncate mb-2">
                       {user.email}
                     </p>
+                    {!user.is_profile_complete && (
+                      <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-1.5 rounded-md mt-1 border border-amber-100">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span className="text-[10px] font-bold uppercase tracking-tight">{user.profile_completion_percentage}% Complete</span>
+                      </div>
+                    )}
                   </div>
                 </Link>
                 <DropdownMenuSeparator />

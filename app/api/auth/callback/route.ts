@@ -30,31 +30,37 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
+  if (error || !data?.user) {
+    console.error("OAuth exchange error:", error);
+    return NextResponse.redirect(`${origin}/login?error=exchange-failed`);
+  }
+
   // Ensure user profile exists
   const { data: existingUser } = await supabase
     .from("users")
-    .select("id")
-    .eq("id", data?.user?.id)
+    .select("id, avatar_url")
+    .eq("id", data.user.id)
     .maybeSingle();
+
+  const oauthAvatar = data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture || null;
 
   if (!existingUser) {
     await supabase.from("users").insert({
-      id: data?.user?.id,
-      email: data?.user?.email,
+      id: data.user.id,
+      email: data.user.email,
       full_name:
-        data?.user?.user_metadata?.full_name ||
-        data?.user?.user_metadata?.name ||
+        data.user.user_metadata?.full_name ||
+        data.user.user_metadata?.name ||
         "New Professional",
+      avatar_url: oauthAvatar,
       is_verified: false,
       onboarded: false,
       is_active: true,
       is_admin: false,
     });
-  }
-
-  if (error || !data.user) {
-    console.error("OAuth exchange error:", error);
-    return NextResponse.redirect(`${origin}/login?error=exchange-failed`);
+  } else if (!existingUser.avatar_url && oauthAvatar) {
+    // If they log in but are missing an avatar (e.g. signed up before we added avatars), sync it now
+    await supabase.from("users").update({ avatar_url: oauthAvatar }).eq("id", data.user.id);
   }
 
   // Fetch onboarding status

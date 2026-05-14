@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ import {
   BadgeCheck,
   ImageIcon,
   Plus,
+  ShieldCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
@@ -52,6 +53,8 @@ interface PostCardProps {
       id: string;
       full_name: string;
       city: string;
+      avatar_url?: string;
+      vouch_points?: number;
       company: {
         name: string;
         domain: string;
@@ -110,6 +113,47 @@ export function PostCard({
   const isEdited =
     post.updated_at &&
     new Date(post.updated_at).getTime() > new Date(post.created_at).getTime();
+
+  const [vouchedEntities, setVouchedEntities] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const loadVouches = async () => {
+      const { data } = await supabase.from('vouches')
+        .select('post_id, comment_id')
+        .eq('vouching_user_id', currentUserId);
+      if (data) {
+        const state: Record<string, boolean> = {};
+        data.forEach(v => {
+          if (v.post_id) state[`post_${v.post_id}`] = true;
+          if (v.comment_id) state[`comment_${v.comment_id}`] = true;
+        });
+        setVouchedEntities(state);
+      }
+    };
+    if (currentUserId) loadVouches();
+  }, [currentUserId]);
+
+  const handleVouch = async (targetUserId: string, entityType: 'post' | 'comment', entityId: string) => {
+    const key = `${entityType}_${entityId}`;
+    if (targetUserId === currentUserId || vouchedEntities[key]) return;
+    
+    // Optimistic UI update
+    setVouchedEntities(prev => ({ ...prev, [key]: true }));
+
+    const { error } = await supabase.from('vouches').insert({
+      vouching_user_id: currentUserId,
+      target_user_id: targetUserId,
+      ...(entityType === 'post' ? { post_id: entityId } : { comment_id: entityId })
+    });
+    
+    if (error) {
+      if (error.code !== '23505') {
+        console.error("Vouch error:", error);
+        // Revert optimistic update on real error
+        setVouchedEntities(prev => ({ ...prev, [key]: false }));
+      }
+    }
+  };
 
   // Helper for uploading new images during edit
   const uploadNewImages = async (files: File[]) => {
@@ -214,18 +258,24 @@ export function PostCard({
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-3">
-          <div className="h-10 w-10 rounded-lg border border-neutral-100 bg-neutral-50 flex items-center justify-center overflow-hidden shrink-0">
-            {post.user.company.domain ? (
+          <div className="h-10 w-10 rounded-lg border border-neutral-100 bg-white flex items-center justify-center overflow-hidden shrink-0 text-primary font-bold shadow-sm">
+            {post.user.avatar_url ? (
               <img
-                src={companyLogoUrl}
-                alt={post.user.company.name}
-                className="h-7 w-7 object-contain"
+                src={post.user.avatar_url}
+                alt={post.user.full_name}
+                className="h-full w-full object-cover"
                 onError={(e) => {
                   e.currentTarget.style.display = "none";
                 }}
               />
+            ) : post.user.company?.domain ? (
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`}
+                alt={post.user.company.name}
+                className="h-full w-full object-contain p-1.5"
+              />
             ) : (
-              <Building2 className="h-5 w-5 text-neutral-400" />
+               post.user.full_name.charAt(0)
             )}
           </div>
 
@@ -241,6 +291,12 @@ export function PostCard({
                   fill="currentColor"
                   fillOpacity={0.15}
                 />
+                {(post.user.vouch_points ?? 0) > 0 && (
+                  <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded text-indigo-600 ml-1.5" title={`${post.user.vouch_points} Vouch Points`}>
+                    <ShieldCheck className="h-3 w-3" />
+                    <span className="text-[9px] font-black">{post.user.vouch_points}</span>
+                  </div>
+                )}
               </Link>
               <span className="text-neutral-300 text-xs">|</span>
               <span className="text-xs font-semibold text-neutral-600 uppercase tracking-tight">
@@ -474,6 +530,28 @@ export function PostCard({
             {commentCount > 0 ? `${commentCount} replies` : "Reply"}
           </span>
         </Button>
+        {/* Vouch Button */}
+        {!isOwner && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleVouch(post.user.id, 'post', post.id)}
+            disabled={vouchedEntities[`post_${post.id}`]}
+            className={`h-8 px-2 flex-shrink-0 ${vouchedEntities[`post_${post.id}`] ? 'text-indigo-600 bg-indigo-50/50 cursor-default' : 'text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
+          >
+            {vouchedEntities[`post_${post.id}`] ? (
+              <>
+                <Check className="h-4 w-4 mr-1.5" />
+                <span className="text-xs font-bold">Vouched</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="h-4 w-4 mr-1.5" />
+                <span className="text-xs font-bold">Vouch</span>
+              </>
+            )}
+          </Button>
+        )}
 
         {!isOwner && (
           <Button
@@ -564,6 +642,21 @@ export function PostCard({
                     addSuffix: true,
                   })}
                 </span>
+                {comment.user.id !== currentUserId && (
+                  <button
+                    onClick={() => handleVouch(comment.user.id, 'comment', comment.id)}
+                    disabled={vouchedEntities[`comment_${comment.id}`]}
+                    className={`text-[10px] font-bold flex items-center gap-0.5 ${vouchedEntities[`comment_${comment.id}`] ? 'text-indigo-600 cursor-default' : 'text-indigo-500 hover:underline'}`}
+                  >
+                    {vouchedEntities[`comment_${comment.id}`] ? (
+                      <>
+                        <Check className="h-3 w-3" /> Vouched
+                      </>
+                    ) : (
+                      "Vouch"
+                    )}
+                  </button>
+                )}
               </div>
               <p className="text-sm text-neutral-700 leading-snug">
                 {comment.text}

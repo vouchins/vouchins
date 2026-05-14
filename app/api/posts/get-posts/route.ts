@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     .from("posts")
     .select(`
       *,
-      user:users!posts_user_id_fkey!inner(id, full_name, city, is_admin, company_id, company:companies(name, domain)),
+      user:users!posts_user_id_fkey!inner(id, full_name, city, avatar_url, vouch_points, is_admin, company_id, company:companies(name, domain)),
       comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))
     `)
     .eq("is_removed", false)

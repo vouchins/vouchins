@@ -83,7 +83,7 @@ export function MobileNav({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search in ${user.city}...`}
+                placeholder={`Search in ${user?.city || "your city"}...`}
                 className="w-full h-11 pl-10 pr-10 bg-neutral-100 border-transparent rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
               />
               {searchQuery && (

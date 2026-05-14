@@ -10,12 +10,14 @@ import { supabase } from "@/lib/supabase/browser";
 interface CommentFormProps {
   postId: string;
   userId: string;
+  isVerifiedUser?: boolean;
   onCommentAdded: () => void;
 }
 
 export function CommentForm({
   postId,
   userId,
+  isVerifiedUser,
   onCommentAdded,
 }: CommentFormProps) {
   const [text, setText] = useState("");
@@ -50,6 +52,16 @@ export function CommentForm({
       setLoading(false);
     }
   };
+
+  if (isVerifiedUser === false) {
+    return (
+      <div className="mt-4 p-6 bg-neutral-50 rounded-lg border border-neutral-200 text-center">
+        <p className="text-sm font-medium text-neutral-600">
+          Get verified to join the conversation.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200">

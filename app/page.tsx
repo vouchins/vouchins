@@ -154,9 +154,9 @@ export default function Home() {
               The private marketplace for corporate professionals to
               <span className="text-primary font-bold">
                 {" "}
-                buy, sell, and settle{" "}
+                buy, sell, and settle
               </span>
-              within a circle of trust. No anonymous noise—just verified
+              within a circle of trust. No anonymous noise - just verified
               colleagues.
             </p>
 

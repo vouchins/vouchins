@@ -38,7 +38,6 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
   const [otp, setOtp] = useState("");
 
   // Manual States
-  const [companyName, setCompanyName] = useState("");
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [manualWorkEmail, setManualWorkEmail] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -110,7 +109,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
         .from("manual_verification_requests")
         .insert({
           user_id: user.id,
-          company_name: companyName.trim(),
+          company_name: user?.company?.name || "Unknown Company",
           linkedin_url: linkedinUrl.trim(),
           corporate_email: manualWorkEmail.trim() || null,
           id_card_url: fileUrl,
@@ -274,22 +273,6 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-[13px] font-bold text-neutral-900 ml-1 flex items-center gap-2">
-                    <Building2 className="h-3.5 w-3.5 text-neutral-400" />{" "}
-                    Company Name *
-                  </Label>
-                  <Input
-                    value={companyName}
-                    onChange={(e) => {
-                      setCompanyName(e.target.value);
-                      if (error) setError("");
-                    }}
-                    placeholder="e.g., Google, Microsoft"
-                    className="h-13 rounded-2xl bg-neutral-50 border-none"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[13px] font-bold text-neutral-900 ml-1 flex items-center gap-2">
                     <Link2 className="h-3.5 w-3.5 text-neutral-400" /> LinkedIn
                     Profile *
                   </Label>
@@ -320,8 +303,8 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[13px] font-bold text-neutral-900 ml-1 flex items-center gap-2 text-neutral-400 tracking-tight uppercase">
-                    Optional ID Photo
+                  <Label className="text-[13px] font-bold text-neutral-900 ml-1 flex items-center gap-2">
+                    Work ID Photo (Optional)
                   </Label>
                   <div
                     className={cn(
@@ -366,7 +349,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
               <Button
                 type="submit"
                 className="w-full h-14 rounded-2xl bg-primary text-white font-bold shadow-lg shadow-primary/10"
-                disabled={!companyName.trim() || !linkedinUrl.trim() || loading}
+                disabled={!linkedinUrl.trim() || loading}
               >
                 {loading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
