@@ -148,7 +148,7 @@ export default function AdminPage() {
       is_verified, 
       onboarded, 
       created_at, 
-      company:companies(name)
+      company:companies(id, name)
     `,
       )
       .order("created_at", { ascending: false });
@@ -204,17 +204,18 @@ export default function AdminPage() {
 
   const handleUpdateUser = async (userId: string, updates: any) => {
     try {
-      const { error } = await supabase
-        .from("users")
-        .update(updates)
-        .eq("id", userId);
-
-      if (error) throw error;
-
-      // Refresh the local state so the table reflects changes
+      const res = await fetch('/api/users/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, updates }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.error || 'Failed to update user');
+      }
       await fetchAllUsers();
     } catch (err: any) {
-      alert("Error updating user: " + err.message);
+      alert('Error updating user: ' + err.message);
     }
   };
 

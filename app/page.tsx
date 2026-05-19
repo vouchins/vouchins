@@ -151,13 +151,13 @@ export default function Home() {
 
             {/* Description */}
             <p className="text-lg md:text-xl text-neutral-600 mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
-              The private marketplace for corporate professionals to
+              A verified professional network to
               <span className="text-primary font-bold">
                 {" "}
-                buy, sell, and settle
+                transact, grow careers, share knowledge, and build trusted connections
               </span>
-              within a circle of trust. No anonymous noise - just verified
-              colleagues.
+              {" "}
+              — without spam, fake profiles, or anonymous noise.
             </p>
 
             {/* Primary Actions */}
@@ -178,8 +178,7 @@ export default function Home() {
                     Launching in
                   </span>
                   <span className="text-sm font-bold text-primary flex items-center gap-1">
-                    <MapPin className="h-3 w-3 text-accent" /> Hyderabad &
-                    Bangalore
+                    <MapPin className="h-3 w-3 text-accent" /> India 🇮🇳
                   </span>
                 </div>
               </div>

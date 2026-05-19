@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Settings2,
@@ -12,6 +12,7 @@ import {
   Mail,
   Linkedin,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase/browser";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,12 +37,23 @@ interface User {
   is_verified: boolean;
   onboarded: boolean;
   created_at: string;
-  company?: { name: string };
+  company?: { id: string; name: string }; // joined relation (read-only)
+}
+
+// Separate type for what we send to the update API (write shape)
+interface UserUpdates {
+  full_name?: string;
+  personal_email?: string;
+  linkedin_url?: string;
+  is_active?: boolean;
+  is_verified?: boolean;
+  onboarded?: boolean;
+  company_id?: string | null; // raw FK column on the users table
 }
 
 interface UsersTabProps {
   users: User[];
-  onUpdateUser: (userId: string, updates: Partial<User>) => Promise<void>;
+  onUpdateUser: (userId: string, updates: UserUpdates) => Promise<void>;
   onDeleteUser: (userId: string) => Promise<void>;
 }
 
@@ -50,6 +62,34 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Inside UsersTab component (top, after other useState hooks)
+  const [company, setCompany] = useState<string>('');                // text input
+  const [companySuggestions, setCompanySuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+
+
+  useEffect(() => {
+    const searchCompanies = async () => {
+      if (company.trim().length < 2 || selectedCompanyId) {
+        setCompanySuggestions([]);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('companies')
+        .select('id, name')
+        .ilike('name', `%${company}%`)
+        .limit(5);
+
+      setCompanySuggestions(data || []);
+      setShowSuggestions(true);
+    };
+
+    const timer = setTimeout(searchCompanies, 300); // debounce
+    return () => clearTimeout(timer);
+  }, [company, selectedCompanyId]);
+
 
   const filteredUsers = users.filter(
     (u) =>
@@ -61,6 +101,11 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
 
   const handleEditClick = (user: User) => {
     setSelectedUser({ ...user });
+    // Pre-populate company from the user's existing company (if any)
+    setCompany(user.company?.name ?? '');
+    setSelectedCompanyId(user.company?.id ?? null);
+    setCompanySuggestions([]);
+    setShowSuggestions(false);
     setIsEditDialogOpen(true);
   };
 
@@ -73,9 +118,9 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
         personal_email: selectedUser.personal_email,
         linkedin_url: selectedUser.linkedin_url,
         is_active: selectedUser.is_active,
-        is_admin: selectedUser.is_admin,
         is_verified: selectedUser.is_verified,
         onboarded: selectedUser.onboarded,
+        company_id: selectedCompanyId,
       });
       setIsEditDialogOpen(false);
     } finally {
@@ -340,7 +385,65 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3 border rounded-xl bg-indigo-50/30 border-indigo-100">
+                <div className="flex items-center justify-between p-3 border rounded-xl bg-neutral-50/50">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold">Company</Label>
+                    <p className="text-[11px] text-neutral-500">
+                      Change the user company
+                    </p>
+                  </div>
+
+                  <div className="relative w-48">
+                    {/* Text input – shows the selected company name or the typed query */}
+                    <Input
+                      placeholder="Select company…"
+                      value={company}
+                      onChange={(e) => {
+                        setCompany(e.target.value);
+                        setSelectedCompanyId(null); // reset selection when typing
+                      }}
+                      className="peer"
+                    />
+
+                    {/* Suggestions dropdown */}
+                    {showSuggestions && !selectedCompanyId && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-neutral-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                        {companySuggestions.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100"
+                            onClick={() => {
+                              setSelectedCompanyId(c.id);
+                              setCompany(c.name);
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            {c.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Clear button when a company is chosen */}
+                    {selectedCompanyId && (
+                      <button
+                        type="button"
+                        className="absolute inset-y-0 right-2 flex items-center text-neutral-400 hover:text-primary"
+                        onClick={() => {
+                          setSelectedCompanyId(null);
+                          setCompany('');
+                        }}
+                      >
+                        <span className="sr-only">Clear</span>
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+
+                {/* <div className="flex items-center justify-between p-3 border rounded-xl bg-indigo-50/30 border-indigo-100">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-semibold text-indigo-900">
                       Admin Privileges
@@ -355,7 +458,7 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
                       setSelectedUser({ ...selectedUser, is_admin: checked })
                     }
                   />
-                </div>
+                </div> */}
               </div>
 
               <div className="pt-4 border-t">
