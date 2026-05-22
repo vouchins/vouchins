@@ -23,10 +23,18 @@ import {
   ImageIcon,
   Plus,
   ShieldCheck,
+  Share2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
+import { toast } from "sonner";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 interface PostCardProps {
   post: {
@@ -34,15 +42,15 @@ interface PostCardProps {
     text: string;
     category: "housing" | "buy_sell" | "recommendations";
     sub_category?:
-      | "flatmates"
-      | "rentals"
-      | "sale"
-      | "pg"
-      | "hiring"
-      | "seeking_referral"
-      | "offering_referral"
-      | "seeking_job"
-      | null;
+    | "flatmates"
+    | "rentals"
+    | "sale"
+    | "pg"
+    | "hiring"
+    | "seeking_referral"
+    | "offering_referral"
+    | "seeking_job"
+    | null;
     visibility: "company" | "all";
     image_urls: string[];
     is_flagged: boolean;
@@ -68,6 +76,7 @@ interface PostCardProps {
   onReport: (postId: string) => void;
   onPostUpdated: () => void;
   onVerifyClick?: (postId: string) => void;
+  defaultShowComments?: boolean;
 }
 
 export function PostCard({
@@ -76,10 +85,11 @@ export function PostCard({
   onReply,
   onReport,
   onPostUpdated,
+  defaultShowComments = false,
 }: PostCardProps) {
   // --- START: YOUR ORIGINAL LOGIC (FULLY PRESERVED) ---
   const isOwner = post.user.id === currentUserId;
-  const [showComments, setShowComments] = useState(false);
+  const [showComments, setShowComments] = useState(defaultShowComments);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(post.text);
   const [saving, setSaving] = useState(false);
@@ -105,7 +115,7 @@ export function PostCard({
 
   const subCategoryLabel = post.sub_category
     ? SUB_CATEGORIES[post.category]?.find((s) => s.value === post.sub_category)
-        ?.label
+      ?.label
     : null;
 
   const commentCount = post.comments?.length || 0;
@@ -136,7 +146,7 @@ export function PostCard({
   const handleVouch = async (targetUserId: string, entityType: 'post' | 'comment', entityId: string) => {
     const key = `${entityType}_${entityId}`;
     if (targetUserId === currentUserId || vouchedEntities[key]) return;
-    
+
     // Optimistic UI update
     setVouchedEntities(prev => ({ ...prev, [key]: true }));
 
@@ -145,12 +155,40 @@ export function PostCard({
       target_user_id: targetUserId,
       ...(entityType === 'post' ? { post_id: entityId } : { comment_id: entityId })
     });
-    
+
     if (error) {
       if (error.code !== '23505') {
         console.error("Vouch error:", error);
         // Revert optimistic update on real error
         setVouchedEntities(prev => ({ ...prev, [key]: false }));
+      }
+    }
+  };
+
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/posts/${post.id}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Link copied to clipboard!");
+    } catch (err) {
+      console.error("Clipboard error:", err);
+      toast.error("Failed to copy link.");
+    }
+  };
+
+  const handleSystemShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/posts/${post.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          url: shareUrl,
+        });
+      } catch (err) {
+        console.log("Error sharing:", err);
       }
     }
   };
@@ -275,7 +313,7 @@ export function PostCard({
                 className="h-full w-full object-contain p-1.5"
               />
             ) : (
-               post.user.full_name.charAt(0)
+              post.user.full_name.charAt(0)
             )}
           </div>
 
@@ -305,12 +343,15 @@ export function PostCard({
             </div>
 
             <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-[11px] text-neutral-400 font-medium">
+              <Link
+                href={`/posts/${post.id}`}
+                className="text-[11px] text-neutral-400 font-medium hover:underline hover:text-indigo-600 transition-colors"
+              >
                 {formatDistanceToNow(new Date(post.created_at), {
                   addSuffix: true,
                 })}
                 {isEdited && <span className="italic ml-1">(Edited)</span>}
-              </p>
+              </Link>
               <span className="text-neutral-300 text-[10px]">·</span>
               <span className="text-[11px] text-neutral-400 flex items-center font-medium">
                 <MapPin className="h-2.5 w-2.5 mr-0.5" />
@@ -380,11 +421,10 @@ export function PostCard({
 
             {/* Image Editing Grid */}
             <div
-              className={`grid gap-2 ${
-                [...editedImages, ...newPreviews].length > 1
+              className={`grid gap-2 ${[...editedImages, ...newPreviews].length > 1
                   ? "grid-cols-2"
                   : "grid-cols-1"
-              }`}
+                }`}
             >
               <PhotoProvider>
                 {editedImages.map((url, index) => (
@@ -486,19 +526,17 @@ export function PostCard({
       {!isEditing && post.image_urls && post.image_urls.length > 0 && (
         <PhotoProvider>
           <div
-            className={`mt-3 gap-2 grid ${
-              post.image_urls.length > 1 ? "grid-cols-2" : "grid-cols-1"
-            }`}
+            className={`mt-3 gap-2 grid ${post.image_urls.length > 1 ? "grid-cols-2" : "grid-cols-1"
+              }`}
           >
             {post.image_urls.map((url, index) => (
               <PhotoView key={index} src={url}>
                 <div
                   key={index}
-                  className={`rounded-lg overflow-hidden border border-neutral-100 ${
-                    post.image_urls.length === 3 && index === 0
+                  className={`rounded-lg overflow-hidden border border-neutral-100 ${post.image_urls.length === 3 && index === 0
                       ? "col-span-2"
                       : ""
-                  }`}
+                    }`}
                 >
                   <img
                     src={url}
@@ -552,6 +590,29 @@ export function PostCard({
             )}
           </Button>
         )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-neutral-500 hover:text-indigo-600 h-8 px-2 flex-shrink-0"
+            >
+              <Share2 className="h-4 w-4 mr-1.5" />
+              <span className="text-xs font-semibold">Share</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleCopyLink}>
+              Copy Link
+            </DropdownMenuItem>
+            {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+              <DropdownMenuItem onClick={handleSystemShare}>
+                Share via...
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {!isOwner && (
           <Button

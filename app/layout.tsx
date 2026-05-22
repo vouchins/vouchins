@@ -2,6 +2,7 @@ import { Footer } from "@/components/footer";
 import { PHProvider } from "@/components/PostHogProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
+import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 import type { Metadata } from "next";
@@ -78,6 +79,7 @@ export default function RootLayout({
         <body className={inter.className}>
           <RecoveryRedirect />
           {children}
+          <Toaster />
           <SpeedInsights />
           <Footer />
         </body>

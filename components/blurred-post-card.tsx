@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import {
   Lock,
   MessageCircle,
@@ -10,8 +11,16 @@ import {
   MapPin,
   Home,
   BadgeCheck,
+  Share2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 interface BlurredPostCardProps {
   post: any;
@@ -45,6 +54,34 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
     : null;
 
   const companyLogoUrl = `https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`;
+
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/posts/${post.id}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Link copied to clipboard!");
+    } catch (err) {
+      console.error("Clipboard error:", err);
+      toast.error("Failed to copy link.");
+    }
+  };
+
+  const handleSystemShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/posts/${post.id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          url: shareUrl,
+        });
+      } catch (err) {
+        console.log("Error sharing:", err);
+      }
+    }
+  };
 
   return (
     <div className="bg-white border border-neutral-200 rounded-lg p-5 mb-4 shadow-sm relative overflow-hidden transition-all">
@@ -81,11 +118,14 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
             </div>
 
             <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-[11px] text-neutral-400 font-medium">
+              <Link
+                href={`/posts/${post.id}`}
+                className="text-[11px] text-neutral-400 font-medium hover:underline hover:text-indigo-600 transition-colors"
+              >
                 {formatDistanceToNow(new Date(post.created_at), {
                   addSuffix: true,
                 })}
-              </p>
+              </Link>
               <span className="text-neutral-300 text-[10px]">·</span>
               <span className="text-[11px] text-neutral-400 flex items-center font-medium">
                 <MapPin className="h-2.5 w-2.5 mr-0.5" />
@@ -142,27 +182,52 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
         </div>
       </div>
 
-      {/* Footer Actions - Matches PostCard spacing but disabled */}
-      <div className="flex items-center gap-1 pt-2 border-t border-neutral-50 opacity-40">
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled
-          className="h-8 px-3 flex-shrink-0 cursor-not-allowed"
-        >
-          <MessageCircle className="h-4 w-4 mr-1.5" />
-          <span className="text-xs font-semibold">Reply</span>
-        </Button>
+      {/* Footer Actions - Matches PostCard spacing but disabled/active split */}
+      <div className="flex items-center gap-1 pt-2 border-t border-neutral-50">
+        <div className="flex items-center gap-1 opacity-40">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled
+            className="h-8 px-3 flex-shrink-0 cursor-not-allowed"
+          >
+            <MessageCircle className="h-4 w-4 mr-1.5" />
+            <span className="text-xs font-semibold">Reply</span>
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled
-          className="text-neutral-400 h-8 px-2 cursor-not-allowed"
-        >
-          <Flag className="h-3.5 w-3.5 mr-1.5" />
-          <span className="text-xs font-medium">Report</span>
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled
+            className="text-neutral-400 h-8 px-2 cursor-not-allowed"
+          >
+            <Flag className="h-3.5 w-3.5 mr-1.5" />
+            <span className="text-xs font-medium">Report</span>
+          </Button>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-neutral-500 hover:text-indigo-600 h-8 px-2 flex-shrink-0"
+            >
+              <Share2 className="h-4 w-4 mr-1.5" />
+              <span className="text-xs font-semibold">Share</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleCopyLink}>
+              Copy Link
+            </DropdownMenuItem>
+            {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+              <DropdownMenuItem onClick={handleSystemShare}>
+                Share via...
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

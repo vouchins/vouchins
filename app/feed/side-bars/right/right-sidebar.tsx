@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   TrendingUp,
   Sparkles,
@@ -11,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 interface RightSidebarProps {
   user: {
@@ -20,6 +22,7 @@ interface RightSidebarProps {
 }
 
 export function RightSidebar({ user }: RightSidebarProps) {
+  const router = useRouter();
   const city = user?.city || "Hyderabad";
   const isVerified = user?.is_verified;
   const [sidebarAd, setSidebarAd] = useState<any>(null);
@@ -38,21 +41,13 @@ export function RightSidebar({ user }: RightSidebarProps) {
   }, []);
 
   const handleShare = async () => {
-    const shareData = {
-      title: "Vouchins",
-      text: `Vouchins is officially live in ${city}! Join our verified professional marketplace.`,
-      url: window.location.origin,
-    };
-
+    const shareUrl = window.location.origin;
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareData.url);
-        alert("Link copied to clipboard!");
-      }
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Invite link copied to clipboard!");
     } catch (err) {
-      console.error("Share failed:", err);
+      console.error("Clipboard error:", err);
+      toast.error("Failed to copy invite link.");
     }
   };
 
@@ -86,7 +81,13 @@ export function RightSidebar({ user }: RightSidebarProps) {
                 Verify your work email to unlock company-only discussions.
               </p>
               <button
-                onClick={() => (window.location.href = "/onboarding")}
+                onClick={() => {
+                  if (!user) {
+                    router.push("/login");
+                  } else {
+                    router.push("/onboarding");
+                  }
+                }}
                 className="mt-3 text-[11px] font-bold text-primary hover:opacity-80 flex items-center gap-1"
               >
                 Verify now <ShieldCheck className="h-3 w-3" />
