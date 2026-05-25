@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const isAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
   const isPostDetailsRoute = url.pathname.startsWith('/posts/')
-  const isPublicRoute = isAuthRoute || isPostDetailsRoute || url.pathname === '/' || url.pathname === '/about' || url.pathname === '/privacy' || url.pathname === '/terms' || url.pathname === '/contact' || url.pathname === '/blog'
+  const isPublicRoute = isAuthRoute || isPostDetailsRoute || url.pathname === '/' || url.pathname === '/about' || url.pathname === '/privacy' || url.pathname === '/terms' || url.pathname === '/contact' || url.pathname === '/blog' || url.pathname === '/how-it-works'
 
   // If user is logged in and trying to access an auth route, redirect to feed
   if (user && isAuthRoute) {

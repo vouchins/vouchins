@@ -8,7 +8,7 @@ export function HomepageNavbar() {
   return (
     <header className="fixed top-4 left-0 right-0 z-50 transition-all duration-300">
       <div className="container mx-auto px-4 max-w-6xl">
-        <nav className="bg-white/70 backdrop-blur-md border border-white/20 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] rounded-2xl px-6 py-3">
+        <nav className="bg-white border border-neutral-200/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.06)] rounded-2xl px-6 py-3">
           <div className="flex items-center justify-between">
             {/* Logo Section */}
             <div className="flex items-center">
@@ -27,7 +27,7 @@ export function HomepageNavbar() {
             {/* Navigation Links */}
             <div className="hidden md:flex items-center space-x-8">
               <Link
-                href="/#how-it-works"
+                href="/how-it-works"
                 className="text-sm font-semibold text-neutral-600 hover:text-primary transition-colors"
               >
                 How it works
