@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ interface BlurredPostCardProps {
 }
 
 export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
+  const [isShareOpen, setIsShareOpen] = useState(false);
   // Clipping logic: exactly 10 words
   const clippedText = post.text
     ? post.text.split(" ").slice(0, 10).join(" ")
@@ -62,6 +64,7 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
     try {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard!");
+      setIsShareOpen(false);
     } catch (err) {
       console.error("Clipboard error:", err);
       toast.error("Failed to copy link.");
@@ -77,6 +80,7 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
         await navigator.share({
           url: shareUrl,
         });
+        setIsShareOpen(false);
       } catch (err) {
         console.log("Error sharing:", err);
       }
@@ -206,7 +210,7 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
           </Button>
         </div>
 
-        <DropdownMenu>
+        <DropdownMenu open={isShareOpen} onOpenChange={setIsShareOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"

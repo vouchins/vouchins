@@ -93,6 +93,7 @@ export function PostCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(post.text);
   const [saving, setSaving] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   //Turncate long posts
   const [isExpanded, setIsExpanded] = useState(false);
@@ -172,6 +173,7 @@ export function PostCard({
     try {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard!");
+      setIsShareOpen(false);
     } catch (err) {
       console.error("Clipboard error:", err);
       toast.error("Failed to copy link.");
@@ -187,6 +189,7 @@ export function PostCard({
         await navigator.share({
           url: shareUrl,
         });
+        setIsShareOpen(false);
       } catch (err) {
         console.log("Error sharing:", err);
       }
@@ -422,8 +425,8 @@ export function PostCard({
             {/* Image Editing Grid */}
             <div
               className={`grid gap-2 ${[...editedImages, ...newPreviews].length > 1
-                  ? "grid-cols-2"
-                  : "grid-cols-1"
+                ? "grid-cols-2"
+                : "grid-cols-1"
                 }`}
             >
               <PhotoProvider>
@@ -534,8 +537,8 @@ export function PostCard({
                 <div
                   key={index}
                   className={`rounded-lg overflow-hidden border border-neutral-100 ${post.image_urls.length === 3 && index === 0
-                      ? "col-span-2"
-                      : ""
+                    ? "col-span-2"
+                    : ""
                     }`}
                 >
                   <img
@@ -591,7 +594,7 @@ export function PostCard({
           </Button>
         )}
 
-        <DropdownMenu>
+        <DropdownMenu open={isShareOpen} onOpenChange={setIsShareOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
