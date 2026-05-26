@@ -85,11 +85,16 @@ export async function GET(request: Request) {
 
   // Trim content for unverified users to enforce the "Circle of Trust" at the network level
   if (!userData.is_verified) {
-    processedPosts = processedPosts.map((post: any) => ({
-      ...post,
-      text: post.text && post.text.length > 150 ? post.text.substring(0, 150) + "..." : post.text,
-      comments: [], // Hide comments from unverified users
-    }));
+    processedPosts = processedPosts.map((post: any) => {
+      if (post.user?.is_admin) {
+        return post;
+      }
+      return {
+        ...post,
+        text: post.text && post.text.length > 150 ? post.text.substring(0, 150) + "..." : post.text,
+        comments: [], // Hide comments from unverified users
+      };
+    });
   }
 
   return NextResponse.json({
