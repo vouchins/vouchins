@@ -3,6 +3,7 @@ import { PHProvider } from "@/components/PostHogProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
 import { Toaster } from "@/components/ui/sonner";
+import { PWARegister } from "@/components/pwa-register";
 
 import "./globals.css";
 import type { Metadata } from "next";
@@ -18,6 +19,12 @@ export const metadata: Metadata = {
   },
   description:
     "The trusted private marketplace and network for verified corporate professionals.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Vouchins",
+  },
   keywords: [
     "Vouchins",
     "corporate network",
@@ -50,6 +57,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/favicon.png",
+    apple: "/icons/apple-touch-icon.png",
   },
 };
 
@@ -77,6 +85,7 @@ export default function RootLayout({
       </head>
       <PHProvider>
         <body className={inter.className}>
+          <PWARegister />
           <RecoveryRedirect />
           {children}
           <Toaster />
