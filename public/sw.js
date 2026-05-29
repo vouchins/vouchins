@@ -2,7 +2,6 @@ const CACHE_NAME = "vouchins-cache-v1";
 const OFFLINE_URL = "/offline.html";
 
 const ASSETS_TO_CACHE = [
-  "/",
   "/offline.html",
   "/favicon.png",
   "/images/logo.png",
@@ -37,7 +36,7 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch event: serve cached assets and handle offline fallback
+// Fetch event: handle offline fallback for navigation, and cache static assets
 self.addEventListener("fetch", (event) => {
   // Only intercept GET requests
   if (event.request.method !== "GET") return;
@@ -58,10 +57,24 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // 1. Navigation requests (HTML pages)
+  // Always go to the network first. Do NOT cache dynamic pages to avoid auth/session caching issues.
+  // If network fails (offline), fall back to the pre-cached offline fallback page.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match(OFFLINE_URL);
+      })
+    );
+    return;
+  }
+
+  // 2. Static assets (CSS, JS, Images, Icons, Manifest, Favicon)
+  // Use Stale-While-Revalidate for static assets to ensure fast page loads.
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      // If it exists in cache, return it, but fetch from network to update the cache in background
       if (cachedResponse) {
+        // Fetch fresh version in the background to update cache
         fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
@@ -70,30 +83,20 @@ self.addEventListener("fetch", (event) => {
               });
             }
           })
-          .catch(() => {
-            // Ignore network update errors when offline
-          });
+          .catch(() => {});
         return cachedResponse;
       }
 
-      // If not in cache, fetch from network
-      return fetch(event.request)
-        .then((response) => {
-          // If valid response, cache it
-          if (response && response.status === 200 && response.type === "basic") {
-            const responseToCache = response.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          // If offline and fetching a text/html document page, return the offline fallback
-          if (event.request.headers.get("accept")?.includes("text/html")) {
-            return caches.match(OFFLINE_URL);
-          }
-        });
+      return fetch(event.request).then((response) => {
+        // Cache static assets on first load
+        if (response && response.status === 200 && response.type === "basic") {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return response;
+      });
     })
   );
 });
