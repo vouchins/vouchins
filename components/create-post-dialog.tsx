@@ -313,33 +313,31 @@ export function CreatePostDialog({
                 <SelectContent>
                   <SelectItem value="all">
                     <div className="flex items-center gap-2">
-                      <Globe className="h-3.5 w-3.5 text-neutral-500" />
-                      <span>Public ({user?.city})</span>
+                      <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Verified Network</span>
                     </div>
                   </SelectItem>
-                  {user?.is_verified && (
-                    <>
-                      <SelectItem value="verified">
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
-                          <span>Verified Circle (All Companies)</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="company">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-3.5 w-3.5 text-green-600" />
-                          <span>My Company ({user?.company?.name})</span>
-                        </div>
-                      </SelectItem>
-                    </>
+                  {user?.is_verified && user?.company && (
+                    <SelectItem value="company">
+                      <div className="flex items-center gap-2">
+                        {user.company.domain ? (
+                          <img
+                            src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=32`}
+                            alt=""
+                            className="h-3.5 w-3.5 object-contain shrink-0"
+                          />
+                        ) : (
+                          <Building2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                        )}
+                        <span>My Company Network ({user?.company?.name})</span>
+                      </div>
+                    </SelectItem>
                   )}
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-neutral-500 mt-1.5 leading-relaxed">
                 {visibility === "all" &&
-                  "Public: Anyone in your city can see this post."}
-                {visibility === "verified" &&
-                  "Verified: Only professionals with a verified work email can see this."}
+                  "Verified: Visible to all verified professionals across all companies in the network."}
                 {visibility === "company" &&
                   `Private: Only your colleagues at ${user?.company?.name} can see this.`}
               </p>
