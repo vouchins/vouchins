@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   ShieldCheck,
   Clock,
@@ -13,6 +14,8 @@ import {
   Users,
   MessageSquare,
   FileText,
+  Briefcase,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { AdminStats } from "@/components/admin/admin-stats";
@@ -22,11 +25,18 @@ import { ReportsTab } from "@/components/admin/reports-tab";
 import { FlaggedTab } from "@/components/admin/flagged-tab";
 import { FeedbackTab } from "@/components/admin/feedback-tab";
 import { BlogTab } from "@/components/admin/blog-tab";
+import { RecruitersTab } from "@/components/admin/recruiters-tab";
 
-export default function AdminPage() {
+function AdminPageContent() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Lazy Loading & Counts States
+  const [activeTab, setActiveTab] = useState("users");
+  const [loadedTabs, setLoadedTabs] = useState<Record<string, boolean>>({});
+  const [loadingTabs, setLoadingTabs] = useState<Record<string, boolean>>({});
+  const [dbCounts, setDbCounts] = useState<Record<string, number>>({});
 
   // Data States
   const [reports, setReports] = useState<any[]>([]);
@@ -35,10 +45,80 @@ export default function AdminPage() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [feedback, setFeedback] = useState<any[]>([]);
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
+  const [recruiters, setRecruiters] = useState<any[]>([]);
 
   useEffect(() => {
     checkAuth();
   }, [router]);
+
+  const fetchDbCounts = async () => {
+    try {
+      const [
+        usersRes,
+        reportsRes,
+        flaggedRes,
+        waitlistRes,
+        feedbackRes,
+        recruitersRes,
+      ] = await Promise.all([
+        supabase.from("users").select("*", { count: "exact", head: true }),
+        supabase.from("reports").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("posts").select("*", { count: "exact", head: true }).eq("is_flagged", true).eq("is_removed", false),
+        supabase.from("manual_verification_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("recruiters").select("*", { count: "exact", head: true }).eq("status", "pending"),
+      ]);
+
+      setDbCounts({
+        users: usersRes.count || 0,
+        reports: reportsRes.count || 0,
+        flagged: flaggedRes.count || 0,
+        waitlist: waitlistRes.count || 0,
+        feedback: feedbackRes.count || 0,
+        recruiters: recruitersRes.count || 0,
+      });
+    } catch (error) {
+      console.error("Failed to fetch database counts:", error);
+    }
+  };
+
+  const loadTabData = async (tabName: string, forceRefetch = false) => {
+    if (loadedTabs[tabName] && !forceRefetch) return;
+
+    setLoadingTabs((prev) => ({ ...prev, [tabName]: true }));
+    try {
+      switch (tabName) {
+        case "waitlist":
+          await fetchWaitlist();
+          break;
+        case "users":
+          await fetchAllUsers();
+          break;
+        case "reports":
+          await fetchReports();
+          break;
+        case "flagged":
+          await fetchFlaggedPosts();
+          break;
+        case "feedback":
+          await fetchFeedback();
+          break;
+        case "blog":
+          await fetchBlogPosts();
+          break;
+        case "recruiters":
+          await fetchRecruiters();
+          break;
+        default:
+          break;
+      }
+      setLoadedTabs((prev) => ({ ...prev, [tabName]: true }));
+    } catch (error) {
+      console.error(`Error loading tab data for ${tabName}:`, error);
+    } finally {
+      setLoadingTabs((prev) => ({ ...prev, [tabName]: false }));
+    }
+  };
 
   const checkAuth = async () => {
     const {
@@ -62,19 +142,9 @@ export default function AdminPage() {
     }
 
     setUser(userData);
-    await refreshAllData();
+    await fetchDbCounts();
+    await loadTabData("users");
     setLoading(false);
-  };
-
-  const refreshAllData = async () => {
-    await Promise.all([
-      fetchReports(),
-      fetchFlaggedPosts(),
-      fetchWaitlist(),
-      fetchAllUsers(),
-      fetchFeedback(),
-      fetchBlogPosts(),
-    ]);
   };
 
   // --- Fetchers ---
@@ -120,15 +190,12 @@ export default function AdminPage() {
   )
 `,
       )
-
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching verification requests:", error);
       return;
     }
-
-    console.log("Fetched waitlist entries:", data);
 
     setWaitlist(data || []);
   };
@@ -174,6 +241,14 @@ export default function AdminPage() {
     setBlogPosts(data || []);
   };
 
+  const fetchRecruiters = async () => {
+    const { data } = await supabase
+      .from("recruiters")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setRecruiters(data || []);
+  };
+
   // --- Global Handlers (Passed to children) ---
   const handleReviewReport = async (
     reportId: string,
@@ -187,7 +262,10 @@ export default function AdminPage() {
         reviewed_at: new Date().toISOString(),
       })
       .eq("id", reportId);
-    if (!error) await fetchReports();
+    if (!error) {
+      await fetchReports();
+      await fetchDbCounts();
+    }
   };
 
   const handleRemovePost = async (postId: string) => {
@@ -197,11 +275,11 @@ export default function AdminPage() {
       .eq("id", postId);
     if (!error) {
       await Promise.all([fetchFlaggedPosts(), fetchReports()]);
+      await fetchDbCounts();
     }
   };
 
   // --- User Management Handlers ---
-
   const handleUpdateUser = async (userId: string, updates: any) => {
     try {
       const res = await fetch('/api/users/update', {
@@ -214,6 +292,7 @@ export default function AdminPage() {
         throw new Error(err?.error || 'Failed to update user');
       }
       await fetchAllUsers();
+      await fetchDbCounts();
     } catch (err: any) {
       alert('Error updating user: ' + err.message);
     }
@@ -226,6 +305,7 @@ export default function AdminPage() {
       if (error) throw error;
 
       await fetchAllUsers();
+      await fetchDbCounts();
     } catch (err: any) {
       alert("Error deleting user: " + err.message);
     }
@@ -237,9 +317,8 @@ export default function AdminPage() {
       .update({ is_active: false })
       .eq("id", userId);
     if (!error) {
-      await fetchReports();
-      await fetchFlaggedPosts();
-      await fetchAllUsers();
+      await Promise.all([fetchReports(), fetchFlaggedPosts(), fetchAllUsers()]);
+      await fetchDbCounts();
     }
   };
 
@@ -258,8 +337,22 @@ export default function AdminPage() {
       });
       if (!res.ok) throw new Error("Action failed");
       await fetchWaitlist();
+      await fetchDbCounts();
     } catch (err: any) {
       alert(err.message);
+    }
+  };
+
+  const handleRecruiterAction = async (recruiterId: string, action: "approved" | "rejected" | "suspended") => {
+    const { error } = await supabase
+      .from("recruiters")
+      .update({ status: action })
+      .eq("id", recruiterId);
+    if (!error) {
+      await fetchRecruiters();
+      await fetchDbCounts();
+    } else {
+      alert("Failed to update recruiter status: " + error.message);
     }
   };
 
@@ -273,6 +366,7 @@ export default function AdminPage() {
 
       if (res.ok) {
         await fetchFeedback();
+        await fetchDbCounts();
       }
     } catch (error) {
       console.error("Failed to update feedback:", error);
@@ -318,136 +412,212 @@ export default function AdminPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="flex flex-col items-center gap-2">
-          <ShieldCheck className="h-8 w-8 text-primary animate-pulse" />
-          <p className="text-neutral-600 text-sm font-medium">
-            Initializing Dashboard...
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const getCount = (tab: string, dbCountKey: string, localCalc: () => number) => {
+    if (loadedTabs[tab]) {
+      return localCalc();
+    }
+    return dbCounts[dbCountKey] ?? 0;
+  };
 
-  const pendingWaitlistCount = waitlist.filter(
-    (w) => w.status === "pending",
-  ).length;
-  const pendingReportsCount = reports.filter(
-    (r) => r.status === "pending",
-  ).length;
-  const pendingFeedbackCount = feedback.filter(
-    (f) => f.status === "pending",
-  ).length;
+  const totalUsersCount = getCount("users", "users", () => allUsers.length);
+  const pendingWaitlistCount = getCount("waitlist", "waitlist", () => waitlist.filter((w) => w.status === "pending").length);
+  const pendingReportsCount = getCount("reports", "reports", () => reports.filter((r) => r.status === "pending").length);
+  const flaggedPostsCount = getCount("flagged", "flagged", () => flaggedPosts.length);
+  const pendingFeedbackCount = getCount("feedback", "feedback", () => feedback.filter((f) => f.status === "pending").length);
+  const pendingRecruitersCount = getCount("recruiters", "recruiters", () => recruiters.filter((r) => r.status === "pending").length);
+
+  const handleTabChange = async (value: string) => {
+    setActiveTab(value);
+    await loadTabData(value);
+  };
+
+  const handleRefreshActiveTab = async () => {
+    await Promise.all([
+      fetchDbCounts(),
+      loadTabData(activeTab, true)
+    ]);
+  };
+
+  const isTabLoading = loadingTabs[activeTab];
 
   return (
     <div className="min-h-screen bg-[#fcfcfc]">
       <Navigation />
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <header className="mb-8">
-          <h2 className="text-3xl font-bold text-neutral-900 tracking-tight">
-            Admin Console
-          </h2>
-          <p className="text-neutral-500 mt-2">
-            Oversee platform health, safety, and manual onboarding.
-          </p>
+        <header className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h2 className="text-3xl font-bold text-neutral-900 tracking-tight">
+              Admin Console
+            </h2>
+            <p className="text-neutral-500 mt-2">
+              Oversee platform health, safety, and manual onboarding.
+            </p>
+          </div>
+          <Button
+            onClick={handleRefreshActiveTab}
+            disabled={loading || isTabLoading}
+            variant="outline"
+            className="flex items-center gap-2 border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 h-10 px-4 font-semibold shadow-sm transition-all"
+          >
+            <RefreshCw className={`h-4 w-4 ${(loading || isTabLoading) ? 'animate-spin' : ''}`} />
+            Refresh Active Tab
+          </Button>
         </header>
 
-        <AdminStats
-          totalUsers={allUsers.length}
-          pendingReports={pendingReportsCount}
-          flaggedPosts={flaggedPosts.length}
-          pendingWaitlist={pendingWaitlistCount}
-        />
-
-        <Tabs defaultValue="waitlist" className="space-y-6">
-          <TabsList className="bg-neutral-100/50 p-1 h-12 overflow-x-auto flex-nowrap w-full justify-start">
-            <TabsTrigger value="waitlist" className="px-6">
-              <Clock className="h-4 w-4 mr-2" />
-              Waitlist{" "}
-              {pendingWaitlistCount > 0 && (
-                <Badge className="ml-2 bg-primary">
-                  {pendingWaitlistCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="users" className="px-6">
-              <Users className="h-4 w-4 mr-2" /> Users
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="px-6">
-              <Flag className="h-4 w-4 mr-2" />
-              Reports{" "}
-              {pendingReportsCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {pendingReportsCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="flagged" className="px-6">
-              <AlertTriangle className="h-4 w-4 mr-2" /> Flagged
-            </TabsTrigger>
-            <TabsTrigger value="feedback" className="px-6">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Feedback{" "}
-              {pendingFeedbackCount > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="ml-2 bg-indigo-100 text-indigo-700"
-                >
-                  {pendingFeedbackCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="blog" className="px-6">
-              <FileText className="h-4 w-4 mr-2" />
-              Blog
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="waitlist">
-            <WaitlistTab entries={waitlist} onAction={handleWaitlistAction} />
-          </TabsContent>
-
-          <TabsContent value="users">
-            <UsersTab
-              users={allUsers}
-              onUpdateUser={handleUpdateUser}
-              onDeleteUser={handleDeleteUser}
+        {loading ? (
+          <div className="min-h-[450px] flex flex-col items-center justify-center bg-white rounded-xl border border-neutral-200/60 shadow-sm p-8 transition-all">
+            <div className="flex flex-col items-center gap-3">
+              <ShieldCheck className="h-10 w-10 text-primary animate-pulse" />
+              <p className="text-neutral-600 text-sm font-semibold">
+                Initializing Dashboard...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <AdminStats
+              totalUsers={totalUsersCount}
+              pendingReports={pendingReportsCount}
+              flaggedPosts={flaggedPostsCount}
+              pendingWaitlist={pendingWaitlistCount}
             />
-          </TabsContent>
 
-          <TabsContent value="reports">
-            <ReportsTab
-              reports={reports}
-              onReview={handleReviewReport}
-              onRemovePost={handleRemovePost}
-            />
-          </TabsContent>
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+              <TabsList className="bg-neutral-100/50 p-1 h-12 overflow-x-auto flex-nowrap w-full justify-start border-b border-neutral-200">
+                <TabsTrigger value="users" className="px-6 font-bold text-xs">
+                  <Users className="h-4 w-4 mr-2" /> Users
+                </TabsTrigger>
+                <TabsTrigger value="waitlist" className="px-6 font-bold text-xs">
+                  <Clock className="h-4 w-4 mr-2" />
+                  Waitlist{" "}
+                  {pendingWaitlistCount > 0 && (
+                    <Badge className="ml-2 bg-primary">
+                      {pendingWaitlistCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="recruiters" className="px-6 font-bold text-xs">
+                  <Briefcase className="h-4 w-4 mr-2" />
+                  Recruiters{" "}
+                  {pendingRecruitersCount > 0 && (
+                    <Badge className="ml-2 bg-primary">
+                      {pendingRecruitersCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="reports" className="px-6 font-bold text-xs">
+                  <Flag className="h-4 w-4 mr-2" />
+                  Reports{" "}
+                  {pendingReportsCount > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {pendingReportsCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="flagged" className="px-6 font-bold text-xs">
+                  <AlertTriangle className="h-4 w-4 mr-2" /> Flagged
+                </TabsTrigger>
+                <TabsTrigger value="feedback" className="px-6 font-bold text-xs">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Feedback{" "}
+                  {pendingFeedbackCount > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="ml-2 bg-indigo-100 text-indigo-700 font-bold"
+                    >
+                      {pendingFeedbackCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="blog" className="px-6 font-bold text-xs">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Blog
+                </TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="flagged">
-            <FlaggedTab
-              posts={flaggedPosts}
-              onRemovePost={handleRemovePost}
-              onSuspendUser={handleDisableUser}
-            />
-          </TabsContent>
+              <div className="relative">
+                {isTabLoading ? (
+                  <div className="min-h-[350px] flex flex-col items-center justify-center bg-white rounded-xl border border-neutral-200/60 shadow-sm p-8 transition-all">
+                    <div className="flex flex-col items-center gap-3">
+                      <RefreshCw className="h-8 w-8 text-primary animate-spin" />
+                      <p className="text-neutral-500 text-sm font-semibold">
+                        Loading tab data...
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <TabsContent value="waitlist">
+                      <WaitlistTab entries={waitlist} onAction={handleWaitlistAction} />
+                    </TabsContent>
 
-          <TabsContent value="feedback">
-            <FeedbackTab feedbacks={feedback} onReview={handleReviewFeedback} />
-          </TabsContent>
+                    <TabsContent value="users">
+                      <UsersTab
+                        users={allUsers}
+                        onUpdateUser={handleUpdateUser}
+                        onDeleteUser={handleDeleteUser}
+                      />
+                    </TabsContent>
 
-          <TabsContent value="blog">
-            <BlogTab
-              posts={blogPosts}
-              onCreate={handleCreateBlog}
-              onUpdate={handleUpdateBlog}
-              onDelete={handleDeleteBlog}
-            />
-          </TabsContent>
-        </Tabs>
+                    <TabsContent value="reports">
+                      <ReportsTab
+                        reports={reports}
+                        onReview={handleReviewReport}
+                        onRemovePost={handleRemovePost}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="flagged">
+                      <FlaggedTab
+                        posts={flaggedPosts}
+                        onRemovePost={handleRemovePost}
+                        onSuspendUser={handleDisableUser}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="feedback">
+                      <FeedbackTab feedbacks={feedback} onReview={handleReviewFeedback} />
+                    </TabsContent>
+
+                    <TabsContent value="blog">
+                      <BlogTab
+                        posts={blogPosts}
+                        onCreate={handleCreateBlog}
+                        onUpdate={handleUpdateBlog}
+                        onDelete={handleDeleteBlog}
+                      />
+                    </TabsContent>
+
+                    <TabsContent value="recruiters">
+                      <RecruitersTab entries={recruiters} onAction={handleRecruiterAction} />
+                    </TabsContent>
+                  </>
+                )}
+              </div>
+            </Tabs>
+          </>
+        )}
       </div>
     </div>
+    );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+          <div className="flex flex-col items-center gap-2">
+            <ShieldCheck className="h-8 w-8 text-primary animate-pulse" />
+            <p className="text-neutral-600 text-sm font-medium">
+              Initializing Admin Dashboard...
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <AdminPageContent />
+    </Suspense>
   );
 }

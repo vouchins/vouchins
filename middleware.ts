@@ -32,13 +32,19 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const url = request.nextUrl.clone()
-  const isAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
+  const isRecruiterAuthRoute = url.pathname === '/recruiter/login' || url.pathname === '/recruiter/signup'
+  const isStandardAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
+  const isAuthRoute = isStandardAuthRoute || isRecruiterAuthRoute
   const isPostDetailsRoute = url.pathname.startsWith('/posts/')
   const isPublicRoute = isAuthRoute || isPostDetailsRoute || url.pathname === '/' || url.pathname === '/about' || url.pathname === '/privacy' || url.pathname === '/terms' || url.pathname === '/contact' || url.pathname === '/blog' || url.pathname === '/how-it-works'
 
-  // If user is logged in and trying to access an auth route, redirect to feed
+  // If user is logged in and trying to access an auth route, redirect to the appropriate dashboard
   if (user && isAuthRoute) {
-    url.pathname = '/feed'
+    if (isRecruiterAuthRoute) {
+      url.pathname = '/recruiter/dashboard'
+    } else {
+      url.pathname = '/feed'
+    }
     return NextResponse.redirect(url)
   }
 
@@ -50,7 +56,11 @@ export async function middleware(request: NextRequest) {
 
   // If user is not logged in and trying to access a protected route, redirect to login
   if (!user && !isPublicRoute && !url.pathname.startsWith('/api/')) {
-    url.pathname = '/login'
+    if (url.pathname.startsWith('/recruiter')) {
+      url.pathname = '/recruiter/login'
+    } else {
+      url.pathname = '/login'
+    }
     return NextResponse.redirect(url)
   }
 

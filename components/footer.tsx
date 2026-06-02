@@ -38,7 +38,13 @@ export function Footer() {
             href="/business"
             className="hover:text-[#0A1B5C] transition-colors"
           >
-            For Companies
+            Companies
+          </Link>
+          <Link
+            href="/recruiter/login"
+            className="hover:text-[#0A1B5C] transition-colors"
+          >
+            Recruiters
           </Link>
           <Link
             href="/about"

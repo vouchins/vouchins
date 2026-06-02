@@ -2,7 +2,7 @@ export const CATEGORIES = [
   { value: 'housing', label: 'Housing' },
   { value: 'buy_sell', label: 'Buy / Sell' },
   { value: 'recommendations', label: 'Recommendations' },
-  { value: 'jobs', label: 'Jobs' },
+  { value: 'referrals', label: 'Referrals' },
 ] as const;
 
 export const VISIBILITY_OPTIONS = [
@@ -17,11 +17,9 @@ export const SUB_CATEGORIES: Record<string, { value: string; label: string }[]> 
     { value: 'sale', label: 'Sale' },
     { value: 'pg', label: 'PG' },
   ],
-  jobs: [
-    { value: 'hiring', label: 'Looking to hire' },
+  referrals: [
     { value: 'seeking_referral', label: 'Seeking referral' },
-    { value: 'offering_referral', label: 'Offering referral' },
-    { value: 'seeking_job', label: 'Seeking job' },
+    { value: 'offering_referral', label: 'Offering Referral' },
   ],
 };
 

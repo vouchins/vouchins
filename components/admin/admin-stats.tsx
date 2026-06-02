@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Users, Flag, AlertTriangle, Clock } from "lucide-react";
 
 interface AdminStatsProps {
   pendingReports: number;
@@ -24,47 +25,61 @@ export function AdminStats({
       label: "Total Users",
       value: totalUsers,
       description: "Verified platform members",
-      primary: false,
+      icon: <Users className="h-5 w-5 text-indigo-500" />,
+      bg: "bg-indigo-50/40",
+      border: "border-indigo-100",
     },
     {
       label: "Content Integrity",
       value: pendingReports,
       description: "Pending user reports",
-      primary: false,
+      icon: <Flag className="h-5 w-5 text-red-500" />,
+      bg: "bg-red-50/40",
+      border: "border-red-100",
     },
     {
       label: "Automated Safety",
       value: flaggedPosts,
       description: "Auto-flagged violations",
-      primary: false,
+      icon: <AlertTriangle className="h-5 w-5 text-amber-500" />,
+      bg: "bg-amber-50/40",
+      border: "border-amber-100",
     },
     {
-      label: "Manual Verfication Requests",
+      label: "Manual Approvals",
       value: pendingWaitlist,
-      description: "Pending manual approvals",
-      primary: true,
+      description: "Pending identity verifications",
+      icon: <Clock className="h-5 w-5 text-primary" />,
+      bg: "bg-primary/5",
+      border: "border-primary/10",
+      highlight: true,
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mb-10">
       {stats.map((stat) => (
         <Card
           key={stat.label}
-          className={`border-none shadow-sm bg-white ${stat.primary ? "ring-1 ring-primary/10" : ""}`}
+          className={`border ${stat.border} shadow-sm bg-white hover:shadow-md hover:scale-[1.02] transition-all duration-300 group`}
         >
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs uppercase tracking-wider font-semibold text-neutral-400">
-              {stat.label}
-            </CardDescription>
-            <CardTitle
-              className={`text-4xl font-bold ${stat.primary ? "text-primary" : "text-neutral-900"}`}
-            >
-              {stat.value}
-            </CardTitle>
+          <CardHeader className="pb-2 flex flex-row items-start justify-between space-y-0">
+            <div className="space-y-1 text-left">
+              <CardDescription className="text-[10px] uppercase tracking-wider font-black text-neutral-400 group-hover:text-neutral-500 transition-colors">
+                {stat.label}
+              </CardDescription>
+              <CardTitle
+                className={`text-3xl font-black ${stat.highlight ? "text-primary" : "text-neutral-900"}`}
+              >
+                {stat.value}
+              </CardTitle>
+            </div>
+            <div className={`p-2.5 rounded-xl ${stat.bg} border ${stat.border}`}>
+              {stat.icon}
+            </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-neutral-500 font-medium">
+          <CardContent className="text-left">
+            <p className="text-xs text-neutral-500 font-medium">
               {stat.description}
             </p>
           </CardContent>

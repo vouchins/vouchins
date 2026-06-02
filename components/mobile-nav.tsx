@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Search, Plus, Lock, Building2, X } from "lucide-react";
+import { MapPin, Search, Plus, Lock, Building2, X, Briefcase } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { CreatePostDialog } from "@/components/create-post-dialog";
@@ -168,6 +168,20 @@ export function MobileNav({
           <span className="text-[10px] font-bold truncate max-w-[80px]">
             {companyLabel}
           </span>
+        </button>
+
+        {/* Jobs */}
+        <button
+          onClick={() => {
+            router.push("/jobs");
+          }}
+          className={cn(
+            "flex flex-col items-center gap-1 min-w-[64px]",
+            pathname === "/jobs" ? "text-primary" : "text-neutral-500",
+          )}
+        >
+          <Briefcase className="h-5 w-5" />
+          <span className="text-[10px] font-bold">Jobs</span>
         </button>
 
         {/* 3. Search */}

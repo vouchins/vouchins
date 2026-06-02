@@ -40,6 +40,8 @@ const CATEGORY_HELP_TEXT: Record<string, string> = {
   buy_sell: "Mention item condition, expected price and pickup location.",
   recommendations:
     "Clearly describe what you are looking for so others can help.",
+  referrals:
+    "Mention target companies, job profiles, and add helpful context or resume link.",
 };
 
 interface CreatePostDialogProps {
