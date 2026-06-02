@@ -40,7 +40,7 @@ export default function Home() {
   // Mock live community activities matching screenshot
   const activities = [
     {
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80",
+      avatar: "https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Rahul Verma",
       action: "referred",
       target: "Ananya Iyer",
@@ -50,7 +50,7 @@ export default function Home() {
       iconBg: "bg-purple-500/10",
     },
     {
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&h=100&q=80",
+      avatar: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Priya Mehta",
       action: "posted a flatmate",
       target: "requirement",
@@ -60,7 +60,7 @@ export default function Home() {
       iconBg: "bg-blue-500/10",
     },
     {
-      avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=100&h=100&q=80",
+      avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Arjun Nair",
       action: "listed iPhone 15",
       target: "for sale",
@@ -70,7 +70,7 @@ export default function Home() {
       iconBg: "bg-emerald-500/10",
     },
     {
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&h=100&q=80",
+      avatar: "https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Neha Sharma",
       action: "shared a",
       target: "recommendation",
@@ -110,9 +110,9 @@ export default function Home() {
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-neutral-300 text-xs md:text-sm font-semibold backdrop-blur-sm shadow-inner">
                   <div className="flex -space-x-2 mr-1">
                     {[
-                      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&h=80&q=80",
-                      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&h=80&q=80",
-                      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&h=80&q=80"
+                      "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=80&h=80&q=80",
+                      "https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?auto=format&fit=crop&w=80&h=80&q=80",
+                      "https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=80&h=80&q=80"
                     ].map((src, idx) => (
                       <div
                         key={idx}
@@ -204,7 +204,7 @@ export default function Home() {
                   {/* Neha Sharma Profile */}
                   <div className="pointer-events-auto absolute top-4 right-4 sm:top-8 sm:right-16 z-20 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full overflow-hidden border border-[#4FD1C5] shrink-0">
-                      <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=100&h=100&q=80" alt="Neha Sharma" className="h-full w-full object-cover" />
+                      <img src="https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=100&h=100&q=80" alt="Neha Sharma" className="h-full w-full object-cover" />
                     </div>
                     <div>
                       <div className="text-[11px] font-bold text-white flex items-center gap-1">
@@ -247,7 +247,7 @@ export default function Home() {
                   </div>
 
                   {/* Card 2: Flatmate Match */}
-                  <div className="pointer-events-auto absolute top-[48%] left-2 sm:top-[52%] sm:left-16 z-10 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+                  <div className="pointer-events-auto absolute top-[48%] left-[-1.5rem] sm:top-[52%] sm:left-8 z-10 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
                       <Building2 className="h-4 w-4" />
                     </div>
@@ -263,8 +263,8 @@ export default function Home() {
                   {/* Card 3: Recommendation */}
                   <div className="pointer-events-auto absolute bottom-[26%] right-2 sm:bottom-[32%] sm:right-6 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
                     <div className="flex -space-x-2 shrink-0">
-                      <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=80&h=80&q=80" alt="avatar" className="h-8 w-8 rounded-full border-2 border-[#020617] shrink-0 object-cover" />
-                      <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=80&h=80&q=80" alt="avatar" className="h-8 w-8 rounded-full border-2 border-[#020617] shrink-0 object-cover" />
+                      <img src="https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=80&h=80&q=80" alt="avatar" className="h-8 w-8 rounded-full border-2 border-[#020617] shrink-0 object-cover" />
+                      <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=80&h=80&q=80" alt="avatar" className="h-8 w-8 rounded-full border-2 border-[#020617] shrink-0 object-cover" />
                     </div>
                     <div>
                       <div className="text-[11px] font-bold text-white flex items-center gap-1">
@@ -280,7 +280,7 @@ export default function Home() {
                   {/* Card 4: Referral */}
                   <div className="pointer-events-auto absolute bottom-4 left-[20%] sm:bottom-10 sm:left-[35%] z-10 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full overflow-hidden border border-white/10 shrink-0">
-                      <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&h=100&q=80" alt="avatar" className="h-full w-full object-cover" />
+                      <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=100&h=100&q=80" alt="avatar" className="h-full w-full object-cover" />
                     </div>
                     <div>
                       <div className="text-[11px] font-bold text-white">Got a new job</div>
@@ -337,7 +337,7 @@ export default function Home() {
                   { name: "Microsoft", domain: "microsoft.com" },
                   { name: "Google", domain: "google.com" },
                   { name: "Amazon", domain: "amazon.com" },
-                  { name: "TCS", domain: "tcs.com" },
+                  { name: "TCS", domain: "www.tcs.com" },
                   { name: "Infosys", domain: "infosys.com" },
                   { name: "Deloitte", domain: "deloitte.com" }
                 ].map((logo, index) => (
