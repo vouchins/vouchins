@@ -19,6 +19,7 @@ import {
   X,
   Menu,
   AlertTriangle,
+  Briefcase,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
@@ -190,6 +191,24 @@ export function Navigation() {
           <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
             {user ? (
               <>
+                {/* Jobs */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/jobs")}
+                  className={cn(
+                    "h-9 px-2 sm:px-3 rounded-lg",
+                    pathname === "/jobs"
+                      ? "text-primary bg-primary/5"
+                      : "text-neutral-600",
+                  )}
+                >
+                  <Briefcase className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline font-bold text-[13px]">
+                    Jobs
+                  </span>
+                </Button>
+
                 {/* Messages */}
                 <Button
                   variant="ghost"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ import {
 import { supabase } from "@/lib/supabase/browser";
 import { toast } from "sonner";
 
-export default function JobsPage() {
+function JobsPageContent() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
@@ -272,13 +272,7 @@ export default function JobsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-[#F8F9FB]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+
 
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex flex-col">
@@ -383,183 +377,231 @@ export default function JobsPage() {
         </div>
       </div>
 
-      {/* Main Page Layout */}
       <div className="max-w-7xl mx-auto px-6 py-8 flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 w-full">
-        {/* Left Column: Job List (1 Col) */}
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm flex flex-col h-[calc(100vh-280px)] overflow-y-auto">
-            <div className="p-4 border-b border-neutral-100 bg-[#FAFAFC] flex justify-between items-center">
-              <span className="text-xs font-black text-neutral-400 uppercase tracking-wider">
-                Jobs Found ({jobs.length})
-              </span>
+        {loading ? (
+          <>
+            {/* Left Column: Job List Skeleton */}
+            <div className="lg:col-span-1 space-y-4">
+              <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm flex flex-col h-[calc(100vh-280px)] overflow-y-hidden">
+                <div className="p-4 border-b border-neutral-100 bg-[#FAFAFC] flex justify-between items-center">
+                  <div className="h-4 w-28 bg-neutral-200 rounded animate-pulse" />
+                </div>
+                <div className="p-4 space-y-4 divide-y divide-neutral-100">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="pt-4 first:pt-0 flex gap-3 animate-pulse">
+                      <div className="h-10 w-10 rounded-lg bg-neutral-200 shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-3/4 bg-neutral-200 rounded" />
+                        <div className="h-3.5 w-1/2 bg-neutral-200 rounded" />
+                        <div className="flex gap-2">
+                          <div className="h-4.5 w-12 bg-neutral-200 rounded" />
+                          <div className="h-4.5 w-16 bg-neutral-200 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {jobs.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-neutral-500">
-                <Briefcase className="h-10 w-10 text-neutral-300 mb-3" />
-                <p className="font-bold text-sm">No job matches found</p>
-                <p className="text-xs text-neutral-400 mt-1">Try expanding your search criteria or filters.</p>
+            {/* Right Column: Selected Job Details Skeleton */}
+            <div className="lg:col-span-2">
+              <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-[calc(100vh-280px)] flex flex-col p-6 space-y-6 animate-pulse">
+                <div className="flex items-start gap-4">
+                  <div className="h-12 w-12 bg-neutral-200 rounded-xl shrink-0" />
+                  <div className="space-y-2 flex-1">
+                    <div className="h-5 w-1/3 bg-neutral-200 rounded" />
+                    <div className="h-3.5 w-1/4 bg-neutral-200 rounded" />
+                  </div>
+                </div>
+                <div className="h-10 w-28 bg-neutral-200 rounded-xl" />
+                <div className="space-y-3 pt-6 border-t border-neutral-100">
+                  <div className="h-4 w-full bg-neutral-200 rounded" />
+                  <div className="h-4 w-5/6 bg-neutral-200 rounded" />
+                  <div className="h-4 w-2/3 bg-neutral-200 rounded" />
+                </div>
               </div>
-            ) : (
-              <div className="divide-y divide-neutral-100">
-                {jobs.map((job) => {
-                  const isSelected = selectedJob?.id === job.id;
-                  const alreadyApplied = userApplications.includes(job.id);
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Left Column: Job List (1 Col) */}
+            <div className="lg:col-span-1 space-y-4">
+              <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm flex flex-col h-[calc(100vh-280px)] overflow-y-auto">
+                <div className="p-4 border-b border-neutral-100 bg-[#FAFAFC] flex justify-between items-center">
+                  <span className="text-xs font-black text-neutral-400 uppercase tracking-wider">
+                    Jobs Found ({jobs.length})
+                  </span>
+                </div>
 
-                  return (
-                    <div
-                      key={job.id}
-                      onClick={() => handleSelectJob(job)}
-                      className={`p-4 cursor-pointer transition-colors text-left flex gap-3 ${isSelected ? "bg-primary/5 border-l-4 border-primary" : "hover:bg-neutral-50"
-                        }`}
-                    >
-                      {job.company_logo ? (
-                        <img
-                          src={job.company_logo}
-                          alt={job.company_name}
-                          className="h-10 w-10 rounded-lg object-contain border border-neutral-100 p-0.5 bg-white shrink-0 shadow-sm"
-                        />
-                      ) : (
-                        <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center border border-neutral-200 shrink-0">
-                          <Building2 className="h-5 w-5 text-neutral-400" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                        <div className="flex justify-between items-start gap-2">
-                          <h3 className="font-bold text-sm text-neutral-900 line-clamp-1">{job.title}</h3>
-                          {alreadyApplied && (
-                            <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold uppercase py-0.5 shrink-0">
-                              Applied
-                            </Badge>
+                {jobs.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-neutral-500">
+                    <Briefcase className="h-10 w-10 text-neutral-300 mb-3" />
+                    <p className="font-bold text-sm">No job matches found</p>
+                    <p className="text-xs text-neutral-400 mt-1">Try expanding your search criteria or filters.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-neutral-100">
+                    {jobs.map((job) => {
+                      const isSelected = selectedJob?.id === job.id;
+                      const alreadyApplied = userApplications.includes(job.id);
+
+                      return (
+                        <div
+                          key={job.id}
+                          onClick={() => handleSelectJob(job)}
+                          className={`p-4 cursor-pointer transition-colors text-left flex gap-3 ${isSelected ? "bg-primary/5 border-l-4 border-primary" : "hover:bg-neutral-50"
+                            }`}
+                        >
+                          {job.company_logo ? (
+                            <img
+                              src={job.company_logo}
+                              alt={job.company_name}
+                              className="h-10 w-10 rounded-lg object-contain border border-neutral-100 p-0.5 bg-white shrink-0 shadow-sm"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-lg bg-neutral-100 flex items-center justify-center border border-neutral-200 shrink-0">
+                              <Building2 className="h-5 w-5 text-neutral-400" />
+                            </div>
                           )}
+                          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                            <div className="flex justify-between items-start gap-2">
+                              <h3 className="font-bold text-sm text-neutral-900 line-clamp-1">{job.title}</h3>
+                              {alreadyApplied && (
+                                <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[9px] font-bold uppercase py-0.5 shrink-0">
+                                  Applied
+                                </Badge>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-semibold uppercase tracking-tight">
+                              {job.company_name}
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5 mt-0.5">
+                              <Badge variant="secondary" className="bg-[#EAEBF0] text-[#1F2557] border-none text-[9px] font-bold uppercase py-0.5">
+                                {job.job_type}
+                              </Badge>
+                              <Badge variant="outline" className="text-neutral-500 border-neutral-200 text-[9px] font-bold uppercase py-0.5">
+                                {job.location}
+                              </Badge>
+                            </div>
+                          </div>
                         </div>
-
-                        <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-semibold uppercase tracking-tight">
-                          {job.company_name}
-                        </div>
-
-                        <div className="flex flex-wrap gap-1.5 mt-0.5">
-                          <Badge variant="secondary" className="bg-[#EAEBF0] text-[#1F2557] border-none text-[9px] font-bold uppercase py-0.5">
-                            {job.job_type}
-                          </Badge>
-                          <Badge variant="outline" className="text-neutral-500 border-neutral-200 text-[9px] font-bold uppercase py-0.5">
-                            {job.location}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: Selected Job Details (2 Cols) */}
-        <div className="lg:col-span-2">
-          {selectedJob ? (
-            <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-[calc(100vh-280px)] flex flex-col">
-              {/* Job Header */}
-              <div className="p-6 border-b border-neutral-100 flex flex-col sm:flex-row justify-between items-start gap-4">
-                <div className="text-left space-y-2">
-                  <div className="flex items-start gap-4">
-                    {selectedJob.company_logo ? (
-                      <img
-                        src={selectedJob.company_logo}
-                        alt={selectedJob.company_name}
-                        className="h-12 w-12 rounded-xl object-contain border border-neutral-100 p-1 bg-white shadow-sm shrink-0"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-xl bg-neutral-100 flex items-center justify-center border border-neutral-200 shrink-0">
-                        <Building2 className="h-6 w-6 text-neutral-400" />
-                      </div>
-                    )}
-                    <div className="text-left space-y-1.5">
-                      <h2 className="text-xl font-bold text-neutral-900 leading-tight">{selectedJob.title}</h2>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-primary">{selectedJob.company_name}</span>
-                        <span className="text-neutral-300">•</span>
-                        <span className="text-xs text-neutral-500 flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5 text-neutral-400" /> {selectedJob.location}
-                        </span>
-                        <span className="text-neutral-300">•</span>
-                        <span className="text-xs text-neutral-500 flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5 text-neutral-400" /> {selectedJob.job_type}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap pt-1">
-                    <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-bold uppercase">
-                      {selectedJob.experience_level}
-                    </Badge>
-                    {selectedJob.salary_range && (
-                      <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold uppercase">
-                        {selectedJob.salary_range}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="self-stretch sm:self-start flex flex-col items-stretch gap-2">
-                  {userApplications.includes(selectedJob.id) ? (
-                    <Button disabled className="bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-1.5 h-10 px-6">
-                      <CheckCircle className="h-4 w-4" /> Applied
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handleOpenApplyModal(selectedJob)}
-                      className="bg-primary hover:bg-primary/95 text-white font-bold rounded-xl h-10 px-6 shadow-md shadow-primary/10 transition-all active:scale-95 flex items-center gap-1.5"
-                    >
-                      {selectedJob.external_apply_url ? (
-                        <>
-                          Apply Externally <ExternalLink className="h-4 w-4" />
-                        </>
-                      ) : (
-                        "Apply Now"
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Job Details Content */}
-              <div className="p-6 overflow-y-auto flex-1 space-y-6 text-left">
-                {/* Description */}
-                <div className="space-y-2">
-                  <h3 className="font-bold text-sm text-neutral-800 uppercase tracking-wider">Job Description</h3>
-                  <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-wrap">
-                    {selectedJob.description}
-                  </p>
-                </div>
-
-                {/* Requirements */}
-                {selectedJob.requirements && (
-                  <div className="space-y-2">
-                    <h3 className="font-bold text-sm text-neutral-800 uppercase tracking-wider">Requirements</h3>
-                    <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-wrap">
-                      {selectedJob.requirements}
-                    </p>
+                      );
+                    })}
                   </div>
                 )}
-
-                {/* Company Link / Meta info */}
-                <div className="pt-6 border-t border-neutral-100 flex flex-wrap gap-6 text-xs text-neutral-500 font-semibold uppercase tracking-wider">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4 text-neutral-400" />
-                    Posted {new Date(selectedJob.created_at).toLocaleDateString()}
-                  </div>
-                </div>
               </div>
             </div>
-          ) : (
-            <div className="bg-white border border-neutral-200 rounded-xl p-16 text-center text-neutral-500 h-[calc(100vh-280px)] flex flex-col justify-center items-center">
-              <Briefcase className="h-12 w-12 text-neutral-300 mb-4 animate-pulse" />
-              <p className="font-bold text-base">Select a job post</p>
-              <p className="text-xs text-neutral-400 mt-1">Select any job on the left to see complete details and apply.</p>
+
+            {/* Right Column: Selected Job Details (2 Cols) */}
+            <div className="lg:col-span-2">
+              {selectedJob ? (
+                <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden shadow-sm h-[calc(100vh-280px)] flex flex-col">
+                  {/* Job Header */}
+                  <div className="p-6 border-b border-neutral-100 flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="text-left space-y-2">
+                      <div className="flex items-start gap-4">
+                        {selectedJob.company_logo ? (
+                          <img
+                            src={selectedJob.company_logo}
+                            alt={selectedJob.company_name}
+                            className="h-12 w-12 rounded-xl object-contain border border-neutral-100 p-1 bg-white shadow-sm shrink-0"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-xl bg-neutral-100 flex items-center justify-center border border-neutral-200 shrink-0">
+                            <Building2 className="h-6 w-6 text-neutral-400" />
+                          </div>
+                        )}
+                        <div className="text-left space-y-1.5">
+                          <h2 className="text-xl font-bold text-neutral-900 leading-tight">{selectedJob.title}</h2>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-primary">{selectedJob.company_name}</span>
+                            <span className="text-neutral-300">•</span>
+                            <span className="text-xs text-neutral-500 flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5 text-neutral-400" /> {selectedJob.location}
+                            </span>
+                            <span className="text-neutral-300">•</span>
+                            <span className="text-xs text-neutral-500 flex items-center gap-1">
+                              <Clock className="h-3.5 w-3.5 text-neutral-400" /> {selectedJob.job_type}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap pt-1">
+                        <Badge className="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-bold uppercase">
+                          {selectedJob.experience_level}
+                        </Badge>
+                        {selectedJob.salary_range && (
+                          <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-100 text-[10px] font-bold uppercase">
+                            {selectedJob.salary_range}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="self-stretch sm:self-start flex flex-col items-stretch gap-2">
+                      {userApplications.includes(selectedJob.id) ? (
+                        <Button disabled className="bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-1.5 h-10 px-6">
+                          <CheckCircle className="h-4 w-4" /> Applied
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleOpenApplyModal(selectedJob)}
+                          className="bg-primary hover:bg-primary/95 text-white font-bold rounded-xl h-10 px-6 shadow-md shadow-primary/10 transition-all active:scale-95 flex items-center gap-1.5"
+                        >
+                          {selectedJob.external_apply_url ? (
+                            <>
+                              Apply Externally <ExternalLink className="h-4 w-4" />
+                            </>
+                          ) : (
+                            "Apply Now"
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Job Details Content */}
+                  <div className="p-6 overflow-y-auto flex-1 space-y-6 text-left">
+                    {/* Description */}
+                    <div className="space-y-2">
+                      <h3 className="font-bold text-sm text-neutral-800 uppercase tracking-wider">Job Description</h3>
+                      <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-wrap">
+                        {selectedJob.description}
+                      </p>
+                    </div>
+
+                    {/* Requirements */}
+                    {selectedJob.requirements && (
+                      <div className="space-y-2">
+                        <h3 className="font-bold text-sm text-neutral-800 uppercase tracking-wider">Requirements</h3>
+                        <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-wrap">
+                          {selectedJob.requirements}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Company Link / Meta info */}
+                    <div className="pt-6 border-t border-neutral-100 flex flex-wrap gap-6 text-xs text-neutral-500 font-semibold uppercase tracking-wider">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-4 w-4 text-neutral-400" />
+                        Posted {new Date(selectedJob.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-white border border-neutral-200 rounded-xl p-16 text-center text-neutral-500 h-[calc(100vh-280px)] flex flex-col justify-center items-center">
+                  <Briefcase className="h-12 w-12 text-neutral-300 mb-4 animate-pulse" />
+                  <p className="font-bold text-base">Select a job post</p>
+                  <p className="text-xs text-neutral-400 mt-1">Select any job on the left to see complete details and apply.</p>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
 
       {/* Apply Modal */}
@@ -633,5 +675,21 @@ export default function JobsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function JobsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#F8F9FB] flex flex-col animate-pulse">
+        <header className="h-16 border-b border-neutral-200 bg-white" />
+        <div className="max-w-7xl mx-auto px-6 py-8 flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8 w-full">
+          <div className="lg:col-span-1 bg-white border border-neutral-200 rounded-xl h-[calc(100vh-280px)]" />
+          <div className="lg:col-span-2 bg-white border border-neutral-200 rounded-xl h-[calc(100vh-280px)]" />
+        </div>
+      </div>
+    }>
+      <JobsPageContent />
+    </Suspense>
   );
 }
