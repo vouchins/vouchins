@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Linkedin, Twitter, Instagram } from "lucide-react";
+import { Linkedin, Twitter, Instagram, Facebook } from "lucide-react";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -101,6 +101,15 @@ export function Footer() {
               aria-label="Instagram"
             >
               <Instagram className="h-4.5 w-4.5" />
+            </a>
+            <a
+              href="https://facebook.com/vouchins"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#1877F2] transition-colors"
+              aria-label="Facebook"
+            >
+              <Facebook className="h-4.5 w-4.5" />
             </a>
           </div>
           <div className="text-[11px] text-neutral-400">
