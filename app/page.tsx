@@ -31,14 +31,16 @@ import {
   ShieldCheck,
   Scale,
   X,
-  Check
+  Check,
+  Car,
+  Award
 } from "lucide-react";
 
 export default function Home() {
   // Mock live community activities matching screenshot
   const activities = [
     {
-      avatar: "https://i.pravatar.cc/100?img=11",
+      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Rahul Verma",
       action: "referred",
       target: "Ananya Iyer",
@@ -48,7 +50,7 @@ export default function Home() {
       iconBg: "bg-purple-500/10",
     },
     {
-      avatar: "https://i.pravatar.cc/100?img=32",
+      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Priya Mehta",
       action: "posted a flatmate",
       target: "requirement",
@@ -58,7 +60,7 @@ export default function Home() {
       iconBg: "bg-blue-500/10",
     },
     {
-      avatar: "https://i.pravatar.cc/100?img=15",
+      avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Arjun Nair",
       action: "listed iPhone 15",
       target: "for sale",
@@ -68,7 +70,7 @@ export default function Home() {
       iconBg: "bg-emerald-500/10",
     },
     {
-      avatar: "https://i.pravatar.cc/100?img=26",
+      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Neha Sharma",
       action: "shared a",
       target: "recommendation",
@@ -107,13 +109,17 @@ export default function Home() {
                 {/* Joined Badge */}
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-neutral-300 text-xs md:text-sm font-semibold backdrop-blur-sm shadow-inner">
                   <div className="flex -space-x-2 mr-1">
-                    {[1, 2, 3].map((i) => (
+                    {[
+                      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&h=80&q=80",
+                      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&h=80&q=80",
+                      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&h=80&q=80"
+                    ].map((src, idx) => (
                       <div
-                        key={i}
-                        className="h-6 w-6 rounded-full border-2 border-[#020617] bg-neutral-800 overflow-hidden"
+                        key={idx}
+                        className="h-6 w-6 rounded-full border-2 border-[#020617] bg-neutral-800 overflow-hidden animate-in fade-in"
                       >
                         <img
-                          src={`https://i.pravatar.cc/100?img=${i + 32}`}
+                          src={src}
                           alt="avatar"
                           className="h-full w-full object-cover"
                         />
@@ -193,88 +199,96 @@ export default function Home() {
                     <line x1="250" y1="250" x2="410" y2="290" stroke="#4FD1C5" strokeWidth="0.5" className="opacity-20" />
                   </svg>
                 </div>
-
-                {/* Floating Elements */}
-                {/* Neha Sharma Profile */}
-                <div className="absolute top-8 right-16 z-20 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full overflow-hidden border border-[#4FD1C5] shrink-0">
-                    <img src="https://i.pravatar.cc/100?img=26" alt="Neha Sharma" className="h-full w-full object-cover" />
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-bold text-white flex items-center gap-1">
-                      Neha Sharma
-                      <CheckCircle2 className="h-3 w-3 fill-[#4FD1C5] text-[#020617] stroke-2" />
+                {/* Floating Elements (Scaled on mobile to prevent overlapping) */}
+                <div className="absolute inset-0 z-10 scale-[0.8] min-[380px]:scale-[0.85] sm:scale-100 transition-all origin-center pointer-events-none">
+                  {/* Neha Sharma Profile */}
+                  <div className="pointer-events-auto absolute top-4 right-4 sm:top-8 sm:right-16 z-20 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full overflow-hidden border border-[#4FD1C5] shrink-0">
+                      <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=100&h=100&q=80" alt="Neha Sharma" className="h-full w-full object-cover" />
                     </div>
-                    <div className="text-[9px] text-neutral-400">Verified Professional</div>
-                  </div>
-                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#4FD1C5] text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
-                    <Check className="h-2 w-2 stroke-[3]" />
-                  </div>
-                </div>
-
-                {/* Card 1: Microsoft */}
-                <div className="absolute top-24 left-6 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-neutral-900 border border-white/10 flex items-center justify-center p-1 shrink-0">
-                    <svg className="w-full h-full text-white" viewBox="0 0 23 23" fill="currentColor">
-                      <rect x="0" y="0" width="10.5" height="10.5" fill="#F25022" />
-                      <rect x="12.5" y="0" width="10.5" height="10.5" fill="#7FBA00" />
-                      <rect x="0" y="12.5" width="10.5" height="10.5" fill="#00A4EF" />
-                      <rect x="12.5" y="12.5" width="10.5" height="10.5" fill="#FFB900" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-bold text-white">Microsoft</div>
-                    <div className="text-[9px] text-[#4FD1C5] flex items-center gap-0.5">
-                      Employee Verified <span className="h-1.5 w-1.5 bg-[#4FD1C5] rounded-full inline-block"></span>
+                    <div>
+                      <div className="text-[11px] font-bold text-white flex items-center gap-1">
+                        Neha Sharma
+                        <CheckCircle2 className="h-3 w-3 fill-[#4FD1C5] text-[#020617] stroke-2" />
+                      </div>
+                      <div className="text-[9px] text-neutral-400 font-semibold">Verified Microsoft Employee</div>
+                    </div>
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#4FD1C5] text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
+                      <Check className="h-2 w-2 stroke-[3]" />
                     </div>
                   </div>
-                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#4FD1C5] text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
-                    <Check className="h-2 w-2 stroke-[3]" />
-                  </div>
-                </div>
 
-                {/* Card 2: Flatmate Match */}
-                <div className="absolute top-[52%] left-16 z-10 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-[#4FD1C5]/10 border border-[#4FD1C5]/20 flex items-center justify-center text-[#4FD1C5] shrink-0">
-                    <Building2 className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-bold text-white">Flatmate match</div>
-                    <div className="text-[9px] text-[#4FD1C5] font-semibold">found nearby <span className="h-1.5 w-1.5 bg-[#4FD1C5] rounded-full inline-block"></span></div>
-                  </div>
-                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#4FD1C5] text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
-                    <Check className="h-2 w-2 stroke-[3]" />
-                  </div>
-                </div>
-
-                {/* Card 3: Recommendation */}
-                <div className="absolute bottom-[32%] right-6 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
-                  <div className="flex -space-x-2 shrink-0">
-                    <img src="https://i.pravatar.cc/100?img=20" alt="avatar" className="h-8 w-8 rounded-full border-2 border-[#020617] shrink-0 object-cover" />
-                    <img src="https://i.pravatar.cc/100?img=21" alt="avatar" className="h-8 w-8 rounded-full border-2 border-[#020617] shrink-0 object-cover" />
-                  </div>
-                  <div>
-                    <div className="text-[11px] font-bold text-white flex items-center gap-1">
-                      Recommendation
+                  {/* Card 5: Learned a Skill */}
+                  <div className="pointer-events-auto absolute top-28 right-4 sm:top-36 sm:right-16 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                      <Award className="h-4.5 w-4.5" />
                     </div>
-                    <div className="text-[9px] text-[#4FD1C5] font-semibold">shared <span className="h-1.5 w-1.5 bg-[#4FD1C5] rounded-full inline-block"></span></div>
+                    <div>
+                      <div className="text-[11px] font-bold text-white">Learned a new skill</div>
+                      <div className="text-[9px] text-amber-400 font-semibold">on Vouchins <span className="h-1.5 w-1.5 bg-amber-400 rounded-full inline-block"></span></div>
+                    </div>
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-amber-400 text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
+                      <Check className="h-2 w-2 stroke-[3]" />
+                    </div>
                   </div>
-                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#4FD1C5] text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
-                    <Check className="h-2 w-2 stroke-[3]" />
-                  </div>
-                </div>
 
-                {/* Card 4: Referral */}
-                <div className="absolute bottom-10 left-[35%] z-10 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full overflow-hidden border border-white/10 shrink-0">
-                    <img src="https://i.pravatar.cc/100?img=12" alt="avatar" className="h-full w-full object-cover" />
+                  {/* Card 1: Bought a Car */}
+                  <div className="pointer-events-auto absolute top-20 left-2 sm:top-24 sm:left-6 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                      <Car className="h-4.5 w-4.5" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-white">Bought a car</div>
+                      <div className="text-[9px] text-emerald-400 font-semibold">from other employee <span className="h-1.5 w-1.5 bg-emerald-400 rounded-full inline-block"></span></div>
+                    </div>
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-emerald-400 text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
+                      <Check className="h-2 w-2 stroke-[3]" />
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-[11px] font-bold text-white">Referral</div>
-                    <div className="text-[9px] text-[#4FD1C5] font-semibold">connection made <span className="h-1.5 w-1.5 bg-[#4FD1C5] rounded-full inline-block"></span></div>
+
+                  {/* Card 2: Flatmate Match */}
+                  <div className="pointer-events-auto absolute top-[48%] left-2 sm:top-[52%] sm:left-16 z-10 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                      <Building2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-white">Flatmate matched</div>
+                      <div className="text-[9px] text-indigo-400 font-semibold">found nearby <span className="h-1.5 w-1.5 bg-indigo-400 rounded-full inline-block"></span></div>
+                    </div>
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-indigo-400 text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
+                      <Check className="h-2 w-2 stroke-[3]" />
+                    </div>
                   </div>
-                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#4FD1C5] text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
-                    <Check className="h-2 w-2 stroke-[3]" />
+
+                  {/* Card 3: Recommendation */}
+                  <div className="pointer-events-auto absolute bottom-[26%] right-2 sm:bottom-[32%] sm:right-6 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+                    <div className="flex -space-x-2 shrink-0">
+                      <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=80&h=80&q=80" alt="avatar" className="h-8 w-8 rounded-full border-2 border-[#020617] shrink-0 object-cover" />
+                      <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=80&h=80&q=80" alt="avatar" className="h-8 w-8 rounded-full border-2 border-[#020617] shrink-0 object-cover" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-white flex items-center gap-1">
+                        Recommendation
+                      </div>
+                      <div className="text-[9px] text-rose-400 font-semibold">shared <span className="h-1.5 w-1.5 bg-rose-400 rounded-full inline-block"></span></div>
+                    </div>
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-rose-400 text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
+                      <Check className="h-2 w-2 stroke-[3]" />
+                    </div>
+                  </div>
+
+                  {/* Card 4: Referral */}
+                  <div className="pointer-events-auto absolute bottom-4 left-[20%] sm:bottom-10 sm:left-[35%] z-10 animate-float-slow bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full overflow-hidden border border-white/10 shrink-0">
+                      <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&h=100&q=80" alt="avatar" className="h-full w-full object-cover" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold text-white">Got a new job</div>
+                      <div className="text-[9px] text-purple-400 font-semibold">by referral <span className="h-1.5 w-1.5 bg-purple-400 rounded-full inline-block"></span></div>
+                    </div>
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-purple-400 text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
+                      <Check className="h-2 w-2 stroke-[3]" />
+                    </div>
                   </div>
                 </div>
 
