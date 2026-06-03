@@ -5,15 +5,35 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 import MessageInput from "@/components/message-input";
 import { Navigation } from "@/components/navigation";
+import { encryptMessage, decryptMessage, initE2EEKeys } from "@/lib/crypto";
+import { Lock, ShieldAlert } from "lucide-react";
+import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
 export default function ConversationPage() {
   const { userId } = useParams();
 
   const [messages, setMessages] = useState<any[]>([]);
+  const [decryptedMessages, setDecryptedMessages] = useState<any[]>([]);
   const [me, setMe] = useState<any>(null);
   const [receiver, setReceiver] = useState<any>(null);
 
+  const [privateKeyJwk, setPrivateKeyJwk] = useState<string | null>(null);
+  const [recipientPublicKeyJwk, setRecipientPublicKeyJwk] = useState<string | null>(null);
+  const [myPublicKeyJwk, setMyPublicKeyJwk] = useState<string | null>(null);
+
+  const [isReceiverTyping, setIsReceiverTyping] = useState(false);
+
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (receiver?.full_name) {
+      document.title = `Chat with ${receiver.full_name} | Vouchins`;
+    } else {
+      document.title = "Chat | Vouchins";
+    }
+  }, [receiver]);
 
   /* -------------------- load conversation -------------------- */
   useEffect(() => {
@@ -24,6 +44,14 @@ export default function ConversationPage() {
       if (!user) return;
 
       setMe(user);
+
+      // Initialize E2EE Keys silently
+      try {
+        const myPrivJwk = await initE2EEKeys(user.id, supabase);
+        setPrivateKeyJwk(myPrivJwk);
+      } catch (err) {
+        console.error("Failed to initialize secure chat keys silently:", err);
+      }
 
       // fetch messages
       const { data } = await supabase
@@ -43,18 +71,190 @@ export default function ConversationPage() {
         .eq("receiver_id", user.id)
         .eq("sender_id", userId);
 
-      // fetch receiver
+      // fetch receiver details
       const { data: receiverData } = await supabase
         .from("users")
-        .select("id, full_name")
+        .select("id, full_name, last_seen")
         .eq("id", userId)
         .maybeSingle();
 
       setReceiver(receiverData);
+
+      // fetch receiver public key
+      const { data: recipientKeyData } = await supabase
+        .from("user_public_keys")
+        .select("public_key")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (recipientKeyData) {
+        setRecipientPublicKeyJwk(recipientKeyData.public_key);
+      }
+
+      // fetch my public key
+      const { data: myKeyData } = await supabase
+        .from("user_public_keys")
+        .select("public_key")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (myKeyData) {
+        setMyPublicKeyJwk(myKeyData.public_key);
+      }
     };
 
     load();
   }, [userId]);
+
+  /* -------------------- Periodic Last Seen Update -------------------- */
+  useEffect(() => {
+    if (!me) return;
+    const updateLastSeen = async () => {
+      await supabase
+        .from("users")
+        .update({ last_seen: new Date().toISOString() })
+        .eq("id", me.id);
+    };
+    updateLastSeen();
+    const interval = setInterval(updateLastSeen, 20000); // update every 20s
+    return () => clearInterval(interval);
+  }, [me]);
+
+  /* -------------------- Real-time Receiver Status Update -------------------- */
+  useEffect(() => {
+    if (!me || !userId) return;
+
+    const userChannel = supabase
+      .channel(`user_status_${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "users",
+          filter: `id=eq.${userId}`,
+        },
+        (payload: any) => {
+          setReceiver((prev: any) => {
+            if (!prev) return prev;
+            return { ...prev, last_seen: payload.new.last_seen };
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(userChannel);
+    };
+  }, [me, userId]);
+
+  /* -------------------- Real-time Message Subscription -------------------- */
+  useEffect(() => {
+    if (!me || !userId) return;
+
+    // Sort IDs to guarantee the same channel name for both users
+    const sortedIds = [me.id, userId].sort();
+    const channelName = `chat_messages_${sortedIds[0]}_${sortedIds[1]}`;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Listen to INSERT, UPDATE, DELETE
+          schema: "public",
+          table: "messages",
+        },
+        (payload: any) => {
+          if (payload.eventType === "INSERT") {
+            const newMsg = payload.new;
+            const isRelevant =
+              (newMsg.sender_id === me.id && newMsg.receiver_id === userId) ||
+              (newMsg.sender_id === userId && newMsg.receiver_id === me.id);
+
+            if (isRelevant) {
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === newMsg.id)) return prev;
+                return [...prev, newMsg];
+              });
+
+              // Mark as read if I am the receiver
+              if (newMsg.receiver_id === me.id) {
+                supabase
+                  .from("messages")
+                  .update({ is_read: true })
+                  .eq("id", newMsg.id)
+                  .then();
+              }
+            }
+          } else if (payload.eventType === "UPDATE") {
+            const updatedMsg = payload.new;
+            const isRelevant =
+              (updatedMsg.sender_id === me.id && updatedMsg.receiver_id === userId) ||
+              (updatedMsg.sender_id === userId && updatedMsg.receiver_id === me.id);
+
+            if (isRelevant) {
+              setMessages((prev) =>
+                prev.map((msg) => (msg.id === updatedMsg.id ? updatedMsg : msg))
+              );
+            }
+          }
+        }
+      )
+      .on("broadcast", { event: "typing" }, (payload: any) => {
+        if (payload.payload.userId === userId) {
+          setIsReceiverTyping(payload.payload.isTyping);
+        }
+      })
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [me, userId]);
+
+  /* -------------------- Real-time Message Decryption -------------------- */
+  useEffect(() => {
+    const decryptAll = async () => {
+      if (messages.length === 0) {
+        setDecryptedMessages([]);
+        return;
+      }
+
+      const decryptedList = await Promise.all(
+        messages.map(async (msg) => {
+          if (msg.encrypted_content) {
+            if (!privateKeyJwk) {
+              return { ...msg, text: "🔒 Encrypted Message" };
+            }
+            const isMeSender = msg.sender_id === me?.id;
+            const encryptedKey = isMeSender ? msg.encrypted_key_sender : msg.encrypted_key_receiver;
+
+            if (encryptedKey && msg.iv) {
+              try {
+                const decryptedText = await decryptMessage(
+                  msg.encrypted_content,
+                  encryptedKey,
+                  privateKeyJwk,
+                  msg.iv
+                );
+                return { ...msg, text: decryptedText };
+              } catch (e) {
+                return { ...msg, text: "🔒 Decryption failed" };
+              }
+            }
+          }
+          return msg;
+        })
+      );
+      setDecryptedMessages(decryptedList);
+    };
+
+    decryptAll();
+  }, [messages, privateKeyJwk, me]);
 
   /* -------------------- auto scroll (FIXED) -------------------- */
   useEffect(() => {
@@ -68,27 +268,99 @@ export default function ConversationPage() {
     if (isNearBottom) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [messages]);
+  }, [decryptedMessages, isReceiverTyping]);
 
   /* -------------------- handle send (optimistic) -------------------- */
   const handleSend = async (text: string) => {
     if (!me || !text.trim()) return;
 
-    const optimisticMessage = {
-      id: crypto.randomUUID(),
+    const messageId = crypto.randomUUID();
+    const isE2EE = recipientPublicKeyJwk && myPublicKeyJwk && privateKeyJwk;
+
+    let optimisticMessage: any = {
+      id: messageId,
       sender_id: me.id,
       receiver_id: userId,
       text,
       created_at: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, optimisticMessage]);
+    if (isE2EE) {
+      try {
+        const { encryptedContent, encryptedKeyReceiver, encryptedKeySender, iv } =
+          await encryptMessage(text, recipientPublicKeyJwk!, myPublicKeyJwk!);
 
-    await supabase.from("messages").insert({
-      sender_id: me.id,
-      receiver_id: userId,
-      text,
-    });
+        optimisticMessage = {
+          ...optimisticMessage,
+          encrypted_content: encryptedContent,
+          encrypted_key_sender: encryptedKeySender,
+          encrypted_key_receiver: encryptedKeyReceiver,
+          iv: iv,
+        };
+
+        setMessages((prev) => [...prev, optimisticMessage]);
+
+        await supabase.from("messages").insert({
+          id: messageId,
+          sender_id: me.id,
+          receiver_id: userId,
+          text: "🔒 Encrypted Message", // Fallback for list preview / notifications
+          encrypted_content: encryptedContent,
+          encrypted_key_receiver: encryptedKeyReceiver,
+          encrypted_key_sender: encryptedKeySender,
+          iv: iv,
+        });
+      } catch (err) {
+        console.error("Encryption failed, sending plain text", err);
+        // Fallback plain insert if encryption fails for some reason
+        setMessages((prev) => [...prev, optimisticMessage]);
+        await supabase.from("messages").insert({
+          id: messageId,
+          sender_id: me.id,
+          receiver_id: userId,
+          text,
+        });
+      }
+    } else {
+      // Send plain text (unencrypted fallback)
+      toast.info("Sending unsecured plain text message...");
+      setMessages((prev) => [...prev, optimisticMessage]);
+      await supabase.from("messages").insert({
+        id: messageId,
+        sender_id: me.id,
+        receiver_id: userId,
+        text,
+      });
+    }
+  };
+
+  /* -------------------- handle typing broadcast -------------------- */
+  const handleTyping = (isTyping: boolean) => {
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "typing",
+        payload: { userId: me?.id, isTyping },
+      });
+    }
+  };
+
+  /* -------------------- format last seen string -------------------- */
+  const formatLastSeen = (lastSeenStr: string | null) => {
+    if (!lastSeenStr) return "Offline";
+    const date = new Date(lastSeenStr);
+    const diffMs = Date.now() - date.getTime();
+    const diffMins = Math.floor(diffMs / 1000 / 60);
+
+    if (diffMins < 2) {
+      return "Online";
+    }
+    
+    try {
+      return `Last seen ${formatDistanceToNow(date, { addSuffix: true })}`;
+    } catch (e) {
+      return "Offline";
+    }
   };
 
   return (
@@ -98,17 +370,41 @@ export default function ConversationPage() {
       <div className="min-h-screen bg-neutral-50 flex justify-center">
         <div className="w-full max-w-3xl flex flex-col h-[calc(100vh-14px)] bg-white border-x">
           {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b bg-white">
-            <button
-              onClick={() => window.history.back()}
-              className="text-sm text-neutral-600 hover:underline"
-            >
-              ← Back
-            </button>
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-white">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => window.history.back()}
+                className="text-sm text-neutral-600 hover:underline"
+              >
+                ← Back
+              </button>
 
-            <h2 className="font-semibold text-neutral-900">
-              {receiver?.full_name || "Conversation"}
-            </h2>
+              <div className="text-left">
+                <h2 className="font-bold text-neutral-900 leading-tight">
+                  {receiver?.full_name || "Conversation"}
+                </h2>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {receiver && (
+                    <span className="text-[10px] text-neutral-500 font-medium flex items-center gap-1.5">
+                      {formatLastSeen(receiver.last_seen) === "Online" && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                      )}
+                      {formatLastSeen(receiver.last_seen)}
+                    </span>
+                  )}
+                  {receiver && <span className="h-1 w-1 rounded-full bg-neutral-300"></span>}
+                  {recipientPublicKeyJwk ? (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-emerald-600 uppercase tracking-wider">
+                      <Lock className="h-2.5 w-2.5" /> End-to-End Encrypted
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-black text-amber-500 uppercase tracking-wider">
+                      <ShieldAlert className="h-2.5 w-2.5" /> Unsecured Chat
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Messages */}
@@ -116,35 +412,64 @@ export default function ConversationPage() {
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto px-4 py-6 space-y-4 bg-neutral-50"
           >
-            {messages.length === 0 ? (
+            {decryptedMessages.length === 0 ? (
               <p className="text-sm text-neutral-500 text-center">
                 Start the conversation 👋
               </p>
             ) : (
-              messages.map((msg) => (
+              decryptedMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex ${
-                    msg.sender_id === me?.id ? "justify-end" : "justify-start"
+                  className={`flex flex-col ${
+                    msg.sender_id === me?.id ? "items-end" : "items-start"
                   }`}
                 >
                   <div
                     className={`max-w-[70%] px-4 py-2 rounded-2xl text-sm leading-relaxed ${
                       msg.sender_id === me?.id
-                        ? "bg-neutral-900 text-white rounded-br-sm"
-                        : "bg-white border rounded-bl-sm"
+                        ? "bg-neutral-900 text-white rounded-br-sm animate-in slide-in-from-right-2 duration-150"
+                        : "bg-white border rounded-bl-sm animate-in slide-in-from-left-2 duration-150"
                     }`}
                   >
                     {msg.text}
                   </div>
+                  {/* Timestamp & Status Checkmarks */}
+                  <div className="flex items-center gap-1 mt-1 px-1 text-[9px] text-neutral-400">
+                    <span>
+                      {new Date(msg.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    {msg.sender_id === me?.id && (
+                      <span className="ml-0.5 flex items-center">
+                        {msg.is_read ? (
+                          <span className="text-emerald-500 font-bold" title="Seen">✓✓</span>
+                        ) : (
+                          <span className="text-neutral-400" title="Delivered">✓✓</span>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))
+            )}
+
+            {isReceiverTyping && (
+              <div className="flex justify-start items-center gap-2 text-[11px] text-neutral-500 animate-pulse pl-1 py-1">
+                <span className="font-semibold">{receiver?.full_name || "Someone"} is typing</span>
+                <span className="flex gap-0.5">
+                  <span className="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-1.5 h-1.5 bg-neutral-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                </span>
+              </div>
             )}
           </div>
 
           {/* Input */}
           <div className="border-t px-4 py-3 bg-white sticky bottom-0">
-            <MessageInput onSend={handleSend} />
+            <MessageInput onSend={handleSend} onTyping={handleTyping} />
           </div>
         </div>
       </div>

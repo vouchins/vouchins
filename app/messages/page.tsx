@@ -6,8 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { decryptMessage, initE2EEKeys } from "@/lib/crypto";
+
 interface User {
   id: string;
   full_name: string;
@@ -24,6 +26,7 @@ interface ConversationPreview {
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
+  _lastMsgObj?: any;
 }
 
 export default function MessagesPage() {
@@ -31,7 +34,13 @@ export default function MessagesPage() {
 
   const [me, setMe] = useState<User | null>(null);
   const [conversations, setConversations] = useState<ConversationPreview[]>([]);
+  const [rawMessages, setRawMessages] = useState<any[]>([]);
+  const [privateKeyJwk, setPrivateKeyJwk] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    document.title = "Secure Messages | Vouchins";
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -65,6 +74,10 @@ export default function MessagesPage() {
           `
           id,
           text,
+          encrypted_content,
+          encrypted_key_sender,
+          encrypted_key_receiver,
+          iv,
           created_at,
           sender_id,
           receiver_id,
@@ -76,10 +89,29 @@ export default function MessagesPage() {
         .or(`sender_id.eq.${authUser.id},receiver_id.eq.${authUser.id}`)
         .order("created_at", { ascending: false });
 
+      setRawMessages(messages || []);
+      setLoading(false);
+
+      // Initialize E2EE Keys silently in the background
+      try {
+        const jwk = await initE2EEKeys(authUser.id, supabase);
+        setPrivateKeyJwk(jwk);
+      } catch (err) {
+        console.error("Failed to initialize secure chat keys silently:", err);
+      }
+    };
+
+    init();
+  }, [router]);
+
+  useEffect(() => {
+    if (!me || rawMessages.length === 0) return;
+
+    const processConversations = async () => {
       const map = new Map<string, ConversationPreview>();
 
-      messages?.forEach((msg: any) => {
-        const isMeSender = msg.sender_id === authUser.id;
+      rawMessages.forEach((msg: any) => {
+        const isMeSender = msg.sender_id === me.id;
         const otherUser = isMeSender ? msg.receiver : msg.sender;
 
         if (!otherUser?.id) return;
@@ -89,9 +121,10 @@ export default function MessagesPage() {
         if (!existing) {
           map.set(otherUser.id, {
             user: otherUser,
-            lastMessage: msg.text,
+            lastMessage: msg.text || (msg.encrypted_content ? "🔒 Encrypted message" : ""),
             lastMessageAt: msg.created_at,
             unreadCount: !isMeSender && !msg.is_read ? 1 : 0,
+            _lastMsgObj: msg,
           });
         } else {
           if (!isMeSender && !msg.is_read) {
@@ -100,12 +133,38 @@ export default function MessagesPage() {
         }
       });
 
-      setConversations(Array.from(map.values()));
-      setLoading(false);
+      const conversationList = Array.from(map.values());
+
+      if (privateKeyJwk) {
+        await Promise.all(
+          conversationList.map(async (conv: any) => {
+            const msg = conv._lastMsgObj;
+            if (msg && msg.encrypted_content) {
+              const isMeSender = msg.sender_id === me.id;
+              const encryptedKey = isMeSender ? msg.encrypted_key_sender : msg.encrypted_key_receiver;
+              if (encryptedKey && msg.iv) {
+                try {
+                  const decrypted = await decryptMessage(
+                    msg.encrypted_content,
+                    encryptedKey,
+                    privateKeyJwk,
+                    msg.iv
+                  );
+                  conv.lastMessage = decrypted;
+                } catch (e) {
+                  conv.lastMessage = "🔒 Decryption failed";
+                }
+              }
+            }
+          })
+        );
+      }
+
+      setConversations(conversationList);
     };
 
-    init();
-  }, [router]);
+    processConversations();
+  }, [rawMessages, privateKeyJwk, me]);
 
   if (loading || !me) {
     return (
@@ -160,8 +219,13 @@ export default function MessagesPage() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-neutral-900">
+                    <span className="font-medium text-neutral-900 flex items-center gap-1.5">
                       {conv.user.full_name}
+                      {conv._lastMsgObj?.encrypted_content && (
+                        <span title="End-to-End Encrypted">
+                          <Lock className="h-3.5 w-3.5 text-emerald-600" />
+                        </span>
+                      )}
                     </span>
 
                     <span className="text-xs text-neutral-500">

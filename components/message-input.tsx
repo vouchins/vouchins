@@ -6,11 +6,29 @@ import { Button } from "@/components/ui/button";
 
 export default function MessageInput({
   onSend,
+  onTyping,
 }: {
   onSend: (text: string) => void;
+  onTyping?: (isTyping: boolean) => void;
 }) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  const handleTyping = () => {
+    if (onTyping) {
+      onTyping(true);
+    }
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
+    const timeout = setTimeout(() => {
+      if (onTyping) {
+        onTyping(false);
+      }
+    }, 2000);
+    setTypingTimeout(timeout);
+  };
 
   const handleSend = async () => {
     if (!text.trim()) return;
@@ -63,6 +81,12 @@ export default function MessageInput({
 
     onSend(text.trim());
     setText("");
+    if (onTyping) {
+      onTyping(false);
+    }
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+    }
     setLoading(false);
   };
 
@@ -70,7 +94,10 @@ export default function MessageInput({
     <div className="flex items-end gap-2">
       <textarea
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          handleTyping();
+        }}
         placeholder="Type a message…"
         rows={1}
         className="flex-1 resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
