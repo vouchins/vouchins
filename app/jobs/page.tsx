@@ -32,6 +32,9 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 
 function JobsPageContent() {
   const router = useRouter();
@@ -568,18 +571,22 @@ function JobsPageContent() {
                     {/* Description */}
                     <div className="space-y-2">
                       <h3 className="font-bold text-sm text-neutral-800 uppercase tracking-wider">Job Description</h3>
-                      <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-wrap">
-                        {selectedJob.description}
-                      </p>
+                      <div className="prose prose-sm max-w-none text-neutral-600 leading-relaxed whitespace-pre-wrap">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                          {selectedJob.description}
+                        </ReactMarkdown>
+                      </div>
                     </div>
 
                     {/* Requirements */}
                     {selectedJob.requirements && (
                       <div className="space-y-2">
                         <h3 className="font-bold text-sm text-neutral-800 uppercase tracking-wider">Requirements</h3>
-                        <p className="text-sm text-neutral-600 leading-relaxed whitespace-pre-wrap">
-                          {selectedJob.requirements}
-                        </p>
+                        <div className="prose prose-sm max-w-none text-neutral-600 leading-relaxed whitespace-pre-wrap">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                            {selectedJob.requirements}
+                          </ReactMarkdown>
+                        </div>
                       </div>
                     )}
 

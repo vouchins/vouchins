@@ -123,11 +123,31 @@ export async function POST(request: Request) {
 
     const isAdmin = userData?.is_admin || false;
 
+    const resolvedCompanyName = isAdmin && company_name ? company_name : recruiter.company_name;
+    let resolvedCompanyLogo = isAdmin && company_logo ? company_logo : (recruiter.company_logo || null);
+
+    if (!resolvedCompanyLogo && resolvedCompanyName) {
+      const { data: companyObj } = await supabase
+        .from("companies")
+        .select("domain")
+        .ilike("name", resolvedCompanyName.trim())
+        .maybeSingle();
+
+      if (companyObj?.domain) {
+        resolvedCompanyLogo = `https://www.google.com/s2/favicons?domain=${companyObj.domain}&sz=128`;
+      } else {
+        const cleanName = resolvedCompanyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (cleanName) {
+          resolvedCompanyLogo = `https://www.google.com/s2/favicons?domain=${cleanName}.com&sz=128`;
+        }
+      }
+    }
+
     const jobData: any = {
       recruiter_id: recruiter.id,
       title,
-      company_name: isAdmin && company_name ? company_name : recruiter.company_name,
-      company_logo: isAdmin && company_logo ? company_logo : (recruiter.company_logo || null),
+      company_name: resolvedCompanyName,
+      company_logo: resolvedCompanyLogo,
       description,
       requirements,
       location,

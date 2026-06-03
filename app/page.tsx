@@ -219,7 +219,7 @@ export default function Home() {
                   </div>
 
                   {/* Card 5: Learned a Skill */}
-                  <div className="pointer-events-auto absolute top-28 right-4 sm:top-36 sm:right-16 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
+                  <div className="pointer-events-auto absolute top-28 right-1 sm:top-36 sm:right-8 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
                       <Award className="h-4.5 w-4.5" />
                     </div>

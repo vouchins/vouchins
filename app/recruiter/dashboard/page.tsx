@@ -694,7 +694,7 @@ export default function RecruiterDashboard() {
                       id="companyLogo"
                       value={formCompanyLogo}
                       onChange={(e) => setFormCompanyLogo(e.target.value)}
-                      placeholder="e.g. https://logo.com/logo.png"
+                      placeholder="Auto-fetched if empty (or enter custom URL)"
                     />
                   </div>
                 </div>
