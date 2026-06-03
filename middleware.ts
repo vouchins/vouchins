@@ -36,7 +36,7 @@ export async function middleware(request: NextRequest) {
   const isStandardAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
   const isAuthRoute = isStandardAuthRoute || isRecruiterAuthRoute
   const isPostDetailsRoute = url.pathname.startsWith('/posts/')
-  const isPublicRoute = isAuthRoute || isPostDetailsRoute || url.pathname === '/' || url.pathname === '/about' || url.pathname === '/privacy' || url.pathname === '/terms' || url.pathname === '/contact' || url.pathname === '/blog' || url.pathname === '/how-it-works'
+  const isPublicRoute = isAuthRoute || isPostDetailsRoute || url.pathname === '/' || url.pathname === '/about' || url.pathname === '/privacy' || url.pathname === '/terms' || url.pathname === '/contact' || url.pathname.startsWith('/blog') || url.pathname === '/how-it-works'
 
   // If user is logged in and trying to access an auth route, redirect to the appropriate dashboard
   if (user && isAuthRoute) {

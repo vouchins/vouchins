@@ -79,7 +79,7 @@ export default function HowItWorks() {
     },
     {
       title: "Buy & Sell Safely",
-      description: "Buy/sell laptops, phones, or furniture to other verified professionals with safe in-person exchanges.",
+      description: "Buy and sell electronics, vehicles, furniture, gadgets, and other essentials safely within a network of verified professionals.",
       icon: ShoppingCart,
       color: "text-emerald-600",
       bg: "bg-emerald-50"
@@ -119,7 +119,7 @@ export default function HowItWorks() {
     },
     {
       question: "How do you prevent spam and fake profiles?",
-      answer: "By requiring active professional email verification and prohibiting generic public domains (like gmail.com or yahoo.com) for onboarding, we completely eliminate fake accounts, bots, and anonymous trolls."
+      answer: "By verifying every user through their professional email address and disallowing generic public email domains, Vouchins creates a trusted environment where fake accounts, bots, and anonymous trolls have little or no room to operate."
     }
   ];
 
@@ -278,7 +278,7 @@ export default function HowItWorks() {
                       )}
                     </button>
                     {isOpen && (
-                      <div className="px-5 pb-5 pt-1 border-t border-neutral-100 text-xs md:text-sm text-neutral-500 font-light leading-relaxed text-left">
+                      <div className="px-5 pb-5 pt-1 border-t border-neutral-100 text-xs md:text-sm text-neutral-600 font-medium leading-relaxed text-left">
                         {faq.answer}
                       </div>
                     )}
