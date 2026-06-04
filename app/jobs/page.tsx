@@ -286,7 +286,7 @@ function JobsPageContent() {
         <div className="max-w-7xl mx-auto px-6 space-y-6">
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 leading-none">
-              Explore Verified Careers
+              Verified Job Opportunities
             </h1>
             <p className="text-neutral-500 text-sm mt-2">
               Jobs posted by verified recruiters at top-tier companies.

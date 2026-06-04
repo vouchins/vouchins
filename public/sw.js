@@ -1,4 +1,4 @@
-const CACHE_NAME = "vouchins-cache-v1";
+const CACHE_NAME = "vouchins-cache-v2";
 const OFFLINE_URL = "/offline.html";
 
 const ASSETS_TO_CACHE = [
@@ -46,20 +46,14 @@ self.addEventListener("fetch", (event) => {
   // Focus only on local origin requests
   if (url.origin !== self.location.origin) return;
 
-  // Don't intercept Next.js hot-reloads or api paths
-  if (url.pathname.startsWith("/_next/") || url.pathname.startsWith("/api/")) {
-    return;
-  }
-
   // Bypass service worker interception completely on localhost/development
-  // to avoid stale caching during development and preserve native redirect behaviors.
+  // to avoid stale caching during development.
   if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
     return;
   }
 
   // 1. Navigation requests (HTML pages)
-  // Always go to the network first. Do NOT cache dynamic pages to avoid auth/session caching issues.
-  // If network fails (offline), fall back to the pre-cached offline fallback page.
+  // Always go to the network first. If offline, fall back to the pre-cached offline page.
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -69,8 +63,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2. Static assets (CSS, JS, Images, Icons, Manifest, Favicon)
-  // Use Stale-While-Revalidate for static assets to ensure fast page loads.
+  // 2. Only intercept and cache static assets
+  // Next.js static JS/CSS, images, icons, manifests, favicons, fonts
+  const isStaticAsset = 
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/images/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname === "/favicon.png" ||
+    url.pathname === "/manifest.json" ||
+    /\.(js|css|png|jpg|jpeg|gif|svg|ico|webp|woff2|woff|ttf)$/i.test(url.pathname);
+
+  // Do not intercept dynamic pages, RSC payloads (?_rsc=), or API calls
+  if (!isStaticAsset || url.pathname.startsWith("/api/") || url.searchParams.has("_rsc")) {
+    return;
+  }
+
+  // Use Stale-While-Revalidate for static assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
@@ -83,20 +91,24 @@ self.addEventListener("fetch", (event) => {
               });
             }
           })
-          .catch(() => {});
+          .catch(() => {}); // Quietly catch background fetch failures
         return cachedResponse;
       }
 
-      return fetch(event.request).then((response) => {
-        // Cache static assets on first load
-        if (response && response.status === 200 && response.type === "basic") {
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return response;
-      });
+      return fetch(event.request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Return a silent offline fallback response for static assets
+          return new Response("Offline", { status: 408, statusText: "Offline" });
+        });
     })
   );
 });
