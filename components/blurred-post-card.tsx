@@ -55,7 +55,9 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
         ?.label
     : null;
 
-  const companyLogoUrl = `https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`;
+  const companyLogoUrl = post.user.company?.domain
+    ? `https://www.google.com/s2/favicons?domain=${post.user.company?.domain}&sz=64`
+    : "";
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -93,10 +95,10 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
       <div className="flex items-start justify-between mb-4">
         <div className="flex gap-3">
           <div className="h-10 w-10 rounded-lg border border-neutral-100 bg-neutral-50 flex items-center justify-center shrink-0 overflow-hidden">
-            {post.user.company.domain ? (
+            {post.user.company?.domain ? (
               <img
                 src={companyLogoUrl}
-                alt={post.user.company.name}
+                alt={post.user.company?.name || "Company Logo"}
                 className="h-7 w-7 object-contain opacity-60 grayscale-[50%]"
               />
             ) : (
@@ -117,7 +119,7 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
               </div>
               <span className="text-neutral-300 text-xs">|</span>
               <span className="text-xs font-semibold text-neutral-600 uppercase tracking-tight">
-                {post.user.company.name}
+                {post.user.company?.name || "No Company"}
               </span>
             </div>
 

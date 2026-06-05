@@ -11,6 +11,7 @@ import {
   Trash2,
   Mail,
   Linkedin,
+  AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 interface User {
   id: string;
@@ -67,6 +70,7 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
   const [companySuggestions, setCompanySuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -106,11 +110,19 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
     setSelectedCompanyId(user.company?.id ?? null);
     setCompanySuggestions([]);
     setShowSuggestions(false);
+    setError(null);
     setIsEditDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!selectedUser) return;
+    if (selectedUser.onboarded && !selectedCompanyId) {
+      const errMsg = "Company is mandatory when onboarding is complete.";
+      setError(errMsg);
+      toast.error(errMsg);
+      return;
+    }
+    setError(null);
     setLoading(true);
     try {
       await onUpdateUser(selectedUser.id, {
@@ -264,7 +276,13 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
       </div>
 
       {/* Edit User Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) setError(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl">Edit User Profile</DialogTitle>
@@ -272,6 +290,14 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
 
           {selectedUser && (
             <div className="grid gap-5 py-4">
+              {error && (
+                <Alert variant="destructive" className="bg-red-50/50 border-red-100 py-2.5 px-3">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+                  <AlertDescription className="text-xs font-semibold text-red-600">
+                    {error}
+                  </AlertDescription>
+                </Alert>
+              )}
               {/* Basic Info */}
               <div className="grid gap-2">
                 <Label htmlFor="name" className="text-neutral-600">
@@ -385,61 +411,76 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-3 border rounded-xl bg-neutral-50/50">
-                  <div className="space-y-0.5">
-                    <Label className="text-sm font-semibold">Company</Label>
-                    <p className="text-[11px] text-neutral-500">
-                      Change the user company
-                    </p>
-                  </div>
+                <div className="flex flex-col gap-1.5 p-3 border rounded-xl bg-neutral-50/50">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-semibold flex items-center gap-0.5">
+                        Company {selectedUser.onboarded && <span className="text-red-500">*</span>}
+                      </Label>
+                      <p className="text-[11px] text-neutral-500">
+                        Change the user company
+                      </p>
+                    </div>
 
-                  <div className="relative w-48">
-                    {/* Text input – shows the selected company name or the typed query */}
-                    <Input
-                      placeholder="Select company…"
-                      value={company}
-                      onChange={(e) => {
-                        setCompany(e.target.value);
-                        setSelectedCompanyId(null); // reset selection when typing
-                      }}
-                      className="peer"
-                    />
-
-                    {/* Suggestions dropdown */}
-                    {showSuggestions && !selectedCompanyId && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-neutral-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
-                        {companySuggestions.map((c) => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100"
-                            onClick={() => {
-                              setSelectedCompanyId(c.id);
-                              setCompany(c.name);
-                              setShowSuggestions(false);
-                            }}
-                          >
-                            {c.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Clear button when a company is chosen */}
-                    {selectedCompanyId && (
-                      <button
-                        type="button"
-                        className="absolute inset-y-0 right-2 flex items-center text-neutral-400 hover:text-primary"
-                        onClick={() => {
-                          setSelectedCompanyId(null);
-                          setCompany('');
+                    <div className="relative w-48">
+                      {/* Text input – shows the selected company name or the typed query */}
+                      <Input
+                        placeholder="Select company…"
+                        value={company}
+                        onChange={(e) => {
+                          setCompany(e.target.value);
+                          setSelectedCompanyId(null); // reset selection when typing
+                          setError(null);
                         }}
-                      >
-                        <span className="sr-only">Clear</span>
-                        ✕
-                      </button>
-                    )}
+                        className={`peer ${
+                          selectedUser.onboarded && !selectedCompanyId
+                            ? "border-red-500 focus-visible:ring-red-500"
+                            : ""
+                        }`}
+                      />
+
+                      {/* Suggestions dropdown */}
+                      {showSuggestions && !selectedCompanyId && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-neutral-200 rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                          {companySuggestions.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100"
+                              onClick={() => {
+                                setSelectedCompanyId(c.id);
+                                setCompany(c.name);
+                                setShowSuggestions(false);
+                                setError(null);
+                              }}
+                            >
+                              {c.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Clear button when a company is chosen */}
+                      {selectedCompanyId && (
+                        <button
+                          type="button"
+                          className="absolute inset-y-0 right-2 flex items-center text-neutral-400 hover:text-primary"
+                          onClick={() => {
+                            setSelectedCompanyId(null);
+                            setCompany('');
+                          }}
+                        >
+                          <span className="sr-only">Clear</span>
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  {selectedUser.onboarded && !selectedCompanyId && (
+                    <p className="text-[10px] text-red-500 text-right font-medium">
+                      Company is mandatory when onboarding is complete.
+                    </p>
+                  )}
                 </div>
 
 

@@ -64,7 +64,7 @@ export function MobileNav({
   const cityLabel = user?.city || "City";
   const companyLabel = user?.company?.name || "Company";
   const companyLogoUrl = user?.company?.domain
-    ? `https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=64`
+    ? `https://www.google.com/s2/favicons?domain=${user.company?.domain}&sz=64`
     : null;
 
   return (

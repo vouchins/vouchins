@@ -343,7 +343,7 @@ export default function UserProfilePage() {
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
                 ) : profile.company?.[0]?.domain || profile.company?.domain ? (
-                  <img src={`https://www.google.com/s2/favicons?domain=${profile.company[0]?.domain || profile.company?.domain}&sz=128`} alt={profile.full_name} className="h-full w-full object-contain p-3" />
+                  <img src={`https://www.google.com/s2/favicons?domain=${profile.company?.[0]?.domain || profile.company?.domain}&sz=128`} alt={profile.full_name} className="h-full w-full object-contain p-3" />
                 ) : (
                   profile.full_name.charAt(0)
                 )}

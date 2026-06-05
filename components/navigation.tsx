@@ -280,7 +280,7 @@ export function Navigation() {
                           {user.avatar_url ? (
                             <img src={user.avatar_url} alt={user.full_name} className="h-full w-full object-cover" />
                           ) : user.company?.domain ? (
-                            <img src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=64`} alt={user.company.name} className="h-full w-full object-contain p-1" />
+                            <img src={`https://www.google.com/s2/favicons?domain=${user.company?.domain}&sz=64`} alt={user.company?.name || "Company Logo"} className="h-full w-full object-contain p-1" />
                           ) : (
                             <User className="h-4 w-4" />
                           )}

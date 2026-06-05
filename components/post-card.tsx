@@ -292,7 +292,9 @@ export function PostCard({
     setNewPreviews(updatedFiles.map((f) => URL.createObjectURL(f)));
   };
 
-  const companyLogoUrl = `https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`;
+  const companyLogoUrl = post.user.company?.domain
+    ? `https://www.google.com/s2/favicons?domain=${post.user.company?.domain}&sz=64`
+    : null;
 
   return (
     <div className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-all shadow-sm overflow-visible">
@@ -311,8 +313,8 @@ export function PostCard({
               />
             ) : post.user.company?.domain ? (
               <img
-                src={`https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`}
-                alt={post.user.company.name}
+                src={`https://www.google.com/s2/favicons?domain=${post.user.company?.domain}&sz=64`}
+                alt={post.user.company?.name || "Company Logo"}
                 className="h-full w-full object-contain p-1.5"
               />
             ) : (
@@ -341,7 +343,7 @@ export function PostCard({
               </Link>
               <span className="text-neutral-300 text-xs">|</span>
               <span className="text-xs font-semibold text-neutral-600 uppercase tracking-tight">
-                {post.user.company.name}
+                {post.user.company?.name || "No Company"}
               </span>
             </div>
 

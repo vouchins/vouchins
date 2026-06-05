@@ -433,7 +433,7 @@ function FeedContent() {
             <div className="h-5 w-5 rounded bg-neutral-100 flex items-center justify-center overflow-hidden">
               {user?.company?.domain ? (
                 <img
-                  src={`https://www.google.com/s2/favicons?domain=${user?.company.domain}&sz=32`}
+                  src={`https://www.google.com/s2/favicons?domain=${user?.company?.domain}&sz=32`}
                   alt=""
                   className="h-3.5 w-3.5 object-contain"
                 />

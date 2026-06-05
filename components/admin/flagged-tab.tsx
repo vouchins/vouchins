@@ -15,7 +15,7 @@ interface FlaggedPost {
   text: string;
   flag_reasons: string[];
   user_id: string;
-  user: { full_name: string; email: string; company: { name: string } };
+  user: { full_name: string; email: string; company: { name: string } | null };
 }
 
 interface FlaggedTabProps {
@@ -41,7 +41,7 @@ export function FlaggedTab({
               <Badge variant="destructive">Auto-Flagged</Badge>
             </div>
             <CardDescription>
-              {post.user.email} • {post.user.company.name}
+              {post.user.email} • {post.user.company?.name || "No Company"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
