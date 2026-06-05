@@ -71,6 +71,8 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
 
   useEffect(() => {
@@ -111,20 +113,66 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
     setCompanySuggestions([]);
     setShowSuggestions(false);
     setError(null);
+    setShowDeleteConfirm(false);
+    setDeleteConfirmText("");
     setIsEditDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!selectedUser) return;
-    if (selectedUser.onboarded && !selectedCompanyId) {
+    if (selectedUser.onboarded && !company.trim()) {
       const errMsg = "Company is mandatory when onboarding is complete.";
       setError(errMsg);
-      toast.error(errMsg);
+      toast.error(errMsg, {
+        id: "company-required-toast",
+      });
       return;
     }
     setError(null);
     setLoading(true);
     try {
+      let finalCompanyId = selectedCompanyId;
+      if (company.trim()) {
+        if (!finalCompanyId) {
+          // Resolve or create
+          const { data: existing } = await supabase
+            .from("companies")
+            .select("id")
+            .ilike("name", company.trim())
+            .maybeSingle();
+
+          if (existing) {
+            finalCompanyId = existing.id;
+          } else {
+            const cleanName = company
+              .toLowerCase()
+              .trim()
+              .replace(/[^a-z0-9]/g, "");
+            const tempDomain = `${cleanName}.com`;
+            const { data: newComp, error: createError } = await supabase
+              .from("companies")
+              .insert({
+                name: company.trim(),
+                domain: tempDomain,
+              })
+              .select()
+              .single();
+
+            if (createError) {
+              setError("Failed to create new company: " + createError.message);
+              toast.error("Failed to create new company", {
+                id: "company-create-error-toast",
+              });
+              setLoading(false);
+              return;
+            }
+            finalCompanyId = newComp.id;
+          }
+        }
+      } else {
+        finalCompanyId = null;
+      }
+
       await onUpdateUser(selectedUser.id, {
         full_name: selectedUser.full_name,
         personal_email: selectedUser.personal_email,
@@ -132,9 +180,14 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
         is_active: selectedUser.is_active,
         is_verified: selectedUser.is_verified,
         onboarded: selectedUser.onboarded,
-        company_id: selectedCompanyId,
+        company_id: finalCompanyId,
       });
       setIsEditDialogOpen(false);
+    } catch (err: any) {
+      setError(err.message || "Failed to update user");
+      toast.error(err.message || "Failed to update user", {
+        id: "user-update-error-toast",
+      });
     } finally {
       setLoading(false);
     }
@@ -280,7 +333,11 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
         open={isEditDialogOpen}
         onOpenChange={(open) => {
           setIsEditDialogOpen(open);
-          if (!open) setError(null);
+          if (!open) {
+            setError(null);
+            setShowDeleteConfirm(false);
+            setDeleteConfirmText("");
+          }
         }}
       >
         <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
@@ -433,7 +490,7 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
                           setError(null);
                         }}
                         className={`peer ${
-                          selectedUser.onboarded && !selectedCompanyId
+                          selectedUser.onboarded && !company.trim()
                             ? "border-red-500 focus-visible:ring-red-500"
                             : ""
                         }`}
@@ -476,7 +533,7 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
                       )}
                     </div>
                   </div>
-                  {selectedUser.onboarded && !selectedCompanyId && (
+                  {selectedUser.onboarded && !company.trim() && (
                     <p className="text-[10px] text-red-500 text-right font-medium">
                       Company is mandatory when onboarding is complete.
                     </p>
@@ -503,23 +560,70 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
               </div>
 
               <div className="pt-4 border-t">
-                <Button
-                  variant="ghost"
-                  className="w-full text-red-500 hover:bg-red-50 hover:text-red-600 justify-start gap-2 rounded-lg"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        "Permanently delete this user? All their posts and data will be removed. This cannot be undone."
-                      )
-                    ) {
-                      onDeleteUser(selectedUser.id);
-                      setIsEditDialogOpen(false);
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Delete User Permanently
-                </Button>
+                {!showDeleteConfirm ? (
+                  <Button
+                    variant="ghost"
+                    className="w-full text-red-500 hover:bg-red-50 hover:text-red-600 justify-start gap-2 rounded-lg font-semibold"
+                    onClick={() => setShowDeleteConfirm(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete User Permanently
+                  </Button>
+                ) : (
+                  <div className="p-3 border border-red-200 rounded-xl bg-red-50/30 space-y-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="delete-confirm" className="text-xs font-bold text-red-700">
+                        Type <span className="underline font-black">DELETE</span> to confirm deletion
+                      </Label>
+                      <Input
+                        id="delete-confirm"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        placeholder="Type DELETE..."
+                        className="bg-white border-red-200 text-red-950 placeholder:text-red-300 focus-visible:ring-red-500 text-xs py-1 h-8"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setShowDeleteConfirm(false);
+                          setDeleteConfirmText("");
+                        }}
+                        className="h-7 text-xs font-medium"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={deleteConfirmText !== "DELETE"}
+                        onClick={async () => {
+                          setLoading(true);
+                          try {
+                            await onDeleteUser(selectedUser.id);
+                            setIsEditDialogOpen(false);
+                            toast.success("User deleted successfully", {
+                              id: "delete-success-toast",
+                            });
+                          } catch (err: any) {
+                            toast.error("Failed to delete user: " + err.message, {
+                              id: "delete-error-toast",
+                            });
+                          } finally {
+                            setLoading(false);
+                            setShowDeleteConfirm(false);
+                            setDeleteConfirmText("");
+                          }
+                        }}
+                        className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white font-medium"
+                      >
+                        Confirm Delete
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
