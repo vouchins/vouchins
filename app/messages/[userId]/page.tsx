@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 import MessageInput from "@/components/message-input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Navigation } from "@/components/navigation";
 import { encryptMessage, decryptMessage, initE2EEKeys } from "@/lib/crypto";
-import { Lock, ShieldAlert } from "lucide-react";
+import { Lock, ShieldAlert, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
@@ -25,6 +28,7 @@ export default function ConversationPage() {
   const [isReceiverTyping, setIsReceiverTyping] = useState(false);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
   const channelRef = useRef<any>(null);
 
   useEffect(() => {
@@ -381,7 +385,9 @@ export default function ConversationPage() {
 
               <div className="text-left">
                 <h2 className="font-bold text-neutral-900 leading-tight">
-                  {receiver?.full_name || "Conversation"}
+                  <Link href={`/users/${receiver?.id}`} className="hover:underline">
+                    {receiver?.full_name || "Conversation"}
+                  </Link>
                 </h2>
                 <div className="flex items-center gap-2 mt-0.5">
                   {receiver && (
@@ -420,28 +426,32 @@ export default function ConversationPage() {
               decryptedMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex flex-col ${
-                    msg.sender_id === me?.id ? "items-end" : "items-start"
-                  }`}
+                  className={`flex flex-col ${msg.sender_id === me?.id ? "items-end" : "items-start"} group relative`}
                 >
                   <div
                     className={`max-w-[70%] px-4 py-2 rounded-2xl text-sm leading-relaxed ${
                       msg.sender_id === me?.id
-                        ? "bg-neutral-900 text-white rounded-br-sm animate-in slide-in-from-right-2 duration-150"
+                        ? "bg-[hsl(var(--primary))] text-white rounded-br-sm animate-in slide-in-from-right-2 duration-150"
                         : "bg-white border rounded-bl-sm animate-in slide-in-from-left-2 duration-150"
                     }`}
                   >
                     {msg.text}
-                  </div>
-                  {/* Timestamp & Status Checkmarks */}
-                  <div className="flex items-center gap-1 mt-1 px-1 text-[9px] text-neutral-400">
-                    <span>
-                      {new Date(msg.created_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    {msg.sender_id === me?.id && (
+                    {/* Timestamp & Status Checkmarks */}
+                    <div className={`flex items-center gap-1 mt-1 text-[9px] ${msg.sender_id === me?.id ? "text-neutral-400 justify-end" : "text-neutral-400 justify-start"}`}>
+                      <span>
+                        {new Date(msg.created_at).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                       {/* {msg.sender_id === me?.id && (
+                         <span
+                           className="ml-1 cursor-pointer text-neutral-400 hover:text-neutral-600 font-extrabold"
+                           onClick={() => setShowDeleteDialog(msg.id)}
+                         >
+                           ⋮
+                         </span>
+                       )} */}
                       <span className="ml-0.5 flex items-center">
                         {msg.is_read ? (
                           <span className="text-emerald-500 font-bold" title="Seen">✓✓</span>
@@ -449,11 +459,49 @@ export default function ConversationPage() {
                           <span className="text-neutral-400" title="Delivered">✓✓</span>
                         )}
                       </span>
-                    )}
+                    </div>
                   </div>
                 </div>
               ))
             )}
+
+            {/* Native delete confirmation dialog */}
+            <Dialog open={!!showDeleteDialog} onOpenChange={() => setShowDeleteDialog(null)}>
+              <DialogContent className="sm:max-w-[400px]">
+                <DialogHeader>
+                  <DialogTitle>Delete message</DialogTitle>
+                </DialogHeader>
+                <p className="p-4 text-sm text-neutral-700">Are you sure you want to delete this message? This action cannot be undone.</p>
+                <DialogFooter className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setShowDeleteDialog(null)}>Cancel</Button>
+                  <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        if (!showDeleteDialog) return;
+                        const id = showDeleteDialog;
+                        setShowDeleteDialog(null);
+                        // Optimistically update UI
+                        setMessages((prev) => prev.filter((m) => m.id !== id));
+                        setDecryptedMessages((prev) => prev.filter((m) => m.id !== id));
+                        try {
+                          const { error } = await supabase
+                            .from('messages')
+                            .delete()
+                            .eq('id', id);
+                          if (error) {
+                            console.error('Delete error:', error);
+                            // Optionally revert UI changes or refetch messages
+                          }
+                        } catch (e) {
+                          console.error('Unexpected delete error:', e);
+                        }
+                      }}
+                    >
+                      Delete
+                    </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {isReceiverTyping && (
               <div className="flex justify-start items-center gap-2 text-[11px] text-neutral-500 animate-pulse pl-1 py-1">
