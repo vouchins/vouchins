@@ -85,3 +85,15 @@ deno.json
 
 #VSCode
 .vscode/*
+
+# Vouchins Staging Environment
+.env.staging
+*dump.sql
+prod_schema.sql
+prod_data.sql
+scripts/staging/chunks/
+scripts/staging/restore_public_grants.sql
+scripts/staging/restore_auth.sql
+scripts/staging/prod_data_inserts.sql
+scripts/staging/test-db.js
+supabase/migrations/202606071200*
