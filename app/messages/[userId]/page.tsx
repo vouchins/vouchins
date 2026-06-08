@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 import MessageInput from "@/components/message-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Navigation } from "@/components/navigation";
+import { MessagesSidebar } from "@/components/messages-sidebar";
 import { encryptMessage, decryptMessage, initE2EEKeys } from "@/lib/crypto";
 import { Lock, ShieldAlert, Trash2 } from "lucide-react";
 import Link from "next/link";
@@ -15,6 +16,7 @@ import { formatDistanceToNow } from "date-fns";
 
 export default function ConversationPage() {
   const { userId } = useParams();
+  const router = useRouter();
 
   const [messages, setMessages] = useState<any[]>([]);
   const [decryptedMessages, setDecryptedMessages] = useState<any[]>([]);
@@ -26,6 +28,7 @@ export default function ConversationPage() {
   const [myPublicKeyJwk, setMyPublicKeyJwk] = useState<string | null>(null);
 
   const [isReceiverTyping, setIsReceiverTyping] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export default function ConversationPage() {
   /* -------------------- load conversation -------------------- */
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -105,6 +109,7 @@ export default function ConversationPage() {
       if (myKeyData) {
         setMyPublicKeyJwk(myKeyData.public_key);
       }
+      setLoading(false);
     };
 
     load();
@@ -368,19 +373,28 @@ export default function ConversationPage() {
   };
 
   return (
-    <>
+    <div className="h-screen flex flex-col overflow-hidden bg-neutral-50">
       <Navigation />
 
-      <div className="min-h-screen bg-neutral-50 flex justify-center">
-        <div className="w-full max-w-3xl flex flex-col h-[calc(100vh-14px)] bg-white border-x">
+      {/* Split Pane Layout */}
+      <div className="flex-1 flex overflow-hidden w-full bg-white">
+        
+        {/* Left Side: Sidebar (Hidden on mobile) */}
+        <div className="hidden md:block w-[350px] flex-shrink-0 h-full">
+          <MessagesSidebar activeUserId={userId as string} />
+        </div>
+
+        {/* Right Side: Chat Area */}
+        <div className="flex flex-1 flex-col h-full bg-white relative">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-white">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-white flex-shrink-0">
             <div className="flex items-center gap-3">
+              {/* Back button (Only visible on mobile) */}
               <button
-                onClick={() => window.history.back()}
-                className="text-sm text-neutral-600 hover:underline"
+                onClick={() => router.push("/messages")}
+                className="md:hidden text-sm text-neutral-600 font-bold hover:underline"
               >
-                ← Back
+                ← Inbox
               </button>
 
               <div className="text-left">
@@ -418,7 +432,23 @@ export default function ConversationPage() {
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto px-4 py-6 space-y-4 bg-neutral-50"
           >
-            {decryptedMessages.length === 0 ? (
+            {loading ? (
+              // Skeletons for messages
+              <div className="space-y-4">
+                <div className="flex justify-start">
+                  <div className="h-9 w-48 bg-neutral-200/50 rounded-2xl animate-pulse" />
+                </div>
+                <div className="flex justify-end">
+                  <div className="h-9 w-32 bg-neutral-200/50 rounded-2xl animate-pulse" />
+                </div>
+                <div className="flex justify-start">
+                  <div className="h-9 w-64 bg-neutral-200/50 rounded-2xl animate-pulse" />
+                </div>
+                <div className="flex justify-end">
+                  <div className="h-9 w-40 bg-neutral-200/50 rounded-2xl animate-pulse" />
+                </div>
+              </div>
+            ) : decryptedMessages.length === 0 ? (
               <p className="text-sm text-neutral-500 text-center">
                 Start the conversation 👋
               </p>
@@ -444,14 +474,6 @@ export default function ConversationPage() {
                           minute: "2-digit",
                         })}
                       </span>
-                       {/* {msg.sender_id === me?.id && (
-                         <span
-                           className="ml-1 cursor-pointer text-neutral-400 hover:text-neutral-600 font-extrabold"
-                           onClick={() => setShowDeleteDialog(msg.id)}
-                         >
-                           ⋮
-                         </span>
-                       )} */}
                       <span className="ml-0.5 flex items-center">
                         {msg.is_read ? (
                           <span className="text-emerald-500 font-bold" title="Seen">✓✓</span>
@@ -475,30 +497,29 @@ export default function ConversationPage() {
                 <DialogFooter className="flex justify-end space-x-2">
                   <Button variant="outline" onClick={() => setShowDeleteDialog(null)}>Cancel</Button>
                   <Button
-                      variant="destructive"
-                      onClick={async () => {
-                        if (!showDeleteDialog) return;
-                        const id = showDeleteDialog;
-                        setShowDeleteDialog(null);
-                        // Optimistically update UI
-                        setMessages((prev) => prev.filter((m) => m.id !== id));
-                        setDecryptedMessages((prev) => prev.filter((m) => m.id !== id));
-                        try {
-                          const { error } = await supabase
-                            .from('messages')
-                            .delete()
-                            .eq('id', id);
-                          if (error) {
-                            console.error('Delete error:', error);
-                            // Optionally revert UI changes or refetch messages
-                          }
-                        } catch (e) {
-                          console.error('Unexpected delete error:', e);
+                    variant="destructive"
+                    onClick={async () => {
+                      if (!showDeleteDialog) return;
+                      const id = showDeleteDialog;
+                      setShowDeleteDialog(null);
+                      // Optimistically update UI
+                      setMessages((prev) => prev.filter((m) => m.id !== id));
+                      setDecryptedMessages((prev) => prev.filter((m) => m.id !== id));
+                      try {
+                        const { error } = await supabase
+                          .from('messages')
+                          .delete()
+                          .eq('id', id);
+                        if (error) {
+                          console.error('Delete error:', error);
                         }
-                      }}
-                    >
-                      Delete
-                    </Button>
+                      } catch (e) {
+                        console.error('Unexpected delete error:', e);
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -516,11 +537,11 @@ export default function ConversationPage() {
           </div>
 
           {/* Input */}
-          <div className="border-t px-4 py-3 bg-white sticky bottom-0">
+          <div className="border-t px-4 py-3 bg-white sticky bottom-0 flex-shrink-0">
             <MessageInput onSend={handleSend} onTyping={handleTyping} />
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

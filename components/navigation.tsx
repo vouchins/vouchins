@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
+import { useUser } from "@/components/user-provider";
+
 interface NavigationUser {
   id: string;
   full_name: string;
@@ -43,79 +45,22 @@ interface NavigationUser {
 }
 
 export function Navigation() {
+  return (
+    <Suspense fallback={<header className="h-16 border-b border-neutral-200 bg-white/80 backdrop-blur-md" />}>
+      <NavigationContent />
+    </Suspense>
+  );
+}
+
+function NavigationContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [user, setUser] = useState<NavigationUser | null>(null);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
+  const { user, loading, unreadCount } = useUser();
 
   // Search State
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-
-  /* ---------------- Fetch User & Unread Count ---------------- */
-  useEffect(() => {
-    const fetchNavData = async () => {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-
-      if (!authUser) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("users")
-        .select(
-          `id, full_name, email, city, avatar_url, vouch_points, is_admin, is_verified, linkedin_url, phone_number, company:companies(name, domain)`,
-        )
-        .eq("id", authUser.id)
-        .maybeSingle();
-
-      if (data && !error) {
-        const formattedUser: NavigationUser = {
-          id: data.id,
-          full_name: data.full_name,
-          email: data.email,
-          city: data.city,
-          avatar_url: data.avatar_url,
-          vouch_points: data.vouch_points || 0,
-          is_admin: data.is_admin,
-          company: Array.isArray(data.company)
-            ? data.company[0]
-            : (data.company as unknown as { name: string; domain: string }),
-          is_profile_complete: Boolean(data.is_verified && data.avatar_url && data.linkedin_url && data.phone_number),
-          profile_completion_percentage: ([data.is_verified, data.avatar_url, data.linkedin_url, data.phone_number].filter(Boolean).length / 4) * 100,
-        };
-
-        setUser(formattedUser);
-
-        const { count } = await supabase
-          .from("messages")
-          .select("id", { count: "exact", head: true })
-          .eq("receiver_id", data.id)
-          .eq("is_read", false);
-
-        setUnreadCount(count ?? 0);
-      }
-      setLoading(false);
-    };
-
-    fetchNavData();
-  }, [pathname]);
-
-  // Listen for user updates from other components (e.g. city change in feed)
-  useEffect(() => {
-    const handleUserUpdate = (e: any) => {
-      if (e.detail?.city) {
-        setUser((prev) => (prev ? { ...prev, city: e.detail.city } : prev));
-      }
-    };
-    window.addEventListener("user-updated", handleUserUpdate);
-    return () => window.removeEventListener("user-updated", handleUserUpdate);
-  }, []);
 
   /* ---------------- Search Handler ---------------- */
   const handleSearch = (e: React.FormEvent) => {
@@ -137,15 +82,13 @@ export function Navigation() {
     router.push("/login");
   };
 
-  if (loading)
-    return <header className="h-16 border-b border-neutral-200 bg-white" />;
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white/80 backdrop-blur-md">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Left: Logo */}
           <div className="flex-shrink-0">
-            <Link href={user ? "/feed" : "/"}>
+            <Link href={loading ? "/feed" : (user ? "/feed" : "/")}>
               <Image
                 src="/images/logo.png"
                 alt="Vouchins"
@@ -158,7 +101,7 @@ export function Navigation() {
           </div>
 
           {/* Center: Search Bar (Hidden on mobile, visible on sm+ if logged in) */}
-          {user ? (
+          {!loading && user ? (
             <form
               onSubmit={handleSearch}
               className="hidden md:flex flex-1 max-w-md relative group"
@@ -189,7 +132,14 @@ export function Navigation() {
 
           {/* Right: Actions */}
           <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-            {user ? (
+            {loading ? (
+              // Loading skeleton to prevent layout shift
+              <div className="flex items-center space-x-2 animate-pulse">
+                <div className="h-8 w-16 bg-neutral-100 rounded-lg hidden sm:block" />
+                <div className="h-8 w-16 bg-neutral-100 rounded-lg hidden sm:block" />
+                <div className="h-8 w-8 rounded-full bg-neutral-100" />
+              </div>
+            ) : user ? (
               <>
                 {/* Jobs */}
                 <Button
