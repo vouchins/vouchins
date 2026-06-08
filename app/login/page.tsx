@@ -71,7 +71,7 @@ export default function LoginPage() {
         throw new Error(data.error);
       }
 
-      router.push("/feed");
+      window.location.href = "/feed";
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {

@@ -60,7 +60,9 @@ export default function VerifyEmailClient() {
       }
 
       setVerified(true);
-      setTimeout(() => router.push("/onboarding"), 1000);
+      setTimeout(() => {
+        window.location.href = "/onboarding";
+      }, 1000);
     } catch (err: any) {
       setError(err.message || "Invalid code. Please try again.");
     } finally {

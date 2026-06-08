@@ -105,7 +105,7 @@ export default function SignupPage() {
         throw new Error(data.error);
       }
 
-      router.push("/onboarding");
+      window.location.href = "/onboarding";
     } catch (err: any) {
       setError(err.message || "Failed to create account.");
     } finally {
