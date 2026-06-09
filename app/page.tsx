@@ -560,6 +560,78 @@ export default function Home() {
         </section>
 
         {/* ==================================================
+            SECTION 4.5 — SECURITY & PRIVACY ASSURANCE
+            ================================================== */}
+        <section className="py-20 bg-white border-t border-neutral-200/50">
+          <div className="container mx-auto px-6 max-w-6xl">
+            <div className="bg-[#0F172A] rounded-[2.5rem] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl">
+              {/* Glows */}
+              <div className="absolute top-0 right-0 w-[40%] h-[40%] bg-[#4FD1C5]/10 rounded-full blur-[80px] pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-[30%] h-[30%] bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center relative z-10">
+                {/* Left Side */}
+                <div className="lg:col-span-5 space-y-6">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#4FD1C5]/10 border border-[#4FD1C5]/20 text-[#4FD1C5] text-xs font-bold uppercase tracking-wider">
+                    <ShieldCheck className="h-3.5 w-3.5" /> 100% Private & Confidential
+                  </div>
+                  <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight leading-tight">
+                    Discreet Verification.<br />
+                    Total Privacy.
+                  </h2>
+                  <p className="text-neutral-400 font-light text-sm md:text-base leading-relaxed">
+                    Vouchins is engineered for complete professional privacy. Your corporate email is only used once to confirm your workplace domain. Verification is entirely discreet, confidential, and invisible to others.
+                  </p>
+                </div>
+
+                {/* Right Side - Features Grid */}
+                <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                    <div className="h-8 w-8 rounded-lg bg-[#4FD1C5]/10 text-[#4FD1C5] flex items-center justify-center">
+                      <Shield className="h-4.5 w-4.5" />
+                    </div>
+                    <h3 className="font-extrabold text-sm text-white">Firewall-Compliant Mail</h3>
+                    <p className="text-xs text-neutral-400 leading-relaxed font-light">
+                      Emails are sent via SPF, DKIM, and DMARC compliance standards. Our OTP codes are fully compliant with corporate spam gateways and land safely without raising internal flags.
+                    </p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                    <div className="h-8 w-8 rounded-lg bg-[#4FD1C5]/10 text-[#4FD1C5] flex items-center justify-center">
+                      <Users className="h-4.5 w-4.5" />
+                    </div>
+                    <h3 className="font-extrabold text-sm text-white">Zero IT or System Logs</h3>
+                    <p className="text-xs text-neutral-400 leading-relaxed font-light">
+                      Verification operates strictly outside your company&apos;s IT infrastructure. Vouchins has no access to your Active Directory, single sign-on (SSO), Slack, or HR databases. No system logs are generated.
+                    </p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                    <div className="h-8 w-8 rounded-lg bg-[#4FD1C5]/10 text-[#4FD1C5] flex items-center justify-center">
+                      <EyeOff className="h-4.5 w-4.5" />
+                    </div>
+                    <h3 className="font-extrabold text-sm text-white">100% Blind Anonymity</h3>
+                    <p className="text-xs text-neutral-400 leading-relaxed font-light">
+                      Your corporate email address is encrypted and hashed. It is never stored in plaintext and is never displayed on your profile or posts. You control your visibility.
+                    </p>
+                  </div>
+
+                  <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+                    <div className="h-8 w-8 rounded-lg bg-[#4FD1C5]/10 text-[#4FD1C5] flex items-center justify-center">
+                      <Scale className="h-4.5 w-4.5" />
+                    </div>
+                    <h3 className="font-extrabold text-sm text-white">No Spam or Work Inbox Contact</h3>
+                    <p className="text-xs text-neutral-400 leading-relaxed font-light">
+                      Your work email is only used once to verify your domain. We will never send marketing newsletters, social updates, or notifications to your corporate inbox.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================================================
             SECTION 5 — LIVE IN THE COMMUNITY
             ================================================== */}
         <section className="py-24 bg-[#020617] text-white relative overflow-hidden">

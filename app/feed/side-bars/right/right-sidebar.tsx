@@ -19,9 +19,10 @@ interface RightSidebarProps {
     city: string;
     is_verified: boolean;
   } | null;
+  onVerify?: () => void;
 }
 
-export function RightSidebar({ user }: RightSidebarProps) {
+export function RightSidebar({ user, onVerify }: RightSidebarProps) {
   const router = useRouter();
   const city = user?.city || "Hyderabad";
   const isVerified = user?.is_verified;
@@ -74,23 +75,25 @@ export function RightSidebar({ user }: RightSidebarProps) {
                   variant="secondary"
                   className="bg-primary/10 text-primary border-none text-[10px] px-2 h-5 font-bold uppercase tracking-wider"
                 >
-                  Action Required
+                  Verify Profile
                 </Badge>
               </div>
               <p className="text-sm font-bold text-neutral-900 leading-snug">
-                Verify your work email to unlock company-only discussions.
+                Unlock salary insights, colleague chats, and trusted referrals by verifying your professional identity.
               </p>
               <button
                 onClick={() => {
                   if (!user) {
                     router.push("/login");
+                  } else if (onVerify) {
+                    onVerify();
                   } else {
                     router.push("/onboarding");
                   }
                 }}
                 className="mt-3 text-[11px] font-bold text-primary hover:opacity-80 flex items-center gap-1"
               >
-                Verify now <ShieldCheck className="h-3 w-3" />
+                Get Verified Now <ShieldCheck className="h-3 w-3" />
               </button>
             </div>
           )}

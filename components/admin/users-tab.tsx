@@ -135,24 +135,35 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
       if (company.trim()) {
         if (!finalCompanyId) {
           // Resolve or create
-          const { data: existing } = await supabase
+          const cleanName = company.trim();
+          const cleanDomainName = cleanName
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
+          const tempDomain = `${cleanDomainName}.com`;
+
+          let { data: existing } = await supabase
             .from("companies")
             .select("id")
-            .ilike("name", company.trim())
+            .ilike("name", cleanName)
             .maybeSingle();
+
+          // If name match fails, search by domain to prevent unique key violation
+          if (!existing) {
+            const { data: existingDomain } = await supabase
+              .from("companies")
+              .select("id")
+              .eq("domain", tempDomain)
+              .maybeSingle();
+            existing = existingDomain;
+          }
 
           if (existing) {
             finalCompanyId = existing.id;
           } else {
-            const cleanName = company
-              .toLowerCase()
-              .trim()
-              .replace(/[^a-z0-9]/g, "");
-            const tempDomain = `${cleanName}.com`;
             const { data: newComp, error: createError } = await supabase
               .from("companies")
               .insert({
-                name: company.trim(),
+                name: cleanName,
                 domain: tempDomain,
               })
               .select()

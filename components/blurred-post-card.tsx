@@ -52,7 +52,7 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
 
   const subCategoryLabel = post.sub_category
     ? SUB_CATEGORIES[post.category]?.find((s) => s.value === post.sub_category)
-        ?.label
+      ?.label
     : null;
 
   const companyLogoUrl = post.user.company?.domain
@@ -171,9 +171,8 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
 
           {/* Visual Blur Overlay */}
           <div className="filter blur-[5px] select-none pointer-events-none opacity-20 text-[15px] leading-relaxed mt-1">
-            Unlock professional referrals and marketplace leads by verifying
-            your corporate identity. Vouchins ensures high-trust interactions
-            for verified employees only.
+            Unlock professional referrals, insider salary information, local job opportunities,
+            and verified network posts. Join thousands of verified professionals today.
           </div>
 
           {/* Centered Verification CTA */}
@@ -182,7 +181,7 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
               onClick={onVerify}
               className="rounded-full px-8 h-10 bg-primary hover:opacity-90 text-primary-foreground font-black uppercase tracking-widest text-[10px] shadow-xl z-20"
             >
-              Verify to Unlock Post
+              Verify yourself to get access
             </Button>
           </div>
         </div>

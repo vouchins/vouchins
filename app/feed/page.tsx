@@ -155,14 +155,14 @@ function FeedContent() {
         finalCity = "All Cities"; // Default fallback
         if ("geolocation" in navigator) {
           try {
-             const pos: any = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 }));
-             const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`);
-             const data = await res.json();
-             if (data.city && INDIAN_CITIES.includes(data.city)) {
-                finalCity = data.city;
-             }
+            const pos: any = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 }));
+            const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`);
+            const data = await res.json();
+            if (data.city && INDIAN_CITIES.includes(data.city)) {
+              finalCity = data.city;
+            }
           } catch (e) {
-             console.error("Location detection failed", e);
+            console.error("Location detection failed", e);
           }
         }
         await supabase.from("users").update({ city: finalCity }).eq("id", authUser.id);
@@ -208,16 +208,16 @@ function FeedContent() {
           <div className="h-16 w-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <Lock className="h-8 w-8 text-primary" />
           </div>
-          <h2 className="text-2xl font-black mb-2">Workspace Locked</h2>
+          <h2 className="text-2xl font-black mb-2">Join the Private {user?.company?.name} Forum</h2>
           <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
-            Verify your professional identity to join colleague-only discussions
-            at {user?.company?.name}.
+            Verify your professional identity to unlock anonymous discussions, salary comparisons,
+            and trusted referrals with verified colleagues at {user?.company?.name}.
           </p>
           <Button
             onClick={() => setIsVerifyModalOpen(true)}
             className="rounded-full px-12 h-12 font-black uppercase tracking-widest text-[11px]"
           >
-            Verify Now
+            Verify to Join Colleagues
           </Button>
         </div>
       );
@@ -399,18 +399,18 @@ function FeedContent() {
         {/* --- LEFT SIDEBAR (The Navigation) --- */}
         <aside className="hidden lg:flex w-64 flex-col gap-2 sticky top-24 h-fit">
           <div className={cn(
-              "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all group cursor-pointer",
-              activeTab === "city"
-                ? "bg-white shadow-sm ring-1 ring-black/5"
-                : "hover:bg-neutral-200/50"
-            )}>
-             <div 
-               className={cn("flex items-center gap-3 flex-1", activeTab === "city" ? "text-primary" : "text-neutral-500")}
-               onClick={() => setActiveTab("city")}
-             >
-                <MapPin className="h-4 w-4 shrink-0" />
-                <span className="truncate max-w-[150px]">{selectedCity}</span>
-             </div>
+            "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all group cursor-pointer",
+            activeTab === "city"
+              ? "bg-white shadow-sm ring-1 ring-black/5"
+              : "hover:bg-neutral-200/50"
+          )}>
+            <div
+              className={cn("flex items-center gap-3 flex-1", activeTab === "city" ? "text-primary" : "text-neutral-500")}
+              onClick={() => setActiveTab("city")}
+            >
+              <MapPin className="h-4 w-4 shrink-0" />
+              <span className="truncate max-w-[150px]">{selectedCity}</span>
+            </div>
           </div>
 
           <button
@@ -505,7 +505,7 @@ function FeedContent() {
                   <span>Feed in</span>
                   <Select value={selectedCity} onValueChange={handleCityChange}>
                     <SelectTrigger className="border-0 bg-transparent p-0 h-auto shadow-none focus:ring-0 font-bold hover:bg-transparent data-[state=open]:bg-transparent text-xl text-primary underline decoration-primary/30 underline-offset-4">
-                       <SelectValue />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {["All Cities", ...INDIAN_CITIES].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -532,8 +532,8 @@ function FeedContent() {
                 }
               />
             ) : (
-              <Button onClick={() => setIsVerifyModalOpen(true)} className="rounded-full font-bold">
-                Get Verified to Post
+              <Button onClick={() => setIsVerifyModalOpen(true)} className="rounded-full">
+                Verify to add your requirement
               </Button>
             )}
           </div>
@@ -557,7 +557,7 @@ function FeedContent() {
           )}
         </main>
         {/* NEW RIGHT SIDEBAR */}
-        <RightSidebar user={user} />
+        <RightSidebar user={user} onVerify={() => setIsVerifyModalOpen(true)} />
         <MobileNav
           user={user}
           selectedCity={selectedCity}

@@ -526,7 +526,7 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
         </main>
 
         {/* --- RIGHT SIDEBAR --- */}
-        <RightSidebar user={currentUser} />
+        <RightSidebar user={currentUser} onVerify={() => setIsVerifyModalOpen(true)} />
       </div>
 
       {/* Verification modal for unverified logged-in users */}
