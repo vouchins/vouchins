@@ -20,12 +20,14 @@ interface MobileNavProps {
   };
   onOpenCreatePost: () => void;
   setActiveTab: (tab: "city" | "company") => void; // Added for tab state management
+  selectedCity?: string;
 }
 
 export function MobileNav({
   user,
   onOpenCreatePost,
   setActiveTab,
+  selectedCity,
 }: MobileNavProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -61,7 +63,7 @@ export function MobileNav({
     setIsSearching(false);
   };
 
-  const cityLabel = user?.city || "City";
+  const cityLabel = selectedCity || user?.city || "City";
   const companyLabel = user?.company?.name || "Company";
   const companyLogoUrl = user?.company?.domain
     ? `https://www.google.com/s2/favicons?domain=${user.company?.domain}&sz=64`

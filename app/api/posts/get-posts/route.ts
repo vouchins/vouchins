@@ -30,6 +30,7 @@ export async function GET(request: Request) {
   const subCategory = searchParams.get("subCategory") || "all";
   const page = parseInt(searchParams.get("page") || "0");
   const queryStr = searchParams.get("query") || "";
+  const city = searchParams.get("city") || "All Cities";
   const limit = 50;
   const from = page * limit;
   const to = from + limit - 1;
@@ -55,8 +56,11 @@ export async function GET(request: Request) {
       user:users!posts_user_id_fkey!inner(id, full_name, city, avatar_url, vouch_points, is_admin, company_id, company:companies(name, domain)),
       comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))
     `)
-    .eq("is_removed", false)
-    .eq("user.city", userData.city);
+    .eq("is_removed", false);
+
+  if (city !== "All Cities" && city !== "Global") {
+    query = query.eq("user.city", city);
+  }
 
   // Tab logic
   if (tab === "company") {

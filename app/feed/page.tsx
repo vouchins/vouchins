@@ -43,6 +43,7 @@ function FeedContent() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [activeSubCategory, setActiveSubCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCity, setSelectedCity] = useState<string>("All Cities");
   const [activeReplyPostId, setActiveReplyPostId] = useState<string | null>(
     null,
   );
@@ -52,28 +53,6 @@ function FeedContent() {
     commentId?: string;
   }>({});
 
-  //Search related state and effect
-  const searchParams = useSearchParams();
-  const queryStr = searchParams.get("q") || "";
-  useEffect(() => {
-    if (queryStr) {
-      // Reset the UI state so the sidebar correctly shows "# all" as active
-      setActiveCategory("all");
-      setActiveSubCategory("all");
-      setPage(0);
-    }
-  }, [queryStr]);
-  useEffect(() => {
-    // Now every time the URL changes via the header search,
-    // this effect re-runs and calls fetchPosts automatically.
-    if (user) {
-      const categoryToUse = queryStr ? "all" : activeCategory;
-      const subCategoryToUse = queryStr ? "all" : activeSubCategory;
-      fetchPosts(user, activeTab, categoryToUse, subCategoryToUse, 0, queryStr);
-      setPage(0); // Reset pagination on new search
-    }
-  }, [user, activeTab, activeCategory, activeSubCategory, queryStr]);
-
   const fetchPosts = useCallback(
     async (
       currentUser: any,
@@ -82,6 +61,7 @@ function FeedContent() {
       subCategory: string,
       pageNum: number = 0,
       queryStr: string = "",
+      city: string = "All Cities",
     ) => {
       if (!currentUser) return;
 
@@ -93,6 +73,7 @@ function FeedContent() {
           subCategory,
           page: pageNum.toString(),
           query: queryStr,
+          city,
         });
         setLoading(true);
         const response = await fetch(
@@ -117,6 +98,29 @@ function FeedContent() {
     },
     [],
   );
+
+  //Search related state and effect
+  const searchParams = useSearchParams();
+  const queryStr = searchParams.get("q") || "";
+  useEffect(() => {
+    if (queryStr) {
+      // Reset the UI state so the sidebar correctly shows "# all" as active
+      setActiveCategory("all");
+      setActiveSubCategory("all");
+      setPage(0);
+    }
+  }, [queryStr]);
+  useEffect(() => {
+    // Now every time the URL changes via the header search,
+    // this effect re-runs and calls fetchPosts automatically.
+    if (user) {
+      const categoryToUse = queryStr ? "all" : activeCategory;
+      const subCategoryToUse = queryStr ? "all" : activeSubCategory;
+      fetchPosts(user, activeTab, categoryToUse, subCategoryToUse, 0, queryStr, selectedCity);
+      setPage(0); // Reset pagination on new search
+    }
+  }, [user, activeTab, activeCategory, activeSubCategory, queryStr, selectedCity, fetchPosts]);
+
 
   const fetchInlineAds = async () => {
     try {
@@ -148,7 +152,7 @@ function FeedContent() {
 
       let finalCity = userData.city;
       if (!finalCity) {
-        finalCity = "Hyderabad"; // Default fallback
+        finalCity = "All Cities"; // Default fallback
         if ("geolocation" in navigator) {
           try {
              const pos: any = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 }));
@@ -166,33 +170,18 @@ function FeedContent() {
       }
 
       setUser(userData);
-      await fetchPosts(
-        userData,
-        activeTab,
-        activeCategory,
-        activeSubCategory,
-        0,
-        searchQuery,
-      );
-      // fetchInlineAds();
-      setLoading(false);
       isInitialMount.current = false;
     };
     initPage();
-  }, [router, activeTab, activeCategory, activeSubCategory, fetchPosts]);
+  }, [router]);
 
   const handleCityChange = async (newCity: string) => {
-    setUser((prev: any) => ({ ...prev, city: newCity }));
-    window.dispatchEvent(new CustomEvent("user-updated", { detail: { city: newCity } }));
-    await supabase.from("users").update({ city: newCity }).eq("id", user?.id);
-    fetchPosts(
-      { ...user, city: newCity },
-      activeTab,
-      activeCategory,
-      activeSubCategory,
-      0,
-      searchQuery
-    );
+    setSelectedCity(newCity);
+    if (newCity !== "All Cities") {
+      setUser((prev: any) => ({ ...prev, city: newCity }));
+      window.dispatchEvent(new CustomEvent("user-updated", { detail: { city: newCity } }));
+      await supabase.from("users").update({ city: newCity }).eq("id", user?.id);
+    }
   };
 
   const handleLoadMore = async () => {
@@ -205,6 +194,7 @@ function FeedContent() {
       activeSubCategory,
       nextPage,
       searchQuery,
+      selectedCity,
     );
     setPage(nextPage);
     setLoadingMore(false);
@@ -347,6 +337,7 @@ function FeedContent() {
                       activeSubCategory,
                       0,
                       searchQuery,
+                      selectedCity,
                     )
                   }
                   isVerifiedUser={user?.is_verified}
@@ -365,6 +356,7 @@ function FeedContent() {
                           activeSubCategory,
                           0,
                           searchQuery,
+                          selectedCity,
                         )
                       }
                     />
@@ -417,7 +409,7 @@ function FeedContent() {
                onClick={() => setActiveTab("city")}
              >
                 <MapPin className="h-4 w-4 shrink-0" />
-                <span className="truncate max-w-[150px]">{user?.city || "Local"}</span>
+                <span className="truncate max-w-[150px]">{selectedCity}</span>
              </div>
           </div>
 
@@ -511,12 +503,12 @@ function FeedContent() {
               {activeTab === "city" ? (
                 <>
                   <span>Feed in</span>
-                  <Select value={user?.city || "Hyderabad"} onValueChange={handleCityChange}>
+                  <Select value={selectedCity} onValueChange={handleCityChange}>
                     <SelectTrigger className="border-0 bg-transparent p-0 h-auto shadow-none focus:ring-0 font-bold hover:bg-transparent data-[state=open]:bg-transparent text-xl text-primary underline decoration-primary/30 underline-offset-4">
                        <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {INDIAN_CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {["All Cities", ...INDIAN_CITIES].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </>
@@ -535,6 +527,7 @@ function FeedContent() {
                     activeSubCategory,
                     0,
                     searchQuery,
+                    selectedCity,
                   )
                 }
               />
@@ -567,6 +560,7 @@ function FeedContent() {
         <RightSidebar user={user} />
         <MobileNav
           user={user}
+          selectedCity={selectedCity}
           onOpenCreatePost={() =>
             fetchPosts(
               user,
@@ -575,6 +569,7 @@ function FeedContent() {
               activeSubCategory,
               0,
               searchQuery,
+              selectedCity,
             )
           }
           setActiveTab={(tab) => setActiveTab(tab)}
