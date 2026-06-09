@@ -26,6 +26,8 @@ interface UserContextType {
   loading: boolean;
   unreadCount: number;
   refetch: () => Promise<void>;
+  vouchedEntities: Record<string, boolean>;
+  setVouchedEntities: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -33,6 +35,7 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [vouchedEntities, setVouchedEntities] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
   const fetchUserData = async () => {
@@ -44,6 +47,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (!authUser) {
         setUser(null);
         setUnreadCount(0);
+        setVouchedEntities({});
         setLoading(false);
         return;
       }
@@ -89,9 +93,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
           .eq("is_read", false);
 
         setUnreadCount(count ?? 0);
+
+        // Fetch user's vouches to prevent duplicate network calls across post cards
+        const { data: vouchesData } = await supabase
+          .from("vouches")
+          .select("post_id, comment_id")
+          .eq("vouching_user_id", data.id);
+        if (vouchesData) {
+          const state: Record<string, boolean> = {};
+          vouchesData.forEach((v) => {
+            if (v.post_id) state[`post_${v.post_id}`] = true;
+            if (v.comment_id) state[`comment_${v.comment_id}`] = true;
+          });
+          setVouchedEntities(state);
+        }
       } else {
         setUser(null);
         setUnreadCount(0);
+        setVouchedEntities({});
       }
     } catch (err) {
       console.error("Error fetching user context data:", err);
@@ -110,6 +129,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       } else if (event === "SIGNED_OUT") {
         setUser(null);
         setUnreadCount(0);
+        setVouchedEntities({});
         setLoading(false);
       }
     });
@@ -129,7 +149,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <UserContext.Provider value={{ user, loading, unreadCount, refetch: fetchUserData }}>
+    <UserContext.Provider value={{ user, loading, unreadCount, refetch: fetchUserData, vouchedEntities, setVouchedEntities }}>
       {children}
     </UserContext.Provider>
   );

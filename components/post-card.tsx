@@ -35,6 +35,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { useUser } from "@/components/user-provider";
+
 
 interface PostCardProps {
   post: {
@@ -125,24 +127,7 @@ export function PostCard({
     post.updated_at &&
     new Date(post.updated_at).getTime() > new Date(post.created_at).getTime();
 
-  const [vouchedEntities, setVouchedEntities] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    const loadVouches = async () => {
-      const { data } = await supabase.from('vouches')
-        .select('post_id, comment_id')
-        .eq('vouching_user_id', currentUserId);
-      if (data) {
-        const state: Record<string, boolean> = {};
-        data.forEach(v => {
-          if (v.post_id) state[`post_${v.post_id}`] = true;
-          if (v.comment_id) state[`comment_${v.comment_id}`] = true;
-        });
-        setVouchedEntities(state);
-      }
-    };
-    if (currentUserId) loadVouches();
-  }, [currentUserId]);
+  const { vouchedEntities, setVouchedEntities } = useUser();
 
   const handleVouch = async (targetUserId: string, entityType: 'post' | 'comment', entityId: string) => {
     const key = `${entityType}_${entityId}`;
