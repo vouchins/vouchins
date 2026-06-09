@@ -1,4 +1,4 @@
-import { Footer } from "@/components/footer";
+import { ConditionalFooter } from "@/components/conditional-footer";
 import { PHProvider } from "@/components/PostHogProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { RecoveryRedirect } from "@/components/RecoveryRedirect";
@@ -92,7 +92,7 @@ export default function RootLayout({
             {children}
             <Toaster />
             <SpeedInsights />
-            <Footer />
+            <ConditionalFooter />
           </UserProvider>
         </body>
       </PHProvider>

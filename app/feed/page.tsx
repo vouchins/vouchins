@@ -210,7 +210,7 @@ function FeedContent() {
           </div>
           <h2 className="text-2xl font-black mb-2">Join the Private {user?.company?.name} Forum</h2>
           <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
-            Verify your professional identity to unlock anonymous discussions, salary comparisons,
+            Verify your professional identity to unlock private discussions, salary comparisons,
             and trusted referrals with verified colleagues at {user?.company?.name}.
           </p>
           <Button

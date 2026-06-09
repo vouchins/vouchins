@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, ShieldCheck, MessageCircle, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,8 @@ import {
   validateFirstName,
 } from "@/lib/auth/validation";
 import posthog from "posthog-js";
+import Image from "next/image";
+import { PublicNavbar } from "@/components/public-navbar";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -114,186 +116,301 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link href="/">
-            <img
-              src="/images/logo.png"
-              alt="Vouchins"
-              className="h-10 mx-auto mb-4"
-            />
-          </Link>
-          <h1 className="text-3xl font-semibold text-neutral-900 mb-2">
-            Create your account
-          </h1>
+    <>
+      <PublicNavbar />
+      <div className="min-h-[calc(100vh-64px)] flex bg-neutral-50 animate-in fade-in duration-500">
+        {/* Left Panel: Showcase (Desktop Only) */}
+        <div className="hidden md:flex md:w-[45%] lg:w-[50%] bg-neutral-950 text-white flex-col justify-between p-12 relative overflow-hidden shrink-0 border-r border-neutral-900">
+          {/* Background Decorative Blurs */}
+          <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+            <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full bg-[#4FD1C5]/10 blur-[120px]" />
+            <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-emerald-500/5 blur-[120px]" />
+          </div>
+
+          <div className="relative z-10 flex flex-col justify-between h-full">
+            {/* Middle: Brand Info & Mock Post */}
+            <div className="space-y-8">
+              <div className="space-y-4">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#4FD1C5]/10 border border-[#4FD1C5]/20 text-[#4FD1C5] animate-pulse">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#4FD1C5]" />
+                  World's first 100% verified platform
+                </span>
+                <h2 className="text-4xl lg:text-5xl font-black tracking-tight leading-none bg-gradient-to-r from-white via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
+                  Work Life, <br />Verified.
+                </h2>
+                <p className="text-xs sm:text-sm text-neutral-400 max-w-md leading-relaxed font-light">
+                  Connect and transact with verified professionals at top employers. Real people, verified identities, trusted connections.
+                </p>
+              </div>
+
+              {/* Floating Glassmorphic Widgets */}
+              <div className="space-y-4 pt-4">
+                {/* Widget 1: Mock Post */}
+                <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md space-y-3 shadow-2xl relative overflow-hidden group hover:border-white/[0.15] transition-all">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#4FD1C5]/10 rounded-full blur-2xl" />
+                  <div className="flex justify-between items-center text-xs text-neutral-400">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#4FD1C5]" />
+                      <span className="font-semibold text-neutral-300">Amit Sharma • Microsoft</span>
+                    </div>
+                    <span>10m ago</span>
+                  </div>
+                  <p className="text-xs text-neutral-200 leading-relaxed">
+                    "Looking for a software engineering referral for a Senior Frontend role at Google. 5+ years of React experience. Appreciate any leads!"
+                  </p>
+                  <div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                    <span className="flex items-center gap-1 text-[#4FD1C5]">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      Verified Member
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MessageCircle className="h-3.5 w-3.5 text-neutral-400" />
+                      6 Responses
+                    </span>
+                  </div>
+                </div>
+
+                {/* Widget 2: Security highlights */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm flex items-start gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400 shrink-0">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-neutral-200">100% Compliant</h4>
+                      <p className="text-[10px] text-neutral-500 mt-0.5 leading-normal">SPF, DKIM & DMARC deliverability standard</p>
+                    </div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm flex items-start gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-[#4FD1C5]/10 flex items-center justify-center text-[#4FD1C5] shrink-0">
+                      <Lock className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-extrabold text-neutral-200">Zero IT Footprint</h4>
+                      <p className="text-[10px] text-neutral-500 mt-0.5 leading-normal">Zero integrations with HR or AD systems</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Security Footer */}
+            <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400 font-medium">
+              <div className="flex items-center gap-1">
+                <Lock className="h-4 w-4 text-[#4FD1C5]" />
+                <span>Encrypted & Secure</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <ShieldCheck className="h-4 w-4 text-[#4FD1C5]" />
+                <span>Industry‑standard security</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg border border-neutral-200 p-8 shadow-sm">
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+        {/* Right Panel: Form */}
+        <div className="w-full md:w-[55%] lg:w-[50%] flex flex-col justify-between p-6 sm:p-12 bg-white min-h-[calc(100vh-64px)]">
+          {/* Top spacer */}
+          <div />
 
-          {/* Social Auth Buttons */}
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            {/* Google Button */}
-            <Button
-              variant="outline"
-              onClick={() => handleOAuthSignup("google")}
-              className="h-12 rounded-xl border-border bg-background hover:bg-secondary transition-all flex items-center justify-center gap-2.5 px-0 shadow-sm"
-            >
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
-                <path
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  fill="#4285F4"
-                />
-                <path
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  fill="#34A853"
-                />
-                <path
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                  fill="#FBBC05"
-                />
-                <path
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  fill="#EA4335"
-                />
-              </svg>
-              <span className="text-[10px] font-black text-foreground uppercase tracking-widest">
-                Google
-              </span>
-            </Button>
+          {/* Center Container */}
+          <div className="w-full max-w-sm mx-auto py-8">
+            <div className="text-center md:text-left mb-8">
+              <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-neutral-900 mb-2">
+                Create your account
+              </h3>
+              <p className="text-xs sm:text-sm text-neutral-500">
+                Join the verified professional network.
+              </p>
+            </div>
 
-            {/* LinkedIn Button */}
-            <Button
-              variant="outline"
-              onClick={() => handleOAuthSignup("linkedin")}
-              className="h-12 rounded-xl border-border bg-background hover:bg-secondary transition-all flex items-center justify-center gap-2.5 px-0 shadow-sm"
-            >
-              <svg
-                className="h-4 w-4 shrink-0"
-                viewBox="0 0 24 24"
-                fill="#0A66C2"
-              >
-                <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
-              </svg>
-              <span className="text-[10px] font-black text-foreground uppercase tracking-widest">
-                LinkedIn
-              </span>
-            </Button>
+            {error && (
+              <Alert variant="destructive" className="mb-6 rounded-2xl border-none bg-red-50 text-red-800 flex items-center gap-3">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <AlertDescription className="text-xs font-semibold">{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-6">
+              {/* Social Logins Container */}
+              <div className="grid grid-cols-2 gap-4">
+                {/* Google Signup Button */}
+                <Button
+                  variant="outline"
+                  onClick={() => handleOAuthSignup("google")}
+                  className="h-12 rounded-2xl border-neutral-200 bg-white hover:bg-neutral-50 transition-all flex items-center justify-center gap-2.5 px-0 shadow-sm"
+                  disabled={loading}
+                >
+                  <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                    <path
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      fill="#4285F4"
+                    />
+                    <path
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      fill="#34A853"
+                    />
+                    <path
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                      fill="#FBBC05"
+                    />
+                    <path
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                      fill="#EA4335"
+                    />
+                  </svg>
+                  <span className="text-[10px] font-black text-neutral-700 uppercase tracking-widest">
+                    Google
+                  </span>
+                </Button>
+
+                {/* LinkedIn Signup Button */}
+                <Button
+                  variant="outline"
+                  onClick={() => handleOAuthSignup("linkedin")}
+                  className="h-12 rounded-2xl border-neutral-200 bg-white hover:bg-neutral-50 transition-all flex items-center justify-center gap-2.5 px-0 shadow-sm"
+                  disabled={loading}
+                >
+                  <svg
+                    className="h-4 w-4 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="#0A66C2"
+                  >
+                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" />
+                  </svg>
+                  <span className="text-[10px] font-black text-neutral-700 uppercase tracking-widest">
+                    LinkedIn
+                  </span>
+                </Button>
+              </div>
+
+              {/* Center Aligned Divider */}
+              <div className="relative flex items-center">
+                <div className="flex-grow border-t border-neutral-100"></div>
+                <span className="flex-shrink mx-4 text-[10px] font-bold text-neutral-300 uppercase tracking-widest">
+                  Or use email
+                </span>
+                <div className="flex-grow border-t border-neutral-100"></div>
+              </div>
+
+              <form onSubmit={handleSignup} className="space-y-4">
+                <div>
+                  <Label className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-neutral-400 ml-1 mb-1.5 block">
+                    Full Name
+                  </Label>
+                  <Input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Enter full name"
+                    required
+                    className="h-12 rounded-2xl bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20 text-sm font-semibold"
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-neutral-400 ml-1 mb-1.5 block">
+                    Email Address
+                  </Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    required
+                    className="h-12 rounded-2xl bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20 text-sm font-semibold"
+                    disabled={loading}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-neutral-400 ml-1 mb-1.5 block">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onBlur={() => setPasswordTouched(true)}
+                      placeholder="Create at least 8 characters"
+                      required
+                      className="h-12 rounded-2xl bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20 text-sm font-semibold pr-12"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {passwordTouched && !isPasswordLongEnough && (
+                    <p className="text-[10px] text-red-500 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1">
+                      Password must be at least 8 characters.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-neutral-400 ml-1 mb-1.5 block">
+                    Confirm Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onBlur={() => setConfirmTouched(true)}
+                      placeholder="Repeat password"
+                      required
+                      className="h-12 rounded-2xl bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20 text-sm font-semibold pr-12"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {confirmTouched && !passwordsMatch && (
+                    <p className="text-[10px] text-red-500 mt-1.5 ml-1 animate-in fade-in slide-in-from-top-1">
+                      Passwords do not match.
+                    </p>
+                  )}
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full h-12 bg-primary text-white font-extrabold rounded-2xl hover:opacity-90 transition-all active:scale-[0.98] text-sm shadow-lg shadow-primary/10 mt-2"
+                  disabled={!canProceed}
+                >
+                  {loading ? "Processing..." : "Create Account"}
+                </Button>
+              </form>
+            </div>
           </div>
 
-          <div className="relative mb-8 text-center">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-neutral-200" />
-            </div>
-            <span className="relative bg-white px-4 text-xs text-neutral-500 uppercase">
-              Or use email
-            </span>
-          </div>
-
-          <form onSubmit={handleSignup} className="space-y-5">
-            <div>
-              <Label>Full Name</Label>
-              <Input
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-                className="mt-1.5"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="mt-1.5"
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <Label>Password</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onBlur={() => setPasswordTouched(true)}
-                  required
-                  className="pr-10"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4 text-neutral-500" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-neutral-500" />
-                  )}
-                </button>
-              </div>
-              {passwordTouched && !isPasswordLongEnough && (
-                <p className="text-[11px] text-red-500 mt-1 animate-in fade-in slide-in-from-top-1">
-                  Password must be at least 8 characters.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label>Confirm Password</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  onBlur={() => setConfirmTouched(true)}
-                  required
-                  className="pr-10"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-4 w-4 text-neutral-500" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-neutral-500" />
-                  )}
-                </button>
-              </div>
-              {confirmTouched && !passwordsMatch && (
-                <p className="text-[11px] text-red-500 mt-1 animate-in fade-in slide-in-from-top-1">
-                  Passwords do not match.
-                </p>
-              )}
-            </div>
-
-            <Button type="submit" className="w-full" disabled={!canProceed}>
-              {loading ? "Processing..." : "Create Account"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm">
-            <span className="text-neutral-600">Already have an account? </span>
-            <Link href="/login" className="font-medium hover:underline">
-              Log in
-            </Link>
+          {/* Bottom spacer / Footer */}
+          <div className="text-center text-[10px] text-neutral-400 mt-8 leading-relaxed max-w-xs mx-auto">
+            By continuing, you agree to our{" "}
+            <Link href="/terms" className="underline hover:text-neutral-600">Terms of Service</Link>
+            {" and "}
+            <Link href="/privacy" className="underline hover:text-neutral-600">Privacy Policy</Link>.
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
