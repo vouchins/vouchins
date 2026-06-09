@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
                   <div className="flex justify-between items-center text-xs text-neutral-400">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#4FD1C5]" />
-                      <span className="font-semibold text-neutral-300">Amit Sharma • TCS</span>
+                      <span className="font-semibold text-neutral-300">Amit Sharma • Microsoft</span>
                     </div>
                     <span>10m ago</span>
                   </div>
@@ -124,15 +124,20 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-            {/* Security Footer */}
-            <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400 font-medium">
-              <div className="flex items-center gap-1">
-                <Lock className="h-4 w-4 text-[#4FD1C5]" />
-                <span>Encrypted & Secure</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <ShieldCheck className="h-4 w-4 text-[#4FD1C5]" />
-                <span>Industry‑standard security</span>
+            {/* Footer */}
+            <div className="flex flex-col space-y-2 text-xs text-neutral-400">
+              <div className="grid grid-cols-3 gap-2 text-xs text-neutral-400 font-medium">
+                <div className="flex items-center gap-1">
+                  <span>© 2026 Vouchins Inc.</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Lock className="h-4 w-4 text-[#4FD1C5]" />
+                  <span>Encrypted & Secure</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <ShieldCheck className="h-4 w-4 text-[#4FD1C5]" />
+                  <span>Industry‑standard security</span>
+                </div>
               </div>
             </div>
           </div>
@@ -164,9 +169,8 @@ export default function ForgotPasswordPage() {
             {message && (
               <Alert
                 variant={message.type === "error" ? "destructive" : "default"}
-                className={`mb-6 rounded-2xl border-none flex items-center gap-3 p-4 ${
-                  message.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
-                }`}
+                className={`mb-6 rounded-2xl border-none flex items-center gap-3 p-4 ${message.type === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                  }`}
               >
                 {message.type === "error" ? (
                   <AlertCircle className="h-4 w-4 shrink-0" />

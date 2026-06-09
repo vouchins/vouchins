@@ -194,8 +194,12 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Security Footer */}
-            <div className="grid grid-cols-2 gap-2 text-xs text-neutral-400 font-medium">
+            {/* Footer */}
+            <div className="flex flex-col space-y-2 text-xs text-neutral-400">
+            <div className="grid grid-cols-3 gap-2 text-xs text-neutral-400 font-medium">
+              <div className="flex items-center gap-1">
+                <span>© 2026 Vouchins Inc.</span>
+              </div>
               <div className="flex items-center gap-1">
                 <Lock className="h-4 w-4 text-[#4FD1C5]" />
                 <span>Encrypted & Secure</span>
@@ -204,6 +208,7 @@ export default function SignupPage() {
                 <ShieldCheck className="h-4 w-4 text-[#4FD1C5]" />
                 <span>Industry‑standard security</span>
               </div>
+            </div>
             </div>
           </div>
         </div>
