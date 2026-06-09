@@ -16,6 +16,7 @@ import {
   FileText,
   Briefcase,
   RefreshCw,
+  Building2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { AdminStats } from "@/components/admin/admin-stats";
@@ -26,6 +27,7 @@ import { FlaggedTab } from "@/components/admin/flagged-tab";
 import { FeedbackTab } from "@/components/admin/feedback-tab";
 import { BlogTab } from "@/components/admin/blog-tab";
 import { RecruitersTab } from "@/components/admin/recruiters-tab";
+import { CompaniesTab } from "@/components/admin/companies-tab";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -46,6 +48,7 @@ function AdminPageContent() {
   const [feedback, setFeedback] = useState<any[]>([]);
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [recruiters, setRecruiters] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
 
   useEffect(() => {
     checkAuth();
@@ -60,6 +63,7 @@ function AdminPageContent() {
         waitlistRes,
         feedbackRes,
         recruitersRes,
+        companiesRes,
       ] = await Promise.all([
         supabase.from("users").select("*", { count: "exact", head: true }),
         supabase.from("reports").select("*", { count: "exact", head: true }).eq("status", "pending"),
@@ -67,6 +71,7 @@ function AdminPageContent() {
         supabase.from("manual_verification_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("recruiters").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("companies").select("*", { count: "exact", head: true }),
       ]);
 
       setDbCounts({
@@ -76,6 +81,7 @@ function AdminPageContent() {
         waitlist: waitlistRes.count || 0,
         feedback: feedbackRes.count || 0,
         recruiters: recruitersRes.count || 0,
+        companies: companiesRes.count || 0,
       });
     } catch (error) {
       console.error("Failed to fetch database counts:", error);
@@ -108,6 +114,9 @@ function AdminPageContent() {
           break;
         case "recruiters":
           await fetchRecruiters();
+          break;
+        case "companies":
+          await fetchCompanies();
           break;
         default:
           break;
@@ -249,6 +258,14 @@ function AdminPageContent() {
     setRecruiters(data || []);
   };
 
+  const fetchCompanies = async () => {
+    const { data } = await supabase
+      .from("companies")
+      .select("*")
+      .order("name", { ascending: true });
+    setCompanies(data || []);
+  };
+
   // --- Global Handlers (Passed to children) ---
   const handleReviewReport = async (
     reportId: string,
@@ -299,16 +316,66 @@ function AdminPageContent() {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    if (!confirm("Are you sure you want to permanently delete this user? This will remove all their posts, messages, and account details.")) return;
     try {
-      const { error } = await supabase.from("users").delete().eq("id", userId);
+      const res = await fetch("/api/admin/delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete user");
+      }
 
       await fetchAllUsers();
       await fetchDbCounts();
     } catch (err: any) {
       alert("Error deleting user: " + err.message);
     }
+  };
+
+  const handleCreateCompany = async (name: string, domain: string) => {
+    const res = await fetch("/api/admin/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create", name, domain }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to create company");
+    }
+    await fetchCompanies();
+    await fetchDbCounts();
+  };
+
+  const handleUpdateCompany = async (companyId: string, name: string, domain: string) => {
+    const res = await fetch("/api/admin/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update", companyId, name, domain }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to update company");
+    }
+    await fetchCompanies();
+    await fetchDbCounts();
+  };
+
+  const handleDeleteCompany = async (companyId: string) => {
+    const res = await fetch("/api/admin/companies", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", companyId }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Failed to delete company");
+    }
+    await fetchCompanies();
+    await fetchDbCounts();
   };
 
   const handleDisableUser = async (userId: string) => {
@@ -425,6 +492,7 @@ function AdminPageContent() {
   const flaggedPostsCount = getCount("flagged", "flagged", () => flaggedPosts.length);
   const pendingFeedbackCount = getCount("feedback", "feedback", () => feedback.filter((f) => f.status === "pending").length);
   const pendingRecruitersCount = getCount("recruiters", "recruiters", () => recruiters.filter((r) => r.status === "pending").length);
+  const totalCompaniesCount = getCount("companies", "companies", () => companies.length);
 
   const handleTabChange = async (value: string) => {
     setActiveTab(value);
@@ -444,7 +512,7 @@ function AdminPageContent() {
     <div className="min-h-screen bg-[#fcfcfc]">
       <Navigation />
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="w-full px-4 md:px-8 py-8">
         <header className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h2 className="text-3xl font-bold text-neutral-900 tracking-tight">
@@ -534,6 +602,15 @@ function AdminPageContent() {
                   <FileText className="h-4 w-4 mr-2" />
                   Blog
                 </TabsTrigger>
+                <TabsTrigger value="companies" className="px-6 font-bold text-xs">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Companies{" "}
+                  {totalCompaniesCount > 0 && (
+                    <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
+                      {totalCompaniesCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
               </TabsList>
 
               <div className="relative">
@@ -591,6 +668,15 @@ function AdminPageContent() {
 
                     <TabsContent value="recruiters">
                       <RecruitersTab entries={recruiters} onAction={handleRecruiterAction} />
+                    </TabsContent>
+
+                    <TabsContent value="companies">
+                      <CompaniesTab
+                        companies={companies}
+                        onCreateCompany={handleCreateCompany}
+                        onUpdateCompany={handleUpdateCompany}
+                        onDeleteCompany={handleDeleteCompany}
+                      />
                     </TabsContent>
                   </>
                 )}
