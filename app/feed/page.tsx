@@ -170,6 +170,7 @@ function FeedContent() {
       }
 
       setUser(userData);
+      setSelectedCity(userData.city);
       isInitialMount.current = false;
     };
     initPage();
@@ -177,11 +178,9 @@ function FeedContent() {
 
   const handleCityChange = async (newCity: string) => {
     setSelectedCity(newCity);
-    if (newCity !== "All Cities") {
-      setUser((prev: any) => ({ ...prev, city: newCity }));
-      window.dispatchEvent(new CustomEvent("user-updated", { detail: { city: newCity } }));
-      await supabase.from("users").update({ city: newCity }).eq("id", user?.id);
-    }
+    setUser((prev: any) => ({ ...prev, city: newCity }));
+    window.dispatchEvent(new CustomEvent("user-updated", { detail: { city: newCity } }));
+    await supabase.from("users").update({ city: newCity }).eq("id", user?.id);
   };
 
   const handleLoadMore = async () => {
