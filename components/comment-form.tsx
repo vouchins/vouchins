@@ -12,6 +12,7 @@ interface CommentFormProps {
   userId: string;
   isVerifiedUser?: boolean;
   onCommentAdded: () => void;
+  onCancel?: () => void;
 }
 
 export function CommentForm({
@@ -19,6 +20,7 @@ export function CommentForm({
   userId,
   isVerifiedUser,
   onCommentAdded,
+  onCancel,
 }: CommentFormProps) {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -82,9 +84,16 @@ export function CommentForm({
         />
         <div className="flex items-center justify-between">
           <p className="text-xs text-neutral-500">{text.length}/1000</p>
-          <Button type="submit" size="sm" disabled={loading}>
-            {loading ? "Posting..." : "Reply"}
-          </Button>
+          <div className="flex gap-2">
+            {onCancel && (
+              <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" size="sm" disabled={loading}>
+              {loading ? "Posting..." : "Reply"}
+            </Button>
+          </div>
         </div>
       </form>
     </div>

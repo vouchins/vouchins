@@ -17,6 +17,7 @@ interface UserProfile {
   vouch_points: number;
   is_admin: boolean;
   company: UserCompany;
+  is_verified: boolean;
   is_profile_complete: boolean;
   profile_completion_percentage: number;
 }
@@ -28,6 +29,8 @@ interface UserContextType {
   refetch: () => Promise<void>;
   vouchedEntities: Record<string, boolean>;
   setVouchedEntities: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  savedPostIds: Set<string>;
+  setSavedPostIds: React.Dispatch<React.SetStateAction<Set<string>>>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -36,6 +39,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [vouchedEntities, setVouchedEntities] = useState<Record<string, boolean>>({});
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   const fetchUserData = async () => {
@@ -48,6 +52,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setUnreadCount(0);
         setVouchedEntities({});
+        setSavedPostIds(new Set());
         setLoading(false);
         return;
       }
@@ -72,6 +77,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           company: Array.isArray(data.company)
             ? data.company[0]
             : (data.company as unknown as UserCompany),
+          is_verified: Boolean(data.is_verified),
           is_profile_complete: Boolean(
             data.is_verified && data.avatar_url && data.linkedin_url && data.phone_number
           ),
@@ -107,10 +113,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
           });
           setVouchedEntities(state);
         }
+
+        // Fetch user's saved posts
+        const { data: savedPostsData } = await supabase
+          .from("saved_posts")
+          .select("post_id")
+          .eq("user_id", data.id);
+        
+        if (savedPostsData) {
+          setSavedPostIds(new Set(savedPostsData.map(p => p.post_id)));
+        }
       } else {
         setUser(null);
         setUnreadCount(0);
         setVouchedEntities({});
+        setSavedPostIds(new Set());
       }
     } catch (err) {
       console.error("Error fetching user context data:", err);
@@ -130,6 +147,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setUnreadCount(0);
         setVouchedEntities({});
+        setSavedPostIds(new Set());
         setLoading(false);
       }
     });
@@ -149,7 +167,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <UserContext.Provider value={{ user, loading, unreadCount, refetch: fetchUserData, vouchedEntities, setVouchedEntities }}>
+    <UserContext.Provider value={{ user, loading, unreadCount, refetch: fetchUserData, vouchedEntities, setVouchedEntities, savedPostIds, setSavedPostIds }}>
       {children}
     </UserContext.Provider>
   );

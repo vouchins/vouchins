@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { VerificationModal } from "@/components/verification-modal";
 import { cn } from "@/lib/utils";
 import { BlurredPostCard } from "@/components/blurred-post-card";
+import { LeftSidebar } from "@/components/left-sidebar";
 import { RightSidebar } from "./side-bars/right/right-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { Suspense } from "react";
@@ -396,105 +397,15 @@ function FeedContent() {
 
       <div className="container mx-auto max-w-7xl flex gap-8 p-4 lg:p-8">
         {/* --- LEFT SIDEBAR (The Navigation) --- */}
-        <aside className="hidden lg:flex w-64 flex-col gap-2 sticky top-24 h-fit">
-          <div className={cn(
-            "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all group cursor-pointer",
-            activeTab === "city"
-              ? "bg-white shadow-sm ring-1 ring-black/5"
-              : "hover:bg-neutral-200/50"
-          )}>
-            <div
-              className={cn("flex items-center gap-3 flex-1", activeTab === "city" ? "text-primary" : "text-neutral-500")}
-              onClick={() => setActiveTab("city")}
-            >
-              <MapPin className="h-4 w-4 shrink-0" />
-              <span className="truncate max-w-[150px]">{selectedCity}</span>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveTab("company")}
-            className={cn(
-              "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all relative group",
-              activeTab === "company"
-                ? "bg-white shadow-sm text-primary ring-1 ring-black/5"
-                : "text-neutral-500 hover:bg-neutral-200/50",
-            )}
-          >
-            <div className="h-5 w-5 rounded bg-neutral-100 flex items-center justify-center overflow-hidden">
-              {user?.company?.domain ? (
-                <img
-                  src={`https://www.google.com/s2/favicons?domain=${user?.company?.domain}&sz=32`}
-                  alt=""
-                  className="h-3.5 w-3.5 object-contain"
-                />
-              ) : (
-                <Building2 className="h-3 w-3 text-neutral-400" />
-              )}
-            </div>
-            <span className="truncate">{user?.company?.name || "Company"}</span>
-            {!user?.is_verified && (
-              <Lock className="h-3 w-3 ml-auto text-neutral-400 group-hover:text-primary" />
-            )}
-          </button>
-
-          <hr className="my-4 border-neutral-200" />
-
-          <div className="px-4 py-2">
-            <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-4">
-              Marketplace
-            </p>
-            <div className="space-y-1">
-              {[{ value: "all", label: "All" }, ...CATEGORIES].map((cat) => (
-                <button
-                  key={cat.value}
-                  onClick={() => {
-                    setActiveCategory(cat.value);
-                    setActiveSubCategory("all");
-                  }}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg text-[13px] font-bold transition-all",
-                    activeCategory === cat.value
-                      ? "bg-primary/5 text-primary"
-                      : "text-neutral-500 hover:text-neutral-800",
-                  )}
-                >
-                  # {cat.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {SUB_CATEGORIES[activeCategory] && (
-            <div className="px-4 py-2 mt-2 space-y-1 animate-in fade-in zoom-in duration-300">
-              <button
-                onClick={() => setActiveSubCategory("all")}
-                className={cn(
-                  "w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all",
-                  activeSubCategory === "all"
-                    ? "bg-neutral-100 text-neutral-900"
-                    : "text-neutral-400 hover:text-neutral-700",
-                )}
-              >
-                All {activeCategory}
-              </button>
-              {SUB_CATEGORIES[activeCategory].map((sub) => (
-                <button
-                  key={sub.value}
-                  onClick={() => setActiveSubCategory(sub.value)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all",
-                    activeSubCategory === sub.value
-                      ? "bg-neutral-100 text-neutral-900"
-                      : "text-neutral-400 hover:text-neutral-700",
-                  )}
-                >
-                  {sub.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </aside>
+        <LeftSidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          selectedCity={selectedCity}
+          activeCategory={activeCategory}
+          setActiveCategory={setActiveCategory}
+          activeSubCategory={activeSubCategory}
+          setActiveSubCategory={setActiveSubCategory}
+        />
         {/* --- MAIN FEED --- */}
         <main className="flex-1 max-w-2xl mx-auto w-full space-y-6">
           <div className="flex items-center justify-between gap-4">

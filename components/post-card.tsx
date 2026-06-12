@@ -24,6 +24,7 @@ import {
   Plus,
   ShieldCheck,
   Share2,
+  Bookmark,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { toast } from "sonner";
@@ -84,9 +85,11 @@ interface PostCardProps {
 export function PostCard({
   post,
   currentUserId,
+  isVerifiedUser,
   onReply,
   onReport,
   onPostUpdated,
+  onVerifyClick,
   defaultShowComments = false,
 }: PostCardProps) {
   // --- START: YOUR ORIGINAL LOGIC (FULLY PRESERVED) ---
@@ -127,7 +130,7 @@ export function PostCard({
     post.updated_at &&
     new Date(post.updated_at).getTime() > new Date(post.created_at).getTime();
 
-  const { vouchedEntities, setVouchedEntities } = useUser();
+  const { vouchedEntities, setVouchedEntities, savedPostIds, setSavedPostIds } = useUser();
 
   const handleVouch = async (targetUserId: string, entityType: 'post' | 'comment', entityId: string) => {
     const key = `${entityType}_${entityId}`;
@@ -147,6 +150,60 @@ export function PostCard({
         console.error("Vouch error:", error);
         // Revert optimistic update on real error
         setVouchedEntities(prev => ({ ...prev, [key]: false }));
+      }
+    }
+  };
+
+  const isSaved = savedPostIds ? savedPostIds.has(post.id) : false;
+
+  const handleToggleSave = async () => {
+    if (!isVerifiedUser) {
+      if (onVerifyClick) onVerifyClick(post.id);
+      else toast.error("You must be verified to save posts");
+      return;
+    }
+
+    if (!savedPostIds) return;
+    
+    const wasSaved = isSaved;
+    
+    // Optimistic UI update
+    setSavedPostIds(prev => {
+      const newSet = new Set(prev);
+      if (wasSaved) newSet.delete(post.id);
+      else newSet.add(post.id);
+      return newSet;
+    });
+
+    if (wasSaved) {
+      const { error } = await supabase
+        .from('saved_posts')
+        .delete()
+        .eq('user_id', currentUserId)
+        .eq('post_id', post.id);
+      
+      if (error) {
+        console.error("Unsave error:", error);
+        toast.error("Failed to remove bookmark");
+        setSavedPostIds(prev => new Set(prev).add(post.id));
+      } else {
+        toast.success("Removed from Saved Posts");
+      }
+    } else {
+      const { error } = await supabase
+        .from('saved_posts')
+        .insert({ user_id: currentUserId, post_id: post.id });
+      
+      if (error && error.code !== '23505') {
+        console.error("Save error:", error);
+        toast.error("Failed to save post");
+        setSavedPostIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(post.id);
+          return newSet;
+        });
+      } else {
+        toast.success("Post saved successfully");
       }
     }
   };
@@ -580,6 +637,17 @@ export function PostCard({
             )}
           </Button>
         )}
+
+        {/* Save/Bookmark Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleToggleSave}
+          className={`h-8 px-2 flex-shrink-0 ${isSaved ? 'text-blue-600 hover:text-blue-700 bg-blue-50' : 'text-neutral-500 hover:text-blue-600'}`}
+        >
+          <Bookmark className={`h-4 w-4 mr-1.5 ${isSaved ? 'fill-current' : ''}`} />
+          <span className="text-xs font-semibold">{isSaved ? "Saved" : "Save"}</span>
+        </Button>
 
         <DropdownMenu open={isShareOpen} onOpenChange={setIsShareOpen}>
           <DropdownMenuTrigger asChild>

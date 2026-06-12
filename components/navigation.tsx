@@ -20,6 +20,7 @@ import {
   Menu,
   AlertTriangle,
   Briefcase,
+  Bookmark,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
@@ -156,6 +157,24 @@ function NavigationContent() {
                   <Briefcase className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline font-bold text-[13px]">
                     Jobs
+                  </span>
+                </Button>
+
+                {/* Saved Posts */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/saved")}
+                  className={cn(
+                    "h-9 px-2 sm:px-3 rounded-lg",
+                    pathname === "/saved"
+                      ? "text-primary bg-primary/5"
+                      : "text-neutral-600",
+                  )}
+                >
+                  <Bookmark className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline font-bold text-[13px]">
+                    Saved
                   </span>
                 </Button>
 
