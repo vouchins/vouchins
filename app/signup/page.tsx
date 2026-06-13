@@ -120,7 +120,7 @@ export default function SignupPage() {
       <PublicNavbar />
       <div className="min-h-[calc(100vh-64px)] flex bg-neutral-50 animate-in fade-in duration-500">
         {/* Left Panel: Showcase (Desktop Only) */}
-        <div className="hidden md:flex md:w-[45%] lg:w-[50%] bg-neutral-950 text-white flex-col justify-between p-12 relative overflow-hidden shrink-0 border-r border-neutral-900">
+        <div className="hidden md:flex md:w-[45%] lg:w-[50%] bg-primary text-white flex-col justify-between p-12 relative overflow-hidden shrink-0 border-r border-primary">
           {/* Background Decorative Blurs */}
           <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
             <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full bg-[#4FD1C5]/10 blur-[120px]" />
