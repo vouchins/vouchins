@@ -25,6 +25,9 @@ import {
   ShieldCheck,
   Share2,
   Bookmark,
+  CheckCircle2,
+  RotateCcw,
+  Lock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { toast } from "sonner";
@@ -43,7 +46,7 @@ interface PostCardProps {
   post: {
     id: string;
     text: string;
-    category: "housing" | "buy_sell" | "recommendations";
+    category: "housing" | "buy_sell" | "recommendations" | "jobs";
     sub_category?:
     | "flatmates"
     | "rentals"
@@ -60,6 +63,7 @@ interface PostCardProps {
     flag_reasons: string[];
     created_at: string;
     updated_at?: string;
+    status?: "active" | "closed";
     user: {
       id: string;
       full_name: string;
@@ -99,6 +103,41 @@ export function PostCard({
   const [editedText, setEditedText] = useState(post.text);
   const [saving, setSaving] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
+  const [localStatus, setLocalStatus] = useState(post.status || "active");
+
+  const togglePostStatus = async () => {
+    const newStatus = localStatus === "active" ? "closed" : "active";
+    const originalStatus = localStatus;
+
+    setLocalStatus(newStatus);
+
+    const { error } = await supabase
+      .from("posts")
+      .update({
+        status: newStatus,
+        closed_at: newStatus === "closed" ? new Date().toISOString() : null
+      })
+      .eq("id", post.id);
+
+    if (error) {
+      console.error("Status update error:", error);
+      toast.error(`Failed to mark post as ${newStatus}`);
+      setLocalStatus(originalStatus);
+    } else {
+      toast.success(newStatus === "closed" ? "Post marked as closed" : "Post reopened");
+      onPostUpdated();
+    }
+  };
+
+  const getClosedBadgeText = () => {
+    switch (post.category) {
+      case "housing": return "Sold";
+      case "recommendations": return "Resolved";
+      case "buy_sell": return "Sold";
+      case "jobs": return "Position Filled";
+      default: return "Closed";
+    }
+  };
 
   //Turncate long posts
   const [isExpanded, setIsExpanded] = useState(false);
@@ -164,9 +203,9 @@ export function PostCard({
     }
 
     if (!savedPostIds) return;
-    
+
     const wasSaved = isSaved;
-    
+
     // Optimistic UI update
     setSavedPostIds(prev => {
       const newSet = new Set(prev);
@@ -181,7 +220,7 @@ export function PostCard({
         .delete()
         .eq('user_id', currentUserId)
         .eq('post_id', post.id);
-      
+
       if (error) {
         console.error("Unsave error:", error);
         toast.error("Failed to remove bookmark");
@@ -193,7 +232,7 @@ export function PostCard({
       const { error } = await supabase
         .from('saved_posts')
         .insert({ user_id: currentUserId, post_id: post.id });
-      
+
       if (error && error.code !== '23505') {
         console.error("Save error:", error);
         toast.error("Failed to save post");
@@ -341,8 +380,8 @@ export function PostCard({
   return (
     <div className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-all shadow-sm overflow-visible">
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-3 sm:gap-2">
+        <div className="flex gap-3 min-w-0">
           <div className="h-10 w-10 rounded-lg border border-neutral-100 bg-white flex items-center justify-center overflow-hidden shrink-0 text-primary font-bold shadow-sm">
             {post.user.avatar_url ? (
               <img
@@ -408,7 +447,16 @@ export function PostCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 mt-1">
+          {localStatus === "closed" && (
+            <Badge
+              variant="default"
+              className="bg-blue-600 hover:bg-blue-700 text-white border-none text-[10px] font-bold uppercase tracking-wider py-0 px-2 h-6 flex items-center shadow-sm"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-white" />
+              {getClosedBadgeText()}
+            </Badge>
+          )}
           {post.visibility === "company" && (
             <Badge
               variant="secondary"
@@ -687,6 +735,24 @@ export function PostCard({
           <>
             {!isEditing ? (
               <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={togglePostStatus}
+                  className="text-neutral-400 hover:text-indigo-600 h-8 px-2"
+                >
+                  {localStatus === "active" ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                      <span className="text-xs font-medium">Mark as Closed</span>
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                      <span className="text-xs font-medium">Reopen</span>
+                    </>
+                  )}
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"
