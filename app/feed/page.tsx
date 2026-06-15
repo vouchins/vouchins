@@ -23,6 +23,7 @@ import { LeftSidebar } from "@/components/left-sidebar";
 import { RightSidebar } from "./side-bars/right/right-sidebar";
 import { MobileNav } from "@/components/mobile-nav";
 import { Suspense } from "react";
+import { ProfileCompletionWidget } from "@/components/profile-completion-widget";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CATEGORIES, SUB_CATEGORIES, INDIAN_CITIES } from "@/lib/constants";
 import { supabase } from "@/lib/supabase/browser";
@@ -449,6 +450,7 @@ function FeedContent() {
           </div>
 
           {/* Locked State for Company Tab */}
+          <ProfileCompletionWidget className="xl:hidden" />
           {renderContent()}
 
           {hasMore && posts.length > 0 && (

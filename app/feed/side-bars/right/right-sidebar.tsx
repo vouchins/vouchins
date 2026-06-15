@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { ProfileCompletionWidget } from "@/components/profile-completion-widget";
 
 interface RightSidebarProps {
   user: {
@@ -53,7 +54,8 @@ export function RightSidebar({ user, onVerify }: RightSidebarProps) {
   };
 
   return (
-    <aside className="hidden xl:flex w-72 flex-col gap-6 sticky top-24 h-fit">
+    <aside className="hidden xl:flex w-72 flex-col gap-6 sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto no-scrollbar pb-6">
+      <ProfileCompletionWidget className="border-none bg-white shadow-sm shrink-0" />
       <div className="bg-white border border-neutral-200 rounded-lg p-5 shadow-sm">
         {/* Header - Using brand primary color for the icon */}
         {/* Header - Matches the Vouchins Logo/Sidebar Brand Style */}

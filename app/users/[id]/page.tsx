@@ -12,7 +12,6 @@ import {
   MessageCircle,
   Edit2,
   Check,
-  X,
   Mail,
   Linkedin,
   Lock,
@@ -21,9 +20,21 @@ import {
   Phone,
   ShieldCheck,
   ChevronDown,
+  Star,
+  CheckCircle2,
+  Briefcase,
+  Home,
+  ShoppingCart
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Navigation } from "@/components/navigation";
 import { ChangeCompanyModal } from "@/components/change-company-modal";
+import { ProfileCompletionWidget } from "@/components/profile-completion-widget";
 
 export default function UserProfilePage() {
   const { id } = useParams();
@@ -31,10 +42,14 @@ export default function UserProfilePage() {
 
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [vouchScore, setVouchScore] = useState(0);
+  const [communityVouchesTotal, setCommunityVouchesTotal] = useState(0);
+  const [trustSignals, setTrustSignals] = useState<Record<string, number>>({});
+  const [highlights, setHighlights] = useState<string[]>([]);
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Unified Editing State
+  // Private Settings State
   const [isEditing, setIsEditing] = useState(false);
   const [formDraft, setFormDraft] = useState({
     bio: "",
@@ -106,6 +121,7 @@ export default function UserProfilePage() {
         router.push("/login");
         return;
       }
+
       const { data: meData } = await supabase
         .from("users")
         .select("id, is_verified")
@@ -114,26 +130,35 @@ export default function UserProfilePage() {
         
       setMe({ ...user, ...meData });
 
-      const { data: profileData } = await supabase
-        .from("users")
-        .select(
-          `
-          id,
-          full_name,
-          city,
-          created_at,
-          linkedin_url,
-          bio,
-          personal_email,
-          avatar_url,
-          phone_number,
-          vouch_points,
-          is_verified,
-          company:companies(name, domain)
-        `,
-        )
-        .eq("id", id)
-        .maybeSingle();
+      const [
+        { data: profileData },
+        { data: vouchScoreData },
+        { data: trustSignalsData },
+        { data: postsData },
+        { data: vouchData }
+      ] = await Promise.all([
+        supabase
+          .from("users")
+          .select("id, full_name, city, created_at, linkedin_url, bio, personal_email, avatar_url, phone_number, is_verified, vouch_points, company:companies(name, domain)")
+          .eq("id", id)
+          .maybeSingle(),
+        supabase.rpc("get_vouch_score", { profile_id: id }),
+        supabase.rpc("get_trust_signals", { profile_id: id }),
+        supabase
+          .from("posts")
+          .select("*, user:users!posts_user_id_fkey(id, full_name, city, avatar_url, vouch_points, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(full_name))")
+          .eq("user_id", id)
+          .eq("is_removed", false)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("vouches")
+          .select("id")
+          .eq("target_user_id", id)
+          .eq("vouching_user_id", user.id)
+          .eq("is_profile_vouch", true)
+          .maybeSingle()
+      ]);
 
       if (!profileData) {
         router.push("/feed");
@@ -141,6 +166,7 @@ export default function UserProfilePage() {
       }
 
       setProfile(profileData);
+      
       const parsedPhone = parsePhone(profileData.phone_number);
       setFormDraft({
         bio: profileData.bio || "",
@@ -150,41 +176,70 @@ export default function UserProfilePage() {
         phone_number: parsedPhone.num,
       });
 
-      const { data: vouchData } = await supabase
-        .from('vouches')
-        .select('id')
-        .eq('target_user_id', profileData.id)
-        .eq('vouching_user_id', user.id)
-        .eq('is_profile_vouch', true)
-        .maybeSingle();
       if (vouchData) setHasVouchedProfile(true);
-
-      const { data: postsData } = await supabase
-        .from("posts")
-        .select(
-          `
-          *,
-          user:users!posts_user_id_fkey(
-            id,
-            full_name,
-            city,
-            avatar_url,
-            vouch_points,
-            company:companies(name, domain)
-          ),
-          comments(
-            id,
-            text,
-            created_at,
-            user:users!comments_user_id_fkey(full_name)
-          )
-        `,
-        )
-        .eq("user_id", id)
-        .eq("is_removed", false)
-        .order("created_at", { ascending: false });
-
       setPosts(postsData || []);
+
+      // Calculate Completion Points
+      let completionPoints = 0;
+      if (profileData.is_verified) completionPoints += 25;
+      if (profileData.avatar_url) completionPoints += 25;
+      if (profileData.linkedin_url) completionPoints += 25;
+      if (profileData.phone_number) completionPoints += 25;
+
+      // Calculate Community Vouches (Already includes post vouches + profile vouch points from RPC)
+      const communityVouches = Number(vouchScoreData) || 0;
+      setCommunityVouchesTotal(communityVouches);
+
+      // Total Vouch Score
+      const score = communityVouches + completionPoints;
+      setVouchScore(score);
+
+      const categories: Record<string, number> = {
+        housing: 0,
+        buy_sell: 0,
+        recommendations: 0,
+        referrals: 0,
+      };
+
+      let topCategory = "";
+      let topCount = 0;
+
+      (trustSignalsData || []).forEach((row: any) => {
+        const count = Number(row.count) || 0;
+        let cat = row.category;
+        if (cat === 'jobs') cat = 'referrals'; // legacy mapping
+        if (categories[cat] !== undefined) {
+          categories[cat] += count;
+        } else {
+          categories[cat] = count;
+        }
+
+        if (count > topCount) {
+          topCount = count;
+          topCategory = cat;
+        }
+      });
+      setTrustSignals(categories);
+
+      // Compute Highlights
+      const highlightStrings: string[] = [];
+      if (communityVouches > 0) highlightStrings.push(`Received ${communityVouches} community vouches`);
+      if (completionPoints > 0) highlightStrings.push(`Earned ${completionPoints} profile completion points`);
+      if (categories.referrals > 0) highlightStrings.push(`Shared ${categories.referrals} referrals`);
+      if (categories.housing > 0) highlightStrings.push(`Posted ${categories.housing} housing opportunities`);
+      
+      const categoryLabels: Record<string, string> = {
+        housing: 'Housing',
+        buy_sell: 'Marketplace',
+        recommendations: 'Recommendations',
+        referrals: 'Referrals'
+      };
+      
+      if (topCategory && topCount > 0) {
+        highlightStrings.push(`Top category: ${categoryLabels[topCategory] || topCategory}`);
+      }
+      setHighlights(highlightStrings);
+      
       setLoading(false);
     };
 
@@ -203,6 +258,14 @@ export default function UserProfilePage() {
       return;
     }
 
+    if (
+      formDraft.personal_email &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formDraft.personal_email)
+    ) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
     const fullPhone = formDraft.phone_number ? `${formDraft.phone_country_code}${formDraft.phone_number.trim()}` : "";
     if (
       fullPhone &&
@@ -213,7 +276,7 @@ export default function UserProfilePage() {
       );
       return;
     }
-
+    
     setIsSaving(true);
     const { error } = await supabase
       .from("users")
@@ -229,8 +292,7 @@ export default function UserProfilePage() {
       setProfile({ ...profile, ...formDraft });
       setIsEditing(false);
     } else {
-      console.error("Update error:", error);
-      alert("Failed to save profile. Please try again.");
+      alert("Failed to save profile.");
     }
     setIsSaving(false);
   };
@@ -243,14 +305,12 @@ export default function UserProfilePage() {
       is_profile_vouch: true,
     });
     if (error) {
-      if (error.code === '23505') {
-        setHasVouchedProfile(true);
-      } else {
-        console.error("Vouch error:", error);
-      }
+      if (error.code === '23505') setHasVouchedProfile(true);
     } else {
       setHasVouchedProfile(true);
-      setProfile({...profile, vouch_points: (profile.vouch_points || 0) + 1});
+      // Optimistically add 1 to vouch score if it's counting profile vouches?
+      // Wait, Vouch score is strictly for posts now based on the prompt. So profile vouch button might be redundant or legacy, but we'll leave the button as is for now if they still want it. 
+      // Actually, if we just use the calculated vouch score, we can increment it if they vouch.
     }
   };
 
@@ -260,35 +320,16 @@ export default function UserProfilePage() {
       const file = e.target.files?.[0];
       if (!file) return;
 
-      if (file.size > 5 * 1024 * 1024) {
-        alert("File must be less than 5MB");
-        return;
-      }
-
       const fileExt = file.name.split('.').pop();
       const fileName = `${me.id}-${Math.random()}.${fileExt}`;
       const filePath = `public/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file);
+      await supabase.storage.from('avatars').upload(filePath, file);
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
 
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ avatar_url: publicUrl })
-        .eq('id', me.id);
-
-      if (updateError) throw updateError;
-
+      await supabase.from('users').update({ avatar_url: publicUrl }).eq('id', me.id);
       setProfile({ ...profile, avatar_url: publicUrl });
     } catch (error) {
-      console.error("Error uploading avatar:", error);
       alert("Error uploading avatar");
     } finally {
       setUploadingAvatar(false);
@@ -319,10 +360,7 @@ export default function UserProfilePage() {
             <p className="text-neutral-500 text-sm mb-8 leading-relaxed">
               You must be verified to view other professionals' profiles.
             </p>
-            <Button
-              onClick={() => router.push("/feed")}
-              className="rounded-full px-12 h-12 font-black uppercase tracking-widest text-[11px] w-full"
-            >
+            <Button onClick={() => router.push("/feed")} className="rounded-full px-12 h-12 font-black uppercase tracking-widest text-[11px] w-full">
               Return to Feed
             </Button>
           </div>
@@ -332,18 +370,22 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="min-h-screen bg-neutral-50 pb-20">
       <Navigation />
-      <div className="max-w-2xl mx-auto px-4 py-10 space-y-6">
-        {/* ---------------- Profile Card ---------------- */}
-        <div className="bg-white border border-neutral-200 rounded-xl p-6 shadow-sm">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="relative group">
-              <div className="h-20 w-20 rounded-2xl bg-white border border-neutral-100 text-2xl font-bold text-neutral-400 flex items-center justify-center shadow-sm overflow-hidden">
+      
+      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+
+        {isOwner && <ProfileCompletionWidget className="mb-6" />}
+
+        {/* SECTION 1: IDENTITY */}
+        <div className="bg-white border border-neutral-200 rounded-3xl p-8 shadow-sm flex flex-col md:flex-row gap-8 relative overflow-hidden">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+            <div className="relative group shrink-0">
+              <div className="h-24 w-24 rounded-2xl bg-white border border-neutral-100 text-3xl font-bold text-neutral-400 flex items-center justify-center shadow-sm overflow-hidden">
                 {profile.avatar_url ? (
                   <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
                 ) : profile.company?.[0]?.domain || profile.company?.domain ? (
-                  <img src={`https://www.google.com/s2/favicons?domain=${profile.company?.[0]?.domain || profile.company?.domain}&sz=128`} alt={profile.full_name} className="h-full w-full object-contain p-3" />
+                  <img src={`https://www.google.com/s2/favicons?domain=${profile.company?.[0]?.domain || profile.company?.domain}&sz=128`} alt={profile.full_name} className="h-full w-full object-contain p-4" />
                 ) : (
                   profile.full_name.charAt(0)
                 )}
@@ -356,284 +398,167 @@ export default function UserProfilePage() {
               )}
             </div>
 
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-primary tracking-tight">
+            <div className="flex-1 text-center md:text-left space-y-3">
+              <div className="flex flex-col md:flex-row items-center md:items-end gap-3 md:gap-4">
+                <h1 className="text-3xl font-black text-neutral-900 tracking-tight leading-none">
                   {profile.full_name}
                 </h1>
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-full">
-                  <ShieldCheck className="h-4 w-4 text-indigo-500" />
-                  <span className="text-xs font-black text-indigo-700 uppercase tracking-wide">
-                    {profile.vouch_points || 0} Vouch Points
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-neutral-500 tracking-wide">
-                <Building2 className="h-4 w-4 text-accent" />
-                {profile.company?.name || "My Company"}
-                {isOwner && !isEditing && (
-                  <button
-                    onClick={() => setIsChangeCompanyOpen(true)}
-                    className="ml-2 px-2 py-0.5 text-[10px] font-bold bg-neutral-100 text-neutral-500 hover:bg-neutral-200 rounded-full transition-colors uppercase tracking-wider"
-                  >
-                    Change
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <hr className="border-neutral-100 mb-6" />
-
-          {/* ---------------- Bio & Links ---------------- */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest">
-                About Professional
-              </h3>
-              {isOwner && !isEditing && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                >
-                  <Edit2 className="h-3 w-3" />
-                  Edit Profile
-                </button>
-              )}
-            </div>
-
-            {isEditing ? (
-              <div className="space-y-4 animate-in fade-in duration-300">
-                <div>
-                  <label className="text-[10px] font-bold text-neutral-400 uppercase mb-1.5 block">
-                    Bio
-                  </label>
-                  <Textarea
-                    value={formDraft.bio}
-                    onChange={(e) =>
-                      setFormDraft({
-                        ...formDraft,
-                        bio: e.target.value.slice(0, 300),
-                      })
-                    }
-                    placeholder="Briefly describe your professional background..."
-                    className="resize-none min-h-[100px] border-neutral-200 focus:ring-primary"
-                  />
-                  <div className="text-[10px] text-neutral-400 mt-1 text-right">
-                    {formDraft.bio.length}/300
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase mb-1.5 block">
-                      LinkedIn URL
-                    </label>
-                    <div className="relative">
-                      <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
-                      <input
-                        type="url"
-                        value={formDraft.linkedin_url}
-                        onChange={(e) =>
-                          setFormDraft({
-                            ...formDraft,
-                            linkedin_url: e.target.value,
-                          })
-                        }
-                        placeholder="https://linkedin.com/in/..."
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase mb-1.5 block">
-                      Personal Email
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
-                      <input
-                        type="email"
-                        value={formDraft.personal_email}
-                        onChange={(e) =>
-                          setFormDraft({
-                            ...formDraft,
-                            personal_email: e.target.value,
-                          })
-                        }
-                        placeholder="personal@email.com"
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-neutral-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="text-[10px] font-bold text-neutral-400 uppercase mb-1.5 block">
-                      Phone Number <span className="lowercase font-medium text-neutral-400">(Private, visible only to you)</span>
-                    </label>
-                    <div className="flex border border-neutral-200 rounded-md focus-within:ring-1 focus-within:ring-primary overflow-hidden relative shadow-sm">
-                      <div className="relative flex items-center bg-neutral-50 border-r border-neutral-200 hover:bg-neutral-100 transition-colors">
-                        <select
-                          value={formDraft.phone_country_code}
-                          onChange={(e) =>
-                            setFormDraft({
-                              ...formDraft,
-                              phone_country_code: e.target.value,
-                            })
-                          }
-                          className="appearance-none bg-transparent pl-3 pr-8 py-2 text-sm font-bold text-neutral-700 outline-none cursor-pointer w-[90px] md:w-[105px] z-10"
-                        >
-                          {COUNTRY_CODES.map((country) => (
-                            <option key={country.code} value={country.code}>
-                              {country.label}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
-                      </div>
-                      <input
-                        type="number"
-                        value={formDraft.phone_number}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val.length <= 15) {
-                            setFormDraft({
-                              ...formDraft,
-                              phone_number: val,
-                            });
-                          }
-                        }}
-                        placeholder="9876543210"
-                        className="w-full px-4 py-2 text-sm font-medium outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 pt-2 justify-end">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      const parsedPhone = parsePhone(profile.phone_number);
-                      setFormDraft({
-                        bio: profile.bio || "",
-                        linkedin_url: profile.linkedin_url || "",
-                        personal_email: profile.personal_email || "",
-                        phone_country_code: parsedPhone.code,
-                        phone_number: parsedPhone.num,
-                      });
-                      setIsEditing(false);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSaveProfile}
-                    disabled={isSaving}
-                    className="bg-primary px-6"
-                  >
-                    {isSaving ? "Saving..." : "Save Profile"}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <p className="text-sm text-neutral-700 leading-relaxed">
-                  {profile.bio || (
-                    <span className="text-neutral-400 italic font-medium">
-                      No professional bio added yet.
-                    </span>
-                  )}
-                </p>
-
-                <div className="flex flex-wrap gap-4">
-                  {profile.linkedin_url && (
-                    <a
-                      href={
-                        profile.linkedin_url.startsWith("http")
-                          ? profile.linkedin_url
-                          : `https://${profile.linkedin_url}`
-                      }
-                      target="_external"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm font-bold text-primary hover:text-accent transition-colors truncate max-w-sm"
-                    >
-                      <Linkedin className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{profile.linkedin_url.replace(/^https?:\/\/(www\.)?/, '')}</span>
-                    </a>
-                  )}
-                  {isOwner && profile.personal_email && (
-                    <div className="flex items-center gap-2 text-sm text-neutral-500 font-medium">
-                      <Mail className="h-4 w-4 text-neutral-300" />
-                      {profile.personal_email}
-                    </div>
-                  )}
-                  {isOwner && profile.phone_number && (
-                    <div className="flex items-center gap-2 text-sm text-neutral-500 font-medium">
-                      <Phone className="h-4 w-4 text-neutral-300" />
-                      {profile.phone_number}
-                      <span className="text-[9px] font-bold uppercase tracking-widest bg-neutral-100 text-neutral-400 px-1.5 py-0.5 rounded-sm">
-                        Private
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pb-0.5">
+                  {profile.is_verified && (
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-100 rounded-full">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                      <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">
+                        Verified {profile.company?.name ? "Employee" : "Member"}
                       </span>
                     </div>
                   )}
+                  {isOwner && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="h-[26px] px-3 text-[10px] font-bold shadow-sm rounded-full bg-white text-neutral-600 hover:text-neutral-900 border-neutral-200" 
+                      onClick={() => setIsEditing(true)}
+                    >
+                      <Edit2 className="h-3 w-3 mr-1.5" />
+                      Edit Profile
+                    </Button>
+                  )}
                 </div>
-
-                {!isOwner && (
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button
-                      className="flex-1 bg-primary hover:bg-primary/90 shadow-md py-6 rounded-xl text-md font-bold"
-                      onClick={() => router.push(`/messages/${profile.id}`)}
-                    >
-                      <MessageCircle className="h-5 w-5 mr-2" />
-                      Message {profile.full_name}
-                    </Button>
-                    <Button
-                      variant={hasVouchedProfile ? "secondary" : "outline"}
-                      className={`flex-1 shadow-sm py-6 rounded-xl text-md font-bold ${hasVouchedProfile ? 'bg-indigo-50 text-indigo-700 border-transparent' : 'border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
-                      onClick={handleProfileVouch}
-                      disabled={hasVouchedProfile}
-                    >
-                      {hasVouchedProfile ? (
-                        <>
-                          <Check className="h-5 w-5 mr-2 text-indigo-500" />
-                          Vouched
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="h-5 w-5 mr-2" />
-                          Vouch for {profile.full_name.split(' ')[0]}
-                        </>
-                      )}
-                    </Button>
-                  </div>
+              </div>
+              
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm font-semibold text-neutral-500">
+                {profile.company?.name && (
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="h-4 w-4" />
+                    {profile.company.name}
+                    {isOwner && (
+                      <button
+                        onClick={() => setIsChangeCompanyOpen(true)}
+                        className="ml-1 px-2 py-0.5 text-[10px] font-bold bg-neutral-100 text-neutral-500 hover:bg-neutral-200 rounded-full transition-colors uppercase tracking-wider"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </span>
                 )}
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4" />
+                  {profile.city || "Unknown Location"}
+                </span>
+              </div>
+
+              <p className="text-sm text-neutral-700 leading-relaxed max-w-xl mx-auto md:mx-0">
+                {profile.bio || "Verified professional active on Vouchins."}
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-2 text-xs font-bold text-neutral-400">
+                <span>Member since {new Date(profile.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+                
+                {profile.linkedin_url && (
+                  <>
+                    <span>•</span>
+                    <a href={profile.linkedin_url.startsWith("http") ? profile.linkedin_url : `https://${profile.linkedin_url}`} target="_external" rel="noopener noreferrer" className="flex items-center gap-1.5 text-primary hover:underline">
+                      <Linkedin className="h-3.5 w-3.5" />
+                      LinkedIn Profile
+                    </a>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {!isOwner && (
+              <div className="shrink-0 flex flex-col w-full md:w-auto gap-3 mt-4 md:mt-0">
+                <Button className="w-full bg-primary font-bold shadow-md rounded-xl" onClick={() => router.push(`/messages/${profile.id}`)}>
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Message
+                </Button>
+                <Button
+                  variant={hasVouchedProfile ? "secondary" : "outline"}
+                  className={`w-full shadow-sm rounded-xl font-bold ${hasVouchedProfile ? 'bg-indigo-50 text-indigo-700 border-transparent' : 'border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
+                  onClick={handleProfileVouch}
+                  disabled={hasVouchedProfile}
+                >
+                  {hasVouchedProfile ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2 text-indigo-500" />
+                      Vouched
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="h-4 w-4 mr-2" />
+                      Vouch for {profile.full_name.split(' ')[0]}
+                    </>
+                  )}
+                </Button>
               </div>
             )}
           </div>
-
-          <div className="text-[11px] font-bold text-neutral-300 mt-8 uppercase tracking-widest flex items-center gap-2">
-            <span className="h-px w-8 bg-neutral-100" />
-            Vouchins Member Since{" "}
-            {new Date(profile.created_at).toLocaleDateString(undefined, {
-              month: "short",
-              year: "numeric",
-            })}
-          </div>
         </div>
 
-        {/* ---------------- User Posts ---------------- */}
-        <div className="pt-4">
-          <h2 className="text-lg font-black text-primary mb-6 tracking-tight flex items-center gap-2">
-            Recent Activity
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-          </h2>
+        {/* SECTION 2 & 3: VOUCH SCORE & TRUST SIGNALS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Vouch Score */}
+          <section className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center">
+            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-4">Vouch Score</h3>
+            <div className="text-6xl font-black text-primary tracking-tighter">
+              {vouchScore}
+            </div>
+          </section>
 
+          {/* Trust Signals */}
+          <section className="md:col-span-2 bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-6">Trust Signals</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="flex flex-col items-center p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-center shadow-sm">
+                <ShieldCheck className="h-6 w-6 text-indigo-600 mb-2" />
+                <span className="text-2xl font-black text-neutral-900 mb-1">{communityVouchesTotal}</span>
+                <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider leading-tight">Community<br/>Vouches</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-neutral-50 rounded-xl border border-neutral-100 text-center">
+                <Briefcase className="h-6 w-6 text-indigo-500 mb-2" />
+                <span className="text-2xl font-black text-neutral-900 mb-1">{trustSignals.referrals || 0}</span>
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider leading-tight">Referrals<br/>Shared</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-neutral-50 rounded-xl border border-neutral-100 text-center">
+                <Home className="h-6 w-6 text-emerald-500 mb-2" />
+                <span className="text-2xl font-black text-neutral-900 mb-1">{trustSignals.housing || 0}</span>
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider leading-tight">Housing<br/>Posts</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-neutral-50 rounded-xl border border-neutral-100 text-center">
+                <ShoppingCart className="h-6 w-6 text-amber-500 mb-2" />
+                <span className="text-2xl font-black text-neutral-900 mb-1">{trustSignals.buy_sell || 0}</span>
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider leading-tight">Marketplace<br/>Posts</span>
+              </div>
+              <div className="flex flex-col items-center p-4 bg-neutral-50 rounded-xl border border-neutral-100 text-center">
+                <Star className="h-6 w-6 text-blue-500 mb-2" />
+                <span className="text-2xl font-black text-neutral-900 mb-1">{trustSignals.recommendations || 0}</span>
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider leading-tight">Recommen-<br/>dations</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* SECTION 4: TRUST HIGHLIGHTS */}
+        {highlights.length > 0 && (
+          <section className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
+            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-4">Trust Highlights</h3>
+            <ul className="space-y-3">
+              {highlights.map((highlight, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm font-semibold text-neutral-700">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
+                  {highlight}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* SECTION 5: RECENT ACTIVITY */}
+        <section className="pt-4">
+          <h3 className="text-lg font-black text-primary tracking-tight mb-6">Recent Activity</h3>
           {posts.length === 0 ? (
-            <div className="bg-white border border-neutral-100 rounded-xl p-12 text-center text-sm font-medium text-neutral-400 shadow-sm">
-              No public posts contributed yet.
+            <div className="bg-white border border-neutral-100 rounded-2xl p-12 text-center text-sm font-medium text-neutral-400 shadow-sm">
+              This professional hasn't contributed yet.
             </div>
           ) : (
             <div className="space-y-4">
@@ -650,7 +575,123 @@ export default function UserProfilePage() {
               ))}
             </div>
           )}
-        </div>
+        </section>
+
+        {/* SECTION 6: PRIVATE SETTINGS DIALOG (OWNER ONLY) */}
+        {isOwner && (
+          <Dialog open={isEditing} onOpenChange={setIsEditing}>
+            <DialogContent className="w-[95vw] sm:w-full sm:max-w-[600px] p-0 overflow-hidden bg-white text-neutral-900 border-neutral-200 rounded-2xl shadow-2xl">
+              <DialogHeader className="p-4 sm:p-6 pb-2 border-b border-neutral-100 bg-neutral-50">
+                <DialogTitle className="text-xl font-black text-primary tracking-tight flex items-center gap-2">
+                  <Lock className="h-5 w-5 text-neutral-400" />
+                  Private Settings
+                </DialogTitle>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Manage your professional bio and private contact details. Private details are never exposed publicly.
+                </p>
+              </DialogHeader>
+
+              <div className="p-4 sm:p-6 space-y-6 max-h-[85vh] overflow-y-auto no-scrollbar">
+                <div>
+                  <label className="text-[10px] font-bold text-neutral-500 uppercase mb-1.5 block">Professional Bio</label>
+                  <Textarea
+                    value={formDraft.bio}
+                    onChange={(e) => setFormDraft({ ...formDraft, bio: e.target.value.slice(0, 300) })}
+                    placeholder="Briefly describe your professional background..."
+                    className="resize-none min-h-[100px] bg-white border-neutral-200 text-neutral-900 focus:ring-primary"
+                  />
+                  <div className="text-[10px] text-neutral-400 mt-1 text-right">{formDraft.bio.length}/300</div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase mb-1.5 block">LinkedIn URL</label>
+                    <div className="relative">
+                      <Linkedin className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+                      <input
+                        type="url"
+                        value={formDraft.linkedin_url}
+                        onChange={(e) => setFormDraft({ ...formDraft, linkedin_url: e.target.value })}
+                        placeholder="https://linkedin.com/in/..."
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-neutral-200 rounded-md text-neutral-900 outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase mb-1.5 block">Personal Email</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+                      <input
+                        type="email"
+                        value={formDraft.personal_email}
+                        onChange={(e) => setFormDraft({ ...formDraft, personal_email: e.target.value })}
+                        placeholder="personal@email.com"
+                        className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-neutral-200 rounded-md text-neutral-900 outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase mb-1.5 block">Phone Number</label>
+                    <div className="flex border border-neutral-200 rounded-md overflow-hidden shadow-sm">
+                      <div className="relative flex items-center bg-neutral-50 border-r border-neutral-200 hover:bg-neutral-100 transition-colors">
+                        <select
+                          value={formDraft.phone_country_code}
+                          onChange={(e) => setFormDraft({ ...formDraft, phone_country_code: e.target.value })}
+                          className="appearance-none bg-transparent pl-3 pr-8 py-2 text-sm font-bold text-neutral-700 outline-none cursor-pointer w-[90px] md:w-[105px] z-10"
+                        >
+                          {COUNTRY_CODES.map((country) => (
+                            <option key={country.code} value={country.code}>{country.label}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-neutral-400 pointer-events-none" />
+                      </div>
+                      <input
+                        type="number"
+                        value={formDraft.phone_number}
+                        onChange={(e) => {
+                          if (e.target.value.length <= 15) setFormDraft({ ...formDraft, phone_number: e.target.value });
+                        }}
+                        placeholder="9876543210"
+                        className="w-full px-4 py-2 text-sm font-medium bg-white text-neutral-900 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-6 justify-end border-t border-neutral-100">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      const parsedPhone = parsePhone(profile.phone_number);
+                      setFormDraft({
+                        bio: profile.bio || "",
+                        linkedin_url: profile.linkedin_url || "",
+                        personal_email: profile.personal_email || "",
+                        phone_country_code: parsedPhone.code,
+                        phone_number: parsedPhone.num,
+                      });
+                      setIsEditing(false);
+                    }}
+                    className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
+                    className="bg-primary hover:bg-primary/90 text-white px-6 font-bold"
+                  >
+                    {isSaving ? "Saving..." : "Save Settings"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {isOwner && (

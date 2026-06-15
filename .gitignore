@@ -91,6 +91,7 @@ deno.json
 *dump.sql
 prod_schema.sql
 prod_data.sql
+vouchins_schema.sql
 scripts/staging/chunks/
 scripts/staging/restore_public_grants.sql
 scripts/staging/restore_auth.sql

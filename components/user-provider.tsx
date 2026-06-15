@@ -20,6 +20,8 @@ interface UserProfile {
   is_verified: boolean;
   is_profile_complete: boolean;
   profile_completion_percentage: number;
+  linkedin_url?: string;
+  phone_number?: string;
 }
 
 interface UserContextType {
@@ -87,6 +89,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
             ).length /
               4) *
             100,
+          linkedin_url: data.linkedin_url,
+          phone_number: data.phone_number,
         };
 
         setUser(formattedUser);
