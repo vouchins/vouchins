@@ -157,7 +157,22 @@ function FeedContent() {
         finalCity = "All Cities"; // Default fallback
         if ("geolocation" in navigator) {
           try {
-            const pos: any = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 }));
+            const pos: any = await new Promise((resolve, reject) => {
+              const timer = setTimeout(() => {
+                reject(new Error("Manual Geolocation Timeout"));
+              }, 5000);
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  clearTimeout(timer);
+                  resolve(position);
+                },
+                (err) => {
+                  clearTimeout(timer);
+                  reject(err);
+                },
+                { timeout: 5000 }
+              );
+            });
             const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&localityLanguage=en`);
             const data = await res.json();
             if (data.city && INDIAN_CITIES.includes(data.city)) {
@@ -167,7 +182,13 @@ function FeedContent() {
             console.error("Location detection failed", e);
           }
         }
-        await supabase.from("users").update({ city: finalCity }).eq("id", authUser.id);
+        const { error: updateError } = await supabase
+          .from("users")
+          .update({ city: finalCity })
+          .eq("id", authUser.id);
+        if (updateError) {
+          console.error("Failed to update user city to fallback:", updateError);
+        }
         userData.city = finalCity;
       }
 
