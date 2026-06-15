@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   RotateCcw,
   Lock,
+  MoreVertical,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { toast } from "sonner";
@@ -431,7 +432,7 @@ export function PostCard({
             <div className="flex items-center gap-2 mt-0.5">
               <Link
                 href={`/posts/${post.id}`}
-                className="text-[11px] text-neutral-400 font-medium hover:underline hover:text-indigo-600 transition-colors"
+                className="text-[11px] text-neutral-450 font-medium hover:underline hover:text-indigo-600 transition-colors"
               >
                 {formatDistanceToNow(new Date(post.created_at), {
                   addSuffix: true,
@@ -646,165 +647,170 @@ export function PostCard({
           </div>
         </PhotoProvider>
       )}
-
       {/* Footer Actions */}
-      <div className="flex items-center gap-1 pt-2 border-t border-neutral-50 overflow-x-auto whitespace-nowrap no-scrollbar">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setShowComments(!showComments);
-            onReply(post.id);
-          }}
-          className="h-8 px-3 flex-shrink-0"
-        >
-          <MessageCircle className="h-4 w-4 mr-1.5" />
-          <span className="text-xs font-semibold">
-            {commentCount > 0 ? `${commentCount} replies` : "Reply"}
-          </span>
-        </Button>
-        {/* Vouch Button */}
-        {!isOwner && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleVouch(post.user.id, 'post', post.id)}
-            disabled={vouchedEntities[`post_${post.id}`]}
-            className={`h-8 px-2 flex-shrink-0 ${vouchedEntities[`post_${post.id}`] ? 'text-indigo-600 bg-indigo-50/50 cursor-default' : 'text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50'}`}
-          >
-            {vouchedEntities[`post_${post.id}`] ? (
-              <>
-                <Check className="h-4 w-4 mr-1.5" />
-                <span className="text-xs font-bold">Vouched</span>
-              </>
-            ) : (
-              <>
-                <ShieldCheck className="h-4 w-4 mr-1.5" />
-                <span className="text-xs font-bold">Vouch</span>
-              </>
-            )}
-          </Button>
-        )}
-
-        {/* Save/Bookmark Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleToggleSave}
-          className={`h-8 px-2 flex-shrink-0 ${isSaved ? 'text-blue-600 hover:text-blue-700 bg-blue-50' : 'text-neutral-500 hover:text-blue-600'}`}
-        >
-          <Bookmark className={`h-4 w-4 mr-1.5 ${isSaved ? 'fill-current' : ''}`} />
-          <span className="text-xs font-semibold">{isSaved ? "Saved" : "Save"}</span>
-        </Button>
-
-        <DropdownMenu open={isShareOpen} onOpenChange={setIsShareOpen}>
-          <DropdownMenuTrigger asChild>
+      <div className="flex items-center gap-1.5 pt-2 border-t border-neutral-50 overflow-x-auto whitespace-nowrap no-scrollbar">
+        {!isEditing ? (
+          <>
+            {/* Reply Button */}
             <Button
               variant="ghost"
               size="sm"
-              className="text-neutral-500 hover:text-indigo-600 h-8 px-2 flex-shrink-0"
+              onClick={() => {
+                setShowComments(!showComments);
+                onReply(post.id);
+              }}
+              className="h-8 px-2 sm:px-3 flex-shrink-0 text-neutral-500 hover:text-indigo-600 hover:bg-neutral-50 flex items-center justify-center gap-1.5"
             >
-              <Share2 className="h-4 w-4 mr-1.5" />
-              <span className="text-xs font-semibold">Share</span>
+              <MessageCircle className="h-4 w-4" />
+              <span className="text-xs font-semibold">
+                {commentCount > 0 ? `${commentCount} ${commentCount === 1 ? 'reply' : 'replies'}` : "Reply"}
+              </span>
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleCopyLink}>
-              Copy Link
-            </DropdownMenuItem>
-            {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
-              <DropdownMenuItem onClick={handleSystemShare}>
-                Share via...
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
 
-        {!isOwner && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onReport(post.id)}
-            className="text-neutral-400 hover:text-red-600 h-8 px-2"
-          >
-            <Flag className="h-3.5 w-3.5 mr-1.5" />
-            <span className="text-xs font-medium">Report</span>
-          </Button>
-        )}
-        {isOwner && (
-          <>
-            {!isEditing ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={togglePostStatus}
-                  className="text-neutral-400 hover:text-indigo-600 h-8 px-2"
-                >
-                  {localStatus === "active" ? (
-                    <>
-                      <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                      <span className="text-xs font-medium">Mark as Closed</span>
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                      <span className="text-xs font-medium">Reopen</span>
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(true)}
-                  className="text-neutral-400 hover:text-indigo-600 h-8 px-2"
-                >
-                  <Edit2 className="h-3.5 w-3.5 mr-1.5" />
-                  <span className="text-xs font-medium">Edit</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={deletePost}
-                  className="text-red-500 hover:text-red-600 h-8 px-2"
-                >
-                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                  <span className="text-xs font-medium">Delete</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={saveEdit}
-                  disabled={saving}
-                  className="text-green-600 hover:text-green-700 h-8 px-2"
-                >
-                  <Check className="h-3.5 w-3.5 mr-1.5" />
-                  <span className="text-xs font-medium">
-                    {saving ? "Saving..." : "Save"}
-                  </span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditedText(post.text);
-                    setEditedImages(post.image_urls || []);
-                    newPreviews.forEach((url) => URL.revokeObjectURL(url));
-                    setNewFiles([]);
-                    setNewPreviews([]);
-                  }}
-                  className="text-neutral-400 hover:text-neutral-600 h-8 px-2"
-                >
-                  <X className="h-3.5 w-3.5 mr-1.5" />
-                  <span className="text-xs font-medium">Cancel</span>
-                </Button>
-              </>
+            {/* Vouch Button */}
+            {!isOwner && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleVouch(post.user.id, 'post', post.id)}
+                disabled={vouchedEntities[`post_${post.id}`]}
+                className={`h-8 px-2 sm:px-3 flex-shrink-0 flex items-center justify-center gap-1.5 ${
+                  vouchedEntities[`post_${post.id}`]
+                    ? 'text-indigo-600 bg-indigo-50/50 cursor-default'
+                    : 'text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50'
+                }`}
+              >
+                {vouchedEntities[`post_${post.id}`] ? (
+                  <>
+                    <Check className="h-4 w-4" />
+                    <span className="text-xs font-bold">Vouched</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-4 w-4" />
+                    <span className="text-xs font-bold">Vouch</span>
+                  </>
+                )}
+              </Button>
             )}
+
+            {/* Save/Bookmark Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleToggleSave}
+              className={`h-8 px-2 sm:px-3 flex-shrink-0 flex items-center justify-center gap-1.5 ${
+                isSaved ? 'text-blue-600 hover:text-blue-700 bg-blue-50' : 'text-neutral-500 hover:text-blue-600 hover:bg-neutral-50'
+              }`}
+            >
+              <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
+              <span className="text-xs font-semibold">
+                {isSaved ? "Saved" : "Save"}
+              </span>
+            </Button>
+
+            {/* Share Dropdown Button */}
+            <DropdownMenu open={isShareOpen} onOpenChange={setIsShareOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-neutral-500 hover:text-indigo-600 hover:bg-neutral-50 h-8 px-2 sm:px-3 flex-shrink-0 flex items-center justify-center gap-1.5"
+                >
+                  <Share2 className="h-4 w-4" />
+                  <span className="text-xs font-semibold">Share</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  Copy Link
+                </DropdownMenuItem>
+                {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+                  <DropdownMenuItem onClick={handleSystemShare}>
+                    Share via...
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Options Dropdown Button (Three dots inline) */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-neutral-450 hover:text-neutral-700 hover:bg-neutral-50 h-8 w-8 p-0 rounded-full flex-shrink-0 flex items-center justify-center"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">More options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                {isOwner ? (
+                  <>
+                    <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                      <Edit2 className="h-3.5 w-3.5 mr-2 text-neutral-500" />
+                      Edit Post
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={togglePostStatus}>
+                      {localStatus === "active" ? (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-neutral-500" />
+                          Mark Closed
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="h-3.5 w-3.5 mr-2 text-neutral-500" />
+                          Reopen
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={deletePost} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                      <Trash2 className="h-3.5 w-3.5 mr-2" />
+                      Delete Post
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem onClick={() => onReport(post.id)} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                    <Flag className="h-3.5 w-3.5 mr-2" />
+                    Report Post
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
+        ) : (
+          /* Editing controls */
+          <div className="flex gap-2 ml-auto shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={saveEdit}
+              disabled={saving}
+              className="text-green-600 hover:text-green-700 hover:bg-green-50 h-8 px-3 flex items-center justify-center gap-1.5"
+            >
+              <Check className="h-4 w-4" />
+              <span className="text-xs font-semibold">
+                {saving ? "Saving..." : "Save"}
+              </span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsEditing(false);
+                setEditedText(post.text);
+                setEditedImages(post.image_urls || []);
+                newPreviews.forEach((url) => URL.revokeObjectURL(url));
+                setNewFiles([]);
+                setNewPreviews([]);
+              }}
+              className="text-neutral-450 hover:text-neutral-600 hover:bg-neutral-50 h-8 px-3 flex items-center justify-center gap-1.5"
+            >
+              <X className="h-4 w-4" />
+              <span className="text-xs font-semibold">Cancel</span>
+            </Button>
+          </div>
         )}
       </div>
 
