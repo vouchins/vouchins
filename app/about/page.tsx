@@ -45,7 +45,7 @@ export default function AboutPage() {
                 Our Story
               </h2>
               <p className="mb-4">
-                Vouchins was born out of frustration. As developers, we faced
+                Vouchins was born out of frustration. As Corporate professionals ourselves, we faced
                 the same issues many professionals do when moving to a new city
                 or looking for reliable services: endless scams, intrusive
                 brokers, and anonymous marketplaces where trust is a luxury.
