@@ -546,8 +546,12 @@ function JobsPageContent() {
 
                     <div className="self-stretch sm:self-start flex flex-col items-stretch gap-2">
                       {userApplications.includes(selectedJob.id) ? (
-                        <Button disabled className="bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-1.5 h-10 px-6">
+                        <Button
+                          onClick={() => handleOpenApplyModal(selectedJob)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-1.5 h-10 px-6 shadow-md transition-all active:scale-95"
+                        >
                           <CheckCircle className="h-4 w-4" /> Applied
+                          {selectedJob.external_apply_url && <ExternalLink className="h-4 w-4" />}
                         </Button>
                       ) : (
                         <Button
