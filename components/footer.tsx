@@ -74,7 +74,7 @@ export function Footer() {
             href="/contact"
             className="hover:text-[#0A1B5C] transition-colors"
           >
-            Contact
+            Contact Us
           </Link>
         </nav>
 

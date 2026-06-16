@@ -60,7 +60,7 @@ export default function ContactPage() {
 
       setMessage({
         type: "success",
-        text: "Thank you for your feedback! Our team will review it shortly.",
+        text: "Thank you for contacting Vouchins. Our team will review your message and get back to you shortly.",
       });
       setFormData({ name: "", email: "", type: "", message: "" });
     } catch (err: any) {
