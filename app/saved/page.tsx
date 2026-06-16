@@ -228,6 +228,7 @@ export default function SavedPostsPage() {
               user={
                 user
                   ? {
+                      id: user.id,
                       city: user.city || "",
                       is_verified: user.is_verified || false,
                     }

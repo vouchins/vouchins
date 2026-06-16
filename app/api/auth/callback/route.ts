@@ -45,6 +45,14 @@ export async function GET(request: Request) {
   const oauthAvatar = data.user.user_metadata?.avatar_url || data.user.user_metadata?.picture || null;
 
   if (!existingUser) {
+    let invitedBy: string | null = cookieStore.get("vouchins_invited_by")?.value || null;
+    if (invitedBy) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(invitedBy)) {
+        invitedBy = null;
+      }
+    }
+
     await supabase.from("users").insert({
       id: data.user.id,
       email: data.user.email,
@@ -57,6 +65,7 @@ export async function GET(request: Request) {
       onboarded: false,
       is_active: true,
       is_admin: false,
+      invited_by: invitedBy,
     });
   } else if (!existingUser.avatar_url && oauthAvatar) {
     // If they log in but are missing an avatar (e.g. signed up before we added avatars), sync it now

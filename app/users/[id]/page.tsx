@@ -36,6 +36,13 @@ import { Navigation } from "@/components/navigation";
 import { ChangeCompanyModal } from "@/components/change-company-modal";
 import { ProfileCompletionWidget } from "@/components/profile-completion-widget";
 
+export const getHighestBadge = (count: number) => {
+  if (count >= 50) return { name: "Founding Connector", icon: "🏆" };
+  if (count >= 25) return { name: "Network Catalyst", icon: "🚀" };
+  if (count >= 5) return { name: "Community Builder", icon: "🌱" };
+  return null;
+};
+
 export default function UserProfilePage() {
   const { id } = useParams();
   const router = useRouter();
@@ -43,6 +50,7 @@ export default function UserProfilePage() {
   const [profile, setProfile] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [vouchScore, setVouchScore] = useState(0);
+  const [invitedCount, setInvitedCount] = useState(0);
   const [communityVouchesTotal, setCommunityVouchesTotal] = useState(0);
   const [trustSignals, setTrustSignals] = useState<Record<string, number>>({});
   const [highlights, setHighlights] = useState<string[]>([]);
@@ -135,7 +143,8 @@ export default function UserProfilePage() {
         { data: vouchScoreData },
         { data: trustSignalsData },
         { data: postsData },
-        { data: vouchData }
+        { data: vouchData },
+        { count: invitedCountData }
       ] = await Promise.all([
         supabase
           .from("users")
@@ -157,7 +166,12 @@ export default function UserProfilePage() {
           .eq("target_user_id", id)
           .eq("vouching_user_id", user.id)
           .eq("is_profile_vouch", true)
-          .maybeSingle()
+          .maybeSingle(),
+        supabase
+          .from("users")
+          .select("id", { count: "exact", head: true })
+          .eq("invited_by", id)
+          .eq("is_verified", true)
       ]);
 
       if (!profileData) {
@@ -177,6 +191,7 @@ export default function UserProfilePage() {
       });
 
       if (vouchData) setHasVouchedProfile(true);
+      setInvitedCount(invitedCountData || 0);
       setPosts(postsData || []);
 
       // Calculate Completion Points
@@ -495,14 +510,37 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        {/* SECTION 2 & 3: VOUCH SCORE & TRUST SIGNALS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* SECTION 2 & 3: VOUCH SCORE, MEMBERS INVITED & TRUST SIGNALS */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Vouch Score */}
           <section className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center">
-            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-4">Vouch Score</h3>
+            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-4">⭐ Vouch Score</h3>
             <div className="text-6xl font-black text-primary tracking-tighter">
               {vouchScore}
             </div>
+          </section>
+
+          {/* Members Invited */}
+          <section className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center">
+            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-4">🤝 Members Invited</h3>
+            <div className="text-6xl font-black text-primary tracking-tighter">
+              {invitedCount}
+            </div>
+            {(() => {
+              const badge = getHighestBadge(invitedCount);
+              if (!badge) return null;
+              return (
+                <div className="mt-3 px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-full text-xs font-bold flex items-center gap-1.5 animate-in fade-in zoom-in-95">
+                  <span>{badge.icon}</span>
+                  <span>{badge.name}</span>
+                </div>
+              );
+            })()}
+            {isOwner && invitedCount === 0 && (
+              <p className="text-[11px] text-neutral-450 mt-3 text-center leading-normal max-w-[150px]">
+                Invite trusted professionals to grow the community.
+              </p>
+            )}
           </section>
 
           {/* Trust Signals */}

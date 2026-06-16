@@ -14,9 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ProfileCompletionWidget } from "@/components/profile-completion-widget";
+import { InviteDialog, triggerNativeShare } from "@/components/invite-dialog";
 
 interface RightSidebarProps {
   user: {
+    id: string;
     city: string;
     is_verified: boolean;
   } | null;
@@ -28,6 +30,7 @@ export function RightSidebar({ user, onVerify }: RightSidebarProps) {
   const city = user?.city || "Hyderabad";
   const isVerified = user?.is_verified;
   const [sidebarAd, setSidebarAd] = useState<any>(null);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   useEffect(() => {
     const fetchAd = async () => {
@@ -41,17 +44,6 @@ export function RightSidebar({ user, onVerify }: RightSidebarProps) {
     };
     // fetchAd();
   }, []);
-
-  const handleShare = async () => {
-    const shareUrl = window.location.origin;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      toast.success("Invite link copied to clipboard!");
-    } catch (err) {
-      console.error("Clipboard error:", err);
-      toast.error("Failed to copy invite link.");
-    }
-  };
 
   return (
     <aside className="hidden xl:flex w-72 flex-col gap-6 sticky top-24 max-h-[calc(100vh-6rem)] overflow-y-auto no-scrollbar pb-6">
@@ -114,7 +106,16 @@ export function RightSidebar({ user, onVerify }: RightSidebarProps) {
               Vouchins is live in {city}! Help us build the network.
             </p>
             <button
-              onClick={handleShare}
+              onClick={async () => {
+                if (!user) {
+                  router.push("/login");
+                } else {
+                  const shared = await triggerNativeShare(user.id);
+                  if (!shared) {
+                    setIsInviteOpen(true);
+                  }
+                }
+              }}
               className="mt-3 text-[11px] font-bold text-primary hover:opacity-80 flex items-center gap-1.5 transition-colors"
             >
               <Share2 className="h-3.5 w-3.5" />
@@ -172,7 +173,16 @@ export function RightSidebar({ user, onVerify }: RightSidebarProps) {
         {/* Action Button - Exact replica of your "New Post" button styles */}
         <div className="mt-6 pt-5 border-t border-neutral-50">
           <Button
-            onClick={handleShare}
+            onClick={async () => {
+              if (!user) {
+                router.push("/login");
+              } else {
+                const shared = await triggerNativeShare(user.id);
+                if (!shared) {
+                  setIsInviteOpen(true);
+                }
+              }
+            }}
             className="w-full bg-primary text-primary-foreground hover:opacity-90 h-9 px-4 shrink-0 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98]"
           >
             <Share2 className="h-4 w-4" />
@@ -180,6 +190,13 @@ export function RightSidebar({ user, onVerify }: RightSidebarProps) {
           </Button>
         </div>
       </div>
+      {user && (
+        <InviteDialog
+          isOpen={isInviteOpen}
+          onClose={() => setIsInviteOpen(false)}
+          userId={user.id}
+        />
+      )}
     </aside>
   );
 }

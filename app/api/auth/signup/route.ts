@@ -40,6 +40,15 @@ export async function POST(req: Request) {
     );
   }
 
+  // Retrieve invite attribution
+  let invitedBy: string | null = cookieStore.get("vouchins_invited_by")?.value || null;
+  if (invitedBy) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(invitedBy)) {
+      invitedBy = null;
+    }
+  }
+
   // Create profile in public.users
   const { error: profileError } = await supabase.from("users").insert({
     id: data.user.id,
@@ -49,6 +58,7 @@ export async function POST(req: Request) {
     onboarded: false,
     is_active: true,
     is_admin: false,
+    invited_by: invitedBy,
   });
 
   if (profileError) {

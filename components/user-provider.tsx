@@ -141,6 +141,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("invite") || params.get("ref");
+      if (ref) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(ref)) {
+          document.cookie = `vouchins_invited_by=${ref}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+        }
+      }
+    }
+
     fetchUserData();
 
     // Listen for auth state changes

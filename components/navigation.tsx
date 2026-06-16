@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   Briefcase,
   Bookmark,
+  Share2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
@@ -28,6 +29,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 import { useUser } from "@/components/user-provider";
+import { InviteDialog, triggerNativeShare } from "@/components/invite-dialog";
 
 interface NavigationUser {
   id: string;
@@ -59,6 +61,8 @@ function NavigationContent() {
   const searchParams = useSearchParams();
 
   const { user, loading, unreadCount } = useUser();
+
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
@@ -283,6 +287,19 @@ function NavigationContent() {
                     </Link>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
+                      onClick={async () => {
+                        const shared = await triggerNativeShare(user.id);
+                        if (!shared) {
+                          setIsInviteOpen(true);
+                        }
+                      }}
+                      className="cursor-pointer py-2.5 font-bold text-sm text-neutral-700"
+                    >
+                      <Share2 className="h-4 w-4 mr-2 text-neutral-500" />
+                      Invite Colleagues
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
                       onClick={handleLogout}
                       className="text-red-600 focus:text-red-600 cursor-pointer py-2.5 font-bold text-sm"
                     >
@@ -312,6 +329,13 @@ function NavigationContent() {
           </div>
         </div>
       </div>
+      {user && (
+        <InviteDialog
+          isOpen={isInviteOpen}
+          onClose={() => setIsInviteOpen(false)}
+          userId={user.id}
+        />
+      )}
     </header>
   );
 }
