@@ -161,7 +161,7 @@ export default function Home() {
                     className="border-white/10 hover:bg-white/5 text-white font-bold text-sm uppercase tracking-wider px-8 py-6 rounded-2xl backdrop-blur-sm hover:border-white/20 transition-all hover:-translate-y-0.5 bg-transparent"
                   >
                     <a
-                      href="https://www.youtube.com/shorts/OtzgRHFfBNo"
+                      href="https://www.youtube.com/watch?v=GSIqQAb6wc4"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
