@@ -336,93 +336,114 @@ function NavigationContent() {
                   )}
                 </Button>
 
-                {/* Notifications Bell */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        "relative h-9 px-2 sm:px-3 rounded-lg text-neutral-600"
-                      )}
-                    >
-                      <Bell className="h-4 w-4 sm:mr-2" />
-                      <span className="hidden sm:inline font-bold text-[13px]">
-                        Alerts
-                      </span>
-                      {unreadNotificationsCount > 0 && (
-                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white px-1">
-                          {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
+                {/* Mobile Alerts Button (Navigates to notifications page) */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/notifications")}
+                  className={cn(
+                    "relative h-9 px-2 rounded-lg text-neutral-600 md:hidden",
+                    pathname === "/notifications" ? "text-primary bg-primary/5" : ""
+                  )}
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadNotificationsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white px-1">
+                      {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
+                    </span>
+                  )}
+                </Button>
+
+                {/* Desktop Alerts Dropdown */}
+                <div className="hidden md:block">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                          "relative h-9 px-3 rounded-lg text-neutral-600",
+                          pathname === "/notifications" ? "text-primary bg-primary/5" : ""
+                        )}
+                      >
+                        <Bell className="h-4 w-4 mr-2" />
+                        <span className="font-bold text-[13px]">
+                          Alerts
                         </span>
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-[calc(100vw-32px)] max-w-sm sm:w-96 sm:max-w-none mt-2 rounded-xl shadow-xl border-neutral-200 p-0 overflow-hidden bg-white text-neutral-900"
-                  >
-                    <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-100">
-                      <span className="text-sm font-bold text-neutral-900">Notifications</span>
-                      {unreadNotificationsCount > 0 && (
-                        <button
-                          onClick={handleMarkAllAsRead}
-                          className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
-                        >
-                          <CheckCheck className="h-3.5 w-3.5" />
-                          Mark all as read
-                        </button>
-                      )}
-                    </div>
+                        {unreadNotificationsCount > 0 && (
+                          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white px-1">
+                            {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
+                          </span>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
                     
-                    <div className="max-h-[350px] overflow-y-auto no-scrollbar py-1 divide-y divide-neutral-100">
-                      {notifications.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-xs font-semibold text-neutral-400">
-                          No new notifications yet.
-                        </div>
-                      ) : (
-                        notifications.map((n) => (
-                          <div
-                            key={n.id}
-                            onClick={() => handleNotificationClick(n)}
-                            className={cn(
-                              "px-4 py-3 hover:bg-neutral-50 transition-colors cursor-pointer flex gap-3 items-start relative",
-                              !n.is_read ? "bg-indigo-50/20" : ""
-                            )}
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-96 mt-2 rounded-xl shadow-xl border-neutral-200 p-0 overflow-hidden bg-white text-neutral-900"
+                    >
+                      <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-100">
+                        <span className="text-sm font-bold text-neutral-900">Notifications</span>
+                        {unreadNotificationsCount > 0 && (
+                          <button
+                            onClick={handleMarkAllAsRead}
+                            className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
                           >
-                            <div className="mt-0.5 shrink-0">
-                              {(n.type === 'COMMENT_RECEIVED' || n.type === 'COMMENT_REPLY') && (
-                                <MessageSquare className="h-4 w-4 text-indigo-500" />
-                              )}
-                              {n.type === 'POST_VOUCHED' && (
-                                <Shield className="h-4 w-4 text-indigo-600" />
-                              )}
-                              {n.type === 'MESSAGE_RECEIVED' && (
-                                <MessageCircle className="h-4 w-4 text-emerald-500" />
-                              )}
-                            </div>
-                            
-                            <div className="flex-1 space-y-1 min-w-0">
-                              <p className={cn(
-                                "text-xs text-neutral-700 leading-normal break-words",
-                                !n.is_read ? "font-bold text-neutral-900" : "font-medium"
-                              )}>
-                                {getNotificationText(n)}
-                              </p>
-                              <p className="text-[10px] text-neutral-400 font-semibold">
-                                {formatRelativeTime(n.created_at)}
-                              </p>
-                            </div>
-                            
-                            {!n.is_read && (
-                              <div className="h-2 w-2 rounded-full bg-indigo-600 mt-2 shrink-0" />
-                            )}
+                            <CheckCheck className="h-3.5 w-3.5" />
+                            Mark all as read
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="max-h-[350px] overflow-y-auto no-scrollbar py-1 divide-y divide-neutral-100">
+                        {notifications.length === 0 ? (
+                          <div className="px-4 py-8 text-center text-xs font-semibold text-neutral-400">
+                            No new notifications yet.
                           </div>
-                        ))
-                      )}
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                        ) : (
+                          notifications.map((n) => (
+                            <div
+                              key={n.id}
+                              onClick={() => handleNotificationClick(n)}
+                              className={cn(
+                                "px-4 py-3 hover:bg-neutral-50 transition-colors cursor-pointer flex gap-3 items-start relative",
+                                !n.is_read ? "bg-indigo-50/20" : ""
+                              )}
+                            >
+                              <div className="mt-0.5 shrink-0">
+                                {(n.type === 'COMMENT_RECEIVED' || n.type === 'COMMENT_REPLY') && (
+                                  <MessageSquare className="h-4 w-4 text-indigo-500" />
+                                )}
+                                {n.type === 'POST_VOUCHED' && (
+                                  <Shield className="h-4 w-4 text-indigo-600" />
+                                )}
+                                {n.type === 'MESSAGE_RECEIVED' && (
+                                  <MessageCircle className="h-4 w-4 text-emerald-500" />
+                                )}
+                              </div>
+                              
+                              <div className="flex-1 space-y-1 min-w-0">
+                                <p className={cn(
+                                  "text-xs text-neutral-700 leading-normal break-words",
+                                  !n.is_read ? "font-bold text-neutral-900" : "font-medium"
+                                )}>
+                                  {getNotificationText(n)}
+                                </p>
+                                <p className="text-[10px] text-neutral-400 font-semibold">
+                                  {formatRelativeTime(n.created_at)}
+                                </p>
+                              </div>
+                              
+                              {!n.is_read && (
+                                <div className="h-2 w-2 rounded-full bg-indigo-600 mt-2 shrink-0" />
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
                 {/* Admin */}
                 {user.is_admin && (

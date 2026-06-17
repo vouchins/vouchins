@@ -527,9 +527,90 @@ function FeedContent() {
   );
 }
 
+function FeedSkeleton() {
+  return (
+    <div className="min-h-screen bg-neutral-50/50">
+      {/* Skeleton Navigation Header */}
+      <header className="h-16 border-b border-neutral-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="container mx-auto px-4 h-full flex items-center justify-between">
+          <Skeleton className="h-7 w-28 rounded-lg" />
+          <div className="hidden md:flex flex-1 max-w-md mx-auto">
+            <Skeleton className="h-10 w-full rounded-full" />
+          </div>
+          <div className="flex items-center space-x-2">
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <Skeleton className="h-9 w-9 rounded-full" />
+            <Skeleton className="h-9 w-9 rounded-full" />
+          </div>
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 max-w-7xl pt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Sidebar Skeleton */}
+          <div className="hidden lg:block lg:col-span-3 xl:col-span-3 space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-neutral-200/60 space-y-4">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <Skeleton className="h-5 w-3/4 rounded" />
+              <Skeleton className="h-4 w-1/2 rounded" />
+              <div className="pt-4 space-y-2">
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-full rounded" />
+              </div>
+            </div>
+          </div>
+
+          {/* Main Feed Skeletons */}
+          <main className="col-span-1 lg:col-span-6 xl:col-span-6 space-y-5 pb-20">
+            {/* Create Post Widget Skeleton */}
+            <div className="bg-white rounded-2xl p-4 border border-neutral-200/60 flex items-center space-x-3">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <Skeleton className="h-10 flex-1 rounded-xl" />
+            </div>
+
+            {/* Post Feed Cards */}
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white rounded-2xl p-6 border border-neutral-200/60 space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-4 w-1/3 rounded" />
+                      <Skeleton className="h-3 w-1/4 rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-11/12 rounded" />
+                  <Skeleton className="h-20 w-full rounded-xl" />
+                  <div className="flex justify-between items-center pt-3 border-t border-neutral-100">
+                    <Skeleton className="h-8 w-20 rounded-lg" />
+                    <Skeleton className="h-8 w-20 rounded-lg" />
+                    <Skeleton className="h-8 w-20 rounded-lg" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </main>
+
+          {/* Right Sidebar Skeleton */}
+          <div className="hidden lg:block lg:col-span-3 xl:col-span-3 space-y-4">
+            <div className="bg-white rounded-2xl p-6 border border-neutral-200/60 space-y-4">
+              <Skeleton className="h-5 w-1/2 rounded" />
+              <Skeleton className="h-4 w-3/4 rounded" />
+              <div className="space-y-3 pt-2">
+                <Skeleton className="h-12 w-full rounded-xl" />
+                <Skeleton className="h-12 w-full rounded-xl" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FeedPage() {
   return (
-    <Suspense fallback={<div>Loading Feed...</div>}>
+    <Suspense fallback={<FeedSkeleton />}>
       <FeedContent />
     </Suspense>
   );
