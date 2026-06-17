@@ -254,7 +254,7 @@ export default function NotificationsPage() {
                         key={n.id}
                         onClick={() => handleNotificationClick(n)}
                         className={cn(
-                          "px-6 py-4.5 hover:bg-neutral-50/80 transition-all cursor-pointer flex gap-4 items-start relative select-none",
+                          "px-6 py-5 hover:bg-neutral-50/80 transition-all cursor-pointer flex gap-4 items-start relative select-none",
                           !n.is_read ? "bg-indigo-50/15" : ""
                         )}
                       >

@@ -406,7 +406,7 @@ function NavigationContent() {
                               key={n.id}
                               onClick={() => handleNotificationClick(n)}
                               className={cn(
-                                "px-4 py-3 hover:bg-neutral-50 transition-colors cursor-pointer flex gap-3 items-start relative",
+                                "px-5 py-4 hover:bg-neutral-50 transition-colors cursor-pointer flex gap-3.5 items-start relative",
                                 !n.is_read ? "bg-indigo-50/20" : ""
                               )}
                             >
