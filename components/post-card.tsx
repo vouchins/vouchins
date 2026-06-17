@@ -818,7 +818,7 @@ export function PostCard({
       {showComments && post.comments && post.comments.length > 0 && (
         <div className="mt-4 pt-4 border-t border-neutral-50 ml-[52px] space-y-4">
           {post.comments.map((comment) => (
-            <div key={comment.id} className="group">
+            <div key={comment.id} id={`comment-${comment.id}`} className="group p-2 rounded-lg transition-all duration-300">
               <div className="flex items-center gap-2 mb-1">
                 <Link
                   href={`/users/${comment.user.id}`}

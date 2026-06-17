@@ -95,6 +95,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
         setUser(formattedUser);
 
+        // Throttled last_seen activity tracking (at most once every 5 minutes)
+        if (typeof window !== "undefined") {
+          const lastUpdatedKey = `last_seen_updated_${data.id}`;
+          const lastUpdated = localStorage.getItem(lastUpdatedKey);
+          const now = Date.now();
+          if (!lastUpdated || now - parseInt(lastUpdated) > 5 * 60 * 1000) {
+            localStorage.setItem(lastUpdatedKey, now.toString());
+            supabase
+              .from("users")
+              .update({ last_seen: new Date().toISOString() })
+              .eq("id", data.id)
+              .then(({ error }) => {
+                if (error) console.error("Error updating last_seen:", error);
+              });
+          }
+        }
+
         // Fetch unread messages count
         const { count } = await supabase
           .from("messages")

@@ -92,6 +92,24 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
     loadPost();
   }, [fetchCurrentUser, loadPost]);
 
+  useEffect(() => {
+    if (post && typeof window !== "undefined" && window.location.hash) {
+      const elementId = window.location.hash.slice(1);
+      if (elementId.startsWith("comment-")) {
+        setTimeout(() => {
+          const element = document.getElementById(elementId);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            element.classList.add("bg-indigo-50/55");
+            setTimeout(() => {
+              element.classList.remove("bg-indigo-50/55");
+            }, 3000);
+          }
+        }, 800);
+      }
+    }
+  }, [post]);
+
   // Handle updates (e.g. comments, edits, deletes)
   const handlePostUpdated = async () => {
     try {

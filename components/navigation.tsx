@@ -22,11 +22,15 @@ import {
   Briefcase,
   Bookmark,
   Share2,
+  Bell,
+  MessageSquare,
+  CheckCheck,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 
 import { useUser } from "@/components/user-provider";
 import { InviteDialog, triggerNativeShare } from "@/components/invite-dialog";
@@ -63,9 +67,136 @@ function NavigationContent() {
   const { user, loading, unreadCount } = useUser();
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState<number>(0);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+
+  const fetchNotificationsList = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("notifications")
+      .select(`
+        id,
+        type,
+        entity_id,
+        entity_type,
+        is_read,
+        created_at,
+        metadata,
+        actor:users!notifications_actor_id_fkey(id, full_name, avatar_url)
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (data && !error) {
+      setNotifications(data);
+    }
+  };
+
+  const fetchUnreadNotificationsCount = async () => {
+    if (!user) return;
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    
+    if (count !== null && !error) {
+      setUnreadNotificationsCount(count);
+    }
+  };
+
+  const handleMarkAllAsRead = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) return;
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    
+    if (!error) {
+      setUnreadNotificationsCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    }
+  };
+
+  const handleNotificationClick = async (n: any) => {
+    if (!n.is_read) {
+      supabase
+        .from("notifications")
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq("id", n.id)
+        .then(() => {
+          fetchUnreadNotificationsCount();
+          setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true } : item));
+        });
+    }
+    
+    if (n.type === 'MESSAGE_RECEIVED') {
+      router.push(`/messages/${n.actor?.id || n.entity_id}`);
+    } else if (n.type === 'COMMENT_RECEIVED' || n.type === 'POST_VOUCHED') {
+      router.push(`/posts/${n.entity_id}`);
+    } else if (n.type === 'COMMENT_REPLY') {
+      router.push(`/posts/${n.metadata?.post_id || n.entity_id}#comment-${n.entity_id}`);
+    }
+  };
+
+  const getNotificationText = (n: any) => {
+    const actorName = n.actor?.full_name || "Someone";
+    switch (n.type) {
+      case "COMMENT_RECEIVED":
+        return `${actorName} commented on your post.`;
+      case "COMMENT_REPLY":
+        return `${actorName} replied to your comment.`;
+      case "POST_VOUCHED":
+        return `${actorName} vouched your post.`;
+      case "MESSAGE_RECEIVED":
+        return `${actorName} sent you a message.`;
+      default:
+        return `${actorName} performed an action.`;
+    }
+  };
+
+  const formatRelativeTime = (dateStr: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
+    } catch (e) {
+      return "just now";
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+
+    fetchUnreadNotificationsCount();
+    fetchNotificationsList();
+
+    const channel = supabase
+      .channel("public:notifications")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchUnreadNotificationsCount();
+          fetchNotificationsList();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user]);
 
   /* ---------------- Search Handler ---------------- */
   const handleSearch = (e: React.FormEvent) => {
@@ -204,6 +335,94 @@ function NavigationContent() {
                     </span>
                   )}
                 </Button>
+
+                {/* Notifications Bell */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={cn(
+                        "relative h-9 px-2 sm:px-3 rounded-lg text-neutral-600"
+                      )}
+                    >
+                      <Bell className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline font-bold text-[13px]">
+                        Alerts
+                      </span>
+                      {unreadNotificationsCount > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white px-1">
+                          {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-80 sm:w-96 mt-2 rounded-xl shadow-xl border-neutral-200 p-0 overflow-hidden bg-white text-neutral-900"
+                  >
+                    <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-100">
+                      <span className="text-sm font-bold text-neutral-900">Notifications</span>
+                      {unreadNotificationsCount > 0 && (
+                        <button
+                          onClick={handleMarkAllAsRead}
+                          className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1"
+                        >
+                          <CheckCheck className="h-3.5 w-3.5" />
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="max-h-[350px] overflow-y-auto no-scrollbar py-1 divide-y divide-neutral-100">
+                      {notifications.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-xs font-semibold text-neutral-400">
+                          No new notifications yet.
+                        </div>
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => handleNotificationClick(n)}
+                            className={cn(
+                              "px-4 py-3 hover:bg-neutral-50 transition-colors cursor-pointer flex gap-3 items-start relative",
+                              !n.is_read ? "bg-indigo-50/20" : ""
+                            )}
+                          >
+                            <div className="mt-0.5 shrink-0">
+                              {(n.type === 'COMMENT_RECEIVED' || n.type === 'COMMENT_REPLY') && (
+                                <MessageSquare className="h-4 w-4 text-indigo-500" />
+                              )}
+                              {n.type === 'POST_VOUCHED' && (
+                                <Shield className="h-4 w-4 text-indigo-600" />
+                              )}
+                              {n.type === 'MESSAGE_RECEIVED' && (
+                                <MessageCircle className="h-4 w-4 text-emerald-500" />
+                              )}
+                            </div>
+                            
+                            <div className="flex-1 space-y-1 min-w-0">
+                              <p className={cn(
+                                "text-xs text-neutral-700 leading-normal break-words",
+                                !n.is_read ? "font-bold text-neutral-900" : "font-medium"
+                              )}>
+                                {getNotificationText(n)}
+                              </p>
+                              <p className="text-[10px] text-neutral-400 font-semibold">
+                                {formatRelativeTime(n.created_at)}
+                              </p>
+                            </div>
+                            
+                            {!n.is_read && (
+                              <div className="h-2 w-2 rounded-full bg-indigo-600 mt-2 shrink-0" />
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {/* Admin */}
                 {user.is_admin && (

@@ -35,6 +35,7 @@ import {
 import { Navigation } from "@/components/navigation";
 import { ChangeCompanyModal } from "@/components/change-company-modal";
 import { ProfileCompletionWidget } from "@/components/profile-completion-widget";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const getHighestBadge = (count: number) => {
   if (count >= 50) return { name: "Founding Connector", icon: "🏆" };
@@ -65,6 +66,9 @@ export default function UserProfilePage() {
     personal_email: "",
     phone_country_code: "+91",
     phone_number: "",
+    pref_email_messages: true,
+    pref_email_comments: true,
+    pref_email_digest: true,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isChangeCompanyOpen, setIsChangeCompanyOpen] = useState(false);
@@ -148,7 +152,7 @@ export default function UserProfilePage() {
       ] = await Promise.all([
         supabase
           .from("users")
-          .select("id, full_name, city, created_at, linkedin_url, bio, personal_email, avatar_url, phone_number, is_verified, vouch_points, company:companies(name, domain)")
+          .select("id, full_name, city, created_at, linkedin_url, bio, personal_email, avatar_url, phone_number, is_verified, vouch_points, pref_email_messages, pref_email_comments, pref_email_digest, company:companies(name, domain)")
           .eq("id", id)
           .maybeSingle(),
         supabase.rpc("get_vouch_score", { profile_id: id }),
@@ -188,6 +192,9 @@ export default function UserProfilePage() {
         personal_email: profileData.personal_email || "",
         phone_country_code: parsedPhone.code,
         phone_number: parsedPhone.num,
+        pref_email_messages: profileData.pref_email_messages ?? true,
+        pref_email_comments: profileData.pref_email_comments ?? true,
+        pref_email_digest: profileData.pref_email_digest ?? true,
       });
 
       if (vouchData) setHasVouchedProfile(true);
@@ -300,11 +307,23 @@ export default function UserProfilePage() {
         linkedin_url: formDraft.linkedin_url.trim(),
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
+        pref_email_messages: formDraft.pref_email_messages,
+        pref_email_comments: formDraft.pref_email_comments,
+        pref_email_digest: formDraft.pref_email_digest,
       })
       .eq("id", me.id);
 
     if (!error) {
-      setProfile({ ...profile, ...formDraft });
+      setProfile({ 
+        ...profile, 
+        bio: formDraft.bio.trim(),
+        linkedin_url: formDraft.linkedin_url.trim(),
+        personal_email: formDraft.personal_email.trim(),
+        phone_number: fullPhone,
+        pref_email_messages: formDraft.pref_email_messages,
+        pref_email_comments: formDraft.pref_email_comments,
+        pref_email_digest: formDraft.pref_email_digest,
+      });
       setIsEditing(false);
     } else {
       alert("Failed to save profile.");
@@ -698,6 +717,53 @@ export default function UserProfilePage() {
                   </div>
                 </div>
 
+                <hr className="border-neutral-100 my-4" />
+                
+                <div className="space-y-4">
+                  <h4 className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Email Notification Preferences</h4>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        id="pref_email_messages"
+                        checked={formDraft.pref_email_messages}
+                        onCheckedChange={(checked) => 
+                          setFormDraft({ ...formDraft, pref_email_messages: !!checked })
+                        }
+                      />
+                      <label htmlFor="pref_email_messages" className="text-sm font-semibold text-neutral-700 cursor-pointer select-none">
+                        Email reminders for unread messages
+                      </label>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        id="pref_email_comments"
+                        checked={formDraft.pref_email_comments}
+                        onCheckedChange={(checked) => 
+                          setFormDraft({ ...formDraft, pref_email_comments: !!checked })
+                        }
+                      />
+                      <label htmlFor="pref_email_comments" className="text-sm font-semibold text-neutral-700 cursor-pointer select-none">
+                        Email reminders for comments and replies
+                      </label>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        id="pref_email_digest"
+                        checked={formDraft.pref_email_digest}
+                        onCheckedChange={(checked) => 
+                          setFormDraft({ ...formDraft, pref_email_digest: !!checked })
+                        }
+                      />
+                      <label htmlFor="pref_email_digest" className="text-sm font-semibold text-neutral-700 cursor-pointer select-none">
+                        Receive daily activity digest email
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-2 pt-6 justify-end border-t border-neutral-100">
                   <Button
                     size="sm"
@@ -710,6 +776,9 @@ export default function UserProfilePage() {
                         personal_email: profile.personal_email || "",
                         phone_country_code: parsedPhone.code,
                         phone_number: parsedPhone.num,
+                        pref_email_messages: profile.pref_email_messages ?? true,
+                        pref_email_comments: profile.pref_email_comments ?? true,
+                        pref_email_digest: profile.pref_email_digest ?? true,
                       });
                       setIsEditing(false);
                     }}
