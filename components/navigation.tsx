@@ -360,7 +360,7 @@ function NavigationContent() {
                   
                   <DropdownMenuContent
                     align="end"
-                    className="w-80 sm:w-96 mt-2 rounded-xl shadow-xl border-neutral-200 p-0 overflow-hidden bg-white text-neutral-900"
+                    className="w-[calc(100vw-32px)] max-w-sm sm:w-96 sm:max-w-none mt-2 rounded-xl shadow-xl border-neutral-200 p-0 overflow-hidden bg-white text-neutral-900"
                   >
                     <div className="flex items-center justify-between px-4 py-3 bg-neutral-50 border-b border-neutral-100">
                       <span className="text-sm font-bold text-neutral-900">Notifications</span>
