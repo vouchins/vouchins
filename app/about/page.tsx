@@ -49,6 +49,7 @@ export default function AboutPage() {
                 the same issues many professionals do when moving to a new city
                 or looking for reliable services: endless scams, intrusive
                 brokers, and anonymous marketplaces where trust is a luxury.
+                We realized that existing platforms lack the necessary identity verification to prevent fraud and spam. We built Vouchins not just as a network, but as a secure identity layer—where your professional reputation guarantees a safe, scam-free marketplace.
               </p>
               <div className="border-l-4 border-indigo-500 pl-4 py-1 bg-white/50 rounded-r-lg">
                 <p className="font-medium text-neutral-900 italic">
@@ -92,7 +93,7 @@ export default function AboutPage() {
               A Verified Community
             </h2>
             <p className="text-lg font-medium text-neutral-800">
-              To build a verified community that empowers professionals to facilitate high value transactions with total accountability
+              To build the foundational trust infrastructure for professionals, empowering them to facilitate high-value transactions and connections with total security and accountability.
             </p>
             <p>
               We eliminate broker interference and marketplace scams by creating

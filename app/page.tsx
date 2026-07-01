@@ -141,7 +141,7 @@ export default function Home() {
 
                 {/* Subheadline */}
                 <p className="text-base md:text-lg text-neutral-400 max-w-lg font-light leading-relaxed">
-                  A verified professional network to <span className="text-white font-normal">transact</span>, <span className="text-white font-normal">grow careers</span>, <span className="text-white font-normal">share knowledge</span>, and build <span className="text-white font-normal">trusted connections</span> — without spam, fake profiles, or anonymous noise.
+                  The secure identity infrastructure for professionals. <span className="text-white font-normal">Transact</span>, <span className="text-white font-normal">collaborate</span>, and <span className="text-white font-normal">connect</span> in a verified ecosystem designed to eliminate fraud, spam, and anonymity through strict corporate accountability.
                 </p>
 
                 {/* CTAs */}
@@ -378,10 +378,10 @@ export default function Home() {
                 </h2>
 
                 <p className="text-neutral-300 leading-relaxed font-light text-sm md:text-base">
-                  Fake profiles, AI-generated identities, and anonymous platforms are making it harder to trust anyone online.
+                  Fake profiles, AI-generated identities, and anonymous platforms are making it harder to trust anyone online. Our closed ecosystem actively prevents fraud, scams, and broker interference.
                 </p>
                 <p className="text-neutral-300 leading-relaxed font-light text-sm md:text-base">
-                  Vouchins brings verification, reputation, and accountability back to the internet.
+                  By anchoring interactions to real professional identities, Vouchins provides the secure identity infrastructure that brings accountability back to the internet.
                 </p>
               </div>
 
