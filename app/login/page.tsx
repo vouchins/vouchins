@@ -23,6 +23,7 @@ export default function LoginPage() {
     setError("");
     const res = await fetch("/api/auth/oauth", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ provider: "google" }),
     });
 
@@ -39,6 +40,7 @@ export default function LoginPage() {
     setError("");
     const res = await fetch("/api/auth/oauth", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ provider: "linkedin_oidc" }),
     });
 
