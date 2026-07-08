@@ -141,7 +141,7 @@ export default function Home() {
 
                 {/* Subheadline */}
                 <p className="text-base md:text-lg text-neutral-400 max-w-lg font-light leading-relaxed">
-                  The secure identity infrastructure for professionals. <span className="text-white font-normal">Transact</span>, <span className="text-white font-normal">collaborate</span>, and <span className="text-white font-normal">connect</span> in a verified ecosystem designed to eliminate fraud, spam, and anonymity through strict corporate accountability.
+                  The secure identity infrastructure for experienced professionals. Find verified job opportunities, transact, and connect in an ecosystem where every member has real corporate work experience - verified to the same standard your employer already trusts.
                 </p>
 
                 {/* CTAs */}
@@ -483,7 +483,7 @@ export default function Home() {
                   <div className="space-y-1">
                     <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Jobs & Referrals</h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Discover verified opportunities.
+                      Get matched with roles from verified recruiting agencies and referrals from employees who actually work there - no fake job posts, no ghost listings.
                     </p>
                   </div>
                 </div>
@@ -555,6 +555,56 @@ export default function Home() {
 
               </div>
 
+            </div>
+          </div>
+        </section>
+
+        {/* ==================================================
+            SECTION 4.25 — WHY CORPORATE EMAIL
+            ================================================== */}
+        <section className="py-24 bg-white relative">
+          <div className="container mx-auto px-6 max-w-6xl">
+            <div className="space-y-4 text-center mb-16 flex flex-col items-center">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A1B5C]/5 border border-[#0A1B5C]/10 text-[#0A1B5C] text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+                Why Corporate Email
+              </div>
+              <h2 className="text-3xl md:text-4xl font-extrabold text-[#020617] tracking-tight leading-tight">
+                Not just an email check.<br />
+                <span className="text-[#0A1B5C]">Inherited trust.</span>
+              </h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 items-stretch justify-center gap-6">
+              {/* Column 1 */}
+              <div className="w-full bg-[#F8FAFC] border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm space-y-4 flex flex-col">
+                <h3 className="text-slate-900 font-bold text-lg">Already Background-Checked</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Every corporate email holder has already cleared their employer&apos;s hiring 
+                  process - identity verification, employment checks, and in most companies, a 
+                  formal background check. Vouchins inherits that trust instead of starting from 
+                  zero, unlike anonymous platforms where anyone can sign up with any email.
+                </p>
+              </div>
+
+              {/* Column 2 */}
+              <div className="w-full bg-[#F8FAFC] border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm space-y-4 flex flex-col">
+                <h3 className="text-slate-900 font-bold text-lg">Proof of Real Experience</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Only people with active work experience hold a corporate email address. 
+                  A corporate domain isn&apos;t just an identity check - it&apos;s proof you&apos;re a working 
+                  professional, not an anonymous or fabricated account.
+                </p>
+              </div>
+
+              {/* Column 3 */}
+              <div className="w-full bg-[#F8FAFC] border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm space-y-4 flex flex-col">
+                <h3 className="text-slate-900 font-bold text-lg">Why It Matters to Recruiters</h3>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  For HR teams and staffing agencies, this means every candidate or 
+                  referral sourced through Vouchins already carries verified, employed, 
+                  background-checked credibility - before you even open their profile.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -734,6 +784,49 @@ export default function Home() {
             </div>
           </div>
         </section> */}
+
+        {/* ==================================================
+            SECTION 6.5 — FOR RECRUITERS
+            ================================================== */}
+        <section className="py-24 bg-white relative">
+          <div className="container mx-auto px-6 max-w-6xl">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+              <div className="lg:col-span-12 space-y-6 text-center flex flex-col items-center mx-auto max-w-3xl">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A1B5C]/5 text-[#0A1B5C] text-xs font-bold uppercase tracking-wider">
+                  For Recruiters & Companies
+                </div>
+                <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-[#020617] leading-tight">
+                  Hire from a pool that&apos;s already verified.
+                </h2>
+                <p className="text-neutral-500 font-light text-sm md:text-base leading-relaxed">
+                  Every candidate on Vouchins is anchored to a real corporate email - 
+                  meaning they&apos;ve already passed their current employer&apos;s background checks and 
+                  bring real, verifiable work experience. Post roles or search referrals without 
+                  sorting through fake resumes and unverifiable claims.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+                  <Link href="/business">
+                    <Button
+                      size="lg"
+                      className="bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white font-bold text-sm uppercase tracking-wider px-8 py-6 rounded-2xl transition-all shadow-xl shadow-[#0A1B5C]/15 hover:-translate-y-0.5 border-none"
+                    >
+                      For Recruiters & Companies
+                    </Button>
+                  </Link>
+                  <Link href="/recruiter/login">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-[#0A1B5C]/20 hover:bg-[#0A1B5C]/5 text-[#0A1B5C] font-bold text-sm uppercase tracking-wider px-8 py-6 rounded-2xl transition-all hover:-translate-y-0.5"
+                    >
+                      Recruiter Login
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* ==================================================
             SECTION 7 — FINAL CTA

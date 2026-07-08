@@ -49,7 +49,7 @@ export default function AboutPage() {
                 the same issues many professionals do when moving to a new city
                 or looking for reliable services: endless scams, intrusive
                 brokers, and anonymous marketplaces where trust is a luxury.
-                We realized that existing platforms lack the necessary identity verification to prevent fraud and spam. We built Vouchins not just as a network, but as a secure identity layer—where your professional reputation guarantees a safe, scam-free marketplace.
+                We realized that existing platforms lack the necessary identity verification to prevent fraud and spam. We built Vouchins not just as a network, but as a secure identity layer - where your professional reputation guarantees a safe, scam-free marketplace.
               </p>
               <div className="border-l-4 border-indigo-500 pl-4 py-1 bg-white/50 rounded-r-lg">
                 <p className="font-medium text-neutral-900 italic">
@@ -78,7 +78,7 @@ export default function AboutPage() {
             </p>
             <p>
               We realized that the most reliable recommendations don&apos;t come
-              from star ratings—they come from people we work with. Whether you
+              from star ratings - they come from people we work with. Whether you
               are finding a flatmate in Gachibowli or hiring a driver, a
               colleague&apos;s &quot;vouch&quot; is worth more than a thousand
               anonymous reviews.

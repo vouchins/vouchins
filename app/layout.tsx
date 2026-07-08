@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: "%s | Vouchins",
   },
   description:
-    "The trusted private marketplace and network for verified corporate professionals.",
+    "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "Vouchins",
-    description: "Verified Professional Network",
+    description: "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
     url: "https://www.vouchins.com",
     siteName: "Vouchins",
     images: [
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Vouchins - Verified Professional Network",
-    description: "The private marketplace for verified corporate employees.",
+    description: "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
     images: ["/images/logo.png"],
   },
   icons: {
@@ -73,7 +73,7 @@ export default function RootLayout({
     name: "Vouchins",
     url: "https://www.vouchins.com",
     logo: "https://www.vouchins.com/images/logo.png",
-    description: "The trusted private marketplace and network for verified corporate professionals to buy, sell, and connect safely.",
+    description: "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
   };
 
   return (
