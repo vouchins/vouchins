@@ -33,7 +33,9 @@ import {
   X,
   Check,
   Car,
-  Award
+  Award,
+  Fingerprint,
+  Mail
 } from "lucide-react";
 
 export default function Home() {
@@ -140,7 +142,7 @@ export default function Home() {
                 </h1>
 
                 {/* Subheadline */}
-                <p className="text-base md:text-lg text-neutral-400 max-w-lg font-light leading-relaxed">
+                <p className="text-sm md:text-base text-slate-300 max-w-lg font-normal leading-relaxed tracking-wide animate-fade-in">
                   The secure identity infrastructure for experienced professionals. Find verified job opportunities, transact, and connect in an ecosystem where every member has real corporate work experience - verified to the same standard your employer already trusts.
                 </p>
 
@@ -362,12 +364,16 @@ export default function Home() {
         {/* ==================================================
             SECTION 3 — WHY NOW (LIGHT BACKGROUND COMPARISON)
             ================================================== */}
-        <section className="py-24 bg-gradient-to-b from-[#020617] via-[#09112E] to-slate-50 relative">
-          <div className="container mx-auto px-6 max-w-6xl">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
+        <section className="py-16 bg-[#020617] relative overflow-hidden border-b border-white/5">
+          {/* Subtle grid background */}
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff01_1px,transparent_1px),linear-gradient(to_bottom,#ffffff01_1px,transparent_1px)] bg-[size:3rem_3rem] pointer-events-none" />
+          <div className="absolute top-1/2 left-1/4 w-[400px] h-[400px] bg-[#4FD1C5]/5 rounded-full blur-[120px] pointer-events-none" />
+
+          <div className="container mx-auto px-6 max-w-6xl relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
 
               {/* Left Side */}
-              <div className="lg:col-span-5 space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start">
+              <div className="lg:col-span-5 space-y-5 text-center lg:text-left flex flex-col items-center lg:items-start">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
                   Why Now
                 </div>
@@ -377,21 +383,24 @@ export default function Home() {
                   digital <span className="bg-gradient-to-r from-[#4FD1C5] to-[#26c6da] bg-clip-text text-transparent font-black">trust.</span>
                 </h2>
 
-                <p className="text-neutral-300 leading-relaxed font-light text-sm md:text-base">
-                  Fake profiles, AI-generated identities, and anonymous platforms are making it harder to trust anyone online. Our closed ecosystem actively prevents fraud, scams, and broker interference.
-                </p>
-                <p className="text-neutral-300 leading-relaxed font-light text-sm md:text-base">
-                  By anchoring interactions to real professional identities, Vouchins provides the secure identity infrastructure that brings accountability back to the internet.
-                </p>
+                <div className="space-y-4">
+                  <p className="text-slate-400 leading-relaxed font-normal text-sm md:text-base">
+                    Fake profiles, AI-generated identities, and anonymous platforms are making it harder to trust anyone online. Our closed ecosystem actively prevents fraud, scams, and broker interference.
+                  </p>
+                  <p className="text-slate-400 leading-relaxed font-normal text-sm md:text-base">
+                    By anchoring interactions to real professional identities, Vouchins provides the secure identity infrastructure that brings accountability back to the internet.
+                  </p>
+                </div>
               </div>
 
               {/* Right Side - Comparison Grid */}
               <div className="lg:col-span-7 flex flex-col md:flex-row items-stretch justify-center gap-6 relative">
 
                 {/* Problems Card */}
-                <div className="w-full bg-[#FFF5F5] border border-red-100 rounded-3xl p-6 md:p-8 shadow-2xl shadow-black/20 space-y-6 flex flex-col justify-between">
+                <div className="w-full bg-[#0d1527]/80 border border-red-500/10 rounded-3xl p-6 md:p-8 shadow-[0_0_30px_rgba(239,68,68,0.02)] space-y-6 flex flex-col justify-between hover:border-red-500/20 transition-all duration-300">
                   <div>
-                    <div className="text-red-600 font-extrabold text-xs uppercase tracking-wider mb-4">
+                    <div className="text-red-400 font-extrabold text-xs uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
                       Problem today
                     </div>
                     <ul className="space-y-5">
@@ -403,12 +412,12 @@ export default function Home() {
                       ].map((item, idx) => (
                         <li key={idx} className="flex items-center justify-between py-0.5">
                           <div className="flex items-center gap-3">
-                            <span className="h-8 w-8 rounded-full bg-red-100/80 text-red-600 flex items-center justify-center shrink-0">
+                            <span className="h-8 w-8 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center shrink-0">
                               <item.icon className="h-4 w-4" />
                             </span>
-                            <span className="text-[13px] font-bold text-red-950">{item.name}</span>
+                            <span className="text-[13px] font-semibold text-slate-300">{item.name}</span>
                           </div>
-                          <X className="h-4 w-4 text-red-500 font-bold" />
+                          <X className="h-4 w-4 text-red-500/50 font-bold" />
                         </li>
                       ))}
                     </ul>
@@ -416,14 +425,15 @@ export default function Home() {
                 </div>
 
                 {/* Arrow Connector */}
-                <div className="hidden md:flex shrink-0 h-10 w-10 items-center justify-center bg-white border border-neutral-200 shadow-lg rounded-full z-10 text-neutral-400 self-center">
-                  <ArrowRight className="h-5 w-5" />
+                <div className="hidden md:flex shrink-0 h-10 w-10 items-center justify-center bg-[#09112E] border border-white/10 shadow-lg rounded-full z-10 text-neutral-400 self-center">
+                  <ArrowRight className="h-5 w-5 text-[#4FD1C5]" />
                 </div>
 
                 {/* Solutions Card */}
-                <div className="w-full bg-[#F0FDF4] border border-emerald-100 rounded-3xl p-6 md:p-8 shadow-2xl shadow-black/20 space-y-6 flex flex-col justify-between">
+                <div className="w-full bg-[#0d1527]/80 border border-emerald-500/10 rounded-3xl p-6 md:p-8 shadow-[0_0_30px_rgba(16,185,129,0.02)] space-y-6 flex flex-col justify-between hover:border-emerald-500/20 transition-all duration-300">
                   <div>
-                    <div className="text-emerald-700 font-extrabold text-xs uppercase tracking-wider mb-4">
+                    <div className="text-emerald-400 font-extrabold text-xs uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                       With Vouchins
                     </div>
                     <ul className="space-y-5">
@@ -435,10 +445,10 @@ export default function Home() {
                       ].map((item, idx) => (
                         <li key={idx} className="flex items-center justify-between py-0.5">
                           <div className="flex items-center gap-3">
-                            <span className="h-8 w-8 rounded-full bg-emerald-100/80 text-emerald-600 flex items-center justify-center shrink-0">
+                            <span className="h-8 w-8 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
                               <item.icon className="h-4 w-4" />
                             </span>
-                            <span className="text-[13px] font-bold text-emerald-950">{item.name}</span>
+                            <span className="text-[13px] font-semibold text-slate-300">{item.name}</span>
                           </div>
                           <Check className="h-4 w-4 text-emerald-600 font-bold" />
                         </li>
@@ -483,7 +493,7 @@ export default function Home() {
                   <div className="space-y-1">
                     <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Jobs & Referrals</h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Get matched with roles from verified recruiting agencies and referrals from employees who actually work there - no fake job posts, no ghost listings.
+                      Get matched with verified roles - real recruiters, real referrals, no ghost listings
                     </p>
                   </div>
                 </div>
@@ -562,48 +572,64 @@ export default function Home() {
         {/* ==================================================
             SECTION 4.25 — WHY CORPORATE EMAIL
             ================================================== */}
-        <section className="py-24 bg-white relative">
-          <div className="container mx-auto px-6 max-w-6xl">
-            <div className="space-y-4 text-center mb-16 flex flex-col items-center">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A1B5C]/5 border border-[#0A1B5C]/10 text-[#0A1B5C] text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
+        <section className="py-16 bg-[#090f24] relative overflow-hidden border-b border-white/5">
+          <div className="absolute top-0 right-1/4 w-[300px] h-[300px] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none" />
+          <div className="container mx-auto px-6 max-w-6xl relative z-10">
+            <div className="space-y-4 text-center mb-12 flex flex-col items-center">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-neutral-300 text-xs font-bold uppercase tracking-wider backdrop-blur-sm">
                 Why Corporate Email
               </div>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-[#020617] tracking-tight leading-tight">
+              <h2 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight">
                 Not just an email check.<br />
-                <span className="text-[#0A1B5C]">Inherited trust.</span>
+                <span className="bg-gradient-to-r from-[#4FD1C5] to-[#26c6da] bg-clip-text text-transparent font-black">Inherited trust.</span>
               </h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 items-stretch justify-center gap-6">
               {/* Column 1 */}
-              <div className="w-full bg-[#F8FAFC] border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm space-y-4 flex flex-col">
-                <h3 className="text-slate-900 font-bold text-lg">Already Background-Checked</h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  Every corporate email holder has already cleared their employer&apos;s hiring 
-                  process - identity verification, employment checks, and in most companies, a 
-                  formal background check. Vouchins inherits that trust instead of starting from 
-                  zero, unlike anonymous platforms where anyone can sign up with any email.
-                </p>
+              <div className="group w-full bg-[#0d1527]/60 border border-white/10 rounded-3xl p-6 md:p-8 hover:border-[#4FD1C5]/30 hover:shadow-[0_0_35px_rgba(79,209,197,0.08)] transition-all duration-500 flex flex-col items-start space-y-5">
+                <div className="h-10 w-10 rounded-xl bg-[#4FD1C5]/10 text-[#4FD1C5] flex items-center justify-center shrink-0 border border-[#4FD1C5]/20 group-hover:scale-105 transition-transform duration-300">
+                  <Fingerprint className="h-5 w-5" />
+                </div>
+                <div className="space-y-2 text-left">
+                  <h3 className="text-white font-bold text-lg tracking-tight">Already Background-Checked</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed font-light">
+                    Every corporate email holder has already cleared their employer&apos;s hiring
+                    process - identity verification, employment checks, and in most companies, a
+                    formal background check. Vouchins inherits that trust instead of starting from
+                    zero, unlike anonymous platforms where anyone can sign up with any email.
+                  </p>
+                </div>
               </div>
 
               {/* Column 2 */}
-              <div className="w-full bg-[#F8FAFC] border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm space-y-4 flex flex-col">
-                <h3 className="text-slate-900 font-bold text-lg">Proof of Real Experience</h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  Only people with active work experience hold a corporate email address. 
-                  A corporate domain isn&apos;t just an identity check - it&apos;s proof you&apos;re a working 
-                  professional, not an anonymous or fabricated account.
-                </p>
+              <div className="group w-full bg-[#0d1527]/60 border border-white/10 rounded-3xl p-6 md:p-8 hover:border-[#4FD1C5]/30 hover:shadow-[0_0_35px_rgba(79,209,197,0.08)] transition-all duration-500 flex flex-col items-start space-y-5">
+                <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/20 group-hover:scale-105 transition-transform duration-300">
+                  <Mail className="h-5 w-5" />
+                </div>
+                <div className="space-y-2 text-left">
+                  <h3 className="text-white font-bold text-lg tracking-tight">Proof of Real Experience</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed font-light">
+                    Only people with active work experience hold a corporate email address.
+                    A corporate domain isn&apos;t just an identity check - it&apos;s proof you&apos;re a working
+                    professional, not an anonymous or fabricated account.
+                  </p>
+                </div>
               </div>
 
               {/* Column 3 */}
-              <div className="w-full bg-[#F8FAFC] border border-slate-200 rounded-3xl p-6 md:p-8 shadow-sm space-y-4 flex flex-col">
-                <h3 className="text-slate-900 font-bold text-lg">Why It Matters to Recruiters</h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  For HR teams and staffing agencies, this means every candidate or 
-                  referral sourced through Vouchins already carries verified, employed, 
-                  background-checked credibility - before you even open their profile.
-                </p>
+              <div className="group w-full bg-[#0d1527]/60 border border-white/10 rounded-3xl p-6 md:p-8 hover:border-[#4FD1C5]/30 hover:shadow-[0_0_35px_rgba(79,209,197,0.08)] transition-all duration-500 flex flex-col items-start space-y-5">
+                <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 group-hover:scale-105 transition-transform duration-300">
+                  <Briefcase className="h-5 w-5" />
+                </div>
+                <div className="space-y-2 text-left">
+                  <h3 className="text-white font-bold text-lg tracking-tight">Why It Matters to Recruiters</h3>
+                  <p className="text-slate-400 text-sm leading-relaxed font-light">
+                    For HR teams and staffing agencies, this means every candidate or
+                    referral sourced through Vouchins already carries verified, employed,
+                    background-checked credibility - before you even open their profile.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -612,7 +638,7 @@ export default function Home() {
         {/* ==================================================
             SECTION 4.5 — SECURITY & PRIVACY ASSURANCE
             ================================================== */}
-        <section className="py-20 bg-white border-t border-neutral-200/50">
+        <section className="py-16 bg-white border-t border-neutral-200/50">
           <div className="container mx-auto px-6 max-w-6xl">
             <div className="bg-[#0F172A] rounded-[2.5rem] p-8 md:p-12 text-white relative overflow-hidden shadow-2xl">
               {/* Glows */}
@@ -684,7 +710,7 @@ export default function Home() {
         {/* ==================================================
             SECTION 5 — LIVE IN THE COMMUNITY
             ================================================== */}
-        <section className="py-24 bg-[#020617] text-white relative overflow-hidden">
+        <section className="py-16 bg-[#020617] text-white relative overflow-hidden">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#4FD1C5]/5 rounded-full blur-[110px] pointer-events-none" />
 
           <div className="container mx-auto px-6 max-w-6xl relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
@@ -788,23 +814,26 @@ export default function Home() {
         {/* ==================================================
             SECTION 6.5 — FOR RECRUITERS
             ================================================== */}
-        <section className="py-24 bg-white relative">
-          <div className="container mx-auto px-6 max-w-6xl">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
-              <div className="lg:col-span-12 space-y-6 text-center flex flex-col items-center mx-auto max-w-3xl">
+        <section className="py-16 bg-slate-50 relative overflow-hidden border-t border-b border-slate-200/50">
+          <div className="absolute top-1/2 right-0 w-[300px] h-[300px] bg-[#4FD1C5]/5 rounded-full blur-[100px] pointer-events-none" />
+          <div className="container mx-auto px-6 max-w-6xl relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+
+              {/* Left Side Info */}
+              <div className="lg:col-span-7 space-y-6 text-center lg:text-left flex flex-col items-center lg:items-start">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A1B5C]/5 text-[#0A1B5C] text-xs font-bold uppercase tracking-wider">
                   For Recruiters & Companies
                 </div>
                 <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight text-[#020617] leading-tight">
                   Hire from a pool that&apos;s already verified.
                 </h2>
-                <p className="text-neutral-500 font-light text-sm md:text-base leading-relaxed">
-                  Every candidate on Vouchins is anchored to a real corporate email - 
-                  meaning they&apos;ve already passed their current employer&apos;s background checks and 
-                  bring real, verifiable work experience. Post roles or search referrals without 
+                <p className="text-slate-600 font-light text-sm md:text-base leading-relaxed max-w-2xl">
+                  Every candidate on Vouchins is anchored to a real corporate email -
+                  meaning they&apos;ve already passed their current employer&apos;s background checks and
+                  bring real, verifiable work experience. Post roles or search referrals without
                   sorting through fake resumes and unverifiable claims.
                 </p>
-                <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
                   <Link href="/business">
                     <Button
                       size="lg"
@@ -824,6 +853,66 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
+
+              {/* Right Side Visual Mockup Card */}
+              <div className="lg:col-span-5 w-full flex justify-center">
+                <div className="w-full max-w-sm bg-white border border-slate-200/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+                  {/* Decorative Gradient Line */}
+                  <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-[#4FD1C5] to-[#0A1B5C]" />
+
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-[#0A1B5C]/5 text-[#0A1B5C] flex items-center justify-center font-bold">
+                        JD
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400 font-medium">Candidate Profile</div>
+                        <div className="text-sm font-bold text-slate-900">John Doe</div>
+                      </div>
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100/60 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Verified Active
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Current Role</div>
+                        <div className="text-xs font-bold text-slate-800">Senior Staff Engineer</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Domain</div>
+                        <div className="text-xs font-bold text-indigo-900">@google.com</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {[
+                        { name: "Identity Authentication", desc: "Corporate SSO cryptographically linked" },
+                        { name: "Employment Status", desc: "Active workspace domain check passed" },
+                        { name: "Prior Background Check", desc: "Trust inherited from employer hiring process" }
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex gap-3">
+                          <CheckCircle2 className="h-4 w-4 text-[#4FD1C5] shrink-0 mt-0.5" />
+                          <div>
+                            <div className="text-xs font-bold text-slate-900">{item.name}</div>
+                            <div className="text-[10px] text-slate-500 font-light">{item.desc}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+                    <span className="text-[9px] text-slate-400 font-light italic">
+                      Security & trust inherited directly from enterprise identity credentials.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
         </section>
@@ -831,7 +920,7 @@ export default function Home() {
         {/* ==================================================
             SECTION 7 — FINAL CTA
             ================================================== */}
-        <section className="py-28 bg-gradient-to-b from-[#0A1B5C] to-[#020617] text-white relative overflow-hidden border-b border-white/5">
+        <section className="py-20 bg-gradient-to-b from-[#0A1B5C] to-[#020617] text-white relative overflow-hidden border-b border-white/5">
           <div className="absolute top-0 right-1/2 translate-x-1/2 w-full h-full -z-10 pointer-events-none">
             <div className="absolute top-0 right-1/2 translate-x-1/2 w-[350px] h-[350px] bg-[#4FD1C5]/5 rounded-full blur-[100px]" />
           </div>
