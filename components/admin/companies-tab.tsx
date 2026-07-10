@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, Settings2, Trash2, Building2, AlertCircle } from "lucide-react";
+import { Search, Plus, Settings2, Trash2, Building2, AlertCircle, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,8 @@ interface CompaniesTabProps {
   onCreateCompany: (name: string, domain: string) => Promise<void>;
   onUpdateCompany: (companyId: string, name: string, domain: string) => Promise<void>;
   onDeleteCompany: (companyId: string) => Promise<void>;
+  onRefresh?: () => Promise<void>;
+  loading?: boolean;
 }
 
 export function CompaniesTab({
@@ -34,6 +36,8 @@ export function CompaniesTab({
   onCreateCompany,
   onUpdateCompany,
   onDeleteCompany,
+  onRefresh,
+  loading: parentLoading,
 }: CompaniesTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
@@ -110,14 +114,27 @@ export function CompaniesTab({
     <div className="space-y-4 outline-none">
       {/* Search and Create Buttons */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="relative max-w-md w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-          <Input
-            placeholder="Search by name or domain..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-white shadow-sm"
-          />
+        <div className="flex items-center gap-2 max-w-md w-full">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+            <Input
+              placeholder="Search by name or domain..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-white shadow-sm"
+            />
+          </div>
+          {onRefresh && (
+            <Button
+              onClick={onRefresh}
+              disabled={parentLoading || loading}
+              variant="outline"
+              size="sm"
+              className="h-10 px-3 border-neutral-200 text-neutral-600 hover:text-neutral-900 rounded-lg shadow-sm"
+            >
+              <RefreshCw className={`h-4 w-4 ${parentLoading || loading ? 'animate-spin' : ''}`} />
+            </Button>
+          )}
         </div>
         <Button
           onClick={() => {

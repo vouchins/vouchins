@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Card,
@@ -8,6 +9,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Search, RefreshCw } from "lucide-react";
 
 interface Report {
   id: string;
@@ -22,16 +25,60 @@ interface ReportsTabProps {
   reports: Report[];
   onReview: (reportId: string, status: "reviewed" | "dismissed") => void;
   onRemovePost: (postId: string) => void;
+  onRefresh?: () => Promise<void>;
+  loading?: boolean;
 }
 
 export function ReportsTab({
   reports,
   onReview,
   onRemovePost,
+  onRefresh,
+  loading,
 }: ReportsTabProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredReports = reports.filter((report) => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (report.reason || "").toLowerCase().includes(searchLower) ||
+      (report.reporter?.full_name || "").toLowerCase().includes(searchLower) ||
+      (report.post?.text || "").toLowerCase().includes(searchLower)
+    );
+  });
+
   return (
     <div className="space-y-4">
-      {reports.map((report) => (
+      {/* Search & Refresh Bar */}
+      <div className="flex items-center gap-2 mb-4 justify-start">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          <Input
+            placeholder="Search reports..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-9 bg-white shadow-sm rounded-lg text-xs"
+          />
+        </div>
+        {onRefresh && (
+          <Button
+            onClick={onRefresh}
+            disabled={loading}
+            variant="outline"
+            size="sm"
+            className="h-9 px-3 border-neutral-200 text-neutral-600 hover:text-neutral-900 rounded-lg shadow-sm"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        )}
+      </div>
+
+      {filteredReports.length === 0 ? (
+        <Card className="border-dashed border-2 py-12 text-center text-neutral-500 text-sm bg-white">
+          <CardContent>No reports found.</CardContent>
+        </Card>
+      ) : (
+        filteredReports.map((report) => (
         <Card key={report.id} className="bg-white">
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -91,7 +138,8 @@ export function ReportsTab({
             )}
           </CardContent>
         </Card>
-      ))}
+        ))
+      )}
     </div>
   );
 }

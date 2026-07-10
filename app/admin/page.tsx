@@ -17,10 +17,11 @@ import {
   Briefcase,
   RefreshCw,
   Building2,
+  Megaphone,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
-import { AdminStats } from "@/components/admin/admin-stats";
 import { UsersTab } from "@/components/admin/users-tab";
+import { toast } from "sonner";
 import { WaitlistTab } from "@/components/admin/waitlist-tab";
 import { ReportsTab } from "@/components/admin/reports-tab";
 import { FlaggedTab } from "@/components/admin/flagged-tab";
@@ -28,6 +29,7 @@ import { FeedbackTab } from "@/components/admin/feedback-tab";
 import { BlogTab } from "@/components/admin/blog-tab";
 import { RecruitersTab } from "@/components/admin/recruiters-tab";
 import { CompaniesTab } from "@/components/admin/companies-tab";
+import { CampaignsTab } from "@/components/admin/campaigns-tab";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -64,6 +66,8 @@ function AdminPageContent() {
         feedbackRes,
         recruitersRes,
         companiesRes,
+        campaignsRes,
+        blogRes,
       ] = await Promise.all([
         supabase.from("users").select("*", { count: "exact", head: true }),
         supabase.from("reports").select("*", { count: "exact", head: true }).eq("status", "pending"),
@@ -72,6 +76,8 @@ function AdminPageContent() {
         supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("recruiters").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("companies").select("*", { count: "exact", head: true }),
+        supabase.from("campaigns").select("*", { count: "exact", head: true }),
+        supabase.from("blog_posts").select("*", { count: "exact", head: true }),
       ]);
 
       setDbCounts({
@@ -82,6 +88,8 @@ function AdminPageContent() {
         feedback: feedbackRes.count || 0,
         recruiters: recruitersRes.count || 0,
         companies: companiesRes.count || 0,
+        campaigns: campaignsRes.count || 0,
+        blog: blogRes.count || 0,
       });
     } catch (error) {
       console.error("Failed to fetch database counts:", error);
@@ -210,25 +218,17 @@ function AdminPageContent() {
   };
 
   const fetchAllUsers = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("users")
-      .select(
-        `
-      id, 
-      full_name, 
-      email, 
-      personal_email, 
-      linkedin_url, 
-      is_active, 
-      is_admin, 
-      is_verified, 
-      onboarded, 
-      created_at, 
-      company:companies(id, name)
-    `,
-      )
+      .select("id, full_name, email, personal_email, linkedin_url, is_active, is_admin, is_verified, onboarded, created_at, company:companies(id, name)")
       .order("created_at", { ascending: false });
-    setAllUsers(data || []);
+    
+    if (error) {
+      console.error("Error fetching users:", error);
+      toast.error("Failed to load users list: " + error.message);
+    } else {
+      setAllUsers(data || []);
+    }
   };
 
   const fetchFeedback = async () => {
@@ -493,6 +493,7 @@ function AdminPageContent() {
   const pendingFeedbackCount = getCount("feedback", "feedback", () => feedback.filter((f) => f.status === "pending").length);
   const pendingRecruitersCount = getCount("recruiters", "recruiters", () => recruiters.filter((r) => r.status === "pending").length);
   const totalCompaniesCount = getCount("companies", "companies", () => companies.length);
+  const totalBlogPostsCount = getCount("blog", "blog", () => blogPosts.length);
 
   const handleTabChange = async (value: string) => {
     setActiveTab(value);
@@ -512,26 +513,7 @@ function AdminPageContent() {
     <div className="min-h-screen bg-[#fcfcfc]">
       <Navigation />
 
-      <div className="w-full px-4 md:px-8 py-8">
-        <header className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-neutral-900 tracking-tight">
-              Admin Console
-            </h2>
-            <p className="text-neutral-500 mt-2">
-              Oversee platform health, safety, and manual onboarding.
-            </p>
-          </div>
-          <Button
-            onClick={handleRefreshActiveTab}
-            disabled={loading || isTabLoading}
-            variant="outline"
-            className="flex items-center gap-2 border-neutral-200 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 h-10 px-4 font-semibold shadow-sm transition-all"
-          >
-            <RefreshCw className={`h-4 w-4 ${(loading || isTabLoading) ? 'animate-spin' : ''}`} />
-            Refresh Active Tab
-          </Button>
-        </header>
+      <div className="w-full px-4 md:px-8 pt-4 pb-8">
 
         {loading ? (
           <div className="min-h-[450px] flex flex-col items-center justify-center bg-white rounded-xl border border-neutral-200/60 shadow-sm p-8 transition-all">
@@ -544,17 +526,16 @@ function AdminPageContent() {
           </div>
         ) : (
           <>
-            <AdminStats
-              totalUsers={totalUsersCount}
-              pendingReports={pendingReportsCount}
-              flaggedPosts={flaggedPostsCount}
-              pendingWaitlist={pendingWaitlistCount}
-            />
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
               <TabsList className="bg-neutral-100/50 p-1 h-12 overflow-x-auto flex-nowrap w-full justify-start border-b border-neutral-200">
                 <TabsTrigger value="users" className="px-6 font-bold text-xs">
-                  <Users className="h-4 w-4 mr-2" /> Users
+                  <Users className="h-4 w-4 mr-2" /> Users{" "}
+                  {totalUsersCount > 0 && (
+                    <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
+                      {totalUsersCount}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="waitlist" className="px-6 font-bold text-xs">
                   <Clock className="h-4 w-4 mr-2" />
@@ -584,7 +565,12 @@ function AdminPageContent() {
                   )}
                 </TabsTrigger>
                 <TabsTrigger value="flagged" className="px-6 font-bold text-xs">
-                  <AlertTriangle className="h-4 w-4 mr-2" /> Flagged
+                  <AlertTriangle className="h-4 w-4 mr-2" /> Flagged{" "}
+                  {flaggedPostsCount > 0 && (
+                    <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
+                      {flaggedPostsCount}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="feedback" className="px-6 font-bold text-xs">
                   <MessageSquare className="h-4 w-4 mr-2" />
@@ -600,7 +586,12 @@ function AdminPageContent() {
                 </TabsTrigger>
                 <TabsTrigger value="blog" className="px-6 font-bold text-xs">
                   <FileText className="h-4 w-4 mr-2" />
-                  Blog
+                  Blog{" "}
+                  {totalBlogPostsCount > 0 && (
+                    <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
+                      {totalBlogPostsCount}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="companies" className="px-6 font-bold text-xs">
                   <Building2 className="h-4 w-4 mr-2" />
@@ -608,6 +599,14 @@ function AdminPageContent() {
                   {totalCompaniesCount > 0 && (
                     <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
                       {totalCompaniesCount}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                 <TabsTrigger value="campaigns" className="px-6 font-bold text-xs">
+                  <Megaphone className="h-4 w-4 mr-2" /> Campaigns{" "}
+                  {(dbCounts.campaigns || 0) > 0 && (
+                    <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
+                      {dbCounts.campaigns}
                     </Badge>
                   )}
                 </TabsTrigger>
@@ -625,8 +624,13 @@ function AdminPageContent() {
                   </div>
                 ) : (
                   <>
-                    <TabsContent value="waitlist">
-                      <WaitlistTab entries={waitlist} onAction={handleWaitlistAction} />
+                     <TabsContent value="waitlist">
+                      <WaitlistTab
+                        entries={waitlist}
+                        onAction={handleWaitlistAction}
+                        onRefresh={handleRefreshActiveTab}
+                        loading={loading || isTabLoading}
+                      />
                     </TabsContent>
 
                     <TabsContent value="users">
@@ -634,6 +638,8 @@ function AdminPageContent() {
                         users={allUsers}
                         onUpdateUser={handleUpdateUser}
                         onDeleteUser={handleDeleteUser}
+                        onRefresh={handleRefreshActiveTab}
+                        loading={loading || isTabLoading}
                       />
                     </TabsContent>
 
@@ -642,6 +648,8 @@ function AdminPageContent() {
                         reports={reports}
                         onReview={handleReviewReport}
                         onRemovePost={handleRemovePost}
+                        onRefresh={handleRefreshActiveTab}
+                        loading={loading || isTabLoading}
                       />
                     </TabsContent>
 
@@ -650,11 +658,18 @@ function AdminPageContent() {
                         posts={flaggedPosts}
                         onRemovePost={handleRemovePost}
                         onSuspendUser={handleDisableUser}
+                        onRefresh={handleRefreshActiveTab}
+                        loading={loading || isTabLoading}
                       />
                     </TabsContent>
 
                     <TabsContent value="feedback">
-                      <FeedbackTab feedbacks={feedback} onReview={handleReviewFeedback} />
+                      <FeedbackTab
+                        feedbacks={feedback}
+                        onReview={handleReviewFeedback}
+                        onRefresh={handleRefreshActiveTab}
+                        loading={loading || isTabLoading}
+                      />
                     </TabsContent>
 
                     <TabsContent value="blog">
@@ -667,7 +682,12 @@ function AdminPageContent() {
                     </TabsContent>
 
                     <TabsContent value="recruiters">
-                      <RecruitersTab entries={recruiters} onAction={handleRecruiterAction} />
+                      <RecruitersTab
+                        entries={recruiters}
+                        onAction={handleRecruiterAction}
+                        onRefresh={handleRefreshActiveTab}
+                        loading={loading || isTabLoading}
+                      />
                     </TabsContent>
 
                     <TabsContent value="companies">
@@ -676,7 +696,13 @@ function AdminPageContent() {
                         onCreateCompany={handleCreateCompany}
                         onUpdateCompany={handleUpdateCompany}
                         onDeleteCompany={handleDeleteCompany}
+                        onRefresh={handleRefreshActiveTab}
+                        loading={loading || isTabLoading}
                       />
+                    </TabsContent>
+
+                    <TabsContent value="campaigns">
+                      <CampaignsTab />
                     </TabsContent>
                   </>
                 )}

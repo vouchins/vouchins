@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileText, ExternalLink, CheckCircle2, XCircle } from "lucide-react";
+import { FileText, ExternalLink, CheckCircle2, XCircle, Search, RefreshCw } from "lucide-react";
 import { isValidDomain } from "@/lib/utils";
 interface WaitlistEntry {
   id: string;
@@ -45,36 +45,75 @@ interface WaitlistTabProps {
     notes: string,
     domain?: string,
   ) => Promise<void>;
+  onRefresh?: () => Promise<void>;
+  loading?: boolean;
 }
 
-export function WaitlistTab({ entries, onAction }: WaitlistTabProps) {
+export function WaitlistTab({ entries, onAction, onRefresh, loading }: WaitlistTabProps) {
   const [notes, setNotes] = useState<{ [key: string]: string }>({});
   const [domain, setDomain] = useState<{ [key: string]: string }>({});
   const [filter, setFilter] = useState<"pending" | "approved" | "rejected">("pending");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const filteredEntries = entries.filter((entry) => entry.status === filter);
+  const filteredEntries = entries.filter((entry) => {
+    const matchesFilter = entry.status === filter;
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = 
+      (entry.corporate_email || "").toLowerCase().includes(searchLower) ||
+      (entry.personal_email || "").toLowerCase().includes(searchLower) ||
+      (entry.company_name || "").toLowerCase().includes(searchLower);
+    return matchesFilter && matchesSearch;
+  });
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2 mb-2">
-        <Button
-          variant={filter === "pending" ? "default" : "outline"}
-          onClick={() => setFilter("pending")}
-        >
-          Pending Approval
-        </Button>
-        <Button
-          variant={filter === "approved" ? "default" : "outline"}
-          onClick={() => setFilter("approved")}
-        >
-          Approved
-        </Button>
-        <Button
-          variant={filter === "rejected" ? "default" : "outline"}
-          onClick={() => setFilter("rejected")}
-        >
-          Rejected
-        </Button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+            <Input
+              placeholder="Search by email or company..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-9 bg-white shadow-sm rounded-lg text-xs"
+            />
+          </div>
+          {onRefresh && (
+            <Button
+              onClick={onRefresh}
+              disabled={loading}
+              variant="outline"
+              size="sm"
+              className="h-9 px-3 border-neutral-200 text-neutral-600 hover:text-neutral-900 rounded-lg shadow-sm"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={filter === "pending" ? "default" : "outline"}
+            onClick={() => setFilter("pending")}
+            className="text-xs h-9 px-4 font-bold"
+          >
+            Pending Approval
+          </Button>
+          <Button
+            variant={filter === "approved" ? "default" : "outline"}
+            onClick={() => setFilter("approved")}
+            className="text-xs h-9 px-4 font-bold"
+          >
+            Approved
+          </Button>
+          <Button
+            variant={filter === "rejected" ? "default" : "outline"}
+            onClick={() => setFilter("rejected")}
+            className="text-xs h-9 px-4 font-bold"
+          >
+            Rejected
+          </Button>
+        </div>
       </div>
 
       {filteredEntries.length === 0 ? (

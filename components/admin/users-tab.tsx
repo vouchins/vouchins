@@ -12,6 +12,9 @@ import {
   Mail,
   Linkedin,
   AlertCircle,
+  RefreshCw,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { Input } from "@/components/ui/input";
@@ -27,6 +30,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
 
 interface User {
@@ -58,10 +73,37 @@ interface UsersTabProps {
   users: User[];
   onUpdateUser: (userId: string, updates: UserUpdates) => Promise<void>;
   onDeleteUser: (userId: string) => Promise<void>;
+  onRefresh?: () => Promise<void>;
+  loading?: boolean;
 }
 
-export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
+export function UsersTab({ users, onUpdateUser, onDeleteUser, onRefresh, loading: parentLoading }: UsersTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterVerification, setFilterVerification] = useState<"all" | "verified" | "unverified" | "onboarded" | "not_onboarded">("all");
+  const [filterCompany, setFilterCompany] = useState<string>("all");
+  const [companySearch, setCompanySearch] = useState("");
+  const [isCompanyComboOpen, setIsCompanyComboOpen] = useState(false);
+  const [sortField, setSortField] = useState<"name" | "email" | "company" | "status" | null>(null);
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  // Extract unique companies from users list
+  const uniqueCompanies = Array.from(
+    new Map(
+      users
+        .map((u) => u.company)
+        .filter((c): c is { id: string; name: string } => !!c && !!c.id)
+        .map((c) => [c.id, c])
+    ).values()
+  );
+
+  const handleSort = (field: "name" | "email" | "company" | "status") => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -97,13 +139,57 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
   }, [company, selectedCompanyId]);
 
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.company?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.personal_email?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCompaniesForFilter = uniqueCompanies.filter((c) =>
+    c.name.toLowerCase().includes(companySearch.toLowerCase())
   );
+
+  const filteredUsers = users.filter((u) => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch =
+      (u.full_name || "").toLowerCase().includes(searchLower) ||
+      (u.email || "").toLowerCase().includes(searchLower) ||
+      (u.company?.name || "").toLowerCase().includes(searchLower) ||
+      (u.personal_email || "").toLowerCase().includes(searchLower);
+
+    const matchesVerification =
+      filterVerification === "all" ||
+      (filterVerification === "verified" && u.is_verified) ||
+      (filterVerification === "unverified" && !u.is_verified) ||
+      (filterVerification === "onboarded" && u.onboarded) ||
+      (filterVerification === "not_onboarded" && !u.onboarded);
+
+    const matchesCompany =
+      filterCompany === "all" ||
+      u.company?.id === filterCompany;
+
+    return matchesSearch && matchesVerification && matchesCompany;
+  });
+
+  if (sortField) {
+    filteredUsers.sort((a, b) => {
+      let valA = "";
+      let valB = "";
+
+      if (sortField === "name") {
+        valA = a.full_name || "";
+        valB = b.full_name || "";
+      } else if (sortField === "email") {
+        valA = a.email || "";
+        valB = b.email || "";
+      } else if (sortField === "company") {
+        valA = a.company?.name || "";
+        valB = b.company?.name || "";
+      } else if (sortField === "status") {
+        return sortDirection === "asc"
+          ? (a.is_verified === b.is_verified ? 0 : a.is_verified ? 1 : -1)
+          : (a.is_verified === b.is_verified ? 0 : a.is_verified ? -1 : 1);
+      }
+
+      return sortDirection === "asc"
+        ? valA.localeCompare(valB)
+        : valB.localeCompare(valA);
+    });
+  }
 
   const handleEditClick = (user: User) => {
     setSelectedUser({ ...user });
@@ -204,18 +290,155 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
     }
   };
 
+  const isRefreshing = parentLoading || loading;
+
   return (
     <div className="space-y-4 outline-none">
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-        <Input
-          placeholder="Search by name, email, or company..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 bg-white shadow-sm"
-        />
+      {/* Search Bar, Filters & Refresh Button */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-xs w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          <Input
+            placeholder="Search by name or email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-white shadow-sm h-10 text-xs rounded-xl"
+          />
+        </div>
+
+        {/* Status Filter (Verification & Onboarding) */}
+        <Select value={filterVerification} onValueChange={(val: any) => setFilterVerification(val)}>
+          <SelectTrigger className="w-[155px] h-10 text-xs bg-white border-neutral-200 rounded-xl">
+            <SelectValue placeholder="Status Filter" />
+          </SelectTrigger>
+          <SelectContent className="bg-white border text-xs shadow-md">
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="verified">Verified Only</SelectItem>
+            <SelectItem value="unverified">Unverified Only</SelectItem>
+            <SelectItem value="onboarded">Onboarded Only</SelectItem>
+            <SelectItem value="not_onboarded">Not Onboarded Only</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Company Filter Popover Combobox */}
+        <Popover open={isCompanyComboOpen} onOpenChange={setIsCompanyComboOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={isCompanyComboOpen}
+              className="w-[185px] justify-between h-10 border-neutral-200 text-xs text-neutral-700 bg-white hover:bg-neutral-50/50 hover:text-neutral-900 rounded-xl px-3 font-normal"
+            >
+              <span className="truncate">
+                {filterCompany === "all"
+                  ? "All Companies"
+                  : uniqueCompanies.find((c) => c.id === filterCompany)?.name || "All Companies"}
+              </span>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-2 bg-white border border-neutral-200 shadow-lg rounded-xl z-50">
+            <div className="flex items-center border-b border-neutral-100 pb-2 mb-2">
+              <Search className="mr-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+              <Input
+                placeholder="Search company..."
+                value={companySearch}
+                onChange={(e) => setCompanySearch(e.target.value)}
+                className="h-8 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-xs px-0"
+              />
+            </div>
+            <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterCompany("all");
+                  setIsCompanyComboOpen(false);
+                  setCompanySearch("");
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-neutral-50 ${
+                  filterCompany === "all" ? "bg-indigo-50/50 text-indigo-700 font-semibold" : "text-neutral-700"
+                }`}
+              >
+                All Companies
+              </button>
+              {filteredCompaniesForFilter.length === 0 && companySearch ? (
+                <div className="text-neutral-400 text-xs py-4 text-center">No company found.</div>
+              ) : (
+                filteredCompaniesForFilter.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setFilterCompany(c.id);
+                      setIsCompanyComboOpen(false);
+                      setCompanySearch("");
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-neutral-50 truncate ${
+                      filterCompany === c.id ? "bg-indigo-50/50 text-indigo-700 font-semibold" : "text-neutral-700"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {onRefresh && (
+          <Button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            variant="outline"
+            size="sm"
+            className="h-10 px-3 border-neutral-200 text-neutral-600 hover:text-neutral-900 rounded-xl shadow-sm"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+        )}
       </div>
+
+      {/* Active Filters Badges */}
+      {(searchTerm || filterVerification !== "all" || filterCompany !== "all") && (
+        <div className="flex flex-wrap items-center gap-2 mt-2 pb-1.5 animate-in fade-in-50 duration-200">
+          <span className="text-[11px] text-neutral-400 font-bold mr-1">Active Filters:</span>
+          {searchTerm && (
+            <Badge variant="secondary" className="bg-neutral-100 text-neutral-700 border border-neutral-200 px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1">
+              Search: "{searchTerm}"
+              <button type="button" onClick={() => setSearchTerm("")} className="hover:bg-neutral-200 rounded-full p-0.5 transition-colors">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterVerification !== "all" && (
+            <Badge variant="secondary" className="bg-neutral-100 text-neutral-700 border border-neutral-200 px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1">
+              Status: {filterVerification === "verified" ? "Verified" : filterVerification === "unverified" ? "Unverified" : filterVerification === "onboarded" ? "Onboarded" : "Not Onboarded"}
+              <button type="button" onClick={() => setFilterVerification("all")} className="hover:bg-neutral-200 rounded-full p-0.5 transition-colors">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          {filterCompany !== "all" && (
+            <Badge variant="secondary" className="bg-neutral-100 text-neutral-700 border border-neutral-200 px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1">
+              Company: {uniqueCompanies.find(c => c.id === filterCompany)?.name || "Unknown"}
+              <button type="button" onClick={() => setFilterCompany("all")} className="hover:bg-neutral-200 rounded-full p-0.5 transition-colors">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
+          <button 
+            type="button"
+            onClick={() => {
+              setSearchTerm("");
+              setFilterVerification("all");
+              setFilterCompany("all");
+            }} 
+            className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold ml-1 hover:underline transition-colors"
+          >
+            Clear All
+          </button>
+        </div>
+      )}
 
       {/* Users Table */}
       <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
@@ -223,12 +446,40 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser }: UsersTabProps) {
           <table className="w-full text-left text-sm">
             <thead className="bg-neutral-50/50 border-b border-neutral-200 text-neutral-500 font-medium">
               <tr>
-                <th className="px-6 py-4">User</th>
-                <th className="px-6 py-4">Contact Info</th>
-                <th className="px-6 py-4">Company</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-center">LinkedIn</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th
+                  className="px-6 py-4 cursor-pointer hover:text-neutral-900 select-none transition-colors"
+                  onClick={() => handleSort("name")}
+                >
+                  <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-neutral-500">
+                    User {sortField === "name" && (sortDirection === "asc" ? "▲" : "▼")}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-4 cursor-pointer hover:text-neutral-900 select-none transition-colors"
+                  onClick={() => handleSort("email")}
+                >
+                  <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-neutral-500">
+                    Contact Info {sortField === "email" && (sortDirection === "asc" ? "▲" : "▼")}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-4 cursor-pointer hover:text-neutral-900 select-none transition-colors"
+                  onClick={() => handleSort("company")}
+                >
+                  <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-neutral-500">
+                    Company {sortField === "company" && (sortDirection === "asc" ? "▲" : "▼")}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-4 cursor-pointer hover:text-neutral-900 select-none transition-colors"
+                  onClick={() => handleSort("status")}
+                >
+                  <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-neutral-500">
+                    Status {sortField === "status" && (sortDirection === "asc" ? "▲" : "▼")}
+                  </div>
+                </th>
+                <th className="px-6 py-4 text-center font-bold text-xs uppercase tracking-wider text-neutral-500">LinkedIn</th>
+                <th className="px-6 py-4 text-right font-bold text-xs uppercase tracking-wider text-neutral-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">

@@ -18,6 +18,7 @@ import {
   Loader2,
   ChevronRight,
   User,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -128,6 +129,10 @@ export default function NotificationsPage() {
       router.push(`/posts/${n.entity_id}`);
     } else if (n.type === "COMMENT_REPLY") {
       router.push(`/posts/${n.metadata?.post_id || n.entity_id}#comment-${n.entity_id}`);
+    } else if (n.type === "SYSTEM_ANNOUNCEMENT") {
+      if (n.metadata?.link) {
+        router.push(n.metadata.link);
+      }
     }
   };
 
@@ -156,6 +161,13 @@ export default function NotificationsPage() {
         return (
           <>
             <span className="font-bold text-neutral-900">{actorName}</span> sent you a message.
+          </>
+        );
+      case "SYSTEM_ANNOUNCEMENT":
+        return (
+          <>
+            <span className="font-bold text-neutral-950 block mb-0.5">{n.metadata?.title || "System Announcement"}</span>
+            <span className="text-neutral-500 font-normal leading-normal">{n.metadata?.message}</span>
           </>
         );
       default:
@@ -288,6 +300,9 @@ export default function NotificationsPage() {
                             )}
                             {n.type === "MESSAGE_RECEIVED" && (
                               <MessageCircle className="h-3 w-3 text-emerald-500" />
+                            )}
+                            {n.type === "SYSTEM_ANNOUNCEMENT" && (
+                              <Megaphone className="h-3 w-3 text-amber-500 animate-bounce" />
                             )}
                           </div>
                         </div>

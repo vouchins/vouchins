@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   Card,
@@ -8,7 +9,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Search, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface Feedback {
   id: string;
@@ -23,22 +25,55 @@ interface Feedback {
 interface FeedbackTabProps {
   feedbacks: Feedback[];
   onReview: (id: string) => void;
+  onRefresh?: () => Promise<void>;
+  loading?: boolean;
 }
 
-export function FeedbackTab({ feedbacks, onReview }: FeedbackTabProps) {
-  if (feedbacks.length === 0) {
+export function FeedbackTab({ feedbacks, onReview, onRefresh, loading }: FeedbackTabProps) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredFeedbacks = feedbacks.filter((item) => {
+    const searchLower = searchTerm.toLowerCase();
     return (
-      <Card className="border-dashed border-2">
-        <CardContent className="py-20 text-center text-neutral-500 font-medium">
-          No feedback submitted yet.
-        </CardContent>
-      </Card>
+      (item.name || "").toLowerCase().includes(searchLower) ||
+      (item.email || "").toLowerCase().includes(searchLower) ||
+      (item.type || "").toLowerCase().includes(searchLower) ||
+      (item.message || "").toLowerCase().includes(searchLower)
     );
-  }
+  });
 
   return (
     <div className="space-y-4">
-      {feedbacks.map((item) => (
+      {/* Search & Refresh Bar */}
+      <div className="flex items-center gap-2 mb-4 justify-start">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          <Input
+            placeholder="Search feedback..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 h-9 bg-white shadow-sm rounded-lg text-xs"
+          />
+        </div>
+        {onRefresh && (
+          <Button
+            onClick={onRefresh}
+            disabled={loading}
+            variant="outline"
+            size="sm"
+            className="h-9 px-3 border-neutral-200 text-neutral-600 hover:text-neutral-900 rounded-lg shadow-sm"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        )}
+      </div>
+
+      {filteredFeedbacks.length === 0 ? (
+        <Card className="border-dashed border-2 py-12 text-center text-neutral-500 text-sm bg-white">
+          <CardContent>No feedback found.</CardContent>
+        </Card>
+      ) : (
+        filteredFeedbacks.map((item) => (
         <Card
           key={item.id}
           className={`bg-white transition-opacity ${item.status === "reviewed" ? "opacity-60" : ""}`}
@@ -81,7 +116,8 @@ export function FeedbackTab({ feedbacks, onReview }: FeedbackTabProps) {
             )}
           </CardContent>
         </Card>
-      ))}
+        ))
+      )}
     </div>
   );
 }
