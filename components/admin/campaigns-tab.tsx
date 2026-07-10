@@ -27,6 +27,8 @@ import {
   Check,
   Building2,
   ChevronDown,
+  Code2,
+  ArrowLeft,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -89,36 +91,41 @@ const EMAIL_TEMPLATES = {
   welcome: {
     name: "Welcome Onboarding",
     subject: "Welcome to Vouchins!",
-    html: `<h3>Welcome to Vouchins!</h3>
+    html: `<p>Dear {name},</p>
+<h3 style="color: #0f172a; font-weight: 800; font-size: 18px; margin-top: 24px;">Welcome to Vouchins!</h3>
 <p>We are thrilled to have you join our verified professional community. Vouchins is built on trust, designed to help professionals connect, vouch for each other, and discover opportunities.</p>
 <p>Here are a few ways to get started:</p>
-<ul>
-  <li><strong>Complete Your Profile:</strong> Add your experience and link your public profiles to build trust.</li>
-  <li><strong>Vouch for Colleagues:</strong> Exchange vouches with coworkers to enhance your profile's credibility.</li>
-  <li><strong>Browse Opportunities:</strong> Check our jobs section to find companies hiring in your network.</li>
+<ul style="padding-left: 20px; color: #475569;">
+  <li style="margin-bottom: 8px;"><strong>Complete Your Profile:</strong> Add your experience and link your public profiles to build trust.</li>
+  <li style="margin-bottom: 8px;"><strong>Vouch for Colleagues:</strong> Exchange vouches with coworkers to enhance your profile's credibility.</li>
+  <li style="margin-bottom: 8px;"><strong>Browse Opportunities:</strong> Check our jobs section to find companies hiring in your network.</li>
 </ul>
 <p>If you have any questions or feedback, just reply to this email.</p>
-<p>Best regards,<br/>The Vouchins Team</p>`,
+<p style="margin-top: 24px;">Best regards,<br/><strong>The Vouchins Team</strong></p>`,
   },
   update: {
     name: "Weekly Platform Update",
     subject: "What's new on Vouchins this week",
-    html: `<h3>Weekly Community Update</h3>
-<p>Hello Vouchin, here is what has been happening in the community this past week:</p>
-<ul>
-  <li><strong>Improved Navigation:</strong> We updated our navigation panel so you can jump between posts, jobs, and admin sections faster.</li>
-  <li><strong>Network Growth:</strong> Verified members from over 15 new companies joined this week, expanding our collective reach.</li>
-  <li><strong>Active Job Boards:</strong> New positions in Engineering, Product, and Sales have been posted by our partners.</li>
+    html: `<p>Hi {name},</p>
+<h3 style="color: #0f172a; font-weight: 800; font-size: 18px; margin-top: 24px;">Weekly Community Update</h3>
+<p>Here is what has been happening in the community this past week:</p>
+<ul style="padding-left: 20px; color: #475569;">
+  <li style="margin-bottom: 8px;"><strong>Improved Navigation:</strong> We updated our navigation panel so you can jump between posts, jobs, and admin sections faster.</li>
+  <li style="margin-bottom: 8px;"><strong>Network Growth:</strong> Verified members from over 15 new companies joined this week, expanding our collective reach.</li>
+  <li style="margin-bottom: 8px;"><strong>Active Job Boards:</strong> New positions in Engineering, Product, and Sales have been posted by our partners.</li>
 </ul>
-<p>Keep your profile updated to stay visible to potential recruiters!</p>`,
+<p>Keep your profile updated to stay visible to potential recruiters!</p>
+<p style="margin-top: 24px;">Best regards,<br/><strong>The Vouchins Team</strong></p>`,
   },
   announcement: {
     name: "Important Announcement",
     subject: "Important Service Announcement",
-    html: `<h3>Important Platform Notice</h3>
+    html: `<p>Dear {name},</p>
+<h3 style="color: #0f172a; font-weight: 800; font-size: 18px; margin-top: 24px;">Important Platform Notice</h3>
 <p>Please be advised that we will be performing routine database optimization on <strong>Sunday between 2:00 AM and 2:30 AM UTC</strong>.</p>
 <p>During this brief window, you might experience temporary intermittent connection delays when accessing the feed or messaging. All features will remain fully functional immediately afterwards.</p>
-<p>We appreciate your patience as we continue to scale the infrastructure.</p>`,
+<p>We appreciate your patience as we continue to scale the infrastructure.</p>
+<p style="margin-top: 24px;">Best regards,<br/><strong>The Vouchins Team</strong></p>`,
   },
 };
 
@@ -129,18 +136,28 @@ export function CampaignsTab() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Dialog states
-  const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);
+  // View states
+  const [viewMode, setViewMode] = useState<"dashboard" | "create">("dashboard");
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [submittingCampaign, setSubmittingCampaign] = useState(false);
   const [submittingGroup, setSubmittingGroup] = useState(false);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
 
   // Campaign Form State
   const [campaignTitle, setCampaignTitle] = useState("");
   const [campaignBody, setCampaignBody] = useState("");
   const [campaignTargetType, setCampaignTargetType] = useState<"email" | "notification">("notification");
   const [campaignGroupId, setCampaignGroupId] = useState("");
+  const [manualEmails, setManualEmails] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
+  const [isCodeView, setIsCodeView] = useState(false);
+
+  // Sync visual editor content when switching back from code view
+  useEffect(() => {
+    if (!isCodeView && editorRef.current && editorRef.current.innerHTML !== campaignBody) {
+      editorRef.current.innerHTML = campaignBody;
+    }
+  }, [isCodeView, campaignBody]);
 
   // Group Form State
   const [groupName, setGroupName] = useState("");
@@ -241,7 +258,8 @@ export function CampaignsTab() {
       toast.error("Please enter a campaign title / subject");
       return;
     }
-    if (!campaignBody.trim() || campaignBody === "<br>" || campaignBody === "<div><br></div>") {
+    const finalBody = (!isCodeView && editorRef.current) ? editorRef.current.innerHTML : campaignBody;
+    if (!finalBody.trim() || finalBody === "<br>" || finalBody === "<div><br></div>") {
       toast.error("Please compose a campaign message body");
       return;
     }
@@ -250,10 +268,30 @@ export function CampaignsTab() {
       return;
     }
 
-    const recipientGroup = groups.find((g) => g.id === campaignGroupId);
-    if (!recipientGroup) {
-      toast.error("Invalid recipient group selected");
-      return;
+    let recipientGroupName = "";
+    if (campaignGroupId === "manual_emails") {
+      if (!manualEmails.trim()) {
+        toast.error("Please enter at least one target email address");
+        return;
+      }
+      const emailsList = manualEmails
+        .split(",")
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0);
+
+      const invalidEmails = emailsList.filter((e) => !e.includes("@"));
+      if (invalidEmails.length > 0) {
+        toast.error(`Invalid email format: ${invalidEmails.join(", ")}`);
+        return;
+      }
+      recipientGroupName = manualEmails.trim();
+    } else {
+      const recipientGroup = groups.find((g) => g.id === campaignGroupId);
+      if (!recipientGroup) {
+        toast.error("Invalid recipient group selected");
+        return;
+      }
+      recipientGroupName = recipientGroup.name;
     }
 
     setSubmittingCampaign(true);
@@ -263,10 +301,10 @@ export function CampaignsTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: campaignTitle,
-          body: campaignBody,
+          body: finalBody,
           targetType: campaignTargetType,
           recipientGroupId: campaignGroupId,
-          recipientGroupName: recipientGroup.name,
+          recipientGroupName: recipientGroupName,
           status: statusToSet,
         }),
       });
@@ -279,11 +317,12 @@ export function CampaignsTab() {
           ? `Campaign sent successfully to ${data.campaign.sent_count} users!`
           : "Campaign draft saved!"
       );
-      setIsCampaignDialogOpen(false);
+      setViewMode("dashboard");
       // reset form
       setCampaignTitle("");
       setCampaignBody("");
       setCampaignGroupId("");
+      setManualEmails("");
       if (editorRef.current) editorRef.current.innerHTML = "";
       fetchData();
     } catch (err: any) {
@@ -291,6 +330,28 @@ export function CampaignsTab() {
       toast.error("Error: " + err.message);
     } finally {
       setSubmittingCampaign(false);
+    }
+  };
+
+  // Delete Campaign Handler
+  const handleDeleteCampaign = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this campaign log? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/admin/campaigns?id=${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete campaign");
+
+      toast.success("Campaign log deleted successfully!");
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Error deleting campaign: " + err.message);
     }
   };
 
@@ -360,7 +421,18 @@ export function CampaignsTab() {
   };
 
   // Search filters for dropdowns
-  const filteredGroups = groups.filter((g) =>
+  const manualEmailsGroup = {
+    id: "manual_emails",
+    name: "Individual Email Address(es)",
+    description: "Send to a comma-separated list of individual email addresses",
+    is_system: true,
+    member_count: 0,
+  };
+
+  const filteredGroups = [
+    ...(campaignTargetType === "email" ? [manualEmailsGroup] : []),
+    ...groups,
+  ].filter((g) =>
     g.name.toLowerCase().includes(groupSearch.toLowerCase())
   );
 
@@ -405,7 +477,8 @@ export function CampaignsTab() {
 
   return (
     <div className="space-y-8 animate-in fade-in-50 duration-300">
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+      {viewMode === "dashboard" && (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         {/* Campaign Table (Col span 7) */}
         <div className="xl:col-span-8 bg-white border border-neutral-200/70 shadow-sm rounded-2xl overflow-hidden flex flex-col">
           <div className="px-6 py-5 border-b border-neutral-100 flex justify-between items-center bg-neutral-50/50">
@@ -414,7 +487,7 @@ export function CampaignsTab() {
               <p className="text-xs text-neutral-500 mt-0.5">Logs of emails and notifications sent to users.</p>
             </div>
             <Button
-              onClick={() => setIsCampaignDialogOpen(true)}
+              onClick={() => setViewMode("create")}
               className="flex items-center gap-1 bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-bold rounded-lg h-9 px-3.5"
             >
               <Plus className="h-4 w-4" /> Create Campaign
@@ -440,6 +513,7 @@ export function CampaignsTab() {
                     <th className="px-6 py-3.5 text-center">Status</th>
                     <th className="px-6 py-3.5 text-center">Delivered</th>
                     <th className="px-6 py-3.5">Date</th>
+                    <th className="px-6 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100 text-xs">
@@ -490,6 +564,17 @@ export function CampaignsTab() {
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteCampaign(c.id)}
+                          className="h-8 w-8 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete Campaign Log"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -572,43 +657,32 @@ export function CampaignsTab() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* dialog for Campaign Creator */}
-      <Dialog open={isCampaignDialogOpen} onOpenChange={setIsCampaignDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl p-6 border shadow-xl">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-xl font-black text-neutral-950 flex items-center gap-2">
-              <Send className="h-5 w-5 text-indigo-600" /> Create Announcement Campaign
-            </DialogTitle>
-          </DialogHeader>
+      {/* Campaign Creator - Full View */}
+      {viewMode === "create" && (
+        <div className="bg-white border border-neutral-200/70 shadow-sm rounded-2xl p-8 max-w-4xl mx-auto space-y-6">
+          <div className="flex flex-col gap-4 border-b border-neutral-100 pb-6">
+            <Button
+              variant="ghost"
+              onClick={() => setViewMode("dashboard")}
+              className="flex items-center gap-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 self-start text-xs font-semibold px-3 h-8 -ml-3"
+            >
+              <ArrowLeft className="h-4 w-4" /> Back to campaigns
+            </Button>
+            <div>
+              <h3 className="text-xl font-black text-neutral-950 flex items-center gap-2">
+                <Send className="h-5 w-5 text-indigo-600" /> Create Announcement Campaign
+              </h3>
+              <p className="text-xs text-neutral-500 mt-1">Compose and target announcement campaigns for your user base.</p>
+            </div>
+          </div>
 
           <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
             {/* 1. Channel Selector */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-neutral-700">Delivery Channel</Label>
               <div className="grid grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCampaignTargetType("notification");
-                    // plain text notification resets body html
-                    setCampaignBody("");
-                  }}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                    campaignTargetType === "notification"
-                      ? "border-neutral-950 bg-neutral-50"
-                      : "border-neutral-100 hover:border-neutral-200"
-                  }`}
-                >
-                  <div className="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <Bell className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-neutral-900">In-App Notification</h5>
-                    <p className="text-[11px] text-neutral-500">Short message, triggers mobile & web push alerts</p>
-                  </div>
-                </button>
-
                 <button
                   type="button"
                   onClick={() => setCampaignTargetType("email")}
@@ -626,6 +700,30 @@ export function CampaignsTab() {
                     <p className="text-[11px] text-neutral-500">Rich HTML email sent directly via SES / SMTP</p>
                   </div>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCampaignTargetType("notification");
+                    setCampaignBody("");
+                    if (campaignGroupId === "manual_emails") {
+                      setCampaignGroupId("");
+                    }
+                  }}
+                  className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                    campaignTargetType === "notification"
+                      ? "border-neutral-950 bg-neutral-50"
+                      : "border-neutral-100 hover:border-neutral-200"
+                  }`}
+                >
+                  <div className="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <Bell className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h5 className="text-sm font-bold text-neutral-900">In-App Notification</h5>
+                    <p className="text-[11px] text-neutral-500">Short message, triggers mobile & web push alerts</p>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -633,7 +731,7 @@ export function CampaignsTab() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="space-y-2">
                 <Label htmlFor="campaign-group" className="text-xs font-bold text-neutral-700">Recipient Group</Label>
-                <Popover open={isGroupComboOpen} onOpenChange={setIsGroupComboOpen}>
+                <Popover open={isGroupComboOpen} onOpenChange={setIsGroupComboOpen} modal={true}>
                   <PopoverTrigger asChild>
                     <Button
                       id="campaign-group"
@@ -643,9 +741,11 @@ export function CampaignsTab() {
                       className="w-full justify-between h-10 border-neutral-200 text-xs text-neutral-700 bg-white hover:bg-neutral-50/50 hover:text-neutral-900 rounded-lg px-3 font-normal"
                     >
                       <span className="truncate">
-                        {campaignGroupId
-                          ? groups.find((g) => g.id === campaignGroupId)?.name
-                          : "Select target group..."}
+                        {campaignGroupId === "manual_emails"
+                          ? "Individual Email Address(es)"
+                          : campaignGroupId
+                            ? groups.find((g) => g.id === campaignGroupId)?.name
+                            : "Select target group..."}
                       </span>
                       <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -660,7 +760,7 @@ export function CampaignsTab() {
                         className="h-8 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-xs px-0"
                       />
                     </div>
-                    <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                    <div className="max-h-[200px] overflow-y-auto space-y-0.5" onWheel={(e) => e.stopPropagation()}>
                       {filteredGroups.length === 0 ? (
                         <div className="text-neutral-400 text-xs py-4 text-center">No group found.</div>
                       ) : (
@@ -672,13 +772,24 @@ export function CampaignsTab() {
                               setCampaignGroupId(g.id);
                               setIsGroupComboOpen(false);
                               setGroupSearch("");
+                              // Pre-populate salutation if editor is currently empty
+                              const isEmpty = !campaignBody || campaignBody === "<br>" || campaignBody === "<div><br></div>" || campaignBody === "";
+                              if (isEmpty) {
+                                const greeting = g.id === "manual_emails" ? "<p>Hi {name},</p><br>" : "<p>Hi {name},</p><br>";
+                                setCampaignBody(greeting);
+                                if (editorRef.current) {
+                                  editorRef.current.innerHTML = greeting;
+                                }
+                              }
                             }}
                             className={`w-full text-left px-2.5 py-2 rounded-lg text-xs hover:bg-neutral-50 flex items-center justify-between ${
                               campaignGroupId === g.id ? "bg-indigo-50/50 text-indigo-700 font-semibold" : "text-neutral-700"
                             }`}
                           >
                             <span className="truncate">{g.name}</span>
-                            <span className="text-[10px] text-neutral-400 font-normal shrink-0 ml-2">({g.member_count} users)</span>
+                            {g.id !== "manual_emails" && (
+                              <span className="text-[10px] text-neutral-400 font-normal shrink-0 ml-2">({g.member_count} users)</span>
+                            )}
                           </button>
                         ))
                       )}
@@ -704,6 +815,19 @@ export function CampaignsTab() {
                 </div>
               )}
             </div>
+
+            {campaignGroupId === "manual_emails" && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                <Label htmlFor="manual-emails" className="text-xs font-bold text-neutral-700">Target Email Addresses (comma separated)</Label>
+                <Input
+                  id="manual-emails"
+                  placeholder="e.g. user1@company.com, user2@personal.com"
+                  value={manualEmails}
+                  onChange={(e) => setManualEmails(e.target.value)}
+                  className="h-10 rounded-lg border-neutral-200 text-xs"
+                />
+              </div>
+            )}
 
             {/* 3. Title / Subject */}
             <div className="space-y-2">
@@ -824,17 +948,46 @@ export function CampaignsTab() {
                     >
                       <RemoveFormatting className="h-4 w-4" />
                     </Button>
+                    <div className="h-4 w-[1px] bg-neutral-200 mx-1" />
+                    <Button
+                      type="button"
+                      variant={isCodeView ? "secondary" : "ghost"}
+                      size="icon"
+                      className={`h-8 w-8 rounded ${isCodeView ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' : 'hover:bg-neutral-200/50 text-neutral-600'}`}
+                      onClick={() => {
+                        if (!isCodeView) {
+                          // Switching to code view: sync contentEditable innerHTML to state first
+                          if (editorRef.current) {
+                            setCampaignBody(editorRef.current.innerHTML);
+                          }
+                        }
+                        setIsCodeView(!isCodeView);
+                      }}
+                      title="HTML Source Code View"
+                    >
+                      <Code2 className="h-4 w-4" />
+                    </Button>
                   </div>
 
-                  {/* Rich Text Editor ContentEditable Frame */}
-                  <div
-                    ref={editorRef}
-                    contentEditable
-                    onInput={handleEditorInput}
-                    placeholder="Compose your rich text email layout here..."
-                    className="min-h-[220px] p-4 text-xs focus:outline-none overflow-y-auto prose max-w-none prose-sm"
-                    style={{ minHeight: "220px" }}
-                  />
+                  {/* Editor Content Area */}
+                  {isCodeView ? (
+                    <Textarea
+                      value={campaignBody}
+                      onChange={(e) => setCampaignBody(e.target.value)}
+                      placeholder="Paste your custom HTML layout template here..."
+                      className="min-h-[220px] font-mono text-xs focus-visible:ring-1 focus-visible:ring-offset-0 border-none rounded-none border-t border-neutral-100 resize-none p-4"
+                      style={{ minHeight: "220px" }}
+                    />
+                  ) : (
+                    <div
+                      ref={editorRef}
+                      contentEditable
+                      onInput={handleEditorInput}
+                      placeholder="Compose your rich text email layout here..."
+                      className="min-h-[220px] p-4 text-xs focus:outline-none overflow-y-auto prose max-w-none prose-sm"
+                      style={{ minHeight: "220px" }}
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -843,11 +996,21 @@ export function CampaignsTab() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setIsCampaignDialogOpen(false)}
+                onClick={() => setViewMode("dashboard")}
                 className="text-xs font-bold text-neutral-600 h-10"
               >
                 Cancel
               </Button>
+              {campaignTargetType === "email" && (
+                <Button
+                  type="button"
+                  onClick={() => setIsPreviewDialogOpen(true)}
+                  variant="outline"
+                  className="text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50/50 h-10 px-4 rounded-lg"
+                >
+                  Preview Email
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -873,6 +1036,72 @@ export function CampaignsTab() {
               </Button>
             </DialogFooter>
           </form>
+        </div>
+      )}
+
+      {/* Visual Email Preview Dialog */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-2xl bg-neutral-50 rounded-2xl p-6 border shadow-2xl overflow-y-auto max-h-[85vh] z-[100]">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-sm font-bold text-neutral-500 uppercase tracking-wide">
+              Visual Email Live Preview
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* Render exact visual container layout matching backend SMTP templates */}
+          <div className="my-2 select-none pointer-events-none">
+            {(() => {
+              const mockName = "John Doe";
+              const rawBody = (!isCodeView && editorRef.current) ? editorRef.current.innerHTML : campaignBody;
+
+              const personalizedSubject = (campaignTitle || "Campaign Subject Line")
+                .replace(/\{\{name\}\}/gi, mockName)
+                .replace(/\{name\}/gi, mockName)
+                .replace(/\{\{full_name\}\}/gi, mockName)
+                .replace(/\{full_name\}/gi, mockName);
+
+              const personalizedBody = (rawBody || "<p>Please compose email content...</p>")
+                .replace(/\{\{name\}\}/gi, mockName)
+                .replace(/\{name\}/gi, mockName)
+                .replace(/\{\{full_name\}\}/gi, mockName)
+                .replace(/\{full_name\}/gi, mockName);
+
+              return (
+                <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif", maxWidth: "600px", margin: "auto", color: "#334155", lineHeight: "1.7", border: "1px solid #e2e8f0", borderRadius: "16px", overflow: "hidden", backgroundColor: "#ffffff", boxShadow: "0 4px 20px rgba(0,0,0,0.03)" }}>
+                  <div style={{ backgroundColor: "#ffffff", padding: "24px", textAlign: "center", borderBottom: "3px solid #4FD1C5" }}>
+                    <img 
+                      src="https://raw.githubusercontent.com/vouchins/vouchins/main/public/images/logo.png" 
+                      alt="Vouchins" 
+                      style={{ height: "36px", maxHeight: "36px", display: "block", margin: "auto", border: "0" }} 
+                    />
+                  </div>
+                  <div style={{ padding: "40px 32px", backgroundColor: "#ffffff" }}>
+                    <h2 style={{ color: "#0f172a", fontSize: "22px", fontWeight: "800", marginTop: "0", marginBottom: "24px", borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", letterSpacing: "-0.02em" }}>
+                      {personalizedSubject}
+                    </h2>
+                    <div 
+                      style={{ color: "#334155", fontSize: "15px", lineHeight: "1.7", fontWeight: "400" }} 
+                      dangerouslySetInnerHTML={{ __html: personalizedBody }}
+                    />
+                  </div>
+                  <div style={{ backgroundColor: "#f8fafc", padding: "24px", textAlign: "center", borderTop: "1px solid #f1f5f9", fontSize: "11px", color: "#94a3b8", fontWeight: "500" }}>
+                    <p style={{ margin: "0 0 8px 0", color: "#64748b" }}>You received this announcement from the Vouchins Admin Console.</p>
+                    <p style={{ margin: "0" }}>&copy; 2026 Vouchins. All rights reserved.</p>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          <DialogFooter className="mt-4 border-t border-neutral-100 pt-4">
+            <Button
+              type="button"
+              onClick={() => setIsPreviewDialogOpen(false)}
+              className="bg-neutral-900 hover:bg-neutral-950 text-white text-xs font-bold px-4 h-10 rounded-lg"
+            >
+              Close Preview
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -927,7 +1156,7 @@ export function CampaignsTab() {
                   </div>
 
                   {/* Company filter */}
-                  <Popover open={isCompanyComboOpen} onOpenChange={setIsCompanyComboOpen}>
+                  <Popover open={isCompanyComboOpen} onOpenChange={setIsCompanyComboOpen} modal={true}>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
@@ -953,7 +1182,7 @@ export function CampaignsTab() {
                           className="h-8 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-xs px-0"
                         />
                       </div>
-                      <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+                      <div className="max-h-[200px] overflow-y-auto space-y-0.5" onWheel={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => {
