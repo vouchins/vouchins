@@ -235,7 +235,10 @@ function FeedContent() {
     await supabase.from("users").update({ city: newCity }).eq("id", user?.id);
   };
 
-  const handleLoadMore = async () => {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore) return;
     setLoadingMore(true);
     const nextPage = page + 1;
     await fetchPosts(
@@ -249,7 +252,31 @@ function FeedContent() {
     );
     setPage(nextPage);
     setLoadingMore(false);
-  };
+  }, [page, user, activeTab, activeCategory, activeSubCategory, searchQuery, selectedCity, fetchPosts, loadingMore]);
+
+  useEffect(() => {
+    if (!hasMore || loading || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [hasMore, loading, loadingMore, handleLoadMore]);
 
   const renderContent = () => {
     // Scenario A: Workspace is locked
@@ -277,27 +304,57 @@ function FeedContent() {
     // Scenario B: Initial Loading
     if (loading && posts.length === 0) {
       return (
-        <div className="space-y-4">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="space-y-4 animate-pulse">
+          {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="bg-white border border-neutral-200 rounded-2xl p-5 shadow-sm space-y-4"
+              className="bg-white border border-neutral-200/90 rounded-2xl p-6 shadow-sm space-y-5"
             >
-              <div className="flex items-center gap-3">
-                <Skeleton className="h-10 w-10 rounded-full" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-24" />
+              {/* Header Skeleton */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3 flex-1">
+                  <Skeleton className="h-11 w-11 rounded-xl bg-neutral-100" />
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-4 w-28 bg-neutral-100" />
+                      <Skeleton className="h-4.5 w-12 rounded-full bg-neutral-100" />
+                    </div>
+                    <Skeleton className="h-3 w-36 bg-neutral-100" />
+                  </div>
+                </div>
+                <Skeleton className="h-6 w-16 rounded bg-neutral-100" />
+              </div>
+              
+              {/* Text Body Skeleton */}
+              <div className="space-y-2 pt-1">
+                <Skeleton className="h-4 w-full bg-neutral-100" />
+                <Skeleton className="h-4 w-[92%] bg-neutral-100" />
+                <Skeleton className="h-4 w-[78%] bg-neutral-100" />
+              </div>
+
+              {/* Gallery Block Skeleton (Simulated for every second card) */}
+              {i % 2 === 0 && (
+                <Skeleton className="h-48 w-full rounded-xl bg-neutral-100" />
+              )}
+
+              {/* Stats Bar Skeleton */}
+              <div className="flex justify-between items-center pt-3 border-t border-neutral-50">
+                <div className="flex gap-4">
+                  <Skeleton className="h-3.5 w-14 bg-neutral-100" />
+                  <Skeleton className="h-3.5 w-16 bg-neutral-100" />
+                  <Skeleton className="h-3.5 w-14 bg-neutral-100" />
+                </div>
+                <div className="flex gap-3">
+                  <Skeleton className="h-3.5 w-12 bg-neutral-100" />
+                  <Skeleton className="h-3.5 w-12 bg-neutral-100" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-[90%]" />
-                <Skeleton className="h-4 w-[75%]" />
-              </div>
-              <div className="flex items-center gap-4 pt-2">
-                <Skeleton className="h-8 w-16 rounded-md" />
-                <Skeleton className="h-8 w-16 rounded-md" />
+
+              {/* Action Buttons Skeleton */}
+              <div className="flex gap-2 pt-2 border-t border-neutral-50">
+                <Skeleton className="h-8 w-20 rounded-full bg-neutral-100" />
+                <Skeleton className="h-8 w-20 rounded-full bg-neutral-100" />
+                <Skeleton className="h-8 w-20 rounded-full bg-neutral-100" />
               </div>
             </div>
           ))}
@@ -503,20 +560,15 @@ function FeedContent() {
           <ProfileCompletionWidget className="xl:hidden" />
           {renderContent()}
 
-          {hasMore && posts.length > 0 && (
-            <Button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              variant="outline"
-              className="w-full"
-            >
-              {loadingMore ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Load More"
-              )}
-            </Button>
-          )}
+          {/* Infinite Scroll Sentinel */}
+          <div ref={sentinelRef} className="py-6 flex items-center justify-center">
+            {loadingMore && (
+              <div className="flex items-center gap-2 text-sm text-neutral-500 font-bold bg-white px-4 py-2 border border-neutral-100 rounded-full shadow-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>Loading more posts...</span>
+              </div>
+            )}
+          </div>
         </main>
         {/* NEW RIGHT SIDEBAR */}
         <RightSidebar user={user} onVerify={() => setIsVerifyModalOpen(true)} />

@@ -53,8 +53,11 @@ export async function GET(request: Request) {
     .from("posts")
     .select(`
       *,
-      user:users!posts_user_id_fkey!inner(id, full_name, city, avatar_url, vouch_points, is_admin, company_id, company:companies(name, domain)),
-      comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))
+      user:users!posts_user_id_fkey!inner(id, full_name, city, avatar_url, vouch_points, is_admin, company_id, is_verified, company:companies(name, domain)),
+      comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name)),
+      vouches(id, vouching_user_id),
+      saved_posts(id),
+      post_views(id)
     `)
     .eq("is_removed", false);
 
