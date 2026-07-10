@@ -439,20 +439,9 @@ export function PostCard({
   const vouchCount = post.vouches?.length || 0;
   const { views, shares, saves } = getDeterministicMetrics(post.id, commentCount, vouchCount);
 
-  // Trust Indicators / Mutual Colleagues calculations
+  // Trust Indicators: same-company colleague detection
   const currentUser = useUser().user;
   const isColleague = currentUser?.company?.domain && post.user.company?.domain && currentUser.company.domain === post.user.company.domain;
-  
-  let mutualColleaguesText = "";
-  if (!isColleague) {
-    let hash = 0;
-    const combinedId = post.user.id + (currentUser?.id || "");
-    for (let i = 0; i < combinedId.length; i++) {
-      hash = combinedId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const mutualCount = 1 + (Math.abs(hash) % 8);
-    mutualColleaguesText = `${mutualCount} mutual colleague${mutualCount === 1 ? "" : "s"}`;
-  }
 
   return (
     <div onClick={handleCardClick} className="bg-white border border-neutral-200/90 rounded-2xl p-6 hover:border-neutral-300 hover:shadow-md transition-all duration-300 overflow-visible relative group/card">
@@ -505,13 +494,9 @@ export function PostCard({
               <span className="text-xs font-semibold text-neutral-600 uppercase tracking-tight">
                 {post.user.company?.name || "No Company"}
               </span>
-              {isColleague ? (
+              {isColleague && (
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[9px] font-bold uppercase tracking-wider">
                   <Building2 className="h-2.5 w-2.5" /> Colleague
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-indigo-50/50 text-indigo-700 border border-indigo-100/50 rounded-full text-[9px] font-bold uppercase tracking-wider">
-                  {mutualColleaguesText}
                 </span>
               )}
             </div>
