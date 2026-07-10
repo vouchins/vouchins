@@ -33,6 +33,7 @@ import { supabase } from "@/lib/supabase/browser";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
 import filter from "leo-profanity";
+import posthog from "posthog-js";
 
 const CATEGORY_HELP_TEXT: Record<string, string> = {
   housing:
@@ -209,6 +210,20 @@ export function CreatePostDialog({
           throw insertError;
         }
         return;
+      }
+
+      posthog.capture("Post Created", {
+        category,
+        sub_category: availableSubCategories.length > 0 ? subCategory : null,
+        visibility,
+        has_images: selectedFiles.length > 0,
+      });
+
+      if (category === "buy_sell") {
+        posthog.capture("Listing Created", {
+          sub_category: availableSubCategories.length > 0 ? subCategory : null,
+          visibility,
+        });
       }
 
       previewUrls.forEach((url) => URL.revokeObjectURL(url));

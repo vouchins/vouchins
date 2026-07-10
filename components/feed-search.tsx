@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Search, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import posthog from "posthog-js";
 
 interface FeedSearchProps {
   onSearch: (query: string) => void;
@@ -15,7 +16,12 @@ export function FeedSearch({ onSearch, isSearching }: FeedSearchProps) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(query.trim());
+    const queryStr = query.trim();
+    if (queryStr) {
+      posthog.capture("Search Started");
+      posthog.capture("Search Query", { query: queryStr });
+    }
+    onSearch(queryStr);
   };
 
   const clearSearch = () => {

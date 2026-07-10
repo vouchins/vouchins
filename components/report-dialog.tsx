@@ -21,6 +21,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { REPORT_REASONS } from "@/lib/constants";
+import posthog from "posthog-js";
 
 interface ReportDialogProps {
   open: boolean;
@@ -66,6 +67,12 @@ export function ReportDialog({
       });
 
       if (insertError) throw insertError;
+
+      posthog.capture("Report", {
+        post_id: postId || null,
+        comment_id: commentId || null,
+        reason,
+      });
 
       setSuccess(true);
       setTimeout(() => {

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { AlertCircle, Eye, EyeOff, ShieldCheck, MessageCircle, Lock, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   extractDomainFromEmail,
   validateFirstName,
@@ -16,8 +16,9 @@ import posthog from "posthog-js";
 import Image from "next/image";
 import { PublicNavbar } from "@/components/public-navbar";
 
-export default function SignupPage() {
+function SignupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -35,6 +36,14 @@ export default function SignupPage() {
 
   const isPasswordLongEnough = password.length >= 8;
   const passwordsMatch = password.length > 0 && password === confirmPassword;
+
+  useEffect(() => {
+    posthog.capture("Signup Started");
+    const inviteVal = searchParams.get("invite");
+    if (inviteVal) {
+      posthog.capture("Invite Accepted", { inviter_id: inviteVal });
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (email.includes("@")) {
@@ -105,6 +114,16 @@ export default function SignupPage() {
 
       if (!res.ok) {
         throw new Error(data.error);
+      }
+
+      const inviteVal = searchParams.get("invite");
+      posthog.capture("Signup Completed", {
+        email: email.toLowerCase().trim(),
+        invite_converted: !!inviteVal,
+        inviter_id: inviteVal || null
+      });
+      if (inviteVal) {
+        posthog.capture("Invite Converted", { inviter_id: inviteVal });
       }
 
       window.location.href = "/onboarding";
@@ -417,5 +436,13 @@ export default function SignupPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignupContent />
+    </Suspense>
   );
 }

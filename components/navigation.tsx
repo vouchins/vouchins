@@ -26,6 +26,7 @@ import {
   MessageSquare,
   CheckCheck,
 } from "lucide-react";
+import posthog from "posthog-js";
 import { supabase } from "@/lib/supabase/browser";
 import Link from "next/link";
 import Image from "next/image";
@@ -201,8 +202,11 @@ function NavigationContent() {
   /* ---------------- Search Handler ---------------- */
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/feed?q=${encodeURIComponent(searchQuery.trim())}`);
+    const query = searchQuery.trim();
+    if (query) {
+      posthog.capture("Search Started");
+      posthog.capture("Search Query", { query });
+      router.push(`/feed?q=${encodeURIComponent(query)}`);
     } else {
       router.push("/feed");
     }
@@ -214,6 +218,7 @@ function NavigationContent() {
   };
 
   const handleLogout = async () => {
+    posthog.capture("Logout");
     await supabase.auth.signOut();
     router.push("/login");
   };

@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
+import posthog from "posthog-js";
 
 interface CommentFormProps {
   postId: string;
@@ -45,6 +46,8 @@ export function CommentForm({
       });
 
       if (insertError) throw insertError;
+
+      posthog.capture("Reply Created", { post_id: postId });
 
       setText("");
       onCommentAdded();

@@ -13,6 +13,7 @@ import { Lock, ShieldAlert, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import posthog from "posthog-js";
 
 export default function ConversationPage() {
   const { userId } = useParams();
@@ -282,6 +283,12 @@ export default function ConversationPage() {
   /* -------------------- handle send (optimistic) -------------------- */
   const handleSend = async (text: string) => {
     if (!me || !text.trim()) return;
+
+    const isNewConversation = messages.length === 0;
+    posthog.capture("Message Sent", { recipient_id: userId, is_e2ee: !!(recipientPublicKeyJwk && myPublicKeyJwk) });
+    if (isNewConversation) {
+      posthog.capture("Conversation Started", { recipient_id: userId });
+    }
 
     const messageId = crypto.randomUUID();
     const isE2EE = recipientPublicKeyJwk && myPublicKeyJwk && privateKeyJwk;

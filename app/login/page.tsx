@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Eye, EyeOff, Loader2, ShieldCheck, MessageCircle, Lock } from "lucide-react";
 import Image from "next/image";
 import { PublicNavbar } from "@/components/public-navbar";
+import posthog from "posthog-js";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function LoginPage() {
     if (data.error) {
       setError(data.error);
     } else {
+      posthog.capture("Login", { method: "google" });
       window.location.href = data.url;
     }
   };
@@ -49,6 +51,7 @@ export default function LoginPage() {
     if (data.error) {
       setError(data.error);
     } else {
+      posthog.capture("Login", { method: "linkedin" });
       window.location.href = data.url;
     }
   };
@@ -74,6 +77,7 @@ export default function LoginPage() {
         throw new Error(data.error);
       }
 
+      posthog.capture("Login", { method: "email" });
       window.location.href = "/feed";
     } catch (err: any) {
       setError(err.message || "Login failed");

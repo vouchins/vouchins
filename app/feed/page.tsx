@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import { Navigation } from "@/components/navigation";
 import { CreatePostDialog } from "@/components/create-post-dialog";
 import { PostCard } from "@/components/post-card";
@@ -87,6 +88,13 @@ function FeedContent() {
 
         if (pageNum === 0) {
           setPosts(result.posts);
+          if (isInitialMount.current) {
+            posthog.capture("Feed Loaded", { tab, category, subCategory, city });
+            isInitialMount.current = false;
+          } else {
+            posthog.capture("Feed Refresh", { tab, category, subCategory, city });
+          }
+          posthog.capture("Feed Impression", { posts_count: result.posts.length });
         } else {
           setPosts((prev) => [...prev, ...result.posts]);
         }
@@ -123,6 +131,27 @@ function FeedContent() {
     }
   }, [user, activeTab, activeCategory, activeSubCategory, queryStr, selectedCity, fetchPosts]);
 
+  // Track scroll depth
+  useEffect(() => {
+    let maxPercentageReached = 0;
+    const handleScroll = () => {
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight <= 0) return;
+      const scrollPosition = window.scrollY;
+      const percentage = Math.round((scrollPosition / totalHeight) * 100);
+
+      const thresholds = [25, 50, 75, 100];
+      for (const threshold of thresholds) {
+        if (percentage >= threshold && maxPercentageReached < threshold) {
+          maxPercentageReached = threshold;
+          posthog.capture("Feed Scroll Depth", { percentage: threshold });
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const fetchInlineAds = async () => {
     try {

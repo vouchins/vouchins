@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import posthog from "posthog-js";
 import {
   Copy,
   Check,
@@ -60,6 +61,7 @@ export function InviteDialog({ isOpen, onClose, userId }: InviteDialogProps) {
     try {
       if (navigator.clipboard && window.isSecureContext) {
         await navigator.clipboard.writeText(inviteLink);
+        posthog.capture("Invite Sent", { method: "clipboard" });
         setCopied(true);
         toast.success("Invite link copied to clipboard!");
         setTimeout(() => setCopied(false), 2000);
@@ -78,6 +80,7 @@ export function InviteDialog({ isOpen, onClose, userId }: InviteDialogProps) {
       document.body.removeChild(textArea);
 
       if (successful) {
+        posthog.capture("Invite Sent", { method: "clipboard" });
         setCopied(true);
         toast.success("Invite link copied to clipboard!");
         setTimeout(() => setCopied(false), 2000);
@@ -93,7 +96,9 @@ export function InviteDialog({ isOpen, onClose, userId }: InviteDialogProps) {
 
   const handleNativeShare = async () => {
     const shared = await triggerNativeShare(userId);
-    if (!shared) {
+    if (shared) {
+      posthog.capture("Invite Sent", { method: "native_share" });
+    } else {
       handleCopyLink();
     }
   };

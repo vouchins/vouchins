@@ -19,10 +19,15 @@ import { INDIAN_CITIES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner"; // Assuming you use sonner or similar for toasts
 import { isCorporateEmail, extractDomainFromEmail, deriveCompanyNameFromDomain } from "@/lib/auth/validation";
+import posthog from "posthog-js";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
+
+  useEffect(() => {
+    posthog.startSessionRecording();
+  }, []);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");

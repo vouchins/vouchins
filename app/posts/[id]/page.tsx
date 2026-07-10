@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from "react";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ArrowLeft, Lock, Loader2, ShieldAlert, CheckCircle2, MessageCircle, Flag, MapPin, Eye, Building2 } from "lucide-react";
@@ -77,6 +78,11 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
         setIsLoggedIn(data.isLoggedIn);
         setIsVerified(data.isVerified);
         setIsTruncated(data.isTruncated || false);
+
+        posthog.capture("Post Viewed", { post_id: postId, category: data.post?.category });
+        if (data.post?.category === "buy_sell") {
+          posthog.capture("Listing Viewed", { post_id: postId });
+        }
       } else {
         setError(data.error || "Post not found");
       }

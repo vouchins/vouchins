@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Mail, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import Link from "next/link";
+import posthog from "posthog-js";
 
 export default function VerifyEmailClient() {
   const router = useRouter();
@@ -60,6 +61,7 @@ export default function VerifyEmailClient() {
       }
 
       setVerified(true);
+      posthog.capture("Corporate Email Verified", { email });
       setTimeout(() => {
         window.location.href = "/onboarding";
       }, 1000);

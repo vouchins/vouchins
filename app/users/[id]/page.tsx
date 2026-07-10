@@ -26,6 +26,7 @@ import {
   Home,
   ShoppingCart
 } from "lucide-react";
+import posthog from "posthog-js";
 import {
   Dialog,
   DialogContent,
@@ -502,7 +503,10 @@ export default function UserProfilePage() {
             
             {!isOwner && (
               <div className="shrink-0 flex flex-col w-full md:w-auto gap-3 mt-4 md:mt-0">
-                <Button className="w-full bg-primary font-bold shadow-md rounded-xl" onClick={() => router.push(`/messages/${profile.id}`)}>
+                <Button className="w-full bg-primary font-bold shadow-md rounded-xl" onClick={() => {
+                  posthog.capture("Contact Seller", { recipient_id: profile.id });
+                  router.push(`/messages/${profile.id}`);
+                }}>
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Message
                 </Button>

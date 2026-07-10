@@ -8,6 +8,7 @@ import Link from "next/link";
 import Linkify from "linkify-react";
 import { PhotoProvider, PhotoView } from "react-photo-view";
 import "react-photo-view/dist/react-photo-view.css";
+import posthog from "posthog-js";
 import {
   MessageCircle,
   Flag,
@@ -191,6 +192,8 @@ export function PostCard({
         // Revert optimistic update on real error
         setVouchedEntities(prev => ({ ...prev, [key]: false }));
       }
+    } else {
+      posthog.capture("Vouch", { entity_type: entityType, entity_id: entityId, target_user_id: targetUserId });
     }
   };
 
@@ -227,6 +230,7 @@ export function PostCard({
         toast.error("Failed to remove bookmark");
         setSavedPostIds(prev => new Set(prev).add(post.id));
       } else {
+        posthog.capture("Unsave", { post_id: post.id });
         toast.success("Removed from Saved Posts");
       }
     } else {
@@ -243,6 +247,7 @@ export function PostCard({
           return newSet;
         });
       } else {
+        posthog.capture("Save", { post_id: post.id });
         toast.success("Post saved successfully");
       }
     }
@@ -254,6 +259,7 @@ export function PostCard({
     const shareUrl = `${window.location.origin}/posts/${post.id}`;
     try {
       await navigator.clipboard.writeText(shareUrl);
+      posthog.capture("Share", { post_id: post.id, method: "copy_link" });
       toast.success("Link copied to clipboard!");
       setIsShareOpen(false);
     } catch (err) {
@@ -271,6 +277,7 @@ export function PostCard({
         await navigator.share({
           url: shareUrl,
         });
+        posthog.capture("Share", { post_id: post.id, method: "system_share" });
         setIsShareOpen(false);
       } catch (err) {
         console.log("Error sharing:", err);
@@ -340,6 +347,7 @@ export function PostCard({
       setNewFiles([]);
       setNewPreviews([]);
       setIsEditing(false);
+      posthog.capture("Post Edited", { post_id: post.id });
       onPostUpdated();
       // Logic assumes parent will refresh feed via subscription or callback
     } catch (err) {
@@ -360,6 +368,10 @@ export function PostCard({
       console.error("Delete error:", error);
       return;
     }
+    posthog.capture("Post Deleted", { post_id: post.id });
+    if (post.category === "buy_sell") {
+      posthog.capture("Listing Closed", { post_id: post.id });
+    }
     onPostUpdated();
   };
 
@@ -378,8 +390,18 @@ export function PostCard({
     ? `https://www.google.com/s2/favicons?domain=${post.user.company?.domain}&sz=64`
     : null;
 
+  const handleCardClick = () => {
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const query = searchParams.get("q");
+      if (query) {
+        posthog.capture("Search Result Click", { post_id: post.id, query });
+      }
+    }
+  };
+
   return (
-    <div className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-all shadow-sm overflow-visible">
+    <div onClick={handleCardClick} className="bg-white border border-neutral-200 rounded-lg p-5 hover:border-neutral-300 transition-all shadow-sm overflow-visible">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-3 sm:gap-2">
         <div className="flex gap-3 min-w-0">
@@ -601,6 +623,9 @@ export function PostCard({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (!isExpanded) {
+                    posthog.capture("Read More Clicked", { post_id: post.id });
+                  }
                   setIsExpanded(!isExpanded);
                 }}
                 className="underline text-sm font-bold text-primary hover:opacity-80 mt-2 flex items-center gap-1 transition-all"
