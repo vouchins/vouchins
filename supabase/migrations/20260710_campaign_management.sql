@@ -73,3 +73,7 @@ CREATE POLICY "Admins can do everything on campaigns" ON public.campaigns
       WHERE users.id = auth.uid() AND users.is_admin = true
     )
   );
+-- 7. Create user_identity_providers view for reading oauth identities
+CREATE OR REPLACE VIEW public.user_identity_providers AS 
+  SELECT id, user_id, provider, created_at 
+  FROM auth.identities;
