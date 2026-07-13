@@ -3,6 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, Fingerprint, ShieldCheck } from "lucide-react";
 
 export function HomepageNavbar() {
   return (
@@ -32,6 +39,48 @@ export function HomepageNavbar() {
               >
                 How it works
               </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="group flex items-center gap-1 text-sm font-semibold text-neutral-600 outline-none transition-colors hover:text-primary data-[state=open]:text-primary">
+                  Products
+                  <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="center"
+                  sideOffset={14}
+                  className="w-72 rounded-xl border-neutral-200 bg-white p-2 shadow-xl"
+                >
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-lg p-0 focus:bg-neutral-50">
+                    <Link href="/login" className="flex items-start gap-3 px-3 py-3">
+                      <span className="mt-0.5 rounded-lg bg-teal-50 p-2 text-teal-700">
+                        <ShieldCheck className="h-4 w-4" />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-bold text-neutral-900">
+                          Vouchins Verified Community
+                        </span>
+                        <span className="mt-0.5 block text-xs text-neutral-500">
+                          Trusted community for verified professionals
+                        </span>
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-lg p-0 focus:bg-neutral-50">
+                    <Link href="/warden" className="flex items-start gap-3 px-3 py-3">
+                      <span className="mt-0.5 rounded-lg bg-indigo-50 p-2 text-indigo-700">
+                        <Fingerprint className="h-4 w-4" />
+                      </span>
+                      <span>
+                        <span className="block text-sm font-bold text-neutral-900">
+                          Warden - Agentic Identity Management
+                        </span>
+                        <span className="mt-0.5 block text-xs text-neutral-500">
+                          Identity infrastructure for autonomous agents
+                        </span>
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Link
                 href="/privacy"
                 className="text-sm font-semibold text-neutral-600 hover:text-primary transition-colors"
