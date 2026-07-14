@@ -14,7 +14,7 @@ import {
 } from "@/lib/auth/validation";
 import posthog from "posthog-js";
 import Image from "next/image";
-import { PublicNavbar } from "@/components/public-navbar";
+import { HomepageNavbar } from "@/components/homepage-navbar";
 
 function SignupContent() {
   const router = useRouter();
@@ -136,10 +136,10 @@ function SignupContent() {
 
   return (
     <>
-      <PublicNavbar />
+      <HomepageNavbar />
       <div className="min-h-[calc(100vh-64px)] flex bg-neutral-50 animate-in fade-in duration-500">
         {/* Left Panel: Showcase (Desktop Only) */}
-        <div className="hidden md:flex md:w-[45%] lg:w-[50%] bg-primary text-white flex-col justify-between p-12 relative overflow-hidden shrink-0 border-r border-primary">
+        <div className="hidden md:flex md:w-[45%] lg:w-[50%] bg-primary text-white flex-col justify-between px-12 pb-12 pt-28 relative overflow-hidden shrink-0 border-r border-primary">
           {/* Background Decorative Blurs */}
           <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
             <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full bg-[#4FD1C5]/10 blur-[120px]" />
@@ -233,19 +233,17 @@ function SignupContent() {
         </div>
 
         {/* Right Panel: Form */}
-        <div className="w-full md:w-[55%] lg:w-[50%] flex flex-col justify-between p-6 sm:p-12 bg-white min-h-[calc(100vh-64px)]">
+        <div className="w-full md:w-[55%] lg:w-[50%] flex flex-col justify-between px-6 sm:px-12 pb-6 sm:pb-12 pt-28 bg-[#F8FAF9] min-h-[calc(100vh-64px)]">
           {/* Top spacer */}
           <div />
 
           {/* Center Container */}
-          <div className="w-full max-w-sm mx-auto py-8">
-            <div className="text-center md:text-left mb-8">
-              <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-neutral-900 mb-2">
-                Create your account
-              </h3>
-              <p className="text-xs sm:text-sm text-neutral-500">
+          <div className="w-full max-w-[420px] mx-auto py-10 px-8 sm:px-10 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-200/60 relative">
+            <div className="absolute top-0 right-1/2 translate-x-1/2 w-[80%] h-1 bg-gradient-to-r from-transparent via-[#4FD1C5] to-transparent opacity-50"></div>
+            <div className="text-center mb-8">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-900 mb-2 leading-tight">
                 Join the verified professional network.
-              </p>
+              </h3>
             </div>
 
             {error && (
