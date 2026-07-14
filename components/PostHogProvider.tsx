@@ -45,8 +45,12 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
+        const metadata = session.user.user_metadata;
+        const fullName = metadata?.full_name || metadata?.name || metadata?.first_name || "Unknown User";
+        
         posthog.identify(session.user.id, {
           email: session.user.email,
+          name: fullName,
         });
       } else if (event === "SIGNED_OUT") {
         posthog.reset();
