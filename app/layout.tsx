@@ -8,9 +8,13 @@ import { UserProvider } from "@/components/user-provider";
 
 import "./globals.css";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 
 const inter = Inter({ subsets: ["latin"] });
+const playfair = Playfair_Display({ 
+  subsets: ["latin"],
+  variable: "--font-playfair"
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.vouchins.com"), // Essential for OG images to work
@@ -85,7 +89,7 @@ export default function RootLayout({
         />
       </head>
       <PHProvider>
-        <body className={inter.className}>
+        <body className={`${inter.className} ${playfair.variable}`}>
           <UserProvider>
             <PWARegister />
             <RecoveryRedirect />

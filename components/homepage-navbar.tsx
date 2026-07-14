@@ -46,34 +46,34 @@ export function HomepageNavbar() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="center"
-                  sideOffset={14}
-                  className="w-72 rounded-xl border-neutral-200 bg-white p-2 shadow-xl"
+                  sideOffset={24}
+                  className="w-[340px] rounded-2xl border border-neutral-200/60 bg-white/95 p-3 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] backdrop-blur-xl"
                 >
-                  <DropdownMenuItem asChild className="cursor-pointer rounded-lg p-0 focus:bg-neutral-50">
-                    <Link href="/login" className="flex items-start gap-3 px-3 py-3">
-                      <span className="mt-0.5 rounded-lg bg-teal-50 p-2 text-teal-700">
-                        <ShieldCheck className="h-4 w-4" />
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item">
+                    <Link href="/login" className="flex items-start gap-4 px-4 py-3">
+                      <span className="mt-0.5 rounded-xl bg-gradient-to-br from-[#0A1B5C]/10 to-[#0A1B5C]/5 p-2.5 text-[#0A1B5C] shadow-sm ring-1 ring-inset ring-[#0A1B5C]/10 group-hover/item:scale-105 transition-transform">
+                        <ShieldCheck className="h-5 w-5" />
                       </span>
                       <span>
-                        <span className="block text-sm font-bold text-neutral-900">
+                        <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#0A1B5C] transition-colors">
                           Vouchins Verified Community
                         </span>
-                        <span className="mt-0.5 block text-xs text-neutral-500">
+                        <span className="mt-1 block text-[13px] text-neutral-500 font-medium leading-snug">
                           Trusted community for verified professionals
                         </span>
                       </span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="cursor-pointer rounded-lg p-0 focus:bg-neutral-50">
-                    <Link href="/warden" className="flex items-start gap-3 px-3 py-3">
-                      <span className="mt-0.5 rounded-lg bg-indigo-50 p-2 text-indigo-700">
-                        <Fingerprint className="h-4 w-4" />
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item mt-1">
+                    <Link href="/warden" className="flex items-start gap-4 px-4 py-3">
+                      <span className="mt-0.5 rounded-xl bg-gradient-to-br from-[#4FD1C5]/15 to-[#4FD1C5]/5 p-2.5 text-[#2C9A90] shadow-sm ring-1 ring-inset ring-[#4FD1C5]/20 group-hover/item:scale-105 transition-transform">
+                        <Fingerprint className="h-5 w-5" />
                       </span>
                       <span>
-                        <span className="block text-sm font-bold text-neutral-900">
+                        <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#2C9A90] transition-colors">
                           Warden - Agentic Identity Management
                         </span>
-                        <span className="mt-0.5 block text-xs text-neutral-500">
+                        <span className="mt-1 block text-[13px] text-neutral-500 font-medium leading-snug">
                           Identity infrastructure for autonomous agents
                         </span>
                       </span>
@@ -107,7 +107,7 @@ export function HomepageNavbar() {
               </Link>
               <Link href="/signup">
                 <Button className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95">
-                  Join Now
+                  Request Access
                 </Button>
               </Link>
             </div>

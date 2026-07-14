@@ -129,21 +129,21 @@ export default function Home() {
                     ))}
                   </div>
                   <span className="text-neutral-400 font-medium">
-                    Joined by <span className="text-white font-bold">2,000+</span> tech pros this month
+                    Membership strictly limited to <span className="text-white font-bold">vetted professionals</span>
                   </span>
                 </div>
 
                 {/* Main Headline */}
-                <h1 className="text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.05] text-white">
-                  Work life,<br />
+                <h1 className="text-6xl md:text-7xl font-extrabold tracking-normal leading-tight text-white font-[family-name:var(--font-playfair)]">
+                  Verified Professionals.<br />
                   <span className="bg-gradient-to-r from-[#4FD1C5] to-[#26c6da] bg-clip-text text-transparent font-black">
-                    Verified.
+                    A Trusted Circle.
                   </span>
                 </h1>
 
                 {/* Subheadline */}
                 <p className="text-sm md:text-base text-slate-300 max-w-lg font-normal leading-relaxed tracking-wide animate-fade-in">
-                  The secure identity infrastructure for experienced professionals. Find verified job opportunities, transact, and connect in an ecosystem where every member has real corporate work experience - verified to the same standard your employer already trusts.
+                  Vouchins is an invite-only network for corporate professionals. Every member is real and verified - confirmed through their corporate email and vouched for by trusted peers. Connect, collaborate, and transact with confidence, in a community built entirely on credibility.
                 </p>
 
                 {/* CTAs */}
@@ -153,7 +153,7 @@ export default function Home() {
                       size="lg"
                       className="bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white font-bold text-sm uppercase tracking-wider px-8 py-6 rounded-2xl transition-all shadow-xl shadow-[#0A1B5C]/15 hover:-translate-y-0.5 border-none"
                     >
-                      Join the Circle <Shield className="ml-2 h-4.5 w-4.5 text-[#4FD1C5]" />
+                      Request Access
                     </Button>
                   </Link>
                   <Button
@@ -177,7 +177,7 @@ export default function Home() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4FD1C5] opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4FD1C5]"></span>
                   </span>
-                  World&apos;s first verified professional network
+                  The private enclave for verified leaders
                 </div>
               </div>
 
@@ -306,7 +306,7 @@ export default function Home() {
         <section className="py-14 bg-[#020617] border-y border-white/5 overflow-hidden relative">
           <div className="container mx-auto px-6 max-w-6xl flex flex-col md:flex-row items-center justify-between gap-8 md:gap-12 relative z-10">
             <span className="text-xs font-bold uppercase tracking-widest text-neutral-500 whitespace-nowrap">
-              Trusted by professionals from
+              Our members lead at
             </span>
 
             {/* Horizontal Marquee Scrolling */}
@@ -378,17 +378,17 @@ export default function Home() {
                   Why Now
                 </div>
 
-                <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                <h2 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight font-[family-name:var(--font-playfair)]">
                   AI is breaking<br />
                   digital <span className="bg-gradient-to-r from-[#4FD1C5] to-[#26c6da] bg-clip-text text-transparent font-black">trust.</span>
                 </h2>
 
                 <div className="space-y-4">
                   <p className="text-slate-400 leading-relaxed font-normal text-sm md:text-base">
-                    Fake profiles, AI-generated identities, and anonymous platforms are making it harder to trust anyone online. Our closed ecosystem actively prevents fraud, scams, and broker interference.
+                    Public networks are noisy and compromised. Vouchins is a private sanctuary that actively prevents fraud, scams, and unsolicited outreach.
                   </p>
                   <p className="text-slate-400 leading-relaxed font-normal text-sm md:text-base">
-                    By anchoring interactions to real professional identities, Vouchins provides the secure identity infrastructure that brings accountability back to the internet.
+                    By anchoring interactions to verified corporate identities, Vouchins provides an exclusive infrastructure that brings prestige and accountability back to professional networking.
                   </p>
                 </div>
               </div>
@@ -476,7 +476,7 @@ export default function Home() {
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#0A1B5C]/5 text-[#0A1B5C] text-xs font-bold uppercase tracking-wider">
                   What you can do
                 </div>
-                <h2 className="text-3xl font-extrabold tracking-tight text-[#020617] leading-tight">
+                <h2 className="text-3xl font-extrabold tracking-tight text-[#020617] leading-tight font-[family-name:var(--font-playfair)]">
                   Everything you need.<br />
                   In a <span className="text-[#0A1B5C] font-black">verified</span> network.
                 </h2>
@@ -491,9 +491,9 @@ export default function Home() {
                     <Briefcase className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Jobs & Referrals</h3>
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Executive Opportunities</h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Get matched with verified roles - real recruiters, real referrals, no ghost listings
+                      Access exclusive, off-market roles with direct referrals.
                     </p>
                   </div>
                 </div>
@@ -504,9 +504,9 @@ export default function Home() {
                     <ShoppingCart className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Buy & Sell Safely</h3>
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">High-Value Marketplace</h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Transact with verified pros.
+                      Exchange premium assets in a high-trust environment.
                     </p>
                   </div>
                 </div>
@@ -517,9 +517,9 @@ export default function Home() {
                     <HomeIcon className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Find Flatmates You Can Trust</h3>
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Premium Living Spaces</h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Find or join spaces with confidence.
+                      Connect with verified professionals for premium housing.
                     </p>
                   </div>
                 </div>
@@ -530,9 +530,9 @@ export default function Home() {
                     <Star className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Recommendations That Matter</h3>
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Vetted Endorsements</h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Get trusted reviews from real people.
+                      High-signal recommendations from verified peers.
                     </p>
                   </div>
                 </div>
@@ -543,9 +543,9 @@ export default function Home() {
                     <Users className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Real People, Real Profiles</h3>
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Elite Network</h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Connect with verified professionals.
+                      Forge relationships with top-tier corporate leaders.
                     </p>
                   </div>
                 </div>
@@ -556,9 +556,9 @@ export default function Home() {
                     <MessageSquare className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Professional Messaging</h3>
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Encrypted Networking</h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Communicate securely.
+                      Direct, confidential communication with verified executives.
                     </p>
                   </div>
                 </div>
@@ -943,9 +943,9 @@ export default function Home() {
               <Link href="/signup">
                 <Button
                   size="lg"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm uppercase tracking-wider px-10 py-6.5 rounded-2xl transition-all shadow-xl shadow-blue-500/10 flex items-center gap-2 border-none"
+                  className="bg-[#4FD1C5] hover:bg-[#4FD1C5]/90 text-[#020617] font-bold text-sm uppercase tracking-wider px-10 py-6.5 rounded-2xl transition-all shadow-xl shadow-[#4FD1C5]/20 flex items-center gap-2 border-none"
                 >
-                  Get Early Access <ArrowRight className="h-4.5 w-4.5" />
+                  Request Access <ArrowRight className="h-4.5 w-4.5" />
                 </Button>
               </Link>
               <div className="flex justify-center md:justify-end w-full">
