@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { AlertCircle, Eye, EyeOff, ShieldCheck, MessageCircle, Lock, Loader2 } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, ShieldCheck, MessageCircle, Lock, Loader2, Building2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -137,14 +137,15 @@ function SignupContent() {
   return (
     <>
       <HomepageNavbar />
-      <div className="min-h-[calc(100vh-64px)] flex bg-neutral-50 animate-in fade-in duration-500">
+      <div className="min-h-screen flex bg-primary animate-in fade-in duration-500 pt-[88px] relative overflow-hidden">
+        {/* Full-screen Background Decorative Blurs */}
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+          <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[#4FD1C5]/10 blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-[#4FD1C5]/5 blur-[120px]" />
+        </div>
+
         {/* Left Panel: Showcase (Desktop Only) */}
-        <div className="hidden md:flex md:w-[45%] lg:w-[50%] bg-primary text-white flex-col justify-between px-12 pb-12 pt-28 relative overflow-hidden shrink-0 border-r border-primary">
-          {/* Background Decorative Blurs */}
-          <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
-            <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[80%] rounded-full bg-[#4FD1C5]/10 blur-[120px]" />
-            <div className="absolute bottom-[-20%] right-[-20%] w-[80%] h-[80%] rounded-full bg-emerald-500/5 blur-[120px]" />
-          </div>
+        <div className="hidden md:flex md:w-[45%] lg:w-[50%] text-white flex-col justify-between px-12 pb-12 pt-12 relative z-10 shrink-0">
 
           <div className="relative z-10 flex flex-col justify-between h-full">
             {/* Middle: Brand Info & Mock Post */}
@@ -154,8 +155,8 @@ function SignupContent() {
                   <span className="h-1.5 w-1.5 rounded-full bg-[#4FD1C5]" />
                   World's first 100% verified platform
                 </span>
-                <h2 className="text-4xl lg:text-5xl font-black tracking-tight leading-none bg-gradient-to-r from-white via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
-                  Work Life, <br />Verified.
+                <h2 className="text-4xl lg:text-5xl font-black tracking-tight leading-tight pb-2 bg-gradient-to-r from-white via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
+                  Join the verified <br />professional network.
                 </h2>
                 <p className="text-xs sm:text-sm text-neutral-400 max-w-md leading-relaxed font-light">
                   Connect and transact with verified professionals at top employers. Real people, verified identities, trusted connections.
@@ -164,28 +165,55 @@ function SignupContent() {
 
               {/* Floating Glassmorphic Widgets */}
               <div className="space-y-4 pt-4">
-                {/* Widget 1: Mock Post */}
-                <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-md space-y-3 shadow-2xl relative overflow-hidden group hover:border-white/[0.15] transition-all">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-[#4FD1C5]/10 rounded-full blur-2xl" />
-                  <div className="flex justify-between items-center text-xs text-neutral-400">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#4FD1C5]" />
-                      <span className="font-semibold text-neutral-300">Amit Sharma • Microsoft</span>
+                {/* Realistic Dummy Post Card (Signup) */}
+                <div className="bg-white rounded-[2rem] shadow-2xl border border-neutral-100 overflow-hidden relative rotate-[-1deg] hover:rotate-0 transition-transform duration-500 scale-95 origin-left">
+                  <div className="p-6">
+                    {/* Header */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-[#0A1B5C] to-[#4FD1C5] flex items-center justify-center text-white font-bold text-lg shadow-inner ring-2 ring-white">
+                          P
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-[15px] font-bold text-neutral-900">Priya Patel</h4>
+                            <ShieldCheck className="h-4 w-4 text-[#4FD1C5]" />
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1 text-xs text-neutral-500 font-medium">
+                            <Building2 className="h-3.5 w-3.5 text-neutral-400" />
+                            Amazon
+                            <span className="text-neutral-300">•</span>
+                            <MapPin className="h-3.5 w-3.5 text-neutral-400" />
+                            Bangalore
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5 flex-wrap justify-end">
+                        <div className="px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-600 text-[10px] font-bold uppercase tracking-wider">
+                          Jobs
+                        </div>
+                        <div className="px-2.5 py-1 rounded-full bg-[#4FD1C5]/10 text-[#2C9A90] text-[10px] font-bold uppercase tracking-wider border border-[#4FD1C5]/20">
+                          Offering Referral
+                        </div>
+                      </div>
                     </div>
-                    <span>10m ago</span>
-                  </div>
-                  <p className="text-xs text-neutral-200 leading-relaxed">
-                    "Looking for a software engineering referral for a Senior Frontend role at Google. 5+ years of React experience. Appreciate any leads!"
-                  </p>
-                  <div className="flex items-center gap-4 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
-                    <span className="flex items-center gap-1 text-[#4FD1C5]">
-                      <ShieldCheck className="h-3.5 w-3.5" />
-                      Verified Member
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="h-3.5 w-3.5 text-neutral-400" />
-                      6 Responses
-                    </span>
+
+                    {/* Content */}
+                    <div className="mt-5 text-[14px] text-neutral-700 leading-relaxed font-medium">
+                      Hey network! We are expanding our AWS team in BLR. I have 2 open referrals for Senior SDEs. Must have distributed systems experience. Happy to chat and refer directly!
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-6 mt-6 pt-4 border-t border-neutral-100">
+                      <div className="flex items-center gap-2 text-sm font-bold text-neutral-500">
+                        <MessageCircle className="h-4 w-4" />
+                        24 Replies
+                      </div>
+                      <div className="flex items-center gap-2 text-sm font-bold text-[#4FD1C5]">
+                        <ShieldCheck className="h-4 w-4" />
+                        12 Vouches
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -233,18 +261,13 @@ function SignupContent() {
         </div>
 
         {/* Right Panel: Form */}
-        <div className="w-full md:w-[55%] lg:w-[50%] flex flex-col justify-between px-6 sm:px-12 pb-6 sm:pb-12 pt-28 bg-[#F8FAF9] min-h-[calc(100vh-64px)]">
+        <div className="w-full md:w-[55%] lg:w-[50%] flex flex-col justify-between px-6 sm:px-12 pb-6 sm:pb-12 pt-12 relative z-10">
           {/* Top spacer */}
           <div />
 
           {/* Center Container */}
           <div className="w-full max-w-[420px] mx-auto py-10 px-8 sm:px-10 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-200/60 relative">
             <div className="absolute top-0 right-1/2 translate-x-1/2 w-[80%] h-1 bg-gradient-to-r from-transparent via-[#4FD1C5] to-transparent opacity-50"></div>
-            <div className="text-center mb-8">
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-900 mb-2 leading-tight">
-                Join the verified professional network.
-              </h3>
-            </div>
 
             {error && (
               <Alert variant="destructive" className="mb-6 rounded-2xl border-none bg-red-50 text-red-800 flex items-center gap-3">
@@ -425,11 +448,11 @@ function SignupContent() {
           </div>
 
           {/* Bottom spacer / Footer */}
-          <div className="text-center text-[10px] text-neutral-400 mt-8 leading-relaxed max-w-xs mx-auto">
+          <div className="text-center text-[10px] text-white/60 mt-8 leading-relaxed max-w-xs mx-auto">
             By continuing, you agree to our{" "}
-            <Link href="/terms" className="underline hover:text-neutral-600">Terms of Service</Link>
+            <Link href="/terms" className="underline hover:text-white">Terms of Service</Link>
             {" and "}
-            <Link href="/privacy" className="underline hover:text-neutral-600">Privacy Policy</Link>.
+            <Link href="/privacy" className="underline hover:text-white">Privacy Policy</Link>.
           </div>
         </div>
       </div>
