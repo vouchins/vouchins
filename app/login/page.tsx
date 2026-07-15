@@ -89,7 +89,7 @@ export default function LoginPage() {
   return (
     <>
       <HomepageNavbar />
-      <div className="min-h-screen flex bg-primary animate-in fade-in duration-500 pt-[88px] relative overflow-hidden">
+      <div className="min-h-screen flex bg-primary animate-in fade-in duration-500 pt-[88px] relative overflow-x-hidden">
         {/* Full-screen Background Decorative Blurs */}
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
           <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-[#4FD1C5]/10 blur-[120px]" />
@@ -99,7 +99,7 @@ export default function LoginPage() {
         {/* Left Panel: Showcase (Desktop Only) */}
         <div className="hidden md:flex md:w-[45%] lg:w-[50%] text-white flex-col justify-between px-12 pb-12 pt-12 relative z-10 shrink-0">
 
-          <div className="relative z-10 flex flex-col justify-between h-full">
+          <div className="relative z-10 flex flex-col justify-between h-full min-h-max gap-8">
             {/* Middle: Brand Info & Mock Post */}
             <div className="space-y-8">
               <div className="space-y-4">
