@@ -65,7 +65,10 @@ export function HomepageNavbar() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item mt-1">
-                    <Link href="/warden" className="flex items-start gap-4 px-4 py-3">
+                    <a
+                      href="https://warden.vouchins.com"
+                      className="flex items-start gap-4 px-4 py-3"
+                    >
                       <span className="mt-0.5 rounded-xl bg-gradient-to-br from-[#4FD1C5]/15 to-[#4FD1C5]/5 p-2.5 text-[#2C9A90] shadow-sm ring-1 ring-inset ring-[#4FD1C5]/20 group-hover/item:scale-105 transition-transform">
                         <Fingerprint className="h-5 w-5" />
                       </span>
@@ -77,7 +80,7 @@ export function HomepageNavbar() {
                           Identity infrastructure for autonomous agents
                         </span>
                       </span>
-                    </Link>
+                    </a>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

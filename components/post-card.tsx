@@ -423,16 +423,11 @@ export function PostCard({
     }
   };
 
-  // Deterministic metrics for active/lively indicators
+  // Real analytics (no longer artificially inflated)
   const getDeterministicMetrics = (postId: string, cCount: number, vCount: number) => {
-    let hash = 0;
-    for (let i = 0; i < postId.length; i++) {
-      hash = postId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const absHash = Math.abs(hash);
-    const views = 120 + (post.post_views?.length || 0) + (absHash % 80) + cCount * 18 + vCount * 25;
-    const shares = Math.max(2, Math.round(views * 0.04) + (absHash % 12));
-    const saves = (post.saved_posts?.length || 0) + (absHash % 6);
+    const views = post.post_views?.length || 0;
+    const shares = 0;
+    const saves = post.saved_posts?.length || 0;
     return { views, shares, saves };
   };
 
