@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import Linkify from "linkify-react";
-import { PhotoProvider, PhotoView } from "react-photo-view";
-import "react-photo-view/dist/react-photo-view.css";
 import posthog from "posthog-js";
 import {
   MessageCircle,
@@ -31,13 +30,10 @@ import {
   Lock,
   MoreVertical,
   Eye,
-  ArrowLeft,
-  ArrowRight,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { toast } from "sonner";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
-import imageCompression from "browser-image-compression";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -45,6 +41,10 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useUser } from "@/components/user-provider";
+
+const PostImageGallery = dynamic(() => import("@/components/post-image-gallery").then((mod) => mod.PostImageGallery), {
+  loading: () => <div className="mt-4 h-64 sm:h-80 rounded-xl bg-neutral-100 animate-pulse" />,
+});
 
 
 interface PostCardProps {
@@ -73,7 +73,7 @@ interface PostCardProps {
       id: string;
       full_name: string;
       city: string;
-      avatar_url?: string;
+      avatar_url?: string | null;
       vouch_points?: number;
       is_verified?: boolean;
       company: {
@@ -85,6 +85,10 @@ interface PostCardProps {
     vouches?: { id: string; vouching_user_id: string }[];
     saved_posts?: { id: string }[];
     post_views?: { id: string }[];
+    comment_count?: number;
+    vouch_count?: number;
+    save_count?: number;
+    view_count?: number;
   };
   isVerifiedUser: boolean;
   currentUserId: string;
@@ -106,9 +110,10 @@ export function PostCard({
   defaultShowComments = false,
 }: PostCardProps) {
   // --- START: YOUR ORIGINAL LOGIC (FULLY PRESERVED) ---
-  const [activeImgIndex, setActiveImgIndex] = useState(0);
   const isOwner = post.user.id === currentUserId;
   const [showComments, setShowComments] = useState(defaultShowComments);
+  const [comments, setComments] = useState(post.comments || []);
+  const [loadingComments, setLoadingComments] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(post.text);
   const [saving, setSaving] = useState(false);
@@ -173,26 +178,11 @@ export function PostCard({
       ?.label
     : null;
 
-  const commentCount = post.comments?.length || 0;
+  const commentCount = post.comment_count ?? post.comments?.length ?? 0;
 
   const isEdited =
     post.updated_at &&
     new Date(post.updated_at).getTime() > new Date(post.created_at).getTime();
-
-  useEffect(() => {
-    if (!currentUserId || !post.id) return;
-    const recordView = async () => {
-      try {
-        await supabase.from("post_views").insert({
-          post_id: post.id,
-          user_id: currentUserId,
-        });
-      } catch (err) {
-        // Silently catch unique constraint errors
-      }
-    };
-    recordView();
-  }, [post.id, currentUserId]);
 
   const { vouchedEntities, setVouchedEntities, savedPostIds, setSavedPostIds } = useUser();
 
@@ -318,6 +308,7 @@ export function PostCard({
 
     const uploadPromises = files.map(async (file) => {
       try {
+        const { default: imageCompression } = await import("browser-image-compression");
         const compressedFile = await imageCompression(file, options);
         const fileExt = file.name.split(".").pop();
         const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
@@ -424,15 +415,31 @@ export function PostCard({
   };
 
   // Real analytics (no longer artificially inflated)
-  const getDeterministicMetrics = (postId: string, cCount: number, vCount: number) => {
-    const views = post.post_views?.length || 0;
+  const getDeterministicMetrics = () => {
+    const views = post.view_count ?? post.post_views?.length ?? 0;
     const shares = 0;
-    const saves = post.saved_posts?.length || 0;
+    const saves = post.save_count ?? post.saved_posts?.length ?? 0;
     return { views, shares, saves };
   };
 
-  const vouchCount = post.vouches?.length || 0;
-  const { views, shares, saves } = getDeterministicMetrics(post.id, commentCount, vouchCount);
+  const vouchCount = post.vouch_count ?? post.vouches?.length ?? 0;
+  const { views, shares, saves } = getDeterministicMetrics();
+
+  const loadComments = async () => {
+    if (comments.length > 0 || commentCount === 0 || loadingComments) return;
+    setLoadingComments(true);
+    try {
+      const response = await fetch(`/api/posts/${post.id}/comments`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to load comments");
+      setComments(result.comments || []);
+    } catch (error) {
+      console.error("Failed to load comments:", error);
+      toast.error("Could not load comments");
+    } finally {
+      setLoadingComments(false);
+    }
+  };
 
   // Trust Indicators: same-company colleague detection
   const currentUser = useUser().user;
@@ -589,9 +596,7 @@ export function PostCard({
                 : "grid-cols-1"
                 }`}
             >
-              <PhotoProvider>
                 {editedImages.map((url, index) => (
-                  <PhotoView key={index} src={url}>
                     <div
                       key={url}
                       className="relative rounded-lg overflow-hidden border aspect-video"
@@ -608,9 +613,7 @@ export function PostCard({
                         <X className="h-3 w-3" />
                       </button>
                     </div>
-                  </PhotoView>
                 ))}
-              </PhotoProvider>
               {newPreviews.map((url, index) => (
                 <div
                   key={url}
@@ -688,82 +691,8 @@ export function PostCard({
         )}
       </div>
 
-      {/* Static Image Display - Premium Carousel */}
       {!isEditing && post.image_urls && post.image_urls.length > 0 && (
-        <PhotoProvider>
-          <div className="relative mt-4 rounded-xl overflow-hidden border border-neutral-100 bg-neutral-50 group/carousel max-h-[400px]">
-            <PhotoView src={post.image_urls[activeImgIndex]}>
-              <div className="relative w-full h-64 sm:h-80 cursor-zoom-in overflow-hidden flex items-center justify-center">
-                <img
-                  src={post.image_urls[activeImgIndex]}
-                  alt={`Attachment ${activeImgIndex + 1}`}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-full object-cover transition-transform duration-550 hover:scale-102"
-                />
-                
-                {/* Floating zoom indicator on hover */}
-                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/carousel:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                  <span className="bg-black/60 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm shadow-sm">
-                    Click to enlarge
-                  </span>
-                </div>
-              </div>
-            </PhotoView>
-
-            {/* Carousel Navigation Controls (only if > 1 image) */}
-            {post.image_urls.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    setActiveImgIndex((prev) => (prev === 0 ? post.image_urls.length - 1 : prev - 1));
-                  }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/95 hover:bg-white text-neutral-800 shadow-md transition-all hover:scale-105 active:scale-95 z-10"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    setActiveImgIndex((prev) => (prev === post.image_urls.length - 1 ? 0 : prev + 1));
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/95 hover:bg-white text-neutral-800 shadow-md transition-all hover:scale-105 active:scale-95 z-10"
-                >
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-
-                {/* Progress Indicators (Dots) */}
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-full backdrop-blur-sm z-10">
-                  {post.image_urls.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setActiveImgIndex(idx);
-                      }}
-                      className={`h-1.5 w-1.5 rounded-full transition-all duration-350 ${
-                        idx === activeImgIndex ? "bg-white w-3.5" : "bg-white/50 hover:bg-white/80"
-                      }`}
-                    />
-                  ))}
-                </div>
-
-                {/* Image counter tag */}
-                <div className="absolute top-3 right-3 bg-black/60 text-white text-[10px] font-black px-2.5 py-0.5 rounded-full backdrop-blur-sm tracking-wider z-10">
-                  {activeImgIndex + 1} / {post.image_urls.length}
-                </div>
-              </>
-            )}
-          </div>
-        </PhotoProvider>
+        <PostImageGallery imageUrls={post.image_urls} />
       )}
       {/* Footer Actions */}
       <div className="flex items-center gap-1.5 pt-3 border-t border-neutral-100/60 mt-3 overflow-x-auto whitespace-nowrap no-scrollbar">
@@ -774,7 +703,9 @@ export function PostCard({
               variant="ghost"
               size="sm"
               onClick={() => {
-                setShowComments(!showComments);
+                const shouldShow = !showComments;
+                setShowComments(shouldShow);
+                if (shouldShow) void loadComments();
                 onReply(post.id);
               }}
               className="h-8 px-3 flex-shrink-0 text-neutral-500 hover:text-indigo-650 hover:bg-indigo-50/40 active:scale-[0.97] transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 duration-155 rounded-full font-bold"
@@ -961,9 +892,12 @@ export function PostCard({
       </div>
 
       {/* Comments */}
-      {showComments && post.comments && post.comments.length > 0 && (
+      {showComments && loadingComments && (
+        <div className="mt-4 ml-[52px] text-xs font-semibold text-neutral-400">Loading comments...</div>
+      )}
+      {showComments && comments.length > 0 && (
         <div className="mt-4 pt-4 border-t border-neutral-50 ml-[52px] space-y-4">
-          {post.comments.map((comment) => (
+          {comments.map((comment) => (
             <div key={comment.id} id={`comment-${comment.id}`} className="group p-2 rounded-lg transition-all duration-300">
               <div className="flex items-center gap-2 mb-1">
                 <Link

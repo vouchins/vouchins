@@ -18,26 +18,32 @@ jest.mock('next/headers', () => ({
 const mockGetUser = jest.fn();
 const mockFrom = jest.fn();
 const mockSingle = jest.fn();
+const mockMaybeSingle = jest.fn();
 const mockSelect = jest.fn();
 const mockEq = jest.fn();
 const mockOrder = jest.fn();
 const mockRange = jest.fn();
+const mockLimit = jest.fn();
 const mockTextSearch = jest.fn();
 
 const mockQuery = {
   select: mockSelect,
   eq: mockEq,
   single: mockSingle,
+  maybeSingle: mockMaybeSingle,
   order: mockOrder,
   range: mockRange,
+  limit: mockLimit,
   textSearch: mockTextSearch,
 };
 
 mockSelect.mockReturnValue(mockQuery);
 mockEq.mockReturnValue(mockQuery);
 mockSingle.mockReturnValue(mockQuery);
+mockMaybeSingle.mockReturnValue(mockQuery);
 mockOrder.mockReturnValue(mockQuery);
 mockRange.mockReturnValue(mockQuery);
+mockLimit.mockReturnValue(mockQuery);
 mockTextSearch.mockReturnValue(mockQuery);
 
 const mockSupabase = {
@@ -62,16 +68,32 @@ describe('Global Feed & City Filtering System - API', () => {
     
     // Set default happy path mocks for the GET endpoint
     mockGetUser.mockResolvedValue({ data: { user: { id: 'test-user-id' } } });
-    mockSingle.mockResolvedValue({
+    mockMaybeSingle.mockResolvedValue({
       data: {
+        id: 'test-user-id',
+        full_name: 'Test User',
+        email: 'test@example.com',
         city: 'Hyderabad',
         company_id: 'company-123',
         is_verified: true,
+        onboarded: true,
+        is_admin: false,
+        company: { id: 'company-123', name: 'Test Co', domain: 'test.example' },
       },
+      error: null,
     });
-    mockRange.mockResolvedValue({
+    mockLimit.mockResolvedValue({
       data: [
-        { id: 'post-1', text: 'Hello post 1', user: { city: 'Hyderabad' } },
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          text: 'Hello post 1',
+          created_at: '2026-07-01T00:00:00.000Z',
+          user: { city: 'Hyderabad', company: { name: 'Test Co', domain: 'test.example' } },
+          comments: [{ count: 0 }],
+          vouches: [{ count: 0 }],
+          saved_posts: [{ count: 0 }],
+          post_views: [{ count: 0 }],
+        },
       ],
       error: null,
     });

@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 
 interface UserCompany {
@@ -12,16 +13,16 @@ interface UserProfile {
   id: string;
   full_name: string;
   email: string;
-  city: string;
-  avatar_url?: string;
+  city: string | null;
+  avatar_url?: string | null;
   vouch_points: number;
   is_admin: boolean;
-  company: UserCompany;
+  company: UserCompany | null;
   is_verified: boolean;
-  is_profile_complete: boolean;
-  profile_completion_percentage: number;
-  linkedin_url?: string;
-  phone_number?: string;
+  is_profile_complete?: boolean;
+  profile_completion_percentage?: number;
+  linkedin_url?: string | null;
+  phone_number?: string | null;
 }
 
 interface UserContextType {
@@ -37,12 +38,41 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
+interface UserProviderProps {
+  children: ReactNode;
+  initialUser?: UserProfile | null;
+  skipInitialFetchOnFeed?: boolean;
+}
+
+export function UserProvider({ children, initialUser = null, skipInitialFetchOnFeed = false }: UserProviderProps) {
+  const pathname = usePathname();
+  const shouldSkipFetch = skipInitialFetchOnFeed && pathname.startsWith("/feed");
+  const [user, setUser] = useState<UserProfile | null>(initialUser);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [vouchedEntities, setVouchedEntities] = useState<Record<string, boolean>>({});
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialUser && !shouldSkipFetch);
+
+  const fetchAuxiliaryData = useCallback(async (userId: string) => {
+    const [messagesResult, vouchesResult, savedResult] = await Promise.all([
+      supabase.from("messages").select("id", { count: "exact", head: true }).eq("receiver_id", userId).eq("is_read", false),
+      supabase.from("vouches").select("post_id, comment_id").eq("vouching_user_id", userId),
+      supabase.from("saved_posts").select("post_id").eq("user_id", userId),
+    ]);
+
+    setUnreadCount(messagesResult.count ?? 0);
+    if (vouchesResult.data) {
+      const state: Record<string, boolean> = {};
+      vouchesResult.data.forEach((v) => {
+        if (v.post_id) state[`post_${v.post_id}`] = true;
+        if (v.comment_id) state[`comment_${v.comment_id}`] = true;
+      });
+      setVouchedEntities(state);
+    }
+    if (savedResult.data) {
+      setSavedPostIds(new Set(savedResult.data.map((post) => post.post_id)));
+    }
+  }, []);
 
   const fetchUserData = async () => {
     try {
@@ -94,6 +124,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         };
 
         setUser(formattedUser);
+        setLoading(false);
 
         // Throttled last_seen activity tracking (at most once every 5 minutes)
         if (typeof window !== "undefined") {
@@ -112,38 +143,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Fetch unread messages count
-        const { count } = await supabase
-          .from("messages")
-          .select("id", { count: "exact", head: true })
-          .eq("receiver_id", data.id)
-          .eq("is_read", false);
-
-        setUnreadCount(count ?? 0);
-
-        // Fetch user's vouches to prevent duplicate network calls across post cards
-        const { data: vouchesData } = await supabase
-          .from("vouches")
-          .select("post_id, comment_id")
-          .eq("vouching_user_id", data.id);
-        if (vouchesData) {
-          const state: Record<string, boolean> = {};
-          vouchesData.forEach((v) => {
-            if (v.post_id) state[`post_${v.post_id}`] = true;
-            if (v.comment_id) state[`comment_${v.comment_id}`] = true;
-          });
-          setVouchedEntities(state);
-        }
-
-        // Fetch user's saved posts
-        const { data: savedPostsData } = await supabase
-          .from("saved_posts")
-          .select("post_id")
-          .eq("user_id", data.id);
-        
-        if (savedPostsData) {
-          setSavedPostIds(new Set(savedPostsData.map(p => p.post_id)));
-        }
+        void fetchAuxiliaryData(data.id);
       } else {
         setUser(null);
         setUnreadCount(0);
@@ -169,12 +169,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    fetchUserData();
+    if (initialUser) {
+      setLoading(false);
+      void fetchAuxiliaryData(initialUser.id);
+      const lastUpdatedKey = `last_seen_updated_${initialUser.id}`;
+      const lastUpdated = localStorage.getItem(lastUpdatedKey);
+      const now = Date.now();
+      if (!lastUpdated || now - parseInt(lastUpdated) > 5 * 60 * 1000) {
+        localStorage.setItem(lastUpdatedKey, now.toString());
+        void supabase.from("users").update({ last_seen: new Date().toISOString() }).eq("id", initialUser.id);
+      }
+    } else if (!shouldSkipFetch) {
+      void fetchUserData();
+    } else {
+      setLoading(false);
+    }
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        fetchUserData();
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && !shouldSkipFetch) {
+        void fetchUserData();
       } else if (event === "SIGNED_OUT") {
         setUser(null);
         setUnreadCount(0);
@@ -196,7 +210,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       window.removeEventListener("user-updated", handleUserUpdate);
     };
-  }, []);
+  }, [pathname]);
 
   return (
     <UserContext.Provider value={{ user, loading, unreadCount, refetch: fetchUserData, vouchedEntities, setVouchedEntities, savedPostIds, setSavedPostIds }}>

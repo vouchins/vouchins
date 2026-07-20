@@ -3,8 +3,13 @@
 import { useEffect, useState } from "react";
 import { MapPin, Search, Plus, Lock, Building2, X, Briefcase } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
-import { CreatePostDialog } from "@/components/create-post-dialog";
+
+const CreatePostDialog = dynamic(
+  () => import("@/components/create-post-dialog").then((mod) => mod.CreatePostDialog),
+  { ssr: false },
+);
 
 interface MobileNavProps {
   user: {

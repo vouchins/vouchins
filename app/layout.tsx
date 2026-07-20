@@ -90,7 +90,7 @@ export default function RootLayout({
       </head>
       <PHProvider>
         <body className={`${inter.className} ${playfair.variable}`}>
-          <UserProvider>
+          <UserProvider skipInitialFetchOnFeed>
             <PWARegister />
             <RecoveryRedirect />
             {children}
@@ -103,4 +103,3 @@ export default function RootLayout({
     </html>
   );
 }
-
