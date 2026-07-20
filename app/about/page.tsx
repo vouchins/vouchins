@@ -1,7 +1,15 @@
 "use client";
 
 import { HomepageNavbar } from "@/components/homepage-navbar";
-import { ShieldCheck, Users, Lock, ChevronRight, Fingerprint, Network } from "lucide-react";
+import {
+  ArrowUpRight,
+  ChevronRight,
+  Fingerprint,
+  Lock,
+  Network,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -28,7 +36,9 @@ export default function AboutPage() {
               Identity is our <span className="text-[#0A1B5C]">infrastructure.</span>
             </h1>
             <p className="text-lg md:text-xl text-neutral-500 max-w-2xl mx-auto font-medium leading-relaxed">
-              We are building the definitive private network where the world's most talented professionals connect, transact, and collaborate with total confidence.
+              We build identity and trust products for people and autonomous
+              agents, making every interaction attributable, controlled, and
+              accountable.
             </p>
           </div>
         </section>
@@ -54,6 +64,12 @@ export default function AboutPage() {
                   </p>
                   <p>
                     We realized the most powerful safety mechanism isn't a star rating - it's your professional reputation. We built Vouchins as an elite identity layer where your corporate credentials guarantee a secure, scam-free ecosystem.
+                  </p>
+                  <p>
+                    That same principle now extends beyond people. As AI agents
+                    begin acting across real tools and services, Warden gives
+                    them bounded authority, enforceable policy, and a complete
+                    audit trail.
                   </p>
                 </div>
               </div>
@@ -112,6 +128,94 @@ export default function AboutPage() {
                   To build the foundational trust infrastructure that empowers professionals and AI agents to facilitate high-value transactions, collaborate seamlessly, and navigate the internet with total security and cryptographic accountability.
                 </p>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ==================================================
+            PRODUCTS
+            ================================================== */}
+        <section className="relative overflow-hidden bg-[#020617] py-24 text-white">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff06_1px,transparent_1px),linear-gradient(to_bottom,#ffffff06_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+          <div className="absolute -left-32 top-1/2 h-80 w-80 -translate-y-1/2 rounded-full bg-[#4FD1C5]/10 blur-[120px]" />
+          <div className="absolute -right-32 top-0 h-96 w-96 rounded-full bg-indigo-500/10 blur-[140px]" />
+
+          <div className="container relative z-10 mx-auto max-w-6xl px-6">
+            <div className="mb-14 max-w-3xl">
+              <div className="mb-5 text-xs font-bold uppercase tracking-[0.24em] text-[#4FD1C5]">
+                Our products
+              </div>
+              <h2 className="font-[family-name:var(--font-playfair)] text-3xl font-extrabold leading-tight md:text-5xl">
+                One trust philosophy. Two identity frontiers.
+              </h2>
+              <p className="mt-5 max-w-2xl text-lg leading-relaxed text-slate-400">
+                Vouchins establishes accountable identity for professional
+                communities. Warden brings the same standard to autonomous AI
+                agents and the actions they take.
+              </p>
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <article className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] p-8 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#4FD1C5]/40 md:p-10">
+                <div className="mb-10 flex items-start justify-between">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#4FD1C5]/10 text-[#6EE7DC] ring-1 ring-inset ring-[#4FD1C5]/20">
+                    <Users className="h-7 w-7" />
+                  </div>
+                  <span className="rounded-full border border-[#4FD1C5]/20 bg-[#4FD1C5]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-[#6EE7DC]">
+                    Live
+                  </span>
+                </div>
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                  For people
+                </p>
+                <h3 className="text-2xl font-extrabold md:text-3xl">
+                  Vouchins Verified Community
+                </h3>
+                <p className="mt-4 max-w-lg leading-relaxed text-slate-400">
+                  A private network where verified professionals connect,
+                  exchange recommendations, and transact within a circle of
+                  trust.
+                </p>
+                <Link
+                  href="/login"
+                  className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-white transition-colors hover:text-[#6EE7DC]"
+                >
+                  Enter the community
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </article>
+
+              <article className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-indigo-500/[0.12] to-[#4FD1C5]/[0.06] p-8 transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300/40 md:p-10">
+                <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-indigo-400/10 blur-3xl" />
+                <div className="relative mb-10 flex items-start justify-between">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-400/10 text-indigo-200 ring-1 ring-inset ring-indigo-300/20">
+                    <Fingerprint className="h-7 w-7" />
+                  </div>
+                  <span className="rounded-full border border-indigo-300/20 bg-indigo-300/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-indigo-200">
+                    New
+                  </span>
+                </div>
+                <div className="relative">
+                  <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                    For AI agents
+                  </p>
+                  <h3 className="text-2xl font-extrabold md:text-3xl">
+                    Warden
+                  </h3>
+                  <p className="mt-4 max-w-lg leading-relaxed text-slate-400">
+                    Agentic identity and authorization infrastructure for
+                    bounded authority, scoped access, policy enforcement, and
+                    auditable actions.
+                  </p>
+                  <a
+                    href="https://warden.vouchins.com"
+                    className="mt-8 inline-flex items-center gap-2 text-sm font-bold text-white transition-colors hover:text-indigo-200"
+                  >
+                    Explore Warden
+                    <ArrowUpRight className="h-4 w-4" />
+                  </a>
+                </div>
+              </article>
             </div>
           </div>
         </section>
@@ -176,14 +280,23 @@ export default function AboutPage() {
         <section className="py-24 bg-white border-t border-neutral-100 text-center">
           <div className="container mx-auto px-6 max-w-3xl">
             <h2 className="text-3xl md:text-4xl font-extrabold text-neutral-900 font-[family-name:var(--font-playfair)] mb-6">
-              Ready to join the enclave?
+              Choose where trust takes you next.
             </h2>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/signup">
                 <Button size="lg" className="bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white font-bold px-10 py-6 rounded-2xl shadow-lg shadow-[#0A1B5C]/15 transition-all hover:-translate-y-0.5">
-                  Request Access <ChevronRight className="ml-2 h-4 w-4" />
+                  Join the Community <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </Link>
+              <a href="https://warden.vouchins.com">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="rounded-2xl border-neutral-300 px-10 py-6 font-bold text-[#0A1B5C] transition-all hover:-translate-y-0.5 hover:bg-neutral-50"
+                >
+                  Explore Warden <ArrowUpRight className="ml-2 h-4 w-4" />
+                </Button>
+              </a>
             </div>
           </div>
         </section>
