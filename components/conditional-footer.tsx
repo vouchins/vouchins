@@ -21,6 +21,7 @@ export function ConditionalFooter() {
     "/posts",
     "/users",
     "/recruiter",
+    "/warden",
   ];
 
   const shouldHide = hideFooterPrefixes.some(

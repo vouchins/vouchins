@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Building2,
   Megaphone,
+  BarChart3,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { UsersTab } from "@/components/admin/users-tab";
@@ -30,6 +31,7 @@ import { BlogTab } from "@/components/admin/blog-tab";
 import { RecruitersTab } from "@/components/admin/recruiters-tab";
 import { CompaniesTab } from "@/components/admin/companies-tab";
 import { CampaignsTab } from "@/components/admin/campaigns-tab";
+import { AnalyticsTab } from "@/components/admin/analytics-tab";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -593,6 +595,10 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="analytics" className="px-6 font-bold text-xs">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Analytics
+                </TabsTrigger>
                 <TabsTrigger value="companies" className="px-6 font-bold text-xs">
                   <Building2 className="h-4 w-4 mr-2" />
                   Companies{" "}
@@ -679,6 +685,10 @@ function AdminPageContent() {
                         onUpdate={handleUpdateBlog}
                         onDelete={handleDeleteBlog}
                       />
+                    </TabsContent>
+
+                    <TabsContent value="analytics">
+                      <AnalyticsTab />
                     </TabsContent>
 
                     <TabsContent value="recruiters">

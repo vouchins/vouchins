@@ -32,6 +32,34 @@ function PostHogPageView(): null {
       posthog.capture("$pageview", {
         $current_url: url,
       });
+      void supabase.auth
+        .getSession()
+        .then(({ data }) => {
+          const userId = data.session?.user.id;
+          if (!userId) return;
+
+          const utcDate = new Date().toISOString().slice(0, 10);
+          const activityKey = `vouchins_activity:${userId}:${utcDate}`;
+          if (localStorage.getItem(activityKey)) return;
+
+          // Mark pending first so simultaneous route transitions do not duplicate the write.
+          localStorage.setItem(activityKey, "pending");
+          void fetch("/api/analytics/activity", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: pathname }),
+            keepalive: true,
+          })
+            .then((response) => {
+              if (!response.ok) {
+                localStorage.removeItem(activityKey);
+                return;
+              }
+              localStorage.setItem(activityKey, "recorded");
+            })
+            .catch(() => localStorage.removeItem(activityKey));
+        })
+        .catch(() => undefined);
     }
   }, [pathname, searchParams]);
 

@@ -9,6 +9,7 @@ import ReactMarkdown from "react-markdown";
 import { PublicNavbar } from "@/components/public-navbar";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import { BlogAnalyticsTracker } from "@/components/blog-analytics-tracker";
 
 export const revalidate = 60;
 
@@ -49,6 +50,11 @@ export default async function BlogPostPage({
 
   return (
     <div className="min-h-screen bg-white">
+      <BlogAnalyticsTracker
+        postId={post.id}
+        slug={post.slug}
+        title={post.title}
+      />
       <PublicNavbar />
 
       <main className="container mx-auto px-4 max-w-3xl py-12">
