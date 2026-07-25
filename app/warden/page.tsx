@@ -317,9 +317,13 @@ export default function WardenPage() {
         <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.5fr_2fr]">
           <div>
             <div className="flex items-center gap-3">
-              <Image src="/images/logo.png" alt="Vouchins" width={112} height={32} className="object-contain" />
+              <a href="https://www.vouchins.com" aria-label="Visit Vouchins">
+                <Image src="/images/logo.png" alt="Vouchins" width={112} height={32} className="object-contain" />
+              </a>
               <span className="h-6 w-px bg-neutral-200" />
-              <span className="font-bold text-[#0A1B5C]">Warden</span>
+              <a href="https://warden.vouchins.com" className="font-bold text-[#0A1B5C]" aria-label="Warden home">
+                Warden
+              </a>
             </div>
             <p className="mt-4 max-w-sm text-sm leading-6 text-neutral-500">
               Identity and authorization infrastructure for autonomous AI agents.
@@ -344,11 +348,19 @@ function WardenNavbar() {
   return (
     <header className="fixed inset-x-0 top-4 z-50 px-4">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between rounded-2xl border border-neutral-200/70 bg-white/95 px-5 shadow-[0_8px_32px_rgba(31,38,135,0.08)] backdrop-blur-xl md:px-6">
-        <Link href="#top" className="flex items-center gap-3" aria-label="Warden home">
-          <Image src="/images/logo.png" alt="Vouchins" width={112} height={32} className="object-contain" priority />
+        <div className="flex items-center gap-3">
+          <a href="https://www.vouchins.com" aria-label="Visit Vouchins">
+            <Image src="/images/logo.png" alt="Vouchins" width={112} height={32} className="object-contain" priority />
+          </a>
           <span className="h-6 w-px bg-neutral-200" />
-          <span className="text-sm font-black tracking-[-0.02em] text-[#0A1B5C]">WARDEN</span>
-        </Link>
+          <a
+            href="https://warden.vouchins.com"
+            className="text-sm font-black tracking-[-0.02em] text-[#0A1B5C]"
+            aria-label="Warden home"
+          >
+            WARDEN
+          </a>
+        </div>
 
         <div className="hidden items-center gap-6 lg:flex">
           <a href="#why-warden" className="text-sm font-semibold text-neutral-600 transition-colors hover:text-[#0A1B5C]">Why Warden</a>
