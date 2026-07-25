@@ -298,6 +298,53 @@ function AdminPageContent() {
     }
   };
 
+  const handleFlaggedAction = async (
+    action: "ignore" | "remove" | "suspend",
+    postIds: string[],
+  ) => {
+    const actionLabel = {
+      ignore: "ignore",
+      remove: "remove",
+      suspend: "suspend the authors of",
+    }[action];
+
+    if (
+      action !== "ignore" &&
+      !confirm(
+        `Are you sure you want to ${actionLabel} ${postIds.length} selected flagged post${postIds.length === 1 ? "" : "s"}?`,
+      )
+    ) {
+      return false;
+    }
+
+    try {
+      const response = await fetch("/api/admin/flagged", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, postIds }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Moderation action failed");
+      }
+
+      toast.success(
+        `${postIds.length} flagged post${postIds.length === 1 ? "" : "s"} updated`,
+      );
+      await Promise.all([
+        fetchFlaggedPosts(),
+        fetchReports(),
+        fetchAllUsers(),
+        fetchDbCounts(),
+      ]);
+      return true;
+    } catch (error: any) {
+      toast.error(error?.message || "Moderation action failed");
+      return false;
+    }
+  };
+
   // --- User Management Handlers ---
   const handleUpdateUser = async (userId: string, updates: any) => {
     try {
@@ -378,17 +425,6 @@ function AdminPageContent() {
     }
     await fetchCompanies();
     await fetchDbCounts();
-  };
-
-  const handleDisableUser = async (userId: string) => {
-    const { error } = await supabase
-      .from("users")
-      .update({ is_active: false })
-      .eq("id", userId);
-    if (!error) {
-      await Promise.all([fetchReports(), fetchFlaggedPosts(), fetchAllUsers()]);
-      await fetchDbCounts();
-    }
   };
 
   const handleWaitlistAction = async (
@@ -530,8 +566,8 @@ function AdminPageContent() {
           <>
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-              <TabsList className="bg-neutral-100/50 p-1 h-12 overflow-x-auto flex-nowrap w-full justify-start border-b border-neutral-200">
-                <TabsTrigger value="users" className="px-6 font-bold text-xs">
+              <TabsList className="h-12 w-full justify-start overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-100/50 p-1 md:h-auto md:flex-wrap md:gap-2 md:overflow-visible md:rounded-none md:border-0 md:bg-transparent md:p-0">
+                <TabsTrigger value="users" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <Users className="h-4 w-4 mr-2" /> Users{" "}
                   {totalUsersCount > 0 && (
                     <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
@@ -539,7 +575,7 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="waitlist" className="px-6 font-bold text-xs">
+                <TabsTrigger value="waitlist" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <Clock className="h-4 w-4 mr-2" />
                   Waitlist{" "}
                   {pendingWaitlistCount > 0 && (
@@ -548,7 +584,7 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="recruiters" className="px-6 font-bold text-xs">
+                <TabsTrigger value="recruiters" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <Briefcase className="h-4 w-4 mr-2" />
                   Recruiters{" "}
                   {pendingRecruitersCount > 0 && (
@@ -557,7 +593,7 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="reports" className="px-6 font-bold text-xs">
+                <TabsTrigger value="reports" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <Flag className="h-4 w-4 mr-2" />
                   Reports{" "}
                   {pendingReportsCount > 0 && (
@@ -566,7 +602,7 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="flagged" className="px-6 font-bold text-xs">
+                <TabsTrigger value="flagged" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <AlertTriangle className="h-4 w-4 mr-2" /> Flagged{" "}
                   {flaggedPostsCount > 0 && (
                     <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
@@ -574,7 +610,7 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="feedback" className="px-6 font-bold text-xs">
+                <TabsTrigger value="feedback" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Feedback{" "}
                   {pendingFeedbackCount > 0 && (
@@ -586,7 +622,7 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="blog" className="px-6 font-bold text-xs">
+                <TabsTrigger value="blog" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <FileText className="h-4 w-4 mr-2" />
                   Blog{" "}
                   {totalBlogPostsCount > 0 && (
@@ -595,11 +631,11 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="analytics" className="px-6 font-bold text-xs">
+                <TabsTrigger value="analytics" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <BarChart3 className="h-4 w-4 mr-2" />
                   Analytics
                 </TabsTrigger>
-                <TabsTrigger value="companies" className="px-6 font-bold text-xs">
+                <TabsTrigger value="companies" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <Building2 className="h-4 w-4 mr-2" />
                   Companies{" "}
                   {totalCompaniesCount > 0 && (
@@ -608,7 +644,7 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                 <TabsTrigger value="campaigns" className="px-6 font-bold text-xs">
+                 <TabsTrigger value="campaigns" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <Megaphone className="h-4 w-4 mr-2" /> Campaigns{" "}
                   {(dbCounts.campaigns || 0) > 0 && (
                     <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
@@ -662,8 +698,7 @@ function AdminPageContent() {
                     <TabsContent value="flagged">
                       <FlaggedTab
                         posts={flaggedPosts}
-                        onRemovePost={handleRemovePost}
-                        onSuspendUser={handleDisableUser}
+                        onAction={handleFlaggedAction}
                         onRefresh={handleRefreshActiveTab}
                         loading={loading || isTabLoading}
                       />

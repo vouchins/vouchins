@@ -2,6 +2,28 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  const url = request.nextUrl.clone()
+  const hostname = (request.headers.get('host') || '').split(':')[0].toLowerCase()
+  const isWardenHost = hostname === 'warden.vouchins.com'
+  const isMainHost = hostname === 'vouchins.com' || hostname === 'www.vouchins.com'
+
+  if (isMainHost && (url.pathname === '/warden' || url.pathname.startsWith('/warden/'))) {
+    const destination = new URL(url.pathname.replace(/^\/warden/, '') || '/', 'https://warden.vouchins.com')
+    destination.search = url.search
+    return NextResponse.redirect(destination, 308)
+  }
+
+  if (isWardenHost && (url.pathname === '/warden' || url.pathname.startsWith('/warden/'))) {
+    const destination = new URL(url.pathname.replace(/^\/warden/, '') || '/', 'https://warden.vouchins.com')
+    destination.search = url.search
+    return NextResponse.redirect(destination, 308)
+  }
+
+  if (isWardenHost && url.pathname === '/') {
+    url.pathname = '/warden'
+    return NextResponse.rewrite(url)
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })
@@ -31,7 +53,6 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const url = request.nextUrl.clone()
   const isRecruiterAuthRoute = url.pathname === '/recruiter/login' || url.pathname === '/recruiter/signup'
   const isStandardAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
   const isAuthRoute = isStandardAuthRoute || isRecruiterAuthRoute
