@@ -138,4 +138,51 @@ describe('Global Feed & City Filtering System - API', () => {
     // Verify user.city filter is NOT applied since default city is "All Cities"
     expect(mockEq).not.toHaveBeenCalledWith('user.city', expect.any(String));
   });
+
+  it('returns verified voucher profiles alongside the aggregate count', async () => {
+    mockLimit.mockResolvedValueOnce({
+      data: [
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          text: 'Marketplace post',
+          category: 'buy_sell',
+          created_at: '2026-07-01T00:00:00.000Z',
+          user: {
+            city: 'Hyderabad',
+            company: { name: 'Test Co', domain: 'test.example' },
+          },
+          comments: [{ count: 0 }],
+          vouch_summary: [{ count: 1 }],
+          vouchers: [
+            {
+              id: 'vouch-1',
+              vouching_user_id: 'voucher-1',
+              user: {
+                id: 'voucher-1',
+                full_name: 'Verified Voucher',
+                avatar_url: '/voucher.png',
+                is_verified: true,
+              },
+            },
+          ],
+          saved_posts: [{ count: 0 }],
+          post_views: [{ count: 0 }],
+        },
+      ],
+      error: null,
+    });
+
+    const response = await GET(
+      new Request('http://localhost/api/posts/get-posts?city=Hyderabad'),
+    );
+    const body = await response.json();
+
+    expect(body.posts[0].vouch_count).toBe(1);
+    expect(body.posts[0].vouchers[0].user).toEqual(
+      expect.objectContaining({
+        full_name: 'Verified Voucher',
+        is_verified: true,
+      }),
+    );
+  });
 });

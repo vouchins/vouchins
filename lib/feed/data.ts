@@ -11,7 +11,14 @@ const POST_SELECT = `
     id, full_name, city, avatar_url, vouch_points, is_admin, is_verified,
     company_id, company:companies(id, name, domain)
   ),
-  comments(count), vouches(count), saved_posts(count), post_views(count)
+  comments(count), vouch_summary:vouches(count),
+  vouchers:vouches(
+    id, vouching_user_id,
+    user:users!vouches_vouching_user_id_fkey(
+      id, full_name, avatar_url, is_verified
+    )
+  ),
+  saved_posts(count), post_views(count)
 `;
 
 function relationCount(value: unknown): number {
@@ -39,7 +46,7 @@ export function decodeFeedCursor(value: string | null): FeedCursor | null {
 export async function getFeedUser(supabase: SupabaseClient, userId: string): Promise<FeedUser | null> {
   const { data, error } = await supabase
     .from("users")
-    .select(`id, full_name, email, city, avatar_url, vouch_points, is_admin, is_verified, onboarded, company_id, linkedin_url, phone_number, company:companies(id, name, domain)`)
+    .select(`id, full_name, email, city, avatar_url, vouch_points, is_admin, is_verified, onboarded, company_id, linkedin_url, phone_number, bio, company:companies(id, name, domain)`)
     .eq("id", userId)
     .maybeSingle();
 
@@ -106,14 +113,24 @@ export async function getFeedPage(
       city: rawAuthor.city || "All Cities",
       company: rawCompany || { name: "Independent", domain: "" },
     };
+    const vouchers = Array.isArray(row.vouchers)
+      ? row.vouchers.map((value) => {
+          const voucher = value as Record<string, unknown>;
+          const rawVoucherUser = Array.isArray(voucher.user)
+            ? voucher.user[0] ?? null
+            : voucher.user ?? null;
+          return { ...voucher, user: rawVoucherUser };
+        })
+      : [];
     return {
       ...row,
       user: author,
+      vouchers,
       text: !viewer.is_verified && !(author as { is_admin?: boolean })?.is_admin
         ? `${rawText.slice(0, 150)}${rawText.length > 150 ? "..." : ""}`
         : rawText,
       comment_count: relationCount(row.comments),
-      vouch_count: relationCount(row.vouches),
+      vouch_count: relationCount(row.vouch_summary ?? row.vouches),
       save_count: relationCount(row.saved_posts),
       view_count: relationCount(row.post_views),
       comments: [],

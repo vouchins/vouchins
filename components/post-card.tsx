@@ -41,6 +41,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { useUser } from "@/components/user-provider";
+import { cn } from "@/lib/utils";
 
 const PostImageGallery = dynamic(() => import("@/components/post-image-gallery").then((mod) => mod.PostImageGallery), {
   loading: () => <div className="mt-4 h-64 sm:h-80 rounded-xl bg-neutral-100 animate-pulse" />,
@@ -51,7 +52,7 @@ interface PostCardProps {
   post: {
     id: string;
     text: string;
-    category: "housing" | "buy_sell" | "recommendations" | "jobs";
+    category: "housing" | "buy_sell" | "recommendations" | "jobs" | "referrals";
     sub_category?:
     | "flatmates"
     | "rentals"
@@ -82,6 +83,16 @@ interface PostCardProps {
       };
     };
     comments?: any[];
+    vouchers?: Array<{
+      id: string;
+      vouching_user_id: string;
+      user: {
+        id: string;
+        full_name: string;
+        avatar_url?: string | null;
+        is_verified: boolean;
+      } | null;
+    }>;
     vouches?: { id: string; vouching_user_id: string }[];
     saved_posts?: { id: string }[];
     post_views?: { id: string }[];
@@ -101,6 +112,7 @@ interface PostCardProps {
   onPostUpdated: () => void;
   onVerifyClick?: (postId: string) => void;
   defaultShowComments?: boolean;
+  variant?: "default" | "feed";
 }
 
 export function PostCard({
@@ -112,7 +124,9 @@ export function PostCard({
   onPostUpdated,
   onVerifyClick,
   defaultShowComments = false,
+  variant = "default",
 }: PostCardProps) {
+  const isFeedVariant = variant === "feed";
   // --- START: YOUR ORIGINAL LOGIC (FULLY PRESERVED) ---
   const isOwner = post.user.id === currentUserId;
   const [showComments, setShowComments] = useState(defaultShowComments);
@@ -158,14 +172,24 @@ export function PostCard({
     }
   };
 
-  //Turncate long posts
+  // Feed cards promote a short first line to a title without changing stored content.
   const [isExpanded, setIsExpanded] = useState(false);
-  const CHARACTER_LIMIT = 400; // Adjust this number to your preference
-  const shouldTruncate = post.text.length > CHARACTER_LIMIT;
+  const normalizedPostText = post.text.trim();
+  const [firstTextLine = "", ...remainingTextLines] = normalizedPostText.split(/\r?\n/);
+  const hasFeedTitle =
+    isFeedVariant &&
+    firstTextLine.length <= 120 &&
+    remainingTextLines.some((line) => line.trim().length > 0);
+  const feedTitle = hasFeedTitle ? firstTextLine : "";
+  const postBody = hasFeedTitle
+    ? remainingTextLines.join("\n").trim()
+    : post.text;
+  const characterLimit = isFeedVariant ? 280 : 400;
+  const shouldTruncate = postBody.length > characterLimit;
   const displayedText =
     isExpanded || !shouldTruncate
-      ? post.text
-      : `${post.text.substring(0, CHARACTER_LIMIT)}...`;
+      ? postBody
+      : `${postBody.substring(0, characterLimit).trim()}...`;
 
   // --- NEW: IMAGE EDITING STATE ---
   const [editedImages, setEditedImages] = useState<string[]>(
@@ -427,6 +451,10 @@ export function PostCard({
   };
 
   const vouchCount = post.vouch_count ?? post.vouches?.length ?? 0;
+  const verifiedVoucherProfiles = (post.vouchers ?? []).filter(
+    (voucher) => voucher.user?.is_verified,
+  );
+  const displayedVoucherProfiles = verifiedVoucherProfiles.slice(0, 3);
   const { views, shares, saves } = getDeterministicMetrics();
 
   const loadComments = async () => {
@@ -448,10 +476,130 @@ export function PostCard({
   // Trust Indicators: same-company colleague detection
   const currentUser = useUser().user;
   const isColleague = currentUser?.company?.domain && post.user.company?.domain && currentUser.company.domain === post.user.company.domain;
+  const feedOptionsMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 shrink-0 rounded-full p-0 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+        >
+          <MoreVertical className="h-4 w-4" />
+          <span className="sr-only">More options</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44 rounded-xl border-neutral-200 shadow-lg">
+        <DropdownMenuItem onClick={handleCopyLink} className="text-xs font-semibold">
+          <Share2 className="mr-2 h-3.5 w-3.5" />
+          Copy link
+        </DropdownMenuItem>
+        {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+          <DropdownMenuItem onClick={handleSystemShare} className="text-xs font-semibold">
+            <Share2 className="mr-2 h-3.5 w-3.5" />
+            Share via...
+          </DropdownMenuItem>
+        )}
+        {isOwner ? (
+          <>
+            <DropdownMenuItem onClick={() => setIsEditing(true)} className="text-xs font-semibold">
+              <Edit2 className="mr-2 h-3.5 w-3.5" />
+              Edit post
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={togglePostStatus} className="text-xs font-semibold">
+              {localStatus === "active" ? (
+                <>
+                  <CheckCircle2 className="mr-2 h-3.5 w-3.5" />
+                  Mark closed
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                  Reopen
+                </>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={deletePost}
+              className="text-xs font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              Delete post
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <DropdownMenuItem
+            onClick={() => onReport("post", post.id, post.text)}
+            className="text-xs font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
+          >
+            <Flag className="mr-2 h-3.5 w-3.5" />
+            Report post
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <div onClick={handleCardClick} className="group/card relative w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-neutral-200/90 bg-white p-4 transition-all duration-300 hover:border-neutral-300 hover:shadow-md sm:p-6">
       {/* Header */}
+      {isFeedVariant ? (
+        <div className="mb-4 flex min-w-0 items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-neutral-200 bg-white font-bold text-primary shadow-sm">
+            {post.user.avatar_url ? (
+              <img
+                src={post.user.avatar_url}
+                alt={post.user.full_name}
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
+              />
+            ) : post.user.company?.domain ? (
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`}
+                alt={post.user.company?.name || "Company logo"}
+                className="h-full w-full object-contain p-1.5"
+              />
+            ) : (
+              post.user.full_name.charAt(0)
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <Link
+              href={`/users/${post.user.id}`}
+              className="inline-flex max-w-full items-center gap-1 break-words text-[15px] font-bold leading-5 text-neutral-950 hover:text-primary"
+            >
+              {post.user.full_name}
+              {post.user.is_verified && (
+                <BadgeCheck className="h-4 w-4 shrink-0 fill-blue-50 text-blue-500" aria-label="Verified user" />
+              )}
+            </Link>
+            <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs font-medium text-neutral-600">
+              <span className="min-w-0 truncate">{post.user.company?.name || "No company"}</span>
+              {(isColleague || post.user.is_verified) && (
+                <>
+                  <span className="text-neutral-300">·</span>
+                  <span className="text-neutral-600">
+                    {isColleague ? "Colleague" : "Verified employee"}
+                  </span>
+                </>
+              )}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-neutral-500">
+              <Link href={`/posts/${post.id}`} className="hover:text-primary hover:underline">
+                {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
+                {isEdited && <span className="ml-1 italic">(Edited)</span>}
+              </Link>
+              <span className="text-neutral-300">·</span>
+              <span className="inline-flex items-center">
+                <MapPin className="mr-0.5 h-3 w-3" />
+                {post.user.city}
+              </span>
+            </div>
+          </div>
+          {feedOptionsMenu}
+        </div>
+      ) : (
       <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-3 sm:gap-2">
         <div className="flex gap-3 min-w-0">
           <div className="h-11 w-11 rounded-xl border border-neutral-100 bg-white flex items-center justify-center overflow-hidden shrink-0 text-primary font-bold shadow-sm">
@@ -546,6 +694,7 @@ export function PostCard({
           )}
         </div>
       </div>
+      )}
 
       {/* Flag Warning */}
       {/* {isOwner && post.is_flagged && post.flag_reasons.length > 0 && (
@@ -564,25 +713,63 @@ export function PostCard({
 
       {/* Content */}
       <div className="mb-4">
-        <div className="flex gap-2 mb-2">
-          <Badge
-            variant="secondary"
-            className="bg-secondary text-primary border-none text-[10px] font-bold uppercase tracking-wider py-0 px-2 h-5"
-          >
-            {categoryLabel}
-          </Badge>
-          {post.sub_category && subCategoryLabel && (
+        {isFeedVariant ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
             <Badge
-              variant="outline"
-              className="text-muted-foreground border-border text-[10px] py-0 px-2 h-5 font-medium"
+              variant="secondary"
+              className="h-5 border-none bg-secondary px-2 text-[10px] font-bold uppercase tracking-wider text-primary"
             >
-              {post.category === "housing" && (
-                <Home className="h-2.5 w-2.5 mr-1" />
-              )}
-              {subCategoryLabel}
+              {categoryLabel}
             </Badge>
-          )}
-        </div>
+            {localStatus === "closed" && (
+              <Badge className="h-5 border-none bg-blue-600 px-2 text-[10px] font-bold uppercase tracking-wider text-white">
+                {getClosedBadgeText()}
+              </Badge>
+            )}
+            {post.visibility === "company" && (
+              <Badge variant="outline" className="h-5 border-blue-100 bg-blue-50 px-2 text-[10px] font-semibold text-blue-700">
+                <Lock className="mr-1 h-3 w-3" />
+                Company only
+              </Badge>
+            )}
+            {post.sub_category && subCategoryLabel && (
+              <Badge variant="outline" className="h-5 border-neutral-200 px-2 text-[10px] font-medium text-neutral-600">
+                {post.category === "housing" && <Home className="mr-1 h-3 w-3" />}
+                {subCategoryLabel}
+              </Badge>
+            )}
+          </div>
+        ) : (
+          <div className="flex gap-2 mb-2">
+            <Badge
+              variant="secondary"
+              className="bg-secondary text-primary border-none text-[10px] font-bold uppercase tracking-wider py-0 px-2 h-5"
+            >
+              {categoryLabel}
+            </Badge>
+            {post.sub_category && subCategoryLabel && (
+              <Badge
+                variant="outline"
+                className="text-muted-foreground border-border text-[10px] py-0 px-2 h-5 font-medium"
+              >
+                {post.category === "housing" && (
+                  <Home className="h-2.5 w-2.5 mr-1" />
+                )}
+                {subCategoryLabel}
+              </Badge>
+            )}
+          </div>
+        )}
+
+        {!isEditing && isFeedVariant && (
+          <div>
+            {feedTitle && (
+              <h3 className="mb-3 break-words text-[17px] font-bold leading-6 text-neutral-950 sm:text-lg">
+                {feedTitle}
+              </h3>
+            )}
+          </div>
+        )}
 
         {isEditing ? (
           <div className="space-y-4">
@@ -659,7 +846,12 @@ export function PostCard({
           </div>
         ) : (
           <div className="relative">
-            <p className="text-neutral-800 text-[15px] leading-relaxed whitespace-pre-wrap break-words">
+            <p
+              className={cn(
+                "whitespace-pre-wrap break-words text-neutral-800",
+                isFeedVariant ? "text-sm leading-6 sm:text-[15px]" : "text-[15px] leading-relaxed",
+              )}
+            >
               {/* {displayedText} */}
               <Linkify
                 options={{
@@ -680,7 +872,10 @@ export function PostCard({
                   }
                   setIsExpanded(!isExpanded);
                 }}
-                className="underline text-sm font-bold text-primary hover:opacity-80 mt-2 flex items-center gap-1 transition-all"
+                className={cn(
+                  "mt-2 flex items-center gap-1 text-sm font-bold text-primary transition-all hover:opacity-80",
+                  !isFeedVariant && "underline",
+                )}
               >
                 {isExpanded ? (
                   <>
@@ -696,9 +891,119 @@ export function PostCard({
       </div>
 
       {!isEditing && post.image_urls && post.image_urls.length > 0 && (
-        <PostImageGallery imageUrls={post.image_urls} />
+        <PostImageGallery imageUrls={post.image_urls} compact={isFeedVariant} />
+      )}
+      {isFeedVariant && !isEditing && (
+        <div className="mt-4">
+          {vouchCount > 0 && (
+            <div className="mb-3 flex items-center gap-3 rounded-xl bg-primary/[0.035] px-3 py-2.5 text-xs font-medium text-neutral-700">
+              {displayedVoucherProfiles.length > 0 ? (
+                <span className="flex shrink-0 -space-x-2">
+                  {displayedVoucherProfiles.map((voucher) => (
+                    <span
+                      key={voucher.id}
+                      title={voucher.user?.full_name}
+                      className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border-2 border-white bg-primary/10 text-[10px] font-bold text-primary"
+                    >
+                      {voucher.user?.avatar_url ? (
+                        <img
+                          src={voucher.user.avatar_url}
+                          alt={voucher.user.full_name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        voucher.user?.full_name.charAt(0)
+                      )}
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-primary shadow-sm">
+                  <ShieldCheck className="h-4 w-4" />
+                </span>
+              )}
+              <span>
+                Vouched for by{" "}
+                {verifiedVoucherProfiles.length > 0
+                  ? `${verifiedVoucherProfiles.length} verified ${
+                      verifiedVoucherProfiles.length === 1
+                        ? "professional"
+                        : "professionals"
+                    }`
+                  : `${vouchCount} community ${
+                      vouchCount === 1 ? "member" : "members"
+                    }`}
+              </span>
+            </div>
+          )}
+          <div className="sm:flex sm:items-center sm:justify-between sm:border-t sm:border-neutral-100 sm:pt-3">
+            <div className="mb-3 flex flex-wrap items-center gap-x-2 text-[11px] font-medium text-neutral-600 sm:mb-0">
+              <span>{commentCount} {commentCount === 1 ? "reply" : "replies"}</span>
+              <span className="text-neutral-300">·</span>
+              <span>{vouchCount} {vouchCount === 1 ? "vouch" : "vouches"}</span>
+              <span className="text-neutral-300">·</span>
+              <span>{views} {views === 1 ? "view" : "views"}</span>
+            </div>
+            <div
+              className={cn(
+                "-mx-4 -mb-4 grid border-t border-neutral-200 sm:mx-0 sm:mb-0 sm:flex sm:border-0",
+                isOwner ? "grid-cols-2" : "grid-cols-3",
+              )}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const shouldShow = !showComments;
+                  setShowComments(shouldShow);
+                  if (shouldShow) void loadComments();
+                  onReply(post.id);
+                }}
+                className="h-12 min-w-0 rounded-none px-4 text-primary hover:bg-primary/5 sm:h-9 sm:rounded-lg sm:px-3"
+              >
+                <MessageCircle className="mr-1.5 h-4 w-4 shrink-0" />
+                <span className="truncate text-xs font-bold">Reply</span>
+              </Button>
+              {!isOwner && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleVouch(post.user.id, "post", post.id)}
+                  disabled={vouchedEntities[`post_${post.id}`]}
+                  className={cn(
+                    "h-12 min-w-0 rounded-none border-l border-neutral-200 px-4 text-primary hover:bg-primary/5 sm:h-9 sm:rounded-lg sm:border-0 sm:px-3",
+                    vouchedEntities[`post_${post.id}`] &&
+                      "cursor-default bg-emerald-50 text-emerald-700",
+                  )}
+                >
+                  {vouchedEntities[`post_${post.id}`] ? (
+                    <Check className="mr-1.5 h-4 w-4 shrink-0" />
+                  ) : (
+                    <ShieldCheck className="mr-1.5 h-4 w-4 shrink-0" />
+                  )}
+                  <span className="truncate text-xs font-bold">
+                    {vouchedEntities[`post_${post.id}`] ? "Vouched" : "Vouch"}
+                  </span>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleToggleSave}
+                className={cn(
+                  "h-12 min-w-0 rounded-none border-l border-neutral-200 px-4 text-primary hover:bg-primary/5 sm:h-9 sm:rounded-lg sm:border-0 sm:px-3",
+                  isSaved && "bg-blue-50 text-blue-700 hover:bg-blue-100",
+                )}
+              >
+                <Bookmark className={cn("mr-1.5 h-4 w-4 shrink-0", isSaved && "fill-current")} />
+                <span className="truncate text-xs font-bold">{isSaved ? "Saved" : "Save"}</span>
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
       {/* Footer Actions */}
+      {(!isFeedVariant || isEditing) && (
       <div className="no-scrollbar mt-3 flex max-w-full items-center gap-1.5 overflow-x-auto whitespace-nowrap border-t border-neutral-100/60 pt-3">
         {!isEditing ? (
           <>
@@ -897,13 +1202,16 @@ export function PostCard({
           </div>
         )}
       </div>
+      )}
 
       {/* Comments */}
       {showComments && loadingComments && (
-        <div className="mt-4 ml-[52px] text-xs font-semibold text-neutral-400">Loading comments...</div>
+        <div className={cn("mt-4 text-xs font-semibold text-neutral-400", isFeedVariant ? "sm:ml-[52px]" : "ml-[52px]")}>
+          Loading comments...
+        </div>
       )}
       {showComments && comments.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-neutral-50 ml-[52px] space-y-4">
+        <div className={cn("mt-4 space-y-4 border-t border-neutral-50 pt-4", isFeedVariant ? "sm:ml-[52px]" : "ml-[52px]")}>
           {comments.map((comment) => (
             <div key={comment.id} id={`comment-${comment.id}`} className="group p-2 rounded-lg transition-all duration-300">
               <div className="flex items-center gap-2 mb-1">

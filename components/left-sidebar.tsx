@@ -1,10 +1,21 @@
 "use client";
 
-import { MapPin, Building2, Lock } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Grid2X2,
+  Home,
+  Lock,
+  MapPin,
+  ShieldCheck,
+  Star,
+  Tag,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
-import { useRouter, usePathname } from "next/navigation";
-
 import { useUser } from "@/components/user-provider";
 
 interface LeftSidebarProps {
@@ -16,6 +27,14 @@ interface LeftSidebarProps {
   activeSubCategory?: string;
   setActiveSubCategory?: (sub: string) => void;
 }
+
+const categoryIcons = {
+  all: Grid2X2,
+  housing: Home,
+  buy_sell: Tag,
+  recommendations: Star,
+  referrals: Users,
+} as const;
 
 export function LeftSidebar({
   activeTab = "city",
@@ -34,124 +53,241 @@ export function LeftSidebar({
   const handleTabClick = (tab: "city" | "company") => {
     if (pathname !== "/feed") {
       router.push(`/feed?tab=${tab}`);
-    } else if (setActiveTab) {
-      setActiveTab(tab);
+    } else {
+      setActiveTab?.(tab);
     }
   };
 
   const handleCategoryClick = (category: string) => {
     if (pathname !== "/feed") {
       router.push(`/feed?category=${category}`);
-    } else if (setActiveCategory && setActiveSubCategory) {
-      setActiveCategory(category);
-      setActiveSubCategory("all");
+    } else {
+      setActiveCategory?.(category);
+      setActiveSubCategory?.("all");
     }
   };
 
   const handleSubCategoryClick = (subCategory: string) => {
     if (pathname !== "/feed") {
-      router.push(`/feed?category=${activeCategory}&subCategory=${subCategory}`);
-    } else if (setActiveSubCategory) {
-      setActiveSubCategory(subCategory);
+      router.push(
+        `/feed?category=${activeCategory}&subCategory=${subCategory}`,
+      );
+    } else {
+      setActiveSubCategory?.(subCategory);
     }
   };
 
+  const categories = [{ value: "all", label: "All" }, ...CATEGORIES];
+
   return (
-    <aside className="hidden lg:flex w-64 flex-col gap-2 sticky top-24 h-fit">
-      <div className={cn(
-        "flex items-center justify-between px-4 py-2 rounded-xl text-sm font-bold transition-all group cursor-pointer",
-        activeTab === "city" && pathname === "/feed"
-          ? "bg-white shadow-sm ring-1 ring-black/5"
-          : "hover:bg-neutral-200/50"
-      )}>
-        <div
-          className={cn("flex items-center gap-3 flex-1", activeTab === "city" && pathname === "/feed" ? "text-primary" : "text-neutral-500")}
-          onClick={() => handleTabClick("city")}
-        >
-          <MapPin className="h-4 w-4 shrink-0" />
-          <span className="truncate max-w-[150px]">{effectiveCity}</span>
-        </div>
-      </div>
-
-      <button
-        onClick={() => handleTabClick("company")}
-        className={cn(
-          "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all relative group",
-          activeTab === "company" && pathname === "/feed"
-            ? "bg-white shadow-sm text-primary ring-1 ring-black/5"
-            : "text-neutral-500 hover:bg-neutral-200/50",
-        )}
-      >
-        <div className="h-5 w-5 rounded bg-neutral-100 flex items-center justify-center overflow-hidden">
-          {user?.company?.domain ? (
-            <img
-              src={`https://www.google.com/s2/favicons?domain=${user?.company?.domain}&sz=32`}
-              alt=""
-              className="h-3.5 w-3.5 object-contain"
-            />
-          ) : (
-            <Building2 className="h-3 w-3 text-neutral-400" />
-          )}
-        </div>
-        <span className="truncate">{user?.company?.name || "Company"}</span>
-        {!user?.is_verified && (
-          <Lock className="h-3 w-3 ml-auto text-neutral-400 group-hover:text-primary" />
-        )}
-      </button>
-
-      <hr className="my-4 border-neutral-200" />
-
-      <div className="px-4 py-2">
-        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mb-4">
-          Marketplace
-        </p>
-        <div className="space-y-1">
-          {[{ value: "all", label: "All" }, ...CATEGORIES].map((cat) => (
-            <button
-              key={cat.value}
-              onClick={() => handleCategoryClick(cat.value)}
-              className={cn(
-                "w-full text-left px-3 py-2 rounded-lg text-[13px] font-bold transition-all",
-                activeCategory === cat.value && pathname === "/feed"
-                  ? "bg-primary/5 text-primary"
-                  : "text-neutral-500 hover:text-neutral-800",
+    <aside
+      aria-label="Feed navigation"
+      className="sticky top-[76px] hidden h-fit w-72 shrink-0 flex-col gap-4 lg:flex"
+    >
+      {user && (
+        <section className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-[0_14px_38px_-28px_rgba(31,37,87,0.55)]">
+          <div className="px-5 pb-5 pt-6 text-center">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-primary/5 text-xl font-semibold text-primary shadow-[0_12px_28px_-18px_rgba(31,37,87,0.65)]">
+              {user.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt={user.full_name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                user.full_name?.charAt(0) || "V"
               )}
-            >
-              # {cat.label}
-            </button>
-          ))}
-        </div>
-      </div>
+            </div>
+            <div className="mt-3 flex items-center justify-center gap-1.5">
+              <h2 className="text-base font-semibold text-neutral-950">
+                {user.full_name}
+              </h2>
+              {user.is_verified && (
+                <span title="Verified member" aria-label="Verified member">
+                  <ShieldCheck className="h-4 w-4 fill-blue-50 text-blue-600" />
+                </span>
+              )}
+            </div>
+            <p className="mx-auto mt-1 line-clamp-2 max-w-[220px] text-xs leading-5 text-neutral-600">
+              {user.bio || `Professional at ${user.company?.name || "Vouchins"}`}
+            </p>
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-neutral-500">
+              <MapPin className="h-3.5 w-3.5" />
+              {user.city}
+            </p>
+            {user.is_verified ? (
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Verified at {user.company?.name || "Vouchins"}
+              </p>
+            ) : (
+              <p className="mt-3 inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
+                Verification pending
+              </p>
+            )}
+          </div>
 
-      {SUB_CATEGORIES[activeCategory] && pathname === "/feed" && (
-        <div className="px-4 py-2 mt-2 space-y-1 animate-in fade-in zoom-in duration-300">
+          <div className="grid grid-cols-2 divide-x divide-neutral-100 border-t border-neutral-100 px-3 py-3 text-center">
+            <div className="px-2">
+              <p className="text-sm font-semibold text-primary">
+                {user.vouch_points || 0}
+              </p>
+              <p className="mt-0.5 text-[10px] text-neutral-500">
+                Vouch score
+              </p>
+            </div>
+            <div className="px-3">
+              <p className="text-sm font-semibold text-primary">
+                {Math.round(user.profile_completion_percentage || 0)}%
+              </p>
+              <p className="mt-0.5 text-[10px] text-neutral-500">
+                Profile complete
+              </p>
+            </div>
+          </div>
+
+          <Link
+            href={`/users/${user.id}`}
+            className="feed-focus flex items-center justify-center gap-2 border-t border-neutral-100 px-5 py-3 text-xs font-semibold text-primary transition hover:bg-neutral-50"
+          >
+            View profile
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </section>
+      )}
+
+      <section className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-[0_14px_38px_-28px_rgba(31,37,87,0.5)]">
+        <div className="space-y-2 border-b border-neutral-100 p-3">
           <button
-            onClick={() => handleSubCategoryClick("all")}
+            type="button"
+            onClick={() => handleTabClick("city")}
+            aria-pressed={activeTab === "city" && pathname === "/feed"}
             className={cn(
-              "w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all",
-              activeSubCategory === "all"
-                ? "bg-neutral-100 text-neutral-900"
-                : "text-neutral-400 hover:text-neutral-700",
+              "feed-focus flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition",
+              activeTab === "city" && pathname === "/feed"
+                ? "bg-primary/[0.055] text-primary"
+                : "text-neutral-600 hover:bg-white/70 hover:text-primary",
             )}
           >
-            All {activeCategory}
-          </button>
-          {SUB_CATEGORIES[activeCategory].map((sub) => (
-            <button
-              key={sub.value}
-              onClick={() => handleSubCategoryClick(sub.value)}
+            <MapPin className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{effectiveCity}</span>
+            <span
               className={cn(
-                "w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all",
-                activeSubCategory === sub.value
-                  ? "bg-neutral-100 text-neutral-900"
-                  : "text-neutral-400 hover:text-neutral-700",
+                "h-2 w-2 rounded-full border",
+                activeTab === "city"
+                  ? "border-blue-500 bg-blue-500"
+                  : "border-neutral-300",
               )}
-            >
-              {sub.label}
-            </button>
-          ))}
+            />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabClick("company")}
+            aria-pressed={activeTab === "company" && pathname === "/feed"}
+            className={cn(
+              "feed-focus flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition",
+              activeTab === "company" && pathname === "/feed"
+                ? "bg-primary/[0.055] text-primary"
+                : "text-neutral-600 hover:bg-white/70 hover:text-primary",
+            )}
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded bg-white">
+              {user?.company?.domain ? (
+                <img
+                  src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=32`}
+                  alt=""
+                  className="h-4 w-4 object-contain"
+                />
+              ) : (
+                <Building2 className="h-4 w-4" />
+              )}
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              {user?.company?.name || "Company"}
+            </span>
+            {!user?.is_verified ? (
+              <Lock className="h-3.5 w-3.5 text-neutral-400" />
+            ) : (
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full border",
+                  activeTab === "company"
+                    ? "border-blue-500 bg-blue-500"
+                    : "border-neutral-300",
+                )}
+              />
+            )}
+          </button>
         </div>
-      )}
+
+        <div className="p-3">
+          <p className="px-3 pb-2 pt-1 text-xs font-semibold text-neutral-900">
+            Browse
+          </p>
+          <div className="space-y-1">
+            {categories.map((category) => {
+              const CategoryIcon =
+                categoryIcons[
+                  category.value as keyof typeof categoryIcons
+                ] || Grid2X2;
+              return (
+                <button
+                  key={category.value}
+                  type="button"
+                  onClick={() => handleCategoryClick(category.value)}
+                  aria-pressed={
+                    activeCategory === category.value && pathname === "/feed"
+                  }
+                  className={cn(
+                    "feed-focus flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition",
+                    activeCategory === category.value && pathname === "/feed"
+                      ? "bg-primary/[0.055] font-semibold text-primary"
+                      : "text-neutral-600 hover:bg-white/70 hover:text-primary",
+                  )}
+                >
+                  <CategoryIcon className="h-4 w-4 shrink-0" />
+                  {category.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {SUB_CATEGORIES[activeCategory] && pathname === "/feed" && (
+            <div className="ml-7 mt-2 space-y-1 border-l border-neutral-200 pl-3">
+              <button
+                type="button"
+                onClick={() => handleSubCategoryClick("all")}
+                aria-pressed={activeSubCategory === "all"}
+                className={cn(
+                  "feed-focus w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-medium transition",
+                  activeSubCategory === "all"
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-neutral-500 hover:text-primary",
+                )}
+              >
+                All
+              </button>
+              {SUB_CATEGORIES[activeCategory].map((subCategory) => (
+                <button
+                  key={subCategory.value}
+                  type="button"
+                  onClick={() => handleSubCategoryClick(subCategory.value)}
+                  aria-pressed={activeSubCategory === subCategory.value}
+                  className={cn(
+                    "feed-focus w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-medium transition",
+                    activeSubCategory === subCategory.value
+                      ? "bg-white text-primary shadow-sm"
+                      : "text-neutral-500 hover:text-primary",
+                  )}
+                >
+                  {subCategory.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </aside>
   );
 }

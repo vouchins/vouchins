@@ -186,6 +186,7 @@ export default function ContactPage() {
                       <SelectItem value="feature">Feature Request</SelectItem>
                       <SelectItem value="bug">Bug Report</SelectItem>
                       <SelectItem value="warden">Warden</SelectItem>
+                      <SelectItem value="premium">Vouchins Premium</SelectItem>
                       <SelectItem value="trust">
                         Trust & Safety Concern
                       </SelectItem>

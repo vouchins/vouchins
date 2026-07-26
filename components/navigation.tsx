@@ -73,6 +73,7 @@ function NavigationContent() {
 
   // Search State
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const fetchNotificationsList = async () => {
     if (!user) return;
@@ -210,6 +211,7 @@ function NavigationContent() {
     } else {
       router.push("/feed");
     }
+    setIsMobileSearchOpen(false);
   };
 
   const clearSearch = () => {
@@ -233,9 +235,14 @@ function NavigationContent() {
               <Image
                 src="/images/logo.png"
                 alt="Vouchins"
-                width={110} // Slightly smaller to give search more room
-                height={30}
-                className="object-contain"
+                width={140}
+                height={38}
+                className={cn(
+                  "object-contain",
+                  pathname === "/feed"
+                    ? "w-[140px] md:w-[110px]"
+                    : "w-[110px]",
+                )}
                 priority
               />
             </Link>
@@ -282,13 +289,28 @@ function NavigationContent() {
               </div>
             ) : user ? (
               <>
+                {pathname === "/feed" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={() => setIsMobileSearchOpen((open) => !open)}
+                    className="relative h-10 w-10 rounded-lg p-0 text-neutral-700 md:hidden"
+                    aria-label={isMobileSearchOpen ? "Close search" : "Open search"}
+                    aria-expanded={isMobileSearchOpen}
+                  >
+                    <Search className="h-5 w-5" />
+                  </Button>
+                )}
+
                 {/* Jobs */}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => router.push("/jobs")}
                   className={cn(
-                    "h-9 px-2 sm:px-3 rounded-lg",
+                    "h-9 rounded-lg px-2 md:px-3",
+                    pathname === "/feed" && "hidden md:inline-flex",
                     pathname === "/jobs"
                       ? "text-primary bg-primary/5"
                       : "text-neutral-600",
@@ -306,7 +328,8 @@ function NavigationContent() {
                   size="sm"
                   onClick={() => router.push("/saved")}
                   className={cn(
-                    "h-9 px-2 sm:px-3 rounded-lg",
+                    "h-9 rounded-lg px-2 md:px-3",
+                    pathname === "/feed" && "hidden md:inline-flex",
                     pathname === "/saved"
                       ? "text-primary bg-primary/5"
                       : "text-neutral-600",
@@ -324,7 +347,8 @@ function NavigationContent() {
                   size="sm"
                   onClick={() => router.push("/messages")}
                   className={cn(
-                    "relative h-9 px-2 sm:px-3 rounded-lg",
+                    "relative h-9 rounded-lg px-2 md:px-3",
+                    pathname === "/feed" && "hidden md:inline-flex",
                     pathname === "/messages"
                       ? "text-primary bg-primary/5"
                       : "text-neutral-600",
@@ -457,7 +481,8 @@ function NavigationContent() {
                     size="sm"
                     onClick={() => router.push("/admin")}
                     className={cn(
-                      "h-9 px-2 sm:px-3 rounded-lg",
+                      "h-9 rounded-lg px-2 md:px-3",
+                      pathname === "/feed" && "hidden md:inline-flex",
                       pathname.startsWith("/admin")
                         ? "text-primary bg-primary/5"
                         : "text-neutral-600",
@@ -573,6 +598,23 @@ function NavigationContent() {
             )}
           </div>
         </div>
+        {user && isMobileSearchOpen && (
+          <form
+            onSubmit={handleSearch}
+            role="search"
+            className="relative pb-3 md:hidden"
+          >
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-[calc(50%+0.375rem)] text-neutral-400" />
+            <input
+              autoFocus
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={`Search in ${user.city || "your city"}...`}
+              className="h-11 w-full rounded-xl border border-neutral-200 bg-neutral-50 pl-10 pr-4 text-sm font-medium outline-none focus:bg-white focus:ring-2 focus:ring-primary/10"
+            />
+          </form>
+        )}
       </div>
       {user && (
         <InviteDialog

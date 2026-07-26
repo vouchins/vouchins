@@ -23,6 +23,7 @@ interface UserProfile {
   profile_completion_percentage?: number;
   linkedin_url?: string | null;
   phone_number?: string | null;
+  bio?: string | null;
 }
 
 interface UserContextType {
@@ -92,7 +93,7 @@ export function UserProvider({ children, initialUser = null, skipInitialFetchOnF
       const { data, error } = await supabase
         .from("users")
         .select(
-          `id, full_name, email, city, avatar_url, vouch_points, is_admin, is_verified, linkedin_url, phone_number, company:companies(name, domain)`
+          `id, full_name, email, city, avatar_url, vouch_points, is_admin, is_verified, linkedin_url, phone_number, bio, company:companies(name, domain)`
         )
         .eq("id", authUser.id)
         .maybeSingle();
@@ -121,6 +122,7 @@ export function UserProvider({ children, initialUser = null, skipInitialFetchOnF
             100,
           linkedin_url: data.linkedin_url,
           phone_number: data.phone_number,
+          bio: data.bio,
         };
 
         setUser(formattedUser);

@@ -24,6 +24,7 @@ export interface FeedUser {
   company_id: string | null;
   linkedin_url?: string | null;
   phone_number?: string | null;
+  bio?: string | null;
   is_profile_complete: boolean;
   profile_completion_percentage: number;
   company: FeedCompany;
@@ -40,7 +41,7 @@ export interface FeedPost {
   id: string;
   user_id: string;
   text: string;
-  category: "housing" | "buy_sell" | "recommendations" | "jobs";
+  category: "housing" | "buy_sell" | "recommendations" | "jobs" | "referrals";
   sub_category?: "flatmates" | "rentals" | "sale" | "pg" | "hiring" | "seeking_referral" | "offering_referral" | "seeking_job" | null;
   visibility: "company" | "all";
   image_urls: string[];
@@ -64,7 +65,34 @@ export interface FeedPost {
   vouch_count: number;
   save_count: number;
   view_count: number;
+  vouchers?: Array<{
+    id: string;
+    vouching_user_id: string;
+    user: {
+      id: string;
+      full_name: string;
+      avatar_url?: string | null;
+      is_verified: boolean;
+    } | null;
+  }>;
   comments?: FeedComment[];
+}
+
+export interface FeedPulse {
+  awaitingRecommendationsCount: number;
+  answeredCount: number;
+  responseRate: number;
+  trending: Array<{
+    category: string;
+    label: string;
+    count: number;
+  }>;
+  blogPosts: Array<{
+    slug: string;
+    title: string;
+    excerpt?: string | null;
+    coverImageUrl?: string | null;
+  }>;
 }
 
 export interface FeedFilters {

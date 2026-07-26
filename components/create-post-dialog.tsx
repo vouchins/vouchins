@@ -60,6 +60,9 @@ interface CreatePostDialogProps {
   onPostCreated: () => void;
   children?: React.ReactNode;
   defaultVisibility?: string; // Optional: prepopulate based on active tab
+  defaultCategory?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function CreatePostDialog({
@@ -67,16 +70,26 @@ export function CreatePostDialog({
   onPostCreated,
   children,
   defaultVisibility = "all",
+  defaultCategory = "",
+  open: controlledOpen,
+  onOpenChange,
 }: CreatePostDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [text, setText] = useState("");
-  const [category, setCategory] = useState<string>("");
+  const [category, setCategory] = useState<string>(defaultCategory);
   const [subCategory, setSubCategory] = useState<string>("");
   const [visibility, setVisibility] = useState<string>(defaultVisibility);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const isControlled = controlledOpen !== undefined;
+  const dialogOpen = isControlled ? controlledOpen : internalOpen;
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!isControlled) setInternalOpen(nextOpen);
+    onOpenChange?.(nextOpen);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -106,6 +119,14 @@ export function CreatePostDialog({
     ];
     filter.add(customBlocklist);
   }, []);
+
+  useEffect(() => {
+    if (!dialogOpen) return;
+    setCategory(defaultCategory);
+    setSubCategory("");
+    setVisibility(defaultVisibility);
+    setError("");
+  }, [dialogOpen, defaultCategory, defaultVisibility]);
 
   const uploadImage = async (files: File[]) => {
     const options = {
@@ -233,7 +254,7 @@ export function CreatePostDialog({
       setVisibility(defaultVisibility);
       setSelectedFiles([]);
       setPreviewUrls([]);
-      setOpen(false);
+      handleOpenChange(false);
       onPostCreated();
     } catch (err: any) {
       setError(err.message || "Failed to create post");
@@ -245,27 +266,29 @@ export function CreatePostDialog({
   const availableSubCategories = SUB_CATEGORIES[category] || [];
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children ? (
-          children
-        ) : (
-          <Button
-            className="bg-primary text-primary-foreground hover:opacity-90 h-9 px-3 sm:px-4 shrink-0"
-            disabled={!user?.is_verified}
-            title={
-              !user?.is_verified
-                ? "Get verified to create posts"
-                : "Create a new post"
-            }
-          >
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline text-sm font-semibold">
-              New Post
-            </span>
-          </Button>
-        )}
-      </DialogTrigger>
+    <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {children ? (
+            children
+          ) : (
+            <Button
+              className="h-9 shrink-0 bg-primary px-3 text-primary-foreground hover:opacity-90 sm:px-4"
+              disabled={!user?.is_verified}
+              title={
+                !user?.is_verified
+                  ? "Get verified to create posts"
+                  : "Create a new post"
+              }
+            >
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden text-sm font-semibold sm:inline">
+                New Post
+              </span>
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
 
       <DialogContent className="sm:max-w-[600px] max-h-[95vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 shrink-0">
@@ -437,7 +460,7 @@ export function CreatePostDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => setOpen(false)}
+              onClick={() => handleOpenChange(false)}
             >
               Cancel
             </Button>

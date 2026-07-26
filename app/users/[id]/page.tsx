@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { PostCard } from "@/components/post-card";
 import {
@@ -66,6 +67,82 @@ export const getHighestBadge = (count: number) => {
   if (count >= 5) return { name: "Community Builder", icon: "🌱" };
   return null;
 };
+
+function ProfilePageSkeleton() {
+  return (
+    <div
+      className="relative min-h-screen overflow-hidden bg-[#f5f7fb] pb-20"
+      aria-label="Loading profile"
+      aria-busy="true"
+    >
+      <Navigation />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-[-12rem] top-40 h-[30rem] w-[30rem] rounded-full bg-cyan-100/55 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute right-[-10rem] top-20 h-[28rem] w-[28rem] rounded-full bg-blue-100/60 blur-3xl"
+      />
+
+      <main className="relative mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
+        <section className="rounded-[28px] border border-white/90 bg-white/75 p-5 shadow-[0_20px_60px_-35px_rgba(31,37,87,0.45)] backdrop-blur-2xl sm:p-8">
+          <div className="flex flex-col gap-7 lg:flex-row lg:items-center">
+            <div className="flex flex-1 flex-col items-center gap-6 sm:flex-row sm:items-start">
+              <Skeleton className="h-28 w-28 shrink-0 rounded-[24px] bg-neutral-200/70" />
+              <div className="w-full min-w-0 flex-1 space-y-4 pt-1">
+                <div className="flex flex-col items-center gap-3 sm:flex-row">
+                  <Skeleton className="h-10 w-52 rounded-xl bg-neutral-200/70" />
+                  <Skeleton className="h-8 w-32 rounded-full bg-neutral-200/60" />
+                </div>
+                <div className="flex justify-center gap-3 sm:justify-start">
+                  <Skeleton className="h-5 w-28 bg-neutral-200/60" />
+                  <Skeleton className="h-5 w-24 bg-neutral-200/60" />
+                </div>
+                <Skeleton className="mx-auto h-4 w-full max-w-lg bg-neutral-200/60 sm:mx-0" />
+                <Skeleton className="mx-auto h-4 w-3/4 max-w-sm bg-neutral-200/60 sm:mx-0" />
+              </div>
+            </div>
+            <div className="w-full space-y-3 lg:w-60">
+              <Skeleton className="h-11 w-full rounded-xl bg-neutral-200/70" />
+              <Skeleton className="h-11 w-full rounded-xl bg-neutral-200/60" />
+            </div>
+          </div>
+        </section>
+
+        <div className="mx-auto flex w-full max-w-xs gap-2 rounded-full border border-white/80 bg-white/60 p-1">
+          <Skeleton className="h-9 flex-1 rounded-full bg-neutral-200/70" />
+          <Skeleton className="h-9 flex-1 rounded-full bg-neutral-200/50" />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-12">
+          <section className="rounded-[26px] border border-white/90 bg-white/70 p-6 lg:col-span-5">
+            <Skeleton className="h-6 w-28 bg-neutral-200/70" />
+            <div className="mt-7 flex flex-col items-center gap-7 sm:flex-row">
+              <Skeleton className="h-44 w-44 shrink-0 rounded-full bg-neutral-200/65" />
+              <div className="w-full space-y-4">
+                <Skeleton className="h-4 w-full bg-neutral-200/60" />
+                <Skeleton className="h-px w-full bg-neutral-200/70" />
+                <Skeleton className="h-12 w-40 rounded-xl bg-neutral-200/60" />
+              </div>
+            </div>
+          </section>
+          <section className="rounded-[26px] border border-white/90 bg-white/70 p-6 lg:col-span-7">
+            <Skeleton className="h-6 w-28 bg-neutral-200/70" />
+            <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+              {[0, 1, 2, 3, 4].map((item) => (
+                <Skeleton
+                  key={item}
+                  className="h-36 rounded-2xl bg-neutral-200/60"
+                />
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  );
+}
 
 export default function UserProfilePage() {
   const { id } = useParams();
@@ -463,11 +540,7 @@ export default function UserProfilePage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 font-medium text-neutral-600">
-        Loading profile...
-      </div>
-    );
+    return <ProfilePageSkeleton />;
   }
 
   if (!profile) return null;

@@ -25,6 +25,7 @@ interface MobileNavProps {
   };
   onOpenCreatePost: () => void;
   setActiveTab: (tab: "city" | "company") => void; // Added for tab state management
+  activeTab?: "city" | "company";
   selectedCity?: string;
 }
 
@@ -32,6 +33,7 @@ export function MobileNav({
   user,
   onOpenCreatePost,
   setActiveTab,
+  activeTab = "city",
   selectedCity,
 }: MobileNavProps) {
   const pathname = usePathname();
@@ -51,6 +53,10 @@ export function MobileNav({
   useEffect(() => {
     setSearchQuery(searchParams.get("q") || "");
   }, [searchParams]);
+
+  useEffect(() => {
+    setLocalActiveTab(activeTab);
+  }, [activeTab]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,7 +84,10 @@ export function MobileNav({
     <>
       {/* Search Overlay (Slide up from bottom when Search is clicked) */}
       {isSearching && (
-        <div className="fixed inset-x-0 bottom-16 z-[60] p-4 bg-white border-t border-neutral-200 animate-in slide-in-from-bottom-2 duration-200 shadow-2xl">
+        <div
+          role="search"
+          className="fixed inset-x-0 bottom-[72px] z-[60] animate-in slide-in-from-bottom-2 border-t border-neutral-200 bg-white p-4 shadow-2xl duration-200"
+        >
           <form
             onSubmit={handleSearch}
             className="relative flex items-center gap-2"
@@ -116,33 +125,46 @@ export function MobileNav({
           </form>
         </div>
       )}
-      <div className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-between border-t border-neutral-200 bg-white px-6 lg:hidden shadow-[0_-1px_10px_rgba(0,0,0,0.05)]">
+      <nav
+        aria-label="Mobile navigation"
+        className="fixed bottom-0 left-0 right-0 z-50 grid h-[72px] grid-cols-5 items-end border-t border-white/90 bg-white/90 px-2 pb-2 pt-1 shadow-[0_-10px_30px_-24px_rgba(31,37,87,0.55)] backdrop-blur-xl lg:hidden"
+      >
         {/* 1. City Feed */}
         <button
+          aria-label={`Open ${selectedCity || user?.city || "city"} feed`}
+          aria-pressed={activeTab === "city"}
+          type="button"
           onClick={() => {
             setLocalActiveTab("city");
             setActiveTab("city");
           }}
           className={cn(
-            "flex flex-col items-center gap-1 min-w-[64px]",
-            localActiveTab === "city" ? "text-primary" : "text-neutral-500",
+            "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",
+            localActiveTab !== "search" && activeTab === "city"
+              ? "text-primary"
+              : "text-neutral-500",
           )}
         >
           <MapPin className="h-5 w-5" />
-          <span className="text-[10px] font-bold truncate max-w-[80px]">
+          <span className="max-w-full truncate text-[10px] font-semibold">
             {cityLabel}
           </span>
         </button>
 
         {/* 2. Company Feed */}
         <button
+          aria-label={`Open ${user?.company?.name || "company"} feed`}
+          aria-pressed={activeTab === "company"}
+          type="button"
           onClick={() => {
             setLocalActiveTab("company");
             setActiveTab("company");
           }}
           className={cn(
-            "flex flex-col items-center gap-1 min-w-[64px]",
-            localActiveTab === "company" ? "text-primary" : "text-neutral-500",
+            "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",
+            localActiveTab !== "search" && activeTab === "company"
+              ? "text-primary"
+              : "text-neutral-500",
           )}
         >
           {/* Icon Container */}
@@ -172,46 +194,64 @@ export function MobileNav({
           </div>
 
           {/* Label */}
-          <span className="text-[10px] font-bold truncate max-w-[80px]">
+          <span className="max-w-full truncate text-[10px] font-semibold">
             {companyLabel}
           </span>
         </button>
 
+        {/* Central Create Action */}
+        <CreatePostDialog
+          user={user}
+          onPostCreated={() => onOpenCreatePost()}
+          defaultVisibility={activeTab === "company" ? "company" : "all"}
+        >
+          <button
+            type="button"
+            disabled={!user?.is_verified}
+            className="feed-focus relative -top-3 flex min-w-0 flex-col items-center gap-1 rounded-xl text-primary disabled:opacity-50"
+            aria-label="Create a new post"
+          >
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white shadow-[0_12px_28px_-12px_rgba(31,37,87,0.95)] ring-4 ring-white">
+              <Plus className="h-6 w-6" />
+            </span>
+            <span className="text-[10px] font-semibold">Create</span>
+          </button>
+        </CreatePostDialog>
+
         {/* Jobs */}
         <button
+          type="button"
+          aria-label="Open jobs"
           onClick={() => {
             router.push("/jobs");
           }}
           className={cn(
-            "flex flex-col items-center gap-1 min-w-[64px]",
+            "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",
             pathname === "/jobs" ? "text-primary" : "text-neutral-500",
           )}
         >
           <Briefcase className="h-5 w-5" />
-          <span className="text-[10px] font-bold">Jobs</span>
+          <span className="text-[10px] font-semibold">Jobs</span>
         </button>
 
-        {/* 3. Search */}
+        {/* Search */}
         <button
+          type="button"
+          aria-label={isSearching ? "Close search" : "Open search"}
+          aria-expanded={isSearching}
           onClick={() => {
             setLocalActiveTab("search");
             setIsSearching(!isSearching);
           }}
           className={cn(
-            "flex flex-col items-center gap-1 min-w-[64px]",
+            "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",
             localActiveTab === "search" ? "text-primary" : "text-neutral-500",
           )}
         >
           <Search className="h-5 w-5" />
-          <span className="text-[10px] font-bold">Search</span>
+          <span className="text-[10px] font-semibold">Search</span>
         </button>
-
-        {/* 4. Create Post */}
-        <CreatePostDialog
-          user={user}
-          onPostCreated={() => onOpenCreatePost()}
-        />
-      </div>
+      </nav>
     </>
   );
 }

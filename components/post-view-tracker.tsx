@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   createContext,
   type ReactNode,
   useCallback,
@@ -47,7 +48,21 @@ export function PostViewBatchProvider({ userId, children }: { userId: string; ch
   return <PostViewContext.Provider value={value}>{children}</PostViewContext.Provider>;
 }
 
-export function PostViewTracker({ postId, children }: { postId: string; children: ReactNode }) {
+interface PostViewTrackerProps {
+  postId: string;
+  children: ReactNode;
+  ariaLabel?: string;
+  className?: string;
+  style?: CSSProperties;
+}
+
+export function PostViewTracker({
+  postId,
+  children,
+  ariaLabel,
+  className,
+  style,
+}: PostViewTrackerProps) {
   const track = useContext(PostViewContext);
   const elementRef = useRef<HTMLDivElement | null>(null);
 
@@ -67,5 +82,14 @@ export function PostViewTracker({ postId, children }: { postId: string; children
     return () => observer.disconnect();
   }, [postId, track]);
 
-  return <div ref={elementRef}>{children}</div>;
+  return (
+    <article
+      ref={elementRef}
+      aria-label={ariaLabel}
+      className={className}
+      style={style}
+    >
+      {children}
+    </article>
+  );
 }
