@@ -174,7 +174,9 @@ function AdminPageContent() {
         `
         *,
         reporter:users!reports_reporter_id_fkey(full_name, email),
-        post:posts(id, text, user:users!posts_user_id_fkey(full_name, email))
+        post:posts(id, text, is_removed, user:users!posts_user_id_fkey(id, full_name, email, is_active, is_admin)),
+        comment:comments(id, post_id, text, is_removed, user:users!comments_user_id_fkey(id, full_name, email, is_active, is_admin)),
+        reported_user:users!reports_reported_user_id_fkey(id, full_name, email, is_active, is_admin, company:companies(name))
       `,
       )
       .order("created_at", { ascending: false });
@@ -269,33 +271,32 @@ function AdminPageContent() {
   };
 
   // --- Global Handlers (Passed to children) ---
-  const handleReviewReport = async (
+  const handleModerateReport = async (
     reportId: string,
-    status: "reviewed" | "dismissed",
+    action:
+      | "mark_reviewed"
+      | "dismiss"
+      | "remove_content"
+      | "suspend_user",
   ) => {
-    const { error } = await supabase
-      .from("reports")
-      .update({
-        status,
-        reviewed_by: user.id,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", reportId);
-    if (!error) {
-      await fetchReports();
-      await fetchDbCounts();
-    }
-  };
+    const response = await fetch("/api/admin/reports", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reportId, action }),
+    });
+    const result = await response.json();
 
-  const handleRemovePost = async (postId: string) => {
-    const { error } = await supabase
-      .from("posts")
-      .update({ is_removed: true })
-      .eq("id", postId);
-    if (!error) {
-      await Promise.all([fetchFlaggedPosts(), fetchReports()]);
-      await fetchDbCounts();
+    if (!response.ok) {
+      throw new Error(result?.error || "Moderation action failed");
     }
+
+    toast.success("Report updated");
+    await Promise.all([
+      fetchReports(),
+      fetchFlaggedPosts(),
+      fetchAllUsers(),
+      fetchDbCounts(),
+    ]);
   };
 
   const handleFlaggedAction = async (
@@ -688,8 +689,7 @@ function AdminPageContent() {
                     <TabsContent value="reports">
                       <ReportsTab
                         reports={reports}
-                        onReview={handleReviewReport}
-                        onRemovePost={handleRemovePost}
+                        onModerate={handleModerateReport}
                         onRefresh={handleRefreshActiveTab}
                         loading={loading || isTabLoading}
                       />

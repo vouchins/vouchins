@@ -93,7 +93,11 @@ interface PostCardProps {
   isVerifiedUser: boolean;
   currentUserId: string;
   onReply: (postId: string) => void;
-  onReport: (postId: string) => void;
+  onReport: (
+    targetType: "post" | "comment",
+    targetId: string,
+    targetLabel?: string,
+  ) => void;
   onPostUpdated: () => void;
   onVerifyClick?: (postId: string) => void;
   defaultShowComments?: boolean;
@@ -848,7 +852,10 @@ export function PostCard({
                     </DropdownMenuItem>
                   </>
                 ) : (
-                  <DropdownMenuItem onClick={() => onReport(post.id)} className="text-red-650 focus:text-red-650 focus:bg-red-50 text-xs font-bold">
+                  <DropdownMenuItem
+                    onClick={() => onReport("post", post.id, post.text)}
+                    className="text-red-650 focus:text-red-650 focus:bg-red-50 text-xs font-bold"
+                  >
                     <Flag className="h-3.5 w-3.5 mr-2" />
                     Report Post
                   </DropdownMenuItem>
@@ -927,6 +934,30 @@ export function PostCard({
                       "Vouch"
                     )}
                   </button>
+                )}
+                {comment.user.id !== currentUserId && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="ml-auto rounded-md p-1 text-neutral-400 opacity-70 transition-colors hover:bg-neutral-100 hover:text-neutral-700 group-hover:opacity-100"
+                        aria-label="Comment actions"
+                      >
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() =>
+                          onReport("comment", comment.id, comment.text)
+                        }
+                        className="text-xs font-bold text-red-650 focus:bg-red-50 focus:text-red-650"
+                      >
+                        <Flag className="mr-2 h-3.5 w-3.5" />
+                        Report Comment
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
               <p className="text-sm text-neutral-700 leading-snug">

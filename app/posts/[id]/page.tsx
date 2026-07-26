@@ -44,7 +44,11 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
   // Modals/Dialogs
   const [isVerifyModalOpen, setIsVerifyModalOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
-  const [reportTarget, setReportTarget] = useState<{ postId?: string }>({});
+  const [reportTarget, setReportTarget] = useState<{
+    type: "post" | "comment";
+    id: string;
+    label?: string;
+  } | null>(null);
 
   // Fetch Current User Details from Supabase client
   const fetchCurrentUser = useCallback(async () => {
@@ -492,8 +496,8 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
                     isVerifiedUser={currentUser?.is_verified || false}
                     defaultShowComments={true}
                     onReply={() => { }}
-                    onReport={(pid) => {
-                      setReportTarget({ postId: pid });
+                    onReport={(type, id, label) => {
+                      setReportTarget({ type, id, label });
                       setReportDialogOpen(true);
                     }}
                     onPostUpdated={handlePostUpdated}
@@ -564,12 +568,15 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
       )}
 
       {/* Report dialog */}
-      <ReportDialog
-        open={reportDialogOpen}
-        onOpenChange={setReportDialogOpen}
-        postId={reportTarget.postId}
-        userId={currentUser?.id}
-      />
+      {reportTarget && (
+        <ReportDialog
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          targetLabel={reportTarget.label}
+        />
+      )}
     </div>
   );
 }

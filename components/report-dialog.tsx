@@ -19,24 +19,28 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { supabase } from "@/lib/supabase/browser";
 import { REPORT_REASONS } from "@/lib/constants";
 import posthog from "posthog-js";
+
+export type ReportTargetType = "post" | "comment" | "user";
+
+const MIN_REASON_LENGTH = 3;
+const MAX_REASON_LENGTH = 500;
 
 interface ReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  postId?: string;
-  commentId?: string;
-  userId: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  targetLabel?: string;
 }
 
 export function ReportDialog({
   open,
   onOpenChange,
-  postId,
-  commentId,
-  userId,
+  targetType,
+  targetId,
+  targetLabel,
 }: ReportDialogProps) {
   const [selectedReason, setSelectedReason] = useState("");
   const [customReason, setCustomReason] = useState("");
@@ -47,30 +51,44 @@ export function ReportDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
     const reason =
       selectedReason === "Other" ? customReason.trim() : selectedReason;
 
     if (!reason) {
       setError("Please select or enter a reason");
-      setLoading(false);
       return;
     }
 
-    try {
-      const { error: insertError } = await supabase.from("reports").insert({
-        reporter_id: userId,
-        post_id: postId || null,
-        comment_id: commentId || null,
-        reason,
-      });
+    if (
+      reason.length < MIN_REASON_LENGTH ||
+      reason.length > MAX_REASON_LENGTH
+    ) {
+      setError(
+        `Reason must be between ${MIN_REASON_LENGTH} and ${MAX_REASON_LENGTH} characters`
+      );
+      return;
+    }
 
-      if (insertError) throw insertError;
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetType,
+          targetId,
+          reason,
+        }),
+      });
+      const body = await response.json();
+
+      if (!response.ok) throw new Error(body.error || "Failed to submit report");
 
       posthog.capture("Report", {
-        post_id: postId || null,
-        comment_id: commentId || null,
+        target_type: targetType,
+        target_id: targetId,
         reason,
       });
 
@@ -92,7 +110,14 @@ export function ReportDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Report {postId ? "Post" : "Comment"}</DialogTitle>
+          <DialogTitle className="capitalize">
+            Report {targetType}
+          </DialogTitle>
+          {targetLabel && (
+            <p className="text-sm text-neutral-500 line-clamp-2">
+              {targetLabel}
+            </p>
+          )}
         </DialogHeader>
 
         {error && (
@@ -115,7 +140,13 @@ export function ReportDialog({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <Label htmlFor="reason">Reason</Label>
-              <Select value={selectedReason} onValueChange={setSelectedReason}>
+              <Select
+                value={selectedReason}
+                onValueChange={(value) => {
+                  setSelectedReason(value);
+                  setError("");
+                }}
+              >
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select a reason" />
                 </SelectTrigger>
@@ -135,11 +166,23 @@ export function ReportDialog({
                 <Textarea
                   id="customReason"
                   value={customReason}
-                  onChange={(e) => setCustomReason(e.target.value)}
+                  onChange={(e) => {
+                    setCustomReason(e.target.value);
+                    setError("");
+                  }}
                   placeholder="Enter reason for reporting"
                   className="mt-1.5"
-                  maxLength={500}
+                  minLength={MIN_REASON_LENGTH}
+                  maxLength={MAX_REASON_LENGTH}
+                  aria-describedby="customReason-help"
                 />
+                <p
+                  id="customReason-help"
+                  className="mt-1 text-xs text-neutral-500"
+                >
+                  {customReason.trim().length}/{MAX_REASON_LENGTH} characters
+                  (minimum {MIN_REASON_LENGTH})
+                </p>
               </div>
             )}
 

@@ -31,9 +31,10 @@ export default function SavedPostsPage() {
   const [activeReplyPostId, setActiveReplyPostId] = useState<string | null>(null);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
-    postId?: string;
-    commentId?: string;
-  }>({});
+    type: "post" | "comment";
+    id: string;
+    label?: string;
+  } | null>(null);
 
   const fetchSavedPosts = useCallback(
     async (pageToFetch: number, append: boolean = false) => {
@@ -177,8 +178,8 @@ export default function SavedPostsPage() {
                           activeReplyPostId === postId ? null : postId
                         )
                       }
-                      onReport={(postId) => {
-                        setReportTarget({ postId });
+                      onReport={(type, id, label) => {
+                        setReportTarget({ type, id, label });
                         setReportDialogOpen(true);
                       }}
                       onPostUpdated={handlePostUpdated}
@@ -247,13 +248,15 @@ export default function SavedPostsPage() {
         />
       )}
 
-      <ReportDialog
-        open={reportDialogOpen}
-        onOpenChange={setReportDialogOpen}
-        postId={reportTarget.postId}
-        commentId={reportTarget.commentId}
-        userId={user?.id || ""}
-      />
+      {reportTarget && (
+        <ReportDialog
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          targetLabel={reportTarget.label}
+        />
+      )}
 
       <VerificationModal
         isOpen={isVerifyModalOpen}

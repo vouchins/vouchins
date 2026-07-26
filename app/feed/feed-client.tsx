@@ -63,9 +63,10 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
   );
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
-    postId?: string;
-    commentId?: string;
-  }>({});
+    type: "post" | "comment";
+    id: string;
+    label?: string;
+  } | null>(null);
 
   const fetchPosts = useCallback(
     async (tab: "city" | "company", category: string, subCategory: string, queryStr: string, city: string, cursor?: string | null) => {
@@ -363,8 +364,8 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
                   onReply={(pid) =>
                     setActiveReplyPostId(activeReplyPostId === pid ? null : pid)
                   }
-                  onReport={(pid) => {
-                    setReportTarget({ postId: pid });
+                  onReport={(type, id, label) => {
+                    setReportTarget({ type, id, label });
                     setReportDialogOpen(true);
                   }}
                   onPostUpdated={refreshPosts}
@@ -490,12 +491,15 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
         onVerified={() => window.location.reload()}
       />
 
-      <ReportDialog
-        open={reportDialogOpen}
-        onOpenChange={setReportDialogOpen}
-        postId={reportTarget.postId}
-        userId={user?.id}
-      />
+      {reportTarget && (
+        <ReportDialog
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          targetLabel={reportTarget.label}
+        />
+      )}
     </div>
     </PostViewBatchProvider>
   );

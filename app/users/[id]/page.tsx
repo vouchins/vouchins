@@ -24,7 +24,8 @@ import {
   CheckCircle2,
   Briefcase,
   Home,
-  ShoppingCart
+  ShoppingCart,
+  Flag,
 } from "lucide-react";
 import posthog from "posthog-js";
 import {
@@ -37,6 +38,10 @@ import { Navigation } from "@/components/navigation";
 import { ChangeCompanyModal } from "@/components/change-company-modal";
 import { ProfileCompletionWidget } from "@/components/profile-completion-widget";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ReportDialog,
+  type ReportTargetType,
+} from "@/components/report-dialog";
 
 export const getHighestBadge = (count: number) => {
   if (count >= 50) return { name: "Founding Connector", icon: "🏆" };
@@ -75,6 +80,12 @@ export default function UserProfilePage() {
   const [isChangeCompanyOpen, setIsChangeCompanyOpen] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [hasVouchedProfile, setHasVouchedProfile] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{
+    type: ReportTargetType;
+    id: string;
+    label?: string;
+  } | null>(null);
 
   const parsePhone = (phone: string | null) => {
     if (!phone) return { code: "+91", num: "" };
@@ -160,7 +171,7 @@ export default function UserProfilePage() {
         supabase.rpc("get_trust_signals", { profile_id: id }),
         supabase
           .from("posts")
-          .select("*, user:users!posts_user_id_fkey(id, full_name, city, avatar_url, vouch_points, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(full_name))")
+          .select("*, user:users!posts_user_id_fkey(id, full_name, city, avatar_url, vouch_points, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))")
           .eq("user_id", id)
           .eq("is_removed", false)
           .order("created_at", { ascending: false })
@@ -528,6 +539,21 @@ export default function UserProfilePage() {
                     </>
                   )}
                 </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full rounded-xl font-bold text-red-650 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => {
+                    setReportTarget({
+                      type: "user",
+                      id: profile.id,
+                      label: profile.full_name,
+                    });
+                    setReportDialogOpen(true);
+                  }}
+                >
+                  <Flag className="h-4 w-4 mr-2" />
+                  Report Profile
+                </Button>
               </div>
             )}
           </div>
@@ -629,7 +655,10 @@ export default function UserProfilePage() {
                   post={post}
                   currentUserId={me.id}
                   onReply={() => {}}
-                  onReport={() => {}}
+                  onReport={(type, targetId, label) => {
+                    setReportTarget({ type, id: targetId, label });
+                    setReportDialogOpen(true);
+                  }}
                   onPostUpdated={() => {}}
                   isVerifiedUser={me.is_verified}
                 />
@@ -802,6 +831,16 @@ export default function UserProfilePage() {
               </div>
             </DialogContent>
           </Dialog>
+        )}
+
+        {reportTarget && (
+          <ReportDialog
+            open={reportDialogOpen}
+            onOpenChange={setReportDialogOpen}
+            targetType={reportTarget.type}
+            targetId={reportTarget.id}
+            targetLabel={reportTarget.label}
+          />
         )}
       </div>
 

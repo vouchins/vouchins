@@ -155,10 +155,13 @@ export type Database = {
           reporter_id: string;
           post_id: string | null;
           comment_id: string | null;
+          reported_user_id: string | null;
           reason: string;
           status: 'pending' | 'reviewed' | 'dismissed';
           reviewed_by: string | null;
           reviewed_at: string | null;
+          resolution_action: 'none' | 'content_removed' | 'user_suspended' | 'dismissed' | null;
+          resolution_notes: string | null;
           created_at: string;
         };
         Insert: {
@@ -166,10 +169,13 @@ export type Database = {
           reporter_id: string;
           post_id?: string | null;
           comment_id?: string | null;
+          reported_user_id?: string | null;
           reason: string;
           status?: 'pending' | 'reviewed' | 'dismissed';
           reviewed_by?: string | null;
           reviewed_at?: string | null;
+          resolution_action?: 'none' | 'content_removed' | 'user_suspended' | 'dismissed' | null;
+          resolution_notes?: string | null;
           created_at?: string;
         };
         Update: {
@@ -177,10 +183,13 @@ export type Database = {
           reporter_id?: string;
           post_id?: string | null;
           comment_id?: string | null;
+          reported_user_id?: string | null;
           reason?: string;
           status?: 'pending' | 'reviewed' | 'dismissed';
           reviewed_by?: string | null;
           reviewed_at?: string | null;
+          resolution_action?: 'none' | 'content_removed' | 'user_suspended' | 'dismissed' | null;
+          resolution_notes?: string | null;
           created_at?: string;
         };
       };
