@@ -26,8 +26,14 @@ import {
   Home,
   ShoppingCart,
   Flag,
+  Users,
+  Info,
+  CalendarDays,
+  ArrowRight,
+  MessageSquareText,
 } from "lucide-react";
 import posthog from "posthog-js";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +48,17 @@ import {
   ReportDialog,
   type ReportTargetType,
 } from "@/components/report-dialog";
+
+const PROFILE_POST_SELECT =
+  "*, user:users!posts_user_id_fkey(id, full_name, city, avatar_url, vouch_points, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))";
+
+const ACTIVITY_CATEGORY_LABELS: Record<string, string> = {
+  housing: "Housing",
+  buy_sell: "Marketplace",
+  recommendations: "Recommendations",
+  referrals: "Referrals",
+  jobs: "Jobs",
+};
 
 export const getHighestBadge = (count: number) => {
   if (count >= 50) return { name: "Founding Connector", icon: "🏆" };
@@ -63,6 +80,14 @@ export default function UserProfilePage() {
   const [highlights, setHighlights] = useState<string[]>([]);
   const [me, setMe] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [activeProfileTab, setActiveProfileTab] = useState<
+    "overview" | "activity"
+  >("overview");
+  const [activityPosts, setActivityPosts] = useState<any[]>([]);
+  const [activityComments, setActivityComments] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityLoaded, setActivityLoaded] = useState(false);
+  const [activityError, setActivityError] = useState("");
 
   // Private Settings State
   const [isEditing, setIsEditing] = useState(false);
@@ -138,6 +163,12 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     const load = async () => {
+      setActiveProfileTab("overview");
+      setActivityPosts([]);
+      setActivityComments([]);
+      setActivityLoaded(false);
+      setActivityError("");
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -171,11 +202,11 @@ export default function UserProfilePage() {
         supabase.rpc("get_trust_signals", { profile_id: id }),
         supabase
           .from("posts")
-          .select("*, user:users!posts_user_id_fkey(id, full_name, city, avatar_url, vouch_points, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))")
+          .select(PROFILE_POST_SELECT)
           .eq("user_id", id)
           .eq("is_removed", false)
           .order("created_at", { ascending: false })
-          .limit(5),
+          .limit(1),
         supabase
           .from("vouches")
           .select("id")
@@ -382,6 +413,55 @@ export default function UserProfilePage() {
     }
   };
 
+  const loadActivity = async () => {
+    if (activityLoading || activityLoaded) return;
+
+    setActivityLoading(true);
+    setActivityError("");
+
+    const [{ data: allPosts, error: postsError }, { data: comments, error: commentsError }] =
+      await Promise.all([
+        supabase
+          .from("posts")
+          .select(PROFILE_POST_SELECT)
+          .eq("user_id", id)
+          .eq("is_removed", false)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("comments")
+          .select(
+            "id, text, created_at, post_id, post:posts!comments_post_id_fkey(id, text, category)"
+          )
+          .eq("user_id", id)
+          .eq("is_removed", false)
+          .order("created_at", { ascending: false }),
+      ]);
+
+    if (postsError || commentsError) {
+      console.error("Failed to load profile activity", {
+        postsError,
+        commentsError,
+      });
+      setActivityError("Could not load all activity. Please try again.");
+    } else {
+      setActivityPosts(allPosts || []);
+      setActivityComments(comments || []);
+      setActivityLoaded(true);
+    }
+
+    setActivityLoading(false);
+  };
+
+  const showActivity = () => {
+    setActiveProfileTab("activity");
+    void loadActivity();
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("profile-tabs")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50 font-medium text-neutral-600">
@@ -392,6 +472,45 @@ export default function UserProfilePage() {
 
   if (!profile) return null;
   const isOwner = me?.id === profile.id;
+  const profileCompletionPoints = Math.max(
+    vouchScore - communityVouchesTotal,
+    0
+  );
+  const trustLabel =
+    vouchScore >= 100
+      ? "Strong community trust"
+      : vouchScore >= 50
+        ? "Growing community trust"
+        : vouchScore > 0
+          ? "Emerging community trust"
+          : "New community profile";
+  const trustSignalItems = [
+    {
+      label: "Community vouches",
+      value: communityVouchesTotal,
+      icon: ShieldCheck,
+    },
+    {
+      label: "Referrals shared",
+      value: trustSignals.referrals || 0,
+      icon: Briefcase,
+    },
+    {
+      label: "Housing posts",
+      value: trustSignals.housing || 0,
+      icon: Home,
+    },
+    {
+      label: "Marketplace posts",
+      value: trustSignals.buy_sell || 0,
+      icon: ShoppingCart,
+    },
+    {
+      label: "Recommendations",
+      value: trustSignals.recommendations || 0,
+      icon: Star,
+    },
+  ];
 
   if (!isOwner && !me?.is_verified) {
     return (
@@ -416,256 +535,556 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-20">
+    <div className="relative min-h-screen overflow-hidden bg-[#f5f7fb] pb-20">
       <Navigation />
-      
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-[-12rem] top-40 h-[30rem] w-[30rem] rounded-full bg-cyan-100/55 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute right-[-10rem] top-20 h-[28rem] w-[28rem] rounded-full bg-blue-100/60 blur-3xl"
+      />
 
+      <main className="relative mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
         {isOwner && <ProfileCompletionWidget className="mb-6" />}
 
-        {/* SECTION 1: IDENTITY */}
-        <div className="bg-white border border-neutral-200 rounded-3xl p-8 shadow-sm flex flex-col md:flex-row gap-8 relative overflow-hidden">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
-            <div className="relative group shrink-0">
-              <div className="h-24 w-24 rounded-2xl bg-white border border-neutral-100 text-3xl font-bold text-neutral-400 flex items-center justify-center shadow-sm overflow-hidden">
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
-                ) : profile.company?.[0]?.domain || profile.company?.domain ? (
-                  <img src={`https://www.google.com/s2/favicons?domain=${profile.company?.[0]?.domain || profile.company?.domain}&sz=128`} alt={profile.full_name} className="h-full w-full object-contain p-4" />
-                ) : (
-                  profile.full_name.charAt(0)
+        <section className="relative overflow-hidden rounded-[28px] border border-white/90 bg-white/75 p-5 shadow-[0_20px_60px_-35px_rgba(31,37,87,0.45)] backdrop-blur-2xl sm:p-8">
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"
+          />
+          <div className="flex flex-col gap-7 lg:flex-row lg:items-center">
+            <div className="flex flex-1 flex-col items-center gap-6 sm:flex-row sm:items-start">
+              <div className="group relative shrink-0">
+                <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-[24px] border border-white bg-white text-3xl font-bold text-neutral-400 shadow-[0_14px_35px_-20px_rgba(31,37,87,0.7)]">
+                  {profile.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt={profile.full_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : profile.company?.[0]?.domain ||
+                    profile.company?.domain ? (
+                    <img
+                      src={`https://www.google.com/s2/favicons?domain=${profile.company?.[0]?.domain || profile.company?.domain}&sz=128`}
+                      alt={profile.full_name}
+                      className="h-full w-full object-contain p-5"
+                    />
+                  ) : (
+                    profile.full_name.charAt(0)
+                  )}
+                </div>
+                {profile.is_verified && (
+                  <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white bg-emerald-500 text-white shadow-lg">
+                    <Check className="h-4 w-4 stroke-[3]" />
+                  </span>
+                )}
+                {isOwner && (
+                  <label className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-[24px] bg-primary/65 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    {uploadingAvatar ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Camera className="h-6 w-6" />
+                    )}
+                    <span className="sr-only">Upload profile photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="sr-only"
+                      onChange={handleAvatarUpload}
+                      disabled={uploadingAvatar}
+                    />
+                  </label>
                 )}
               </div>
-              {isOwner && (
-                <label className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-2xl">
-                  {uploadingAvatar ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-6 w-6" />}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
-                </label>
+
+              <div className="min-w-0 flex-1 space-y-4 text-center sm:text-left">
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:flex-wrap sm:justify-start">
+                  <h1 className="text-3xl font-semibold tracking-[-0.035em] text-neutral-950 sm:text-4xl">
+                    {profile.full_name}
+                  </h1>
+                  {profile.is_verified && (
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/80 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                      <ShieldCheck className="h-4 w-4" />
+                      Verified{" "}
+                      {profile.company?.name ? "employee" : "member"}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-neutral-600 sm:justify-start">
+                  {profile.company?.name && (
+                    <span className="flex items-center gap-1.5">
+                      <Building2 className="h-4 w-4 text-neutral-400" />
+                      {profile.company.name}
+                      {isOwner && (
+                        <button
+                          onClick={() => setIsChangeCompanyOpen(true)}
+                          className="ml-1 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-neutral-200 transition hover:bg-white"
+                        >
+                          Change
+                        </button>
+                      )}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-neutral-400" />
+                    {profile.city || "Unknown location"}
+                  </span>
+                </div>
+
+                <p className="mx-auto max-w-xl text-sm leading-6 text-neutral-700 sm:mx-0 sm:text-[15px]">
+                  {profile.bio ||
+                    "Verified professional active on Vouchins."}
+                </p>
+
+                <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-medium text-neutral-500 sm:justify-start">
+                  <span className="flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5" />
+                    Member since{" "}
+                    {new Date(profile.created_at).toLocaleDateString(
+                      undefined,
+                      { month: "long", year: "numeric" }
+                    )}
+                  </span>
+                  {profile.linkedin_url && (
+                    <a
+                      href={
+                        profile.linkedin_url.startsWith("http")
+                          ? profile.linkedin_url
+                          : `https://${profile.linkedin_url}`
+                      }
+                      target="_external"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 font-semibold text-primary transition hover:text-blue-700"
+                    >
+                      <Linkedin className="h-3.5 w-3.5" />
+                      LinkedIn profile
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex w-full shrink-0 flex-col gap-3 lg:w-60">
+              {isOwner ? (
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-xl border-white bg-white/80 font-semibold text-primary shadow-sm hover:bg-white"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <Edit2 className="mr-2 h-4 w-4" />
+                  Edit profile
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    className="h-11 rounded-xl bg-primary font-semibold shadow-[0_12px_25px_-15px_rgba(31,37,87,0.9)] hover:bg-primary/95"
+                    onClick={() => {
+                      posthog.capture("Contact Seller", {
+                        recipient_id: profile.id,
+                      });
+                      router.push(`/messages/${profile.id}`);
+                    }}
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Message
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className={`h-11 rounded-xl border-white bg-white/80 font-semibold shadow-sm ${
+                      hasVouchedProfile
+                        ? "text-emerald-700 hover:bg-emerald-50 hover:!text-emerald-700"
+                        : "text-primary hover:bg-primary/5 hover:!text-primary"
+                    }`}
+                    onClick={handleProfileVouch}
+                    disabled={hasVouchedProfile}
+                  >
+                    {hasVouchedProfile ? (
+                      <>
+                        <Check className="mr-2 h-4 w-4" />
+                        Vouched
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                        Vouch for {profile.full_name.split(" ")[0]}
+                      </>
+                    )}
+                  </Button>
+                  <button
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-red-50 text-sm font-medium text-red-700 transition hover:bg-red-600 hover:text-white"
+                    onClick={() => {
+                      setReportTarget({
+                        type: "user",
+                        id: profile.id,
+                        label: profile.full_name,
+                      });
+                      setReportDialogOpen(true);
+                    }}
+                  >
+                    <Flag className="h-4 w-4" />
+                    Report profile
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <nav
+          id="profile-tabs"
+          aria-label="Profile sections"
+          className="mx-auto flex w-full max-w-xs scroll-mt-24 rounded-full border border-white/80 bg-white/60 p-1 shadow-sm backdrop-blur-xl"
+        >
+          <button
+            type="button"
+            onClick={() => setActiveProfileTab("overview")}
+            aria-pressed={activeProfileTab === "overview"}
+            className={`flex-1 rounded-full px-4 py-2 text-center text-sm transition ${
+              activeProfileTab === "overview"
+                ? "bg-white font-semibold text-primary shadow-sm"
+                : "font-medium text-neutral-500 hover:text-primary"
+            }`}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            onClick={showActivity}
+            aria-pressed={activeProfileTab === "activity"}
+            className={`flex-1 rounded-full px-4 py-2 text-center text-sm transition ${
+              activeProfileTab === "activity"
+                ? "bg-white font-semibold text-primary shadow-sm"
+                : "font-medium text-neutral-500 hover:text-primary"
+            }`}
+          >
+            Activity
+          </button>
+        </nav>
+
+        {activeProfileTab === "overview" ? (
+          <>
+        <div id="overview" className="grid scroll-mt-24 gap-6 lg:grid-cols-12">
+          <section className="rounded-[26px] border border-white/90 bg-white/70 p-6 shadow-[0_18px_45px_-32px_rgba(31,37,87,0.5)] backdrop-blur-2xl lg:col-span-5">
+            <div className="mb-6 flex items-center gap-2">
+              <h2 className="text-lg font-semibold tracking-tight text-neutral-900">
+                Vouch score
+              </h2>
+              <Info className="h-4 w-4 text-neutral-400" aria-hidden="true" />
+            </div>
+
+            <div className="flex flex-col items-center gap-7 sm:flex-row">
+              <div className="relative flex h-44 w-44 shrink-0 items-center justify-center rounded-full bg-[conic-gradient(from_215deg,#1f2557_0deg,#3349a3_275deg,#dce3f1_275deg,#dce3f1_360deg)] p-2 shadow-[0_18px_36px_-25px_rgba(31,37,87,0.85)]">
+                <div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-white bg-white/95">
+                  <span className="text-6xl font-semibold tracking-[-0.06em] text-primary">
+                    {vouchScore}
+                  </span>
+                  <span className="mt-1 text-center text-xs font-semibold text-emerald-600">
+                    {trustLabel}
+                  </span>
+                </div>
+              </div>
+
+              <div className="w-full min-w-0 space-y-5">
+                <p className="text-sm leading-6 text-neutral-600">
+                  <span className="font-semibold text-primary">
+                    {communityVouchesTotal} community{" "}
+                    {communityVouchesTotal === 1 ? "vouch" : "vouches"}
+                  </span>{" "}
+                  +{" "}
+                  <span className="font-semibold text-primary">
+                    {profileCompletionPoints} profile points
+                  </span>
+                </p>
+                <div className="h-px bg-neutral-200/80" />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/5 text-primary">
+                    <Users className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-semibold tracking-tight text-primary">
+                      {invitedCount}
+                    </div>
+                    <div className="text-xs font-medium text-neutral-500">
+                      Members invited
+                    </div>
+                  </div>
+                </div>
+                {(() => {
+                  const badge = getHighestBadge(invitedCount);
+                  if (!badge) return null;
+                  return (
+                    <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/10 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary">
+                      <span>{badge.icon}</span>
+                      <span>{badge.name}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-[26px] border border-white/90 bg-white/70 p-6 shadow-[0_18px_45px_-32px_rgba(31,37,87,0.5)] backdrop-blur-2xl lg:col-span-7">
+            <div className="mb-6 flex items-center gap-2">
+              <h2 className="text-lg font-semibold tracking-tight text-neutral-900">
+                Trust signals
+              </h2>
+              <Info className="h-4 w-4 text-neutral-400" aria-hidden="true" />
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+              {trustSignalItems.map((signal, index) => {
+                const SignalIcon = signal.icon;
+                return (
+                  <div
+                    key={signal.label}
+                    className={`flex min-h-36 flex-col items-center justify-center rounded-2xl border p-4 text-center transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+                      index === 0
+                        ? "border-primary/10 bg-primary/[0.045]"
+                        : "border-white bg-white/65"
+                    }`}
+                  >
+                    <SignalIcon className="mb-3 h-6 w-6 text-primary" />
+                    <span className="text-3xl font-semibold tracking-tight text-neutral-950">
+                      {signal.value}
+                    </span>
+                    <span className="mt-1.5 text-xs font-medium leading-4 text-neutral-600">
+                      {signal.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-12">
+          {highlights.length > 0 && (
+            <section className="h-fit rounded-[26px] border border-white/90 bg-white/70 p-6 shadow-[0_18px_45px_-32px_rgba(31,37,87,0.5)] backdrop-blur-2xl lg:col-span-5">
+              <h2 className="mb-5 text-lg font-semibold tracking-tight text-neutral-900">
+                Trust highlights
+              </h2>
+              <ul className="space-y-4">
+                {highlights.map((highlight, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-3 text-sm font-medium leading-5 text-neutral-700"
+                  >
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    </span>
+                    {highlight}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section
+            className={`rounded-[26px] border border-white/90 bg-white/70 p-5 shadow-[0_18px_45px_-32px_rgba(31,37,87,0.5)] backdrop-blur-2xl sm:p-6 ${
+              highlights.length > 0 ? "lg:col-span-7" : "lg:col-span-12"
+            }`}
+          >
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold tracking-tight text-neutral-900">
+                  Recent activity
+                </h2>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Latest post from {profile.full_name}
+                </p>
+              </div>
+              {posts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={showActivity}
+                  className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-primary transition hover:text-blue-700"
+                >
+                  Show more
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            {posts.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-neutral-200 bg-white/50 px-6 py-12 text-center text-sm font-medium text-neutral-500">
+                This professional hasn&apos;t posted yet.
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-white bg-white/70 p-5 shadow-sm">
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full bg-primary/5 px-2.5 py-1 font-semibold text-primary">
+                    {ACTIVITY_CATEGORY_LABELS[posts[0].category] ||
+                      posts[0].category}
+                  </span>
+                  <span className="text-neutral-400">
+                    {new Date(posts[0].created_at).toLocaleDateString(
+                      undefined,
+                      {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      }
+                    )}
+                  </span>
+                </div>
+                <p className="whitespace-pre-wrap break-words text-sm leading-6 text-neutral-700">
+                  {posts[0].text.length > 260
+                    ? `${posts[0].text.slice(0, 260).trim()}...`
+                    : posts[0].text}
+                </p>
+                <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-4">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                    <MessageCircle className="h-4 w-4" />
+                    {posts[0].comment_count ??
+                      posts[0].comments?.length ??
+                      0}{" "}
+                    comments
+                  </span>
+                  <button
+                    type="button"
+                    onClick={showActivity}
+                    className="text-xs font-semibold text-primary transition hover:text-blue-700"
+                  >
+                    View all activity
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+          </>
+        ) : (
+          <section className="min-w-0 overflow-hidden rounded-[26px] border border-white/90 bg-white/70 p-4 shadow-[0_18px_45px_-32px_rgba(31,37,87,0.5)] backdrop-blur-2xl sm:p-7">
+            <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold tracking-tight text-neutral-950">
+                  Activity
+                </h2>
+                <p className="mt-1 text-sm text-neutral-500">
+                  Posts and comments shared by {profile.full_name}
+                </p>
+              </div>
+              {activityLoaded && (
+                <div className="flex gap-2 text-xs font-semibold text-neutral-500">
+                  <span className="rounded-full bg-white px-3 py-1.5 shadow-sm">
+                    {activityPosts.length} posts
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1.5 shadow-sm">
+                    {activityComments.length} comments
+                  </span>
+                </div>
               )}
             </div>
 
-            <div className="flex-1 text-center md:text-left space-y-3">
-              <div className="flex flex-col md:flex-row items-center md:items-end gap-3 md:gap-4">
-                <h1 className="text-3xl font-black text-neutral-900 tracking-tight leading-none">
-                  {profile.full_name}
-                </h1>
-                <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pb-0.5">
-                  {profile.is_verified && (
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-100 rounded-full">
-                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                      <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">
-                        Verified {profile.company?.name ? "Employee" : "Member"}
-                      </span>
+            {activityLoading ? (
+              <div className="grid gap-6 lg:grid-cols-12">
+                <div className="space-y-4 lg:col-span-7">
+                  {[0, 1].map((item) => (
+                    <div
+                      key={item}
+                      className="h-52 animate-pulse rounded-2xl bg-white/75"
+                    />
+                  ))}
+                </div>
+                <div className="h-72 animate-pulse rounded-2xl bg-white/75 lg:col-span-5" />
+              </div>
+            ) : activityError ? (
+              <div className="rounded-2xl border border-red-100 bg-red-50/70 px-6 py-10 text-center">
+                <p className="text-sm font-medium text-red-700">
+                  {activityError}
+                </p>
+                <Button
+                  variant="outline"
+                  className="mt-4 rounded-xl bg-white text-primary hover:bg-primary/5 hover:!text-primary"
+                  onClick={loadActivity}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <div className="grid min-w-0 items-start gap-6 lg:grid-cols-12">
+                <div className="min-w-0 max-w-full space-y-4 lg:col-span-7">
+                  <h3 className="text-sm font-semibold text-neutral-900">
+                    Posts
+                  </h3>
+                  {activityPosts.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-neutral-200 bg-white/50 px-6 py-10 text-center text-sm text-neutral-500">
+                      No posts yet.
+                    </div>
+                  ) : (
+                    activityPosts.map((post) => (
+                      <div key={post.id} className="min-w-0 max-w-full">
+                        <PostCard
+                          post={post}
+                          currentUserId={me.id}
+                          onReply={() => {}}
+                          onReport={(type, targetId, label) => {
+                            setReportTarget({ type, id: targetId, label });
+                            setReportDialogOpen(true);
+                          }}
+                          onPostUpdated={() => {}}
+                          isVerifiedUser={me.is_verified}
+                        />
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <aside className="min-w-0 max-w-full overflow-hidden rounded-2xl border border-white bg-white/55 p-4 sm:p-5 lg:col-span-5">
+                  <h3 className="mb-4 text-sm font-semibold text-neutral-900">
+                    Comments
+                  </h3>
+                  {activityComments.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-neutral-200 px-5 py-10 text-center text-sm text-neutral-500">
+                      No comments yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {activityComments.map((comment) => {
+                        const commentPost = Array.isArray(comment.post)
+                          ? comment.post[0]
+                          : comment.post;
+                        return (
+                          <Link
+                            key={comment.id}
+                            href={`/posts/${comment.post_id}`}
+                            className="group block rounded-xl border border-neutral-100 bg-white/80 p-4 transition hover:border-primary/10 hover:shadow-sm"
+                          >
+                            <div className="flex items-start gap-3">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/5 text-primary">
+                                <MessageSquareText className="h-4 w-4" />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="line-clamp-3 text-sm font-medium leading-5 text-neutral-800">
+                                  {comment.text}
+                                </p>
+                                {commentPost?.text && (
+                                  <p className="mt-2 line-clamp-1 text-xs text-neutral-500">
+                                    On: {commentPost.text}
+                                  </p>
+                                )}
+                                <p className="mt-2 text-[11px] text-neutral-400">
+                                  {new Date(
+                                    comment.created_at
+                                  ).toLocaleDateString(undefined, {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
                     </div>
                   )}
-                  {isOwner && (
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="h-[26px] px-3 text-[10px] font-bold shadow-sm rounded-full bg-white text-neutral-600 hover:text-neutral-900 border-neutral-200" 
-                      onClick={() => setIsEditing(true)}
-                    >
-                      <Edit2 className="h-3 w-3 mr-1.5" />
-                      Edit Profile
-                    </Button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm font-semibold text-neutral-500">
-                {profile.company?.name && (
-                  <span className="flex items-center gap-1.5">
-                    <Building2 className="h-4 w-4" />
-                    {profile.company.name}
-                    {isOwner && (
-                      <button
-                        onClick={() => setIsChangeCompanyOpen(true)}
-                        className="ml-1 px-2 py-0.5 text-[10px] font-bold bg-neutral-100 text-neutral-500 hover:bg-neutral-200 rounded-full transition-colors uppercase tracking-wider"
-                      >
-                        Change
-                      </button>
-                    )}
-                  </span>
-                )}
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
-                  {profile.city || "Unknown Location"}
-                </span>
-              </div>
-
-              <p className="text-sm text-neutral-700 leading-relaxed max-w-xl mx-auto md:mx-0">
-                {profile.bio || "Verified professional active on Vouchins."}
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-2 text-xs font-bold text-neutral-400">
-                <span>Member since {new Date(profile.created_at).toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
-                
-                {profile.linkedin_url && (
-                  <>
-                    <span>•</span>
-                    <a href={profile.linkedin_url.startsWith("http") ? profile.linkedin_url : `https://${profile.linkedin_url}`} target="_external" rel="noopener noreferrer" className="flex items-center gap-1.5 text-primary hover:underline">
-                      <Linkedin className="h-3.5 w-3.5" />
-                      LinkedIn Profile
-                    </a>
-                  </>
-                )}
-              </div>
-            </div>
-            
-            {!isOwner && (
-              <div className="shrink-0 flex flex-col w-full md:w-auto gap-3 mt-4 md:mt-0">
-                <Button className="w-full bg-primary font-bold shadow-md rounded-xl" onClick={() => {
-                  posthog.capture("Contact Seller", { recipient_id: profile.id });
-                  router.push(`/messages/${profile.id}`);
-                }}>
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Message
-                </Button>
-                <Button
-                  variant={hasVouchedProfile ? "secondary" : "outline"}
-                  className={`w-full shadow-sm rounded-xl font-bold ${hasVouchedProfile ? 'bg-indigo-50 text-indigo-700 border-transparent' : 'border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700'}`}
-                  onClick={handleProfileVouch}
-                  disabled={hasVouchedProfile}
-                >
-                  {hasVouchedProfile ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2 text-indigo-500" />
-                      Vouched
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="h-4 w-4 mr-2" />
-                      Vouch for {profile.full_name.split(' ')[0]}
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="w-full rounded-xl font-bold text-red-650 hover:bg-red-50 hover:text-red-700"
-                  onClick={() => {
-                    setReportTarget({
-                      type: "user",
-                      id: profile.id,
-                      label: profile.full_name,
-                    });
-                    setReportDialogOpen(true);
-                  }}
-                >
-                  <Flag className="h-4 w-4 mr-2" />
-                  Report Profile
-                </Button>
+                </aside>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* SECTION 2 & 3: VOUCH SCORE, MEMBERS INVITED & TRUST SIGNALS */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Vouch Score */}
-          <section className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center">
-            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-4">⭐ Vouch Score</h3>
-            <div className="text-6xl font-black text-primary tracking-tighter">
-              {vouchScore}
-            </div>
-          </section>
-
-          {/* Members Invited */}
-          <section className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm flex flex-col items-center justify-center text-center">
-            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-4">🤝 Members Invited</h3>
-            <div className="text-6xl font-black text-primary tracking-tighter">
-              {invitedCount}
-            </div>
-            {(() => {
-              const badge = getHighestBadge(invitedCount);
-              if (!badge) return null;
-              return (
-                <div className="mt-3 px-3 py-1 bg-primary/10 border border-primary/20 text-primary rounded-full text-xs font-bold flex items-center gap-1.5 animate-in fade-in zoom-in-95">
-                  <span>{badge.icon}</span>
-                  <span>{badge.name}</span>
-                </div>
-              );
-            })()}
-            {isOwner && invitedCount === 0 && (
-              <p className="text-[11px] text-neutral-450 mt-3 text-center leading-normal max-w-[150px]">
-                Invite trusted professionals to grow the community.
-              </p>
-            )}
-          </section>
-
-          {/* Trust Signals */}
-          <section className="md:col-span-2 bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-6">Trust Signals</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-              <div className="flex flex-col items-center p-4 bg-indigo-50 rounded-xl border border-indigo-100 text-center shadow-sm">
-                <ShieldCheck className="h-6 w-6 text-indigo-600 mb-2" />
-                <span className="text-2xl font-black text-neutral-900 mb-1">{communityVouchesTotal}</span>
-                <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider leading-tight">Community<br/>Vouches</span>
-              </div>
-              <div className="flex flex-col items-center p-4 bg-neutral-50 rounded-xl border border-neutral-100 text-center">
-                <Briefcase className="h-6 w-6 text-indigo-500 mb-2" />
-                <span className="text-2xl font-black text-neutral-900 mb-1">{trustSignals.referrals || 0}</span>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider leading-tight">Referrals<br/>Shared</span>
-              </div>
-              <div className="flex flex-col items-center p-4 bg-neutral-50 rounded-xl border border-neutral-100 text-center">
-                <Home className="h-6 w-6 text-emerald-500 mb-2" />
-                <span className="text-2xl font-black text-neutral-900 mb-1">{trustSignals.housing || 0}</span>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider leading-tight">Housing<br/>Posts</span>
-              </div>
-              <div className="flex flex-col items-center p-4 bg-neutral-50 rounded-xl border border-neutral-100 text-center">
-                <ShoppingCart className="h-6 w-6 text-amber-500 mb-2" />
-                <span className="text-2xl font-black text-neutral-900 mb-1">{trustSignals.buy_sell || 0}</span>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider leading-tight">Marketplace<br/>Posts</span>
-              </div>
-              <div className="flex flex-col items-center p-4 bg-neutral-50 rounded-xl border border-neutral-100 text-center">
-                <Star className="h-6 w-6 text-blue-500 mb-2" />
-                <span className="text-2xl font-black text-neutral-900 mb-1">{trustSignals.recommendations || 0}</span>
-                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider leading-tight">Recommen-<br/>dations</span>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        {/* SECTION 4: TRUST HIGHLIGHTS */}
-        {highlights.length > 0 && (
-          <section className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-            <h3 className="text-xs font-black text-neutral-400 uppercase tracking-widest mb-4">Trust Highlights</h3>
-            <ul className="space-y-3">
-              {highlights.map((highlight, i) => (
-                <li key={i} className="flex items-center gap-3 text-sm font-semibold text-neutral-700">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-                  {highlight}
-                </li>
-              ))}
-            </ul>
           </section>
         )}
-
-        {/* SECTION 5: RECENT ACTIVITY */}
-        <section className="pt-4">
-          <h3 className="text-lg font-black text-primary tracking-tight mb-6">Recent Activity</h3>
-          {posts.length === 0 ? (
-            <div className="bg-white border border-neutral-100 rounded-2xl p-12 text-center text-sm font-medium text-neutral-400 shadow-sm">
-              This professional hasn't contributed yet.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  currentUserId={me.id}
-                  onReply={() => {}}
-                  onReport={(type, targetId, label) => {
-                    setReportTarget({ type, id: targetId, label });
-                    setReportDialogOpen(true);
-                  }}
-                  onPostUpdated={() => {}}
-                  isVerifiedUser={me.is_verified}
-                />
-              ))}
-            </div>
-          )}
-        </section>
 
         {/* SECTION 6: PRIVATE SETTINGS DIALOG (OWNER ONLY) */}
         {isOwner && (
@@ -842,7 +1261,7 @@ export default function UserProfilePage() {
             targetLabel={reportTarget.label}
           />
         )}
-      </div>
+      </main>
 
       {isOwner && (
         <ChangeCompanyModal

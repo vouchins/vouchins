@@ -450,7 +450,7 @@ export function PostCard({
   const isColleague = currentUser?.company?.domain && post.user.company?.domain && currentUser.company.domain === post.user.company.domain;
 
   return (
-    <div onClick={handleCardClick} className="bg-white border border-neutral-200/90 rounded-2xl p-6 hover:border-neutral-300 hover:shadow-md transition-all duration-300 overflow-visible relative group/card">
+    <div onClick={handleCardClick} className="group/card relative w-full min-w-0 max-w-full overflow-hidden rounded-2xl border border-neutral-200/90 bg-white p-4 transition-all duration-300 hover:border-neutral-300 hover:shadow-md sm:p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-4 gap-3 sm:gap-2">
         <div className="flex gap-3 min-w-0">
@@ -479,7 +479,7 @@ export function PostCard({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <Link
                 href={`/users/${post.user.id}`}
-                className="font-bold text-neutral-900 hover:text-indigo-600 flex items-center gap-0.5 text-sm sm:text-[15px]"
+                className="flex min-w-0 max-w-full items-center gap-0.5 break-words text-sm font-bold text-neutral-900 hover:text-indigo-600 sm:text-[15px]"
               >
                 {post.user.full_name}
                 {post.user.is_verified && (
@@ -497,7 +497,7 @@ export function PostCard({
                 )}
               </Link>
               <span className="text-neutral-300 text-xs">|</span>
-              <span className="text-xs font-semibold text-neutral-600 uppercase tracking-tight">
+              <span className="min-w-0 break-words text-xs font-semibold uppercase tracking-tight text-neutral-600">
                 {post.user.company?.name || "No Company"}
               </span>
               {isColleague && (
@@ -699,7 +699,7 @@ export function PostCard({
         <PostImageGallery imageUrls={post.image_urls} />
       )}
       {/* Footer Actions */}
-      <div className="flex items-center gap-1.5 pt-3 border-t border-neutral-100/60 mt-3 overflow-x-auto whitespace-nowrap no-scrollbar">
+      <div className="no-scrollbar mt-3 flex max-w-full items-center gap-1.5 overflow-x-auto whitespace-nowrap border-t border-neutral-100/60 pt-3">
         {!isEditing ? (
           <>
             {/* Reply Button */}
