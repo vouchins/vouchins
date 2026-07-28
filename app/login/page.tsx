@@ -78,7 +78,7 @@ export default function LoginPage() {
       }
 
       posthog.capture("Login", { method: "email" });
-      window.location.href = "/feed";
+      router.replace("/feed");
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
