@@ -371,7 +371,7 @@ export function ProfileCompletionDialog({
                 </span>
               </div>
               <p className="text-[10px] sm:text-[11px] font-bold text-neutral-450 mt-1.5">
-                Unlock professional features & earn +100 points
+                Complete your profile to unlock professional features
               </p>
             </div>
           </div>
@@ -491,7 +491,7 @@ export function ProfileCompletionDialog({
 
                 <div className="space-y-1">
                   <h3 className="font-extrabold text-xs text-neutral-800">
-                    {user.avatar_url ? "Profile photo uploaded (+25 Vouch points)" : "Add profile photo and get 25 Vouch points"}
+                    {user.avatar_url ? "Profile photo uploaded" : "Add a profile photo"}
                   </h3>
                   <p className="text-[10px] sm:text-[11px] text-neutral-450 leading-relaxed">
                     Builds trust in professional groups. Click the frame above or upload below.
@@ -526,7 +526,7 @@ export function ProfileCompletionDialog({
               <div className="space-y-4 max-w-[350px] w-full text-left animate-in fade-in slide-in-from-bottom-2 duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
                 <div className="space-y-1 text-center sm:text-left">
                   <h3 className="font-extrabold text-xs text-neutral-800">
-                    {user.linkedin_url ? "LinkedIn URL connected (+25 Vouch points)" : "Add linkedin url and get 25 Vouch points"}
+                    {user.linkedin_url ? "LinkedIn URL connected" : "Add a LinkedIn URL"}
                   </h3>
                 </div>
 
@@ -568,7 +568,7 @@ export function ProfileCompletionDialog({
               <div className="space-y-4 max-w-[350px] w-full text-left animate-in fade-in slide-in-from-bottom-2 duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
                 <div className="space-y-1 text-center sm:text-left">
                   <h3 className="font-extrabold text-xs text-neutral-800">
-                    {user.phone_number ? "Phone number saved (+25 Vouch points)" : "Add phone number and get 25 Vouch points"}
+                    {user.phone_number ? "Phone number saved" : "Add a phone number"}
                   </h3>
                   <p className="text-[10px] sm:text-[11px] text-neutral-450 leading-relaxed">
                     Used strictly for verified referrals. Other members never see your number.
@@ -635,7 +635,7 @@ export function ProfileCompletionDialog({
                         <ShieldCheck className="h-5 w-5 animate-pulse" />
                       </div>
                       <h3 className="font-extrabold text-xs text-neutral-800">
-                        {user.is_verified ? "Work verified (+25 Vouch points)" : "Verify company email and get 25 Vouch points"}
+                        {user.is_verified ? "Work email verified" : "Verify your company email"}
                       </h3>
                       <p className="text-[10px] sm:text-[11px] text-neutral-450 leading-relaxed max-w-[280px] mx-auto">
                         Unlock restricted channels. Join verified builders from top companies.

@@ -264,8 +264,7 @@ export default function UserProfilePage() {
 
       const [
         { data: profileData },
-        { data: vouchScoreData },
-        { data: trustSignalsData },
+        reputationResponse,
         { data: postsData },
         { data: vouchData },
         { count: invitedCountData }
@@ -275,8 +274,7 @@ export default function UserProfilePage() {
           .select("id, full_name, city, created_at, linkedin_url, bio, personal_email, avatar_url, phone_number, is_verified, vouch_points, pref_email_messages, pref_email_comments, pref_email_digest, company:companies(name, domain)")
           .eq("id", id)
           .maybeSingle(),
-        supabase.rpc("get_vouch_score", { profile_id: id }),
-        supabase.rpc("get_trust_signals", { profile_id: id }),
+        fetch(`/api/reputation/${id}`, { cache: "no-store" }),
         supabase
           .from("posts")
           .select(PROFILE_POST_SELECT)
@@ -328,12 +326,11 @@ export default function UserProfilePage() {
       if (profileData.linkedin_url) completionPoints += 25;
       if (profileData.phone_number) completionPoints += 25;
 
-      // Calculate Community Vouches (Already includes post vouches + profile vouch points from RPC)
-      const communityVouches = Number(vouchScoreData) || 0;
-      setCommunityVouchesTotal(communityVouches);
-
-      // Total Vouch Score
-      const score = communityVouches + completionPoints;
+      const reputationData = reputationResponse.ok
+        ? await reputationResponse.json()
+        : { total_score: 0 };
+      const score = Number(reputationData.total_score) || 0;
+      setCommunityVouchesTotal(score);
       setVouchScore(score);
 
       const categories: Record<string, number> = {
@@ -346,27 +343,12 @@ export default function UserProfilePage() {
       let topCategory = "";
       let topCount = 0;
 
-      (trustSignalsData || []).forEach((row: any) => {
-        const count = Number(row.count) || 0;
-        let cat = row.category;
-        if (cat === 'jobs') cat = 'referrals'; // legacy mapping
-        if (categories[cat] !== undefined) {
-          categories[cat] += count;
-        } else {
-          categories[cat] = count;
-        }
-
-        if (count > topCount) {
-          topCount = count;
-          topCategory = cat;
-        }
-      });
       setTrustSignals(categories);
 
       // Compute Highlights
       const highlightStrings: string[] = [];
-      if (communityVouches > 0) highlightStrings.push(`Received ${communityVouches} community vouches`);
-      if (completionPoints > 0) highlightStrings.push(`Earned ${completionPoints} profile completion points`);
+      if (score > 0) highlightStrings.push(`Reputation score: ${score}`);
+      if (completionPoints > 0) highlightStrings.push(`Profile completeness: ${completionPoints}%`);
       if (categories.referrals > 0) highlightStrings.push(`Shared ${categories.referrals} referrals`);
       if (categories.housing > 0) highlightStrings.push(`Posted ${categories.housing} housing opportunities`);
       
@@ -453,10 +435,11 @@ export default function UserProfilePage() {
 
   const handleProfileVouch = async () => {
     if (isOwner || hasVouchedProfile) return;
-    const { error } = await supabase.from('vouches').insert({
-      vouching_user_id: me.id,
-      target_user_id: profile.id,
-      is_profile_vouch: true,
+    const { error } = await supabase.rpc('create_vouch', {
+      p_entity_type: 'profile',
+      p_entity_id: profile.id,
+      p_endorsement_type: 'contextual',
+      p_reason: null,
     });
     if (error) {
       if (error.code === '23505') setHasVouchedProfile(true);
@@ -545,18 +528,14 @@ export default function UserProfilePage() {
 
   if (!profile) return null;
   const isOwner = me?.id === profile.id;
-  const profileCompletionPoints = Math.max(
-    vouchScore - communityVouchesTotal,
-    0
-  );
+  const profileCompletionPoints =
+    [profile.is_verified, profile.avatar_url, profile.linkedin_url, profile.phone_number]
+      .filter(Boolean).length * 25;
   const trustLabel =
-    vouchScore >= 100
-      ? "Strong community trust"
-      : vouchScore >= 50
-        ? "Growing community trust"
-        : vouchScore > 0
-          ? "Emerging community trust"
-          : "New community profile";
+    vouchScore >= 75 ? "Highly trusted"
+      : vouchScore >= 45 ? "Established"
+        : vouchScore >= 15 ? "Building"
+          : "New";
   const trustSignalItems = [
     {
       label: "Community vouches",
@@ -868,7 +847,7 @@ export default function UserProfilePage() {
                   </span>{" "}
                   +{" "}
                   <span className="font-semibold text-primary">
-                    {profileCompletionPoints} profile points
+                    Profile completeness: {profileCompletionPoints}%
                   </span>
                 </p>
                 <div className="h-px bg-neutral-200/80" />

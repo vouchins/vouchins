@@ -118,7 +118,7 @@ export function RightSidebar({
                 </span>
               </span>
               <span className="mt-1.5 block text-[11px] leading-4 text-neutral-600">
-                Help colleagues with recommendations and earn vouch points for
+                Help colleagues with recommendations. Reputation rewards are coming soon for
                 successful recommendations.
               </span>
             </span>

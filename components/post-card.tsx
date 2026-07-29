@@ -221,10 +221,11 @@ export function PostCard({
     // Optimistic UI update
     setVouchedEntities(prev => ({ ...prev, [key]: true }));
 
-    const { error } = await supabase.from('vouches').insert({
-      vouching_user_id: currentUserId,
-      target_user_id: targetUserId,
-      ...(entityType === 'post' ? { post_id: entityId } : { comment_id: entityId })
+    const { error } = await supabase.rpc('create_vouch', {
+      p_entity_type: entityType,
+      p_entity_id: entityId,
+      p_endorsement_type: 'helpful',
+      p_reason: null,
     });
 
     if (error) {

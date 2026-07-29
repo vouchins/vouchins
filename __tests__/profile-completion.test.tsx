@@ -128,7 +128,7 @@ describe('ProfileCompletionDialog Component', () => {
     render(<ProfileCompletionDialog isOpen={true} onClose={jest.fn()} initialTab="linkedin" />);
 
     // Check specific text is present
-    expect(screen.getByText('Add linkedin url and get 25 Vouch points')).toBeInTheDocument();
+    expect(screen.getByText('Add a LinkedIn URL')).toBeInTheDocument();
 
     // Check that the old privacy clutter description is NOT in the document
     expect(screen.queryByText('Your URL remains strictly private and encrypted.')).not.toBeInTheDocument();
