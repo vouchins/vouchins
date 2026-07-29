@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { PublicNavbar } from "@/components/public-navbar";
+import { Navigation } from "@/components/navigation";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { BlogAnalyticsTracker } from "@/components/blog-analytics-tracker";
@@ -55,7 +55,7 @@ export default async function BlogPostPage({
         slug={post.slug}
         title={post.title}
       />
-      <PublicNavbar />
+      <Navigation />
 
       <main className="container mx-auto px-4 max-w-3xl py-12">
         <Link

@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { format } from "date-fns";
 import { ArrowRight, BookOpen } from "lucide-react";
-import { PublicNavbar } from "@/components/public-navbar";
+import { Navigation } from "@/components/navigation";
 
 export const revalidate = 60; // Revalidate cache every 60 seconds
 
@@ -35,7 +35,7 @@ export default async function BlogIndexPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 pb-20">
-      <PublicNavbar />
+      <Navigation />
 
       <main className="container mx-auto px-4 max-w-5xl mt-12">
         <div className="mb-12">

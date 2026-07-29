@@ -5,17 +5,22 @@ import {
   Building2,
   Grid2X2,
   Home,
+  Instagram,
+  Linkedin,
   Lock,
   MapPin,
   ShieldCheck,
   Star,
   Tag,
+  Twitter,
   Users,
+  Facebook,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
+import { FOOTER_LINKS, SOCIAL_LINKS } from "@/lib/footer-links";
 import { useUser } from "@/components/user-provider";
 
 interface LeftSidebarProps {
@@ -34,6 +39,13 @@ const categoryIcons = {
   buy_sell: Tag,
   recommendations: Star,
   referrals: Users,
+} as const;
+
+const socialIcons = {
+  linkedin: Linkedin,
+  twitter: Twitter,
+  instagram: Instagram,
+  facebook: Facebook,
 } as const;
 
 export function LeftSidebar({
@@ -175,7 +187,7 @@ export function LeftSidebar({
               className={cn(
                 "h-2 w-2 rounded-full border",
                 activeTab === "city"
-                  ? "border-blue-500 bg-blue-500"
+                  ? "border-green-500 bg-green-500"
                   : "border-neutral-300",
               )}
             />
@@ -213,7 +225,7 @@ export function LeftSidebar({
                 className={cn(
                   "h-2 w-2 rounded-full border",
                   activeTab === "company"
-                    ? "border-blue-500 bg-blue-500"
+                    ? "border-green-500 bg-green-500"
                     : "border-neutral-300",
                 )}
               />
@@ -229,7 +241,7 @@ export function LeftSidebar({
             {categories.map((category) => {
               const CategoryIcon =
                 categoryIcons[
-                  category.value as keyof typeof categoryIcons
+                category.value as keyof typeof categoryIcons
                 ] || Grid2X2;
               return (
                 <button
@@ -288,6 +300,44 @@ export function LeftSidebar({
           )}
         </div>
       </section>
+
+      <footer className="px-3 pb-3 pt-1 text-center">
+        <nav
+          aria-label="Vouchins footer links"
+          className="flex flex-wrap justify-center gap-x-3 gap-y-1.5"
+        >
+          {FOOTER_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="feed-focus rounded text-[11px] font-medium text-neutral-500 transition-colors hover:text-primary"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+        <nav
+          aria-label="Vouchins social media"
+          className="mt-3 flex items-center justify-center gap-4 text-neutral-400"
+        >
+          {SOCIAL_LINKS.map((link) => {
+            const SocialIcon = socialIcons[link.icon];
+            return (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={link.label}
+                className="feed-focus rounded-full p-1 transition-colors hover:text-primary"
+              >
+                <SocialIcon className="h-4 w-4" />
+              </a>
+            );
+          })}
+        </nav>
+        <p className="mt-2 text-[10px] text-neutral-400">Vouchins © {new Date().getFullYear() || 2026} </p>
+      </footer>
     </aside>
   );
 }
