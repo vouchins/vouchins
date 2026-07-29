@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   XCircle,
 } from "lucide-react";
-import { HomepageNavbar } from "@/components/homepage-navbar";
+import { Navigation } from "@/components/navigation";
 
 const dos = [
   "Review the member's verified employer, profile history, and community vouches.",
@@ -29,9 +29,9 @@ const donts = [
 export default function SafetyPage() {
   return (
     <div className="min-h-screen bg-[#f6f8fb] text-neutral-950">
-      <HomepageNavbar />
+      <Navigation />
 
-      <main className="pb-20 pt-24">
+      <main className="pb-20">
         <section className="border-b border-neutral-200/70 bg-white">
           <div className="mx-auto max-w-5xl px-5 py-16 sm:px-8">
             <Link

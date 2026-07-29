@@ -35,6 +35,7 @@ import { formatDistanceToNow } from "date-fns";
 
 import { useUser } from "@/components/user-provider";
 import { InviteDialog, triggerNativeShare } from "@/components/invite-dialog";
+import { HomepageNavbar } from "@/components/homepage-navbar";
 
 interface NavigationUser {
   id: string;
@@ -54,7 +55,7 @@ interface NavigationUser {
 
 export function Navigation() {
   return (
-    <Suspense fallback={<header className="h-16 border-b border-neutral-200 bg-white/80 backdrop-blur-md" />}>
+    <Suspense fallback={<HomepageNavbar />}>
       <NavigationContent />
     </Suspense>
   );
@@ -224,6 +225,10 @@ function NavigationContent() {
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  if (!user) {
+    return <HomepageNavbar />;
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white/80 backdrop-blur-md">
@@ -580,21 +585,7 @@ function NavigationContent() {
                 </DropdownMenu>
               </>
             ) : (
-              <div className="flex items-center space-x-2">
-                <Link href="/login">
-                  <Button
-                    variant="ghost"
-                    className="text-primary font-bold hover:bg-primary/5 rounded-xl px-4 h-9 text-xs sm:text-sm"
-                  >
-                    Log in
-                  </Button>
-                </Link>
-                <Link href="/signup">
-                  <Button className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-4 h-9 text-xs sm:text-sm shadow-md shadow-primary/10 transition-all active:scale-95">
-                    Join Now
-                  </Button>
-                </Link>
-              </div>
+              null
             )}
           </div>
         </div>

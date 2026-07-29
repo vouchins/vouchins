@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
   const isStandardAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
   const isAuthRoute = isStandardAuthRoute || isRecruiterAuthRoute
 
-  const publicPaths = ['/', '/about', '/privacy', '/terms', '/contact', '/how-it-works', '/warden']
+  const publicPaths = ['/', '/about', '/privacy', '/terms', '/contact', '/how-it-works', '/safety', '/warden']
   const publicPrefixes = ['/blog', '/business', '/posts/']
 
   const isPublicRoute =
