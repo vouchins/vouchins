@@ -9,7 +9,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { HomepageNavbar } from "@/components/homepage-navbar";
-import { Footer } from "@/components/footer";
 
 const plannedBenefits = [
   {
@@ -114,8 +113,6 @@ export default function PremiumPage() {
           </p>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }
