@@ -74,6 +74,7 @@ interface PostCardProps {
       id: string;
       full_name: string;
       city: string;
+      bio?: string | null;
       avatar_url?: string | null;
       vouch_points?: number;
       is_verified?: boolean;
@@ -576,12 +577,21 @@ export function PostCard({
             </Link>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs font-medium text-neutral-600">
               <span className="min-w-0 truncate">{post.user.company?.name || "No company"}</span>
-              {(isColleague || post.user.is_verified) && (
+              {post.user.bio && (
                 <>
                   <span className="text-neutral-300">·</span>
-                  <span className="text-neutral-600">
-                    {isColleague ? "Colleague" : "Verified employee"}
+                  <span
+                    className="max-w-full min-w-0 truncate text-neutral-500 sm:max-w-[16rem]"
+                    title={post.user.bio}
+                  >
+                    {post.user.bio}
                   </span>
+                </>
+              )}
+              {isColleague && (
+                <>
+                  <span className="text-neutral-300">·</span>
+                  <span className="text-neutral-600">Colleague</span>
                 </>
               )}
             </div>
@@ -644,6 +654,17 @@ export function PostCard({
               <span className="min-w-0 break-words text-xs font-semibold uppercase tracking-tight text-neutral-600">
                 {post.user.company?.name || "No Company"}
               </span>
+              {post.user.bio && (
+                <>
+                  <span className="text-neutral-300 text-xs">·</span>
+                  <span
+                    className="max-w-[16rem] truncate text-xs font-medium normal-case tracking-normal text-neutral-500"
+                    title={post.user.bio}
+                  >
+                    {post.user.bio}
+                  </span>
+                </>
+              )}
               {isColleague && (
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[9px] font-bold uppercase tracking-wider">
                   <Building2 className="h-2.5 w-2.5" /> Colleague

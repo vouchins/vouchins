@@ -54,6 +54,7 @@ export interface FeedPost {
     id: string;
     full_name: string;
     city: string;
+    bio?: string | null;
     avatar_url?: string | null;
     vouch_points?: number;
     is_admin: boolean;

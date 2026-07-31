@@ -8,7 +8,7 @@ const POST_SELECT = `
   id, user_id, text, category, sub_category, visibility, image_urls,
   is_flagged, flag_reasons, created_at, updated_at, status,
   user:users!posts_user_id_fkey!inner(
-    id, full_name, city, avatar_url, vouch_points, is_admin, is_verified,
+    id, full_name, city, bio, avatar_url, vouch_points, is_admin, is_verified,
     company_id, company:companies(id, name, domain)
   ),
   comments(count), vouch_summary:vouches(count),

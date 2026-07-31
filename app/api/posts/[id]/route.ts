@@ -57,9 +57,11 @@ export async function GET(
           full_name,
           email,
           city,
+          bio,
           avatar_url,
           vouch_points,
           is_admin,
+          is_verified,
           company_id,
           company:companies(name, domain)
         ),

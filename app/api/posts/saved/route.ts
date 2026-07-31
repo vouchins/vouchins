@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       created_at,
       post:posts (
         *,
-        user:users!posts_user_id_fkey!inner(id, full_name, city, avatar_url, vouch_points, is_admin, company_id, company:companies(name, domain)),
+        user:users!posts_user_id_fkey!inner(id, full_name, city, bio, avatar_url, vouch_points, is_admin, is_verified, company_id, company:companies(name, domain)),
         comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))
       )
     `)

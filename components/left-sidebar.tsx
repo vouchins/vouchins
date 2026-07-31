@@ -1,15 +1,16 @@
 "use client";
 
 import {
+  AlertTriangle,
   ArrowRight,
   Building2,
+  ChevronRight,
   Grid2X2,
   Home,
   Instagram,
   Linkedin,
   Lock,
   MapPin,
-  ShieldCheck,
   Star,
   Tag,
   Twitter,
@@ -122,20 +123,6 @@ export function LeftSidebar({
             <p className="mx-auto mt-1 line-clamp-2 max-w-[220px] text-xs leading-5 text-neutral-600">
               {user.bio || `Professional at ${user.company?.name || "Vouchins"}`}
             </p>
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-neutral-500">
-              <MapPin className="h-3.5 w-3.5" />
-              {user.city}
-            </p>
-            {user.is_verified ? (
-              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Verified at {user.company?.name || "Vouchins"}
-              </p>
-            ) : (
-              <p className="mt-3 inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-semibold text-amber-700">
-                Verification pending
-              </p>
-            )}
           </div>
 
           <div className="grid grid-cols-2 divide-x divide-neutral-100 border-t border-neutral-100 px-3 py-3 text-center">
@@ -148,7 +135,16 @@ export function LeftSidebar({
               </p>
             </div>
             <div className="px-3">
-              <p className="text-sm font-semibold text-primary">
+              <p
+                className={`flex items-center justify-center gap-1 text-sm font-semibold ${user.is_profile_complete ? "text-primary" : "text-amber-600"
+                  }`}
+              >
+                {!user.is_profile_complete && (
+                  <AlertTriangle
+                    className="h-3.5 w-3.5 shrink-0"
+                    aria-label="Profile incomplete"
+                  />
+                )}
                 {Math.round(user.profile_completion_percentage || 0)}%
               </p>
               <p className="mt-0.5 text-[10px] text-neutral-500">
@@ -174,22 +170,29 @@ export function LeftSidebar({
             onClick={() => handleTabClick("city")}
             aria-pressed={activeTab === "city" && pathname === "/feed"}
             className={cn(
-              "feed-focus flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition",
+              "feed-focus group flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
               activeTab === "city" && pathname === "/feed"
-                ? "bg-primary/[0.055] text-primary"
-                : "text-neutral-600 hover:bg-white/70 hover:text-primary",
+                ? "border-primary/15 bg-primary/[0.055] shadow-sm"
+                : "border-neutral-200/80 bg-white text-neutral-600 hover:border-primary/20 hover:bg-primary/[0.025]",
             )}
           >
-            <MapPin className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{effectiveCity}</span>
-            <span
-              className={cn(
-                "h-2 w-2 rounded-full border",
-                activeTab === "city"
-                  ? "border-green-500 bg-green-500"
-                  : "border-neutral-300",
-              )}
-            />
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-primary">
+              <MapPin className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-neutral-900">City feed</span>
+              <span className="mt-0.5 block truncate text-[10px] text-neutral-500">
+                Posts from {effectiveCity}
+              </span>
+            </span>
+            {activeTab === "city" && pathname === "/feed" ? (
+              <span
+                className="h-2 w-2 shrink-0 rounded-full bg-green-500 ring-2 ring-green-100"
+                aria-label="Active feed"
+              />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-neutral-400 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+            )}
           </button>
 
           <button
@@ -197,37 +200,41 @@ export function LeftSidebar({
             onClick={() => handleTabClick("company")}
             aria-pressed={activeTab === "company" && pathname === "/feed"}
             className={cn(
-              "feed-focus flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition",
+              "feed-focus group flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition",
               activeTab === "company" && pathname === "/feed"
-                ? "bg-primary/[0.055] text-primary"
-                : "text-neutral-600 hover:bg-white/70 hover:text-primary",
+                ? "border-primary/15 bg-primary/[0.055] shadow-sm"
+                : "border-neutral-200/80 bg-white text-neutral-600 hover:border-primary/20 hover:bg-primary/[0.025]",
             )}
           >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded bg-white">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-50 text-primary">
               {user?.company?.domain ? (
                 <img
                   src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=32`}
                   alt=""
-                  className="h-4 w-4 object-contain"
+                  className="h-5 w-5 object-contain"
                 />
               ) : (
                 <Building2 className="h-4 w-4" />
               )}
             </span>
-            <span className="min-w-0 flex-1 truncate">
-              {user?.company?.name || "Company"}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold text-neutral-900">{user?.company?.name} feed</span>
+              <span className="mt-0.5 block whitespace-normal break-words text-[10px] leading-4 text-neutral-500">
+                Posts from verified {user?.company?.name || "your workplace"} colleagues
+              </span>
             </span>
             {!user?.is_verified ? (
-              <Lock className="h-3.5 w-3.5 text-neutral-400" />
-            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-[9px] font-semibold text-neutral-500">
+                <Lock className="h-3 w-3" />
+                Locked
+              </span>
+            ) : activeTab === "company" && pathname === "/feed" ? (
               <span
-                className={cn(
-                  "h-2 w-2 rounded-full border",
-                  activeTab === "company"
-                    ? "border-green-500 bg-green-500"
-                    : "border-neutral-300",
-                )}
+                className="h-2 w-2 shrink-0 rounded-full bg-green-500 ring-2 ring-green-100"
+                aria-label="Active feed"
               />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-neutral-400 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
             )}
           </button>
         </div>
