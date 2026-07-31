@@ -19,7 +19,6 @@ import {
   Trash2,
   Check,
   X,
-  BadgeCheck,
   ImageIcon,
   Plus,
   ShieldCheck,
@@ -42,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUser } from "@/components/user-provider";
 import { cn } from "@/lib/utils";
+import { VerifiedIcon } from "@/components/verified-icon";
 
 const PostImageGallery = dynamic(() => import("@/components/post-image-gallery").then((mod) => mod.PostImageGallery), {
   loading: () => <div className="mt-4 h-64 sm:h-80 rounded-xl bg-neutral-100 animate-pulse" />,
@@ -571,7 +571,7 @@ export function PostCard({
             >
               {post.user.full_name}
               {post.user.is_verified && (
-                <BadgeCheck className="h-4 w-4 shrink-0 fill-blue-50 text-blue-500" aria-label="Verified user" />
+                <VerifiedIcon label="Verified user" />
               )}
             </Link>
             <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs font-medium text-neutral-600">
@@ -631,11 +631,7 @@ export function PostCard({
               >
                 {post.user.full_name}
                 {post.user.is_verified && (
-                  <span title="Verified User">
-                    <BadgeCheck
-                      className="h-4 w-4 text-blue-500 fill-blue-50"
-                    />
-                  </span>
+                  <VerifiedIcon label="Verified user" />
                 )}
                 {(post.user.vouch_points ?? 0) > 0 && (
                   <div className="flex items-center gap-0.5 px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded text-indigo-600 ml-1" title={`${post.user.vouch_points} Vouch Points`}>

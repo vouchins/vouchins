@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 import { FOOTER_LINKS, SOCIAL_LINKS } from "@/lib/footer-links";
 import { useUser } from "@/components/user-provider";
+import { VerifiedIcon } from "@/components/verified-icon";
 
 interface LeftSidebarProps {
   activeTab?: "city" | "company";
@@ -115,9 +116,7 @@ export function LeftSidebar({
                 {user.full_name}
               </h2>
               {user.is_verified && (
-                <span title="Verified member" aria-label="Verified member">
-                  <ShieldCheck className="h-4 w-4 fill-blue-50 text-blue-600" />
-                </span>
+                <VerifiedIcon />
               )}
             </div>
             <p className="mx-auto mt-1 line-clamp-2 max-w-[220px] text-xs leading-5 text-neutral-600">

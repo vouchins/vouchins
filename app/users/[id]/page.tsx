@@ -49,6 +49,8 @@ import {
   ReportDialog,
   type ReportTargetType,
 } from "@/components/report-dialog";
+import { VerifiedIcon } from "@/components/verified-icon";
+import { INDIAN_CITIES } from "@/lib/constants";
 
 const PROFILE_POST_SELECT =
   "*, user:users!posts_user_id_fkey(id, full_name, city, avatar_url, vouch_points, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))";
@@ -170,6 +172,7 @@ export default function UserProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [formDraft, setFormDraft] = useState({
     bio: "",
+    city: "",
     linkedin_url: "",
     personal_email: "",
     phone_country_code: "+91",
@@ -308,6 +311,7 @@ export default function UserProfilePage() {
       const parsedPhone = parsePhone(profileData.phone_number);
       setFormDraft({
         bio: profileData.bio || "",
+        city: profileData.city || "",
         linkedin_url: profileData.linkedin_url || "",
         personal_email: profileData.personal_email || "",
         phone_country_code: parsedPhone.code,
@@ -389,6 +393,11 @@ export default function UserProfilePage() {
   }, [id, router]);
 
   const handleSaveProfile = async () => {
+    if (!formDraft.city) {
+      alert("Please select your city.");
+      return;
+    }
+
     // Simple validation for LinkedIn URL
     if (
       formDraft.linkedin_url &&
@@ -424,6 +433,7 @@ export default function UserProfilePage() {
       .from("users")
       .update({
         bio: formDraft.bio.trim(),
+        city: formDraft.city,
         linkedin_url: formDraft.linkedin_url.trim(),
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
@@ -437,6 +447,7 @@ export default function UserProfilePage() {
       setProfile({ 
         ...profile, 
         bio: formDraft.bio.trim(),
+        city: formDraft.city,
         linkedin_url: formDraft.linkedin_url.trim(),
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
@@ -444,6 +455,11 @@ export default function UserProfilePage() {
         pref_email_comments: formDraft.pref_email_comments,
         pref_email_digest: formDraft.pref_email_digest,
       });
+      window.dispatchEvent(
+        new CustomEvent("user-updated", {
+          detail: { city: formDraft.city },
+        }),
+      );
       setIsEditing(false);
     } else {
       alert("Failed to save profile.");
@@ -545,6 +561,14 @@ export default function UserProfilePage() {
 
   if (!profile) return null;
   const isOwner = me?.id === profile.id;
+  const showProfileCompletion =
+    isOwner &&
+    !(
+      profile.is_verified &&
+      profile.avatar_url &&
+      profile.linkedin_url &&
+      profile.phone_number
+    );
   const profileCompletionPoints = Math.max(
     vouchScore - communityVouchesTotal,
     0
@@ -620,9 +644,22 @@ export default function UserProfilePage() {
       />
 
       <main className="relative mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
-        {isOwner && <ProfileCompletionWidget className="mb-6" />}
+        <div
+          className={
+            showProfileCompletion
+              ? "grid gap-6 lg:grid-cols-12 lg:items-stretch"
+              : ""
+          }
+        >
+          {showProfileCompletion && (
+            <ProfileCompletionWidget className="lg:order-2 lg:col-span-4 lg:h-full" />
+          )}
 
-        <section className="relative overflow-hidden rounded-[28px] border border-white/90 bg-white/75 p-5 shadow-[0_20px_60px_-35px_rgba(31,37,87,0.45)] backdrop-blur-2xl sm:p-8">
+        <section
+          className={`relative overflow-hidden rounded-[28px] border border-white/90 bg-white/75 p-5 shadow-[0_20px_60px_-35px_rgba(31,37,87,0.45)] backdrop-blur-2xl sm:p-8 ${
+            showProfileCompletion ? "lg:order-1 lg:col-span-8" : ""
+          }`}
+        >
           <div
             aria-hidden="true"
             className="absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"
@@ -649,8 +686,8 @@ export default function UserProfilePage() {
                   )}
                 </div>
                 {profile.is_verified && (
-                  <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white bg-emerald-500 text-white shadow-lg">
-                    <Check className="h-4 w-4 stroke-[3]" />
+                  <span className="absolute -bottom-2 -right-2 flex h-9 w-9 items-center justify-center rounded-full border-4 border-white bg-white shadow-lg">
+                    <VerifiedIcon className="h-5 w-5" />
                   </span>
                 )}
                 {isOwner && (
@@ -744,7 +781,7 @@ export default function UserProfilePage() {
               {isOwner ? (
                 <Button
                   variant="outline"
-                  className="h-11 rounded-xl border-white bg-white/80 font-semibold text-primary shadow-sm hover:bg-white"
+                  className="h-11 rounded-xl border-primary/20 bg-white/80 font-semibold text-primary shadow-[0_8px_20px_-12px_rgba(31,37,87,0.55)] transition-colors hover:border-primary/30 hover:bg-primary/5 hover:!text-primary"
                   onClick={() => setIsEditing(true)}
                 >
                   <Edit2 className="mr-2 h-4 w-4" />
@@ -805,6 +842,7 @@ export default function UserProfilePage() {
             </div>
           </div>
         </section>
+        </div>
 
         <nav
           id="profile-tabs"
@@ -849,15 +887,17 @@ export default function UserProfilePage() {
             </div>
 
             <div className="flex flex-col items-center gap-7 sm:flex-row">
-              <div className="relative flex h-44 w-44 shrink-0 items-center justify-center rounded-full bg-[conic-gradient(from_215deg,#1f2557_0deg,#3349a3_275deg,#dce3f1_275deg,#dce3f1_360deg)] p-2 shadow-[0_18px_36px_-25px_rgba(31,37,87,0.85)]">
-                <div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-white bg-white/95">
-                  <span className="text-6xl font-semibold tracking-[-0.06em] text-primary">
-                    {vouchScore}
-                  </span>
-                  <span className="mt-1 text-center text-xs font-semibold text-emerald-600">
-                    {trustLabel}
-                  </span>
+              <div className="flex w-44 shrink-0 flex-col items-center gap-3">
+                <div className="relative flex h-44 w-44 items-center justify-center rounded-full bg-[conic-gradient(from_215deg,#1f2557_0deg,#3349a3_275deg,#dce3f1_275deg,#dce3f1_360deg)] p-2 shadow-[0_18px_36px_-25px_rgba(31,37,87,0.85)]">
+                  <div className="flex h-full w-full items-center justify-center rounded-full border border-white bg-white/95">
+                    <span className="text-6xl font-semibold tracking-[-0.06em] text-primary">
+                      {vouchScore}
+                    </span>
+                  </div>
                 </div>
+                <span className="text-balance text-center text-xs font-semibold leading-4 text-emerald-600">
+                  {trustLabel}
+                </span>
               </div>
 
               <div className="w-full min-w-0 space-y-5">
@@ -1185,6 +1225,40 @@ export default function UserProfilePage() {
                   <div className="text-[10px] text-neutral-400 mt-1 text-right">{formDraft.bio.length}/300</div>
                 </div>
 
+                <div>
+                  <label
+                    htmlFor="profile-city"
+                    className="text-[10px] font-bold text-neutral-500 uppercase mb-1.5 block"
+                  >
+                    City
+                  </label>
+                  <div className="relative">
+                    <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                    <select
+                      id="profile-city"
+                      value={formDraft.city}
+                      onChange={(e) =>
+                        setFormDraft({ ...formDraft, city: e.target.value })
+                      }
+                      className="w-full appearance-none rounded-md border border-neutral-200 bg-white py-2.5 pl-10 pr-10 text-sm font-medium text-neutral-900 outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="" disabled>
+                        Select your city
+                      </option>
+                      {formDraft.city &&
+                        !INDIAN_CITIES.includes(formDraft.city) && (
+                          <option value={formDraft.city}>{formDraft.city}</option>
+                        )}
+                      {INDIAN_CITIES.map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="text-[10px] font-bold text-neutral-500 uppercase mb-1.5 block">LinkedIn URL</label>
@@ -1297,6 +1371,7 @@ export default function UserProfilePage() {
                       const parsedPhone = parsePhone(profile.phone_number);
                       setFormDraft({
                         bio: profile.bio || "",
+                        city: profile.city || "",
                         linkedin_url: profile.linkedin_url || "",
                         personal_email: profile.personal_email || "",
                         phone_country_code: parsedPhone.code,
