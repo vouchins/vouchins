@@ -66,10 +66,11 @@ export async function middleware(request: NextRequest) {
     '/how-it-works',
     '/safety',
     '/warden',
+    '/business',
     '/robots.txt',
     '/sitemap.xml',
   ]
-  const publicPrefixes = ['/blog', '/business', '/posts/']
+  const publicPrefixes = ['/blog', '/posts/']
 
   const isPublicRoute =
     isAuthRoute ||
