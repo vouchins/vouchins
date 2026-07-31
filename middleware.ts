@@ -1,6 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+function noIndex(response: NextResponse) {
+  response.headers.set('X-Robots-Tag', 'noindex, follow')
+  return response
+}
+
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const hostname = (request.headers.get('host') || '').split(':')[0].toLowerCase()
@@ -10,13 +15,13 @@ export async function middleware(request: NextRequest) {
   if (isMainHost && (url.pathname === '/warden' || url.pathname.startsWith('/warden/'))) {
     const destination = new URL(url.pathname.replace(/^\/warden/, '') || '/', 'https://warden.vouchins.com')
     destination.search = url.search
-    return NextResponse.redirect(destination, 308)
+    return noIndex(NextResponse.redirect(destination, 308))
   }
 
   if (isWardenHost && (url.pathname === '/warden' || url.pathname.startsWith('/warden/'))) {
     const destination = new URL(url.pathname.replace(/^\/warden/, '') || '/', 'https://warden.vouchins.com')
     destination.search = url.search
-    return NextResponse.redirect(destination, 308)
+    return noIndex(NextResponse.redirect(destination, 308))
   }
 
   if (isWardenHost && url.pathname === '/') {
@@ -67,6 +72,11 @@ export async function middleware(request: NextRequest) {
     '/safety',
     '/warden',
     '/business',
+    '/verified-professional-community',
+    '/employee-referrals',
+    '/verified-flatmates',
+    '/corporate-marketplace',
+    '/trusted-recommendations',
     '/robots.txt',
     '/sitemap.xml',
   ]
@@ -76,6 +86,25 @@ export async function middleware(request: NextRequest) {
     isAuthRoute ||
     publicPaths.includes(url.pathname) ||
     publicPrefixes.some(prefix => url.pathname.startsWith(prefix))
+  const indexablePaths = [
+    '/',
+    '/about',
+    '/privacy',
+    '/terms',
+    '/contact',
+    '/how-it-works',
+    '/safety',
+    '/business',
+    '/verified-professional-community',
+    '/employee-referrals',
+    '/verified-flatmates',
+    '/corporate-marketplace',
+    '/trusted-recommendations',
+  ]
+  const isIndexableRoute =
+    indexablePaths.includes(url.pathname) ||
+    url.pathname === '/blog' ||
+    url.pathname.startsWith('/blog/')
   // If user is logged in and trying to access an auth route, redirect to the appropriate dashboard
   if (user && isAuthRoute) {
     if (isRecruiterAuthRoute) {
@@ -83,7 +112,7 @@ export async function middleware(request: NextRequest) {
     } else {
       url.pathname = '/feed'
     }
-    return NextResponse.redirect(url)
+    return noIndex(NextResponse.redirect(url))
   }
 
   // If user is logged in and visits the landing page, redirect to feed (Industry Standard)
@@ -99,7 +128,11 @@ export async function middleware(request: NextRequest) {
     } else {
       url.pathname = '/login'
     }
-    return NextResponse.redirect(url)
+    return noIndex(NextResponse.redirect(url))
+  }
+
+  if (!isIndexableRoute && !isWardenHost) {
+    return noIndex(supabaseResponse)
   }
 
   return supabaseResponse

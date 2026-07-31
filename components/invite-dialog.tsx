@@ -25,7 +25,7 @@ export async function triggerNativeShare(userId: string): Promise<boolean> {
     try {
       await navigator.share({
         title: "Join Vouchins",
-        text: "Join Vouchins — a verified professional network where every member is corporate verified.",
+        text: "Join Vouchins — a professional network where access is confirmed through a supported corporate email.",
         url: inviteLink,
       });
       return true;

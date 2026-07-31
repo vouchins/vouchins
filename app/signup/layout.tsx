@@ -5,6 +5,10 @@ export const metadata: Metadata = {
     absolute: "Create your Vouchins Account",
   },
   description: "Create your Vouchins account today. Join the private marketplace for verified corporate professionals to buy, sell, and connect safely.",
+  robots: {
+    index: false,
+    follow: true,
+  },
   openGraph: {
     title: "Sign Up | Vouchins",
     description: "Create your Vouchins account today. Join the private marketplace for verified corporate professionals.",

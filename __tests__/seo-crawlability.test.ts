@@ -104,4 +104,65 @@ describe("public SEO crawl endpoints", () => {
       expect(source).not.toContain('"https://vouchins.com"');
     }
   });
+
+  it("adds noindex protection to authentication and private routes", () => {
+    const middlewareSource = fs.readFileSync(
+      path.join(process.cwd(), "middleware.ts"),
+      "utf8",
+    );
+    const loginMetadata = fs.readFileSync(
+      path.join(process.cwd(), "app/login/layout.tsx"),
+      "utf8",
+    );
+    const signupMetadata = fs.readFileSync(
+      path.join(process.cwd(), "app/signup/layout.tsx"),
+      "utf8",
+    );
+
+    expect(middlewareSource).toContain(
+      "response.headers.set('X-Robots-Tag', 'noindex, follow')",
+    );
+    expect(middlewareSource).toContain("const isIndexableRoute =");
+    expect(loginMetadata).toContain("index: false");
+    expect(signupMetadata).toContain("index: false");
+  });
+
+  it("publishes all five substantive product landing pages", () => {
+    const productSlugs = [
+      "verified-professional-community",
+      "employee-referrals",
+      "verified-flatmates",
+      "corporate-marketplace",
+      "trusted-recommendations",
+    ];
+    const sitemapUrls = buildSitemap().map((entry) => entry.url);
+
+    for (const slug of productSlugs) {
+      expect(
+        fs.existsSync(path.join(process.cwd(), `app/${slug}/page.tsx`)),
+      ).toBe(true);
+      expect(sitemapUrls).toContain(`https://www.vouchins.com/${slug}`);
+    }
+  });
+
+  it("adds article, breadcrumb, and FAQ structured data", () => {
+    const articleSource = fs.readFileSync(
+      path.join(process.cwd(), "app/blog/[slug]/page.tsx"),
+      "utf8",
+    );
+    const howItWorksSource = fs.readFileSync(
+      path.join(process.cwd(), "app/how-it-works/layout.tsx"),
+      "utf8",
+    );
+    const productSource = fs.readFileSync(
+      path.join(process.cwd(), "components/product-landing-page.tsx"),
+      "utf8",
+    );
+
+    expect(articleSource).toContain('"@type": "BlogPosting"');
+    expect(articleSource).toContain('"@type": "BreadcrumbList"');
+    expect(howItWorksSource).toContain('"@type": "FAQPage"');
+    expect(productSource).toContain('"@type": "FAQPage"');
+    expect(productSource).toContain('"@type": "BreadcrumbList"');
+  });
 });

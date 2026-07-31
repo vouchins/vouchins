@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     template: "%s | Vouchins",
   },
   description:
-    "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
+    "A professional community where access is confirmed through corporate email verification, helping members connect and exchange with greater accountability.",
   alternates: {
     canonical: "https://www.vouchins.com",
   },
@@ -44,12 +44,12 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: "Vouchins",
-    description: "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
+    description: "A professional community where access is confirmed through corporate email verification, helping members connect and exchange with greater accountability.",
     url: "https://www.vouchins.com",
     siteName: "Vouchins",
     images: [
       {
-        url: "/images/logo.png", // Relative path works because of metadataBase
+        url: "/images/vouchins-social-card.png",
         width: 1200,
         height: 630,
       },
@@ -60,8 +60,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Vouchins - Verified Professional Network",
-    description: "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
-    images: ["/images/logo.png"],
+    description: "A professional community where access is confirmed through corporate email verification, helping members connect and exchange with greater accountability.",
+    images: ["/images/vouchins-social-card.png"],
   },
   icons: {
     icon: "/favicon.png",
@@ -80,7 +80,7 @@ export default function RootLayout({
     name: "Vouchins",
     url: "https://www.vouchins.com",
     logo: "https://www.vouchins.com/images/logo.png",
-    description: "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
+    description: "A professional community where access is confirmed through corporate email verification, helping members connect and exchange with greater accountability.",
   };
 
   return (

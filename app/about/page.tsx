@@ -63,7 +63,7 @@ export default function AboutPage() {
                     We were tired of anonymous marketplaces, intrusive brokers, and endless scams where trust is treated as a luxury rather than a baseline.
                   </p>
                   <p>
-                    We realized the most powerful safety mechanism isn't a star rating - it's your professional reputation. We built Vouchins as an elite identity layer where your corporate credentials guarantee a secure, scam-free ecosystem.
+                    We realized professional reputation can add useful context beyond a star rating. Vouchins uses corporate-email verification and peer vouches to increase accountability, while making clear that these signals cannot guarantee another member&apos;s identity, conduct, or the safety of a transaction.
                   </p>
                   <p>
                     That same principle now extends beyond people. As AI agents

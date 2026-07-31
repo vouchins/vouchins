@@ -5,6 +5,10 @@ export const metadata: Metadata = {
     absolute: "Log in to Vouchins",
   },
   description: "Log in to your Vouchins account to access the verified corporate marketplace and network with your trusted colleagues.",
+  robots: {
+    index: false,
+    follow: true,
+  },
   openGraph: {
     title: "Log In | Vouchins",
     description: "Log in to your Vouchins account to access the verified corporate marketplace.",

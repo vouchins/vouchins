@@ -143,7 +143,7 @@ export default function Home() {
 
                 {/* Subheadline */}
                 <p className="text-sm md:text-base text-slate-300 max-w-lg font-normal leading-relaxed tracking-wide animate-fade-in">
-                  Vouchins is an invite-only network for corporate professionals. Every member is real and verified - confirmed through their corporate email and vouched for by trusted peers. Connect, collaborate, and transact with confidence, in a community built entirely on credibility.
+                  Vouchins is an invite-only network for corporate professionals. Access is confirmed through a supported corporate email and strengthened through peer vouches. Connect, collaborate, and exchange in a community designed for greater accountability.
                 </p>
 
                 {/* CTAs */}
@@ -438,10 +438,10 @@ export default function Home() {
                     </div>
                     <ul className="space-y-5">
                       {[
-                        { name: "Verified People", icon: UserCheck },
-                        { name: "Trusted Interactions", icon: Handshake },
-                        { name: "Safe Transactions", icon: ShieldCheck },
-                        { name: "Real Accountability", icon: Scale }
+                        { name: "Work-Email Access Checks", icon: UserCheck },
+                        { name: "Higher-Context Interactions", icon: Handshake },
+                        { name: "Safer Exchange Practices", icon: ShieldCheck },
+                        { name: "Member Accountability", icon: Scale }
                       ].map((item, idx) => (
                         <li key={idx} className="flex items-center justify-between py-0.5">
                           <div className="flex items-center gap-3">
@@ -592,12 +592,11 @@ export default function Home() {
                   <Fingerprint className="h-5 w-5" />
                 </div>
                 <div className="space-y-2 text-left">
-                  <h3 className="text-white font-bold text-lg tracking-tight">Already Background-Checked</h3>
+                  <h3 className="text-white font-bold text-lg tracking-tight">A Clearer Access Signal</h3>
                   <p className="text-slate-400 text-sm leading-relaxed font-light">
-                    Every corporate email holder has already cleared their employer&apos;s hiring
-                    process - identity verification, employment checks, and in most companies, a
-                    formal background check. Vouchins inherits that trust instead of starting from
-                    zero, unlike anonymous platforms where anyone can sign up with any email.
+                    A successful work-email check confirms access to a supported corporate domain
+                    at that moment. It does not reveal an employer&apos;s screening process and is not
+                    an identity, employment-history, criminal, or financial background check.
                   </p>
                 </div>
               </div>
@@ -608,11 +607,11 @@ export default function Home() {
                   <Mail className="h-5 w-5" />
                 </div>
                 <div className="space-y-2 text-left">
-                  <h3 className="text-white font-bold text-lg tracking-tight">Proof of Real Experience</h3>
+                  <h3 className="text-white font-bold text-lg tracking-tight">Professional-Domain Context</h3>
                   <p className="text-slate-400 text-sm leading-relaxed font-light">
-                    Only people with active work experience hold a corporate email address.
-                    A corporate domain isn&apos;t just an identity check - it&apos;s proof you&apos;re a working
-                    professional, not an anonymous or fabricated account.
+                    A corporate-domain check creates a stronger accountability signal than an
+                    unrestricted public email signup, but members should still verify claims and
+                    use appropriate precautions before relying on another person.
                   </p>
                 </div>
               </div>
@@ -625,9 +624,10 @@ export default function Home() {
                 <div className="space-y-2 text-left">
                   <h3 className="text-white font-bold text-lg tracking-tight">Why It Matters to Recruiters</h3>
                   <p className="text-slate-400 text-sm leading-relaxed font-light">
-                    For HR teams and staffing agencies, this means every candidate or
-                    referral sourced through Vouchins already carries verified, employed,
-                    background-checked credibility - before you even open their profile.
+                    For HR teams and staffing agencies, a completed work-email check adds
+                    professional-domain context before a conversation begins. It does not verify
+                    identity, qualifications, employment history, or background, so normal
+                    recruiting checks remain essential.
                   </p>
                 </div>
               </div>
@@ -828,10 +828,9 @@ export default function Home() {
                   Hire from a pool that&apos;s already verified.
                 </h2>
                 <p className="text-slate-600 font-light text-sm md:text-base leading-relaxed max-w-2xl">
-                  Every candidate on Vouchins is anchored to a real corporate email -
-                  meaning they&apos;ve already passed their current employer&apos;s background checks and
-                  bring real, verifiable work experience. Post roles or search referrals without
-                  sorting through fake resumes and unverifiable claims.
+                  Vouchins confirms access to a supported corporate email at verification time.
+                  Recruiters can use that signal alongside profiles and peer context, while still
+                  conducting their normal candidate, employment, and background checks.
                 </p>
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
                   <Link href="/business">
@@ -890,9 +889,9 @@ export default function Home() {
 
                     <div className="space-y-2.5">
                       {[
-                        { name: "Identity Authentication", desc: "Corporate SSO cryptographically linked" },
-                        { name: "Employment Status", desc: "Active workspace domain check passed" },
-                        { name: "Prior Background Check", desc: "Trust inherited from employer hiring process" }
+                        { name: "Work Email Check", desc: "Verification code delivered to a supported domain" },
+                        { name: "Professional Context", desc: "Employer context stated by the member" },
+                        { name: "Peer Accountability", desc: "Vouches and activity provide additional context" }
                       ].map((item, idx) => (
                         <div key={idx} className="flex gap-3">
                           <CheckCircle2 className="h-4 w-4 text-[#4FD1C5] shrink-0 mt-0.5" />

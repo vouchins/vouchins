@@ -1,10 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { ArrowLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Navigation } from "@/components/navigation";
 import remarkGfm from "remark-gfm";
@@ -18,7 +16,18 @@ type BlogPostMetadata = {
   title: string;
   excerpt: string | null;
   cover_image_url: string | null;
+  published_at: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+  author: BlogAuthor | BlogAuthor[] | null;
 };
+
+type BlogAuthor = { full_name: string | null };
+
+function getAuthorName(author: BlogAuthor | BlogAuthor[] | null | undefined) {
+  const resolvedAuthor = Array.isArray(author) ? author[0] : author;
+  return resolvedAuthor?.full_name || "Vouchins Team";
+}
 
 async function getPostMetadata(slug: string): Promise<BlogPostMetadata | null> {
   const cookieStore = await cookies();
@@ -36,7 +45,9 @@ async function getPostMetadata(slug: string): Promise<BlogPostMetadata | null> {
 
   const { data } = await supabase
     .from("blog_posts")
-    .select("title, excerpt, cover_image_url")
+    .select(
+      "title, excerpt, cover_image_url, published_at, updated_at, created_at, author:users!blog_posts_author_id_fkey(full_name)",
+    )
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -59,6 +70,9 @@ export async function generateMetadata({
   const canonicalUrl = `https://www.vouchins.com/blog/${encodeURIComponent(slug)}`;
   const description =
     post.excerpt || "Read professional networking and trust insights from Vouchins.";
+  const publishedTime = post.published_at || post.created_at || undefined;
+  const modifiedTime = post.updated_at || publishedTime;
+  const authorName = getAuthorName(post.author);
 
   return {
     title: post.title,
@@ -72,6 +86,15 @@ export async function generateMetadata({
       url: canonicalUrl,
       type: "article",
       images: post.cover_image_url ? [post.cover_image_url] : undefined,
+      publishedTime,
+      modifiedTime,
+      authors: [authorName],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${post.title} | Vouchins`,
+      description,
+      images: [post.cover_image_url || "/images/vouchins-social-card.png"],
     },
   };
 }
@@ -111,8 +134,76 @@ export default async function BlogPostPage({
     notFound();
   }
 
+  const canonicalUrl = `https://www.vouchins.com/blog/${encodeURIComponent(post.slug)}`;
+  const authorName = getAuthorName(post.author);
+  const publishedDate = post.published_at || post.created_at;
+  const modifiedDate = post.updated_at || publishedDate;
+  const description =
+    post.excerpt || "Read professional networking and trust insights from Vouchins.";
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description,
+    image: post.cover_image_url || "https://www.vouchins.com/images/vouchins-social-card.png",
+    author: {
+      "@type": "Person",
+      name: authorName,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Vouchins",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://www.vouchins.com/images/logo.png",
+      },
+    },
+    datePublished: publishedDate,
+    dateModified: modifiedDate,
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": canonicalUrl,
+    },
+  };
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: "https://www.vouchins.com/",
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Blog",
+        item: "https://www.vouchins.com/blog",
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: post.title,
+        item: canonicalUrl,
+      },
+    ],
+  };
+
   return (
     <div className="min-h-screen bg-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(articleJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c"),
+        }}
+      />
       <BlogAnalyticsTracker
         postId={post.id}
         slug={post.slug}
@@ -121,12 +212,15 @@ export default async function BlogPostPage({
       <Navigation />
 
       <main className="container mx-auto px-4 max-w-3xl py-12">
-        <Link
-          href="/blog"
-          className="inline-flex items-center text-sm font-medium text-neutral-500 hover:text-neutral-900 mb-8 transition-colors"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to blog
-        </Link>
+        <nav aria-label="Breadcrumb" className="mb-8 text-sm text-neutral-500">
+          <ol className="flex flex-wrap items-center gap-2">
+            <li><Link href="/" className="hover:text-neutral-900">Home</Link></li>
+            <li aria-hidden="true">/</li>
+            <li><Link href="/blog" className="hover:text-neutral-900">Blog</Link></li>
+            <li aria-hidden="true">/</li>
+            <li className="max-w-[18rem] truncate text-neutral-700" aria-current="page">{post.title}</li>
+          </ol>
+        </nav>
 
         <article>
           <header className="mb-10">
@@ -135,15 +229,21 @@ export default async function BlogPostPage({
             </h1>
             <div className="flex items-center gap-4 text-neutral-500 text-sm border-y border-neutral-100 py-4">
               <span className="font-bold text-neutral-900">
-                {post.author?.full_name || "Vouchins Team"}
+                {authorName}
               </span>
               <span>•</span>
               <time>
                 {format(
-                  new Date(post.published_at || post.created_at),
+                  new Date(publishedDate),
                   "MMMM d, yyyy",
                 )}
               </time>
+              {post.updated_at && post.updated_at !== publishedDate && (
+                <>
+                  <span>•</span>
+                  <span>Updated {format(new Date(post.updated_at), "MMMM d, yyyy")}</span>
+                </>
+              )}
             </div>
           </header>
 

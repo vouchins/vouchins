@@ -1,5 +1,10 @@
 export const FOOTER_LINKS = [
   { href: "/how-it-works", label: "How it works" },
+  { href: "/verified-professional-community", label: "Community" },
+  { href: "/employee-referrals", label: "Referrals" },
+  { href: "/verified-flatmates", label: "Flatmates" },
+  { href: "/corporate-marketplace", label: "Marketplace" },
+  { href: "/trusted-recommendations", label: "Recommendations" },
   { href: "/business", label: "Companies" },
   { href: "/recruiter/login", label: "Recruiters" },
   { href: "/about", label: "About Us" },

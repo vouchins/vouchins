@@ -1,25 +1,35 @@
-# Vouchins - Verified Corporate Professional Marketplace
+# Vouchins
 
-Vouchins is a private, secure marketplace and professional network built exclusively for verified corporate employees.
+Last updated: 2026-08-01
 
-## What is Vouchins?
-Unlike public platforms where anonymity leads to spam and scams, Vouchins requires users to verify their identity using their active corporate email address. This creates a "walled garden" where professionals can safely:
-- Buy, sell, and trade items (electronics, furniture, vehicles) with trusted colleagues.
-- Find hyper-local housing, flatmates, and rental properties.
-- Seek and offer trusted professional recommendations and services.
+Vouchins is a professional community and member marketplace currently focused on users in India. Access is confirmed by sending a one-time verification code to a supported corporate or professional email address.
 
-## Core Security & Privacy Principles
-- **Corporate Verification**: Users must prove they work at a recognized corporation by verifying a one-time passcode sent to their work email.
-- **Employer Privacy**: After verification, the corporate email is hashed. All account access, notifications, and communications are routed through the user's personal email to ensure strict privacy from employers.
-- **Zero Anonymous Noise**: Every user is verified, eliminating anonymous bots, scammers, and brokers.
+## What members can do
 
-## Features
-- **Housing & Rentals**: A closed marketplace for finding reliable flatmates and verified properties.
-- **Buy & Sell**: A secure trading platform for high-value items within a circle of trust.
-- **Recommendations**: Trusted service provider suggestions from verified corporate peers.
+- Connect with other professionals.
+- Discover job and employee-referral opportunities.
+- Find flatmates, housing leads, and local recommendations.
+- Buy and sell items within a professional community.
+- Share and receive peer vouches and recommendations.
 
-## Technical Infrastructure
-- Built on Next.js 14 App Router.
-- Authentication and database managed by Supabase, protected by strict Row Level Security (RLS) policies.
+## Verification limitations
 
-For more information, visit our official website at https://www.vouchins.com.
+Corporate-email verification confirms that a person could receive a code at a supported work domain at the time of verification. It is not a government-identity check, employment-history verification, criminal-background check, financial check, or guarantee of future conduct. A vouch is a member-provided reputation signal, not a financial or safety guarantee. Members should independently verify important claims and follow the safety guidance before meeting, exchanging items, sharing information, or making payments.
+
+## Official public pages
+
+- Homepage: https://www.vouchins.com/
+- About: https://www.vouchins.com/about
+- How It Works: https://www.vouchins.com/how-it-works
+- Safety: https://www.vouchins.com/safety
+- Blog: https://www.vouchins.com/blog
+- Business: https://www.vouchins.com/business
+- Contact: https://www.vouchins.com/contact
+- Privacy Policy: https://www.vouchins.com/privacy
+- Terms of Service: https://www.vouchins.com/terms
+
+## Crawler policy
+
+Vouchins intentionally permits general-purpose search and AI discovery crawlers, including GPTBot, ChatGPT-User, PerplexityBot, ClaudeBot, Google-Extended, and Bingbot, to access public pages. Authentication, authorization, row-level security, and `noindex` directives protect private application content independently of crawler rules.
+
+Only the pages listed in the XML sitemap should be treated as intended public search destinations. Official social profiles are omitted here until their ownership and monitoring status are confirmed.

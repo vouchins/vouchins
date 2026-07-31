@@ -20,6 +20,7 @@ import {
   Home as HomeIcon,
   Star
 } from "lucide-react";
+import { HOW_IT_WORKS_FAQS } from "./faqs";
 
 export default function HowItWorks() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -54,7 +55,7 @@ export default function HowItWorks() {
   const coreBenefits = [
     {
       title: "100% Employer Verified",
-      description: "Every member is verified through their professional domain, eliminating fake accounts and bots entirely.",
+      description: "Access requires verification through a supported professional domain, which raises accountability but is not a background or identity check.",
       icon: Shield
     },
     {
@@ -100,28 +101,7 @@ export default function HowItWorks() {
     }
   ];
 
-  const faqs = [
-    {
-      question: "How do you verify my account?",
-      answer: "We verify users through their professional/corporate email domains. A verification code is sent to your work email. Once verified, your account is authenticated with that employer, and your work email remains private and hidden from other users."
-    },
-    {
-      question: "Do you share my work email or details with my employer?",
-      answer: "No. Vouchins is an independent platform. We do not share your account activity, posts, or messages with your employer, and your work email is never displayed on your public profile."
-    },
-    {
-      question: "Can I use Vouchins if my company isn't supported yet?",
-      answer: "Yes, you can register with any professional email domain. If your company circle doesn't exist yet, we will automatically set it up once your email is successfully verified."
-    },
-    {
-      question: "Is there any cost to join Vouchins?",
-      answer: "Vouchins is currently completely free for early tech professionals. Our goal is to foster a high-trust community built for careers, housing, and safe transactions."
-    },
-    {
-      question: "How do you prevent spam and fake profiles?",
-      answer: "By verifying every user through their professional email address and disallowing generic public email domains, Vouchins creates a trusted environment where fake accounts, bots, and anonymous trolls have little or no room to operate."
-    }
-  ];
+  const faqs = HOW_IT_WORKS_FAQS;
 
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? null : index);
@@ -144,7 +124,7 @@ export default function HowItWorks() {
               Building a <span className="bg-gradient-to-r from-[#0A1B5C] to-[#4FD1C5] bg-clip-text text-transparent font-black">verified</span> network
             </h1>
             <p className="text-neutral-500 max-w-2xl mx-auto leading-relaxed font-light text-base md:text-lg">
-              Vouchins replaces noisy, anonymous forums with a high-trust professional ecosystem where every member has been verified through their work domain.
+              Vouchins replaces noisy, anonymous forums with a professional community where access is confirmed through a supported work email domain. This adds accountability, but does not replace personal safety checks.
             </p>
           </div>
         </section>

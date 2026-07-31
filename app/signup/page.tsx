@@ -153,7 +153,7 @@ function SignupContent() {
               <div className="space-y-4">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#4FD1C5]/10 border border-[#4FD1C5]/20 text-[#4FD1C5] animate-pulse">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#4FD1C5]" />
-                  World's first 100% verified platform
+                  A professional community built for greater accountability
                 </span>
                 <h2 className="text-4xl lg:text-5xl font-black tracking-tight leading-tight pb-2 bg-gradient-to-r from-white via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
                   Join the verified <br />professional network.
