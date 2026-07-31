@@ -27,7 +27,9 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
   const category = stringParam(params, "category", "all");
   const subCategory = stringParam(params, "sub_category", "all");
   const search = stringParam(params, "q", "");
-  const city = stringParam(params, "city", user.city || "All Cities");
+  const defaultCity =
+    !user.city || user.city === "All Cities" ? "Global" : user.city;
+  const city = stringParam(params, "city", defaultCity);
   const initialFeed = await getFeedPage(supabase, user, {
     tab, category, subCategory, search, city, limit: INITIAL_FEED_LIMIT,
   });

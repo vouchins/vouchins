@@ -18,7 +18,7 @@ export async function GET(request: Request) {
       category: searchParams.get("category") || "all",
       subCategory: searchParams.get("subCategory") || "all",
       search: searchParams.get("query") || "",
-      city: searchParams.get("city") || "All Cities",
+      city: searchParams.get("city") || "Global",
       cursor: decodeFeedCursor(searchParams.get("cursor")),
       limit: NEXT_FEED_LIMIT,
     });

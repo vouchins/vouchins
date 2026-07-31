@@ -17,12 +17,12 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const city = searchParams.get("city") || "All Cities";
+  const city = searchParams.get("city") || "Global";
   const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   let postsQuery = supabase
     .from("posts")
-    .select("id, category, comments(count), user:users!posts_user_id_fkey!inner(city)")
+    .select("id, category, city, comments(count)")
     .eq("is_removed", false)
     .eq("status", "active")
     .eq("visibility", "all")
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     .limit(2);
 
   if (city !== "All Cities" && city !== "Global") {
-    postsQuery = postsQuery.eq("user.city", city);
+    postsQuery = postsQuery.eq("city", city);
   }
 
   const [postsResult, blogPostsResult] = await Promise.all([

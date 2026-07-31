@@ -51,6 +51,7 @@ const PostImageGallery = dynamic(() => import("@/components/post-image-gallery")
 interface PostCardProps {
   post: {
     id: string;
+    city?: string | null;
     text: string;
     category: "housing" | "buy_sell" | "recommendations" | "jobs" | "referrals";
     sub_category?:
@@ -212,6 +213,8 @@ export function PostCard({
   const isEdited =
     post.updated_at &&
     new Date(post.updated_at).getTime() > new Date(post.created_at).getTime();
+  const postCity =
+    post.city === null ? "Global" : post.city || post.user.city;
 
   const { vouchedEntities, setVouchedEntities, savedPostIds, setSavedPostIds } = useUser();
 
@@ -603,7 +606,7 @@ export function PostCard({
               <span className="text-neutral-300">·</span>
               <span className="inline-flex items-center">
                 <MapPin className="mr-0.5 h-3 w-3" />
-                {post.user.city}
+                {postCity}
               </span>
             </div>
           </div>
@@ -685,7 +688,7 @@ export function PostCard({
               <span className="text-neutral-300 text-[10px]">·</span>
               <span className="text-[11px] text-neutral-400 flex items-center font-medium">
                 <MapPin className="h-2.5 w-2.5 mr-0.5" />
-                {post.user.city}
+                {postCity}
               </span>
             </div>
           </div>

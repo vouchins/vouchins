@@ -5,7 +5,7 @@ export const INITIAL_FEED_LIMIT = 10;
 export const NEXT_FEED_LIMIT = 15;
 
 const POST_SELECT = `
-  id, user_id, text, category, sub_category, visibility, image_urls,
+  id, user_id, text, category, sub_category, visibility, image_urls, city,
   is_flagged, flag_reasons, created_at, updated_at, status,
   user:users!posts_user_id_fkey!inner(
     id, full_name, city, bio, avatar_url, vouch_points, is_admin, is_verified,
@@ -55,7 +55,7 @@ export async function getFeedUser(supabase: SupabaseClient, userId: string): Pro
   const company = Array.isArray(data.company) ? data.company[0] ?? null : data.company;
   return {
     ...data,
-    city: data.city || "All Cities",
+    city: !data.city || data.city === "All Cities" ? "Global" : data.city,
     vouch_points: data.vouch_points || 0,
     company: company || { name: "Your Workplace", domain: "" },
     is_profile_complete: Boolean(data.is_verified && data.avatar_url && data.linkedin_url && data.phone_number),
@@ -79,8 +79,8 @@ export async function getFeedPage(
     .select(POST_SELECT)
     .eq("is_removed", false)
     .eq("comments.is_removed", false);
-  if (filters.city !== "All Cities" && filters.city !== "Global") {
-    query = query.eq("user.city", filters.city);
+  if (filters.city !== "Global" && filters.city !== "All Cities") {
+    query = query.eq("city", filters.city);
   }
   if (filters.tab === "company") {
     query = query.eq("visibility", "company").eq("user.company_id", viewer.company_id);
@@ -110,7 +110,10 @@ export async function getFeedPage(
     const rawCompany = Array.isArray(rawAuthor.company) ? rawAuthor.company[0] : rawAuthor.company;
     const author = {
       ...rawAuthor,
-      city: rawAuthor.city || "All Cities",
+      city:
+        !rawAuthor.city || rawAuthor.city === "All Cities"
+          ? "Global"
+          : rawAuthor.city,
       company: rawCompany || { name: "Independent", domain: "" },
     };
     const vouchers = Array.isArray(row.vouchers)

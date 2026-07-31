@@ -40,6 +40,7 @@ export interface FeedComment {
 export interface FeedPost {
   id: string;
   user_id: string;
+  city: string | null;
   text: string;
   category: "housing" | "buy_sell" | "recommendations" | "jobs" | "referrals";
   sub_category?: "flatmates" | "rentals" | "sale" | "pg" | "hiring" | "seeking_referral" | "offering_referral" | "seeking_job" | null;

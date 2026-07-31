@@ -157,7 +157,7 @@ export default function ResetPasswordPage() {
               <div className="space-y-4">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#4FD1C5]/10 border border-[#4FD1C5]/20 text-[#4FD1C5] animate-pulse">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#4FD1C5]" />
-                  Now Live in All Cities
+                  Now Live Globally
                 </span>
                 <h2 className="text-4xl lg:text-5xl font-black tracking-tight leading-none bg-gradient-to-r from-white via-neutral-100 to-neutral-400 bg-clip-text text-transparent">
                   Work Life, <br />Verified.

@@ -219,7 +219,10 @@ export function CreatePostDialog({
         sub_category: availableSubCategories.length > 0 ? subCategory : null,
         visibility,
         image_urls: uploadedUrls,
-        city: user?.city === 'All Cities' ? null : (user?.city || null),
+        city:
+          user?.city === "Global" || user?.city === "All Cities"
+            ? null
+            : user?.city || null,
       });
 
       if (insertError) {

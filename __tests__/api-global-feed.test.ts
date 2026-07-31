@@ -126,16 +126,17 @@ describe('Global Feed & City Filtering System - API', () => {
     const response = await GET(request);
     expect(response.status).toBe(200);
 
-    // Verify user.city filter IS applied
-    expect(mockEq).toHaveBeenCalledWith('user.city', 'Hyderabad');
+    // Filter by the immutable city captured on the post, not the author's
+    // current profile city.
+    expect(mockEq).toHaveBeenCalledWith('city', 'Hyderabad');
   });
 
-  it('should default to "All Cities" (bypass city filter) if city parameter is omitted', async () => {
+  it('should default to "Global" (bypass city filter) if city parameter is omitted', async () => {
     const request = new Request('http://localhost/api/posts/get-posts');
     const response = await GET(request);
     expect(response.status).toBe(200);
 
-    // Verify user.city filter is NOT applied since default city is "All Cities"
+    // Verify the post city filter is not applied for the Global default.
     expect(mockEq).not.toHaveBeenCalledWith('user.city', expect.any(String));
   });
 

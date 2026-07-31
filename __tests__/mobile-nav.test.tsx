@@ -33,10 +33,10 @@ describe('Frontend MobileNav Component (components/mobile-nav)', () => {
         user={mockUser}
         onOpenCreatePost={jest.fn()}
         setActiveTab={jest.fn()}
-        selectedCity="All Cities"
+        selectedCity="Global"
       />
     );
-    expect(screen.getByText('All Cities')).toBeInTheDocument();
+    expect(screen.getByText('Global')).toBeInTheDocument();
   });
 
   it('should fallback to user.city if selectedCity is not specified', () => {

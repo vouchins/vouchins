@@ -60,7 +60,12 @@ export function LeftSidebar({
   setActiveSubCategory,
 }: LeftSidebarProps) {
   const { user } = useUser();
-  const effectiveCity = selectedCity || user?.city || "All Cities";
+  const effectiveCity =
+    selectedCity === "All Cities"
+      ? "Global"
+      : selectedCity ||
+        (user?.city === "All Cities" ? "Global" : user?.city) ||
+        "Global";
   const router = useRouter();
   const pathname = usePathname();
 

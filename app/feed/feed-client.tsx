@@ -745,7 +745,7 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
                       </span>
                     </SelectTrigger>
                     <SelectContent>
-                      {["All Cities", ...INDIAN_CITIES].map((city) => (
+                      {["Global", ...INDIAN_CITIES].map((city) => (
                         <SelectItem key={city} value={city}>
                           {city}
                         </SelectItem>
