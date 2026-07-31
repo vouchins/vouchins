@@ -42,6 +42,7 @@ import {
 import { useUser } from "@/components/user-provider";
 import { cn } from "@/lib/utils";
 import { VerifiedIcon } from "@/components/verified-icon";
+import { CommentForm } from "@/components/comment-form";
 
 const PostImageGallery = dynamic(() => import("@/components/post-image-gallery").then((mod) => mod.PostImageGallery), {
   loading: () => <div className="mt-4 h-64 sm:h-80 rounded-xl bg-neutral-100 animate-pulse" />,
@@ -132,6 +133,7 @@ export function PostCard({
   // --- START: YOUR ORIGINAL LOGIC (FULLY PRESERVED) ---
   const isOwner = post.user.id === currentUserId;
   const [showComments, setShowComments] = useState(defaultShowComments);
+  const [showReplyForm, setShowReplyForm] = useState(false);
   const [comments, setComments] = useState(post.comments || []);
   const [loadingComments, setLoadingComments] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -474,6 +476,19 @@ export function PostCard({
       toast.error("Could not load comments");
     } finally {
       setLoadingComments(false);
+    }
+  };
+
+  const handleReplyClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const shouldShow = !showComments;
+    setShowComments(shouldShow);
+    if (shouldShow) void loadComments();
+    if (isFeedVariant) {
+      setShowReplyForm(shouldShow);
+    } else {
+      onReply(post.id);
     }
   };
 
@@ -957,35 +972,36 @@ export function PostCard({
             </div>
           )}
           <div className="sm:flex sm:items-center sm:justify-between sm:border-t sm:border-neutral-100 sm:pt-3">
-            <div className="mb-3 flex flex-wrap items-center gap-x-2 text-[11px] font-medium text-neutral-600 sm:mb-0">
-              <span>{commentCount} {commentCount === 1 ? "reply" : "replies"}</span>
-              <span className="text-neutral-300">·</span>
-              <span>{vouchCount} {vouchCount === 1 ? "vouch" : "vouches"}</span>
-              <span className="text-neutral-300">·</span>
-              <span>{views} {views === 1 ? "view" : "views"}</span>
+            <div
+              className="mb-2 flex items-center justify-end gap-1 text-[11px] font-medium text-neutral-500 sm:order-2 sm:mb-0"
+              title={`${views} ${views === 1 ? "view" : "views"}`}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span className="tabular-nums">{views}</span>
+              <span>{views === 1 ? "view" : "views"}</span>
             </div>
             <div
               className={cn(
-                "-mx-4 -mb-4 grid border-t border-neutral-200 sm:mx-0 sm:mb-0 sm:flex sm:border-0",
-                isOwner ? "grid-cols-2" : "grid-cols-3",
+                "-mx-4 -mb-4 grid border-t border-neutral-200 sm:order-1 sm:mx-0 sm:mb-0 sm:flex sm:border-0",
+                isOwner ? "grid-cols-3" : "grid-cols-4",
               )}
             >
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  const shouldShow = !showComments;
-                  setShowComments(shouldShow);
-                  if (shouldShow) void loadComments();
-                  onReply(post.id);
-                }}
+                onClick={handleReplyClick}
                 className="h-12 min-w-0 rounded-none px-4 text-primary hover:bg-primary/5 sm:h-9 sm:rounded-lg sm:px-3"
               >
                 <MessageCircle className="mr-1.5 h-4 w-4 shrink-0" />
                 <span className="truncate text-xs font-bold">Reply</span>
+                <span className="ml-1 text-xs font-bold tabular-nums text-neutral-600">
+                  {commentCount}
+                </span>
               </Button>
               {!isOwner && (
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => handleVouch(post.user.id, "post", post.id)}
@@ -1004,9 +1020,18 @@ export function PostCard({
                   <span className="truncate text-xs font-bold">
                     {vouchedEntities[`post_${post.id}`] ? "Vouched" : "Vouch"}
                   </span>
+                  <span
+                    className={cn(
+                      "ml-1 text-xs font-bold tabular-nums text-neutral-600",
+                      vouchedEntities[`post_${post.id}`] && "text-emerald-700",
+                    )}
+                  >
+                    {vouchCount}
+                  </span>
                 </Button>
               )}
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 onClick={handleToggleSave}
@@ -1018,6 +1043,44 @@ export function PostCard({
                 <Bookmark className={cn("mr-1.5 h-4 w-4 shrink-0", isSaved && "fill-current")} />
                 <span className="truncate text-xs font-bold">{isSaved ? "Saved" : "Save"}</span>
               </Button>
+              <DropdownMenu open={isShareOpen} onOpenChange={setIsShareOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-12 min-w-0 rounded-none border-l border-neutral-200 px-2 text-primary hover:bg-primary/5 sm:h-9 sm:rounded-lg sm:border-0 sm:px-3"
+                  >
+                    <Share2 className="mr-1.5 h-4 w-4 shrink-0" />
+                    <span className="truncate text-xs font-bold">Share</span>
+                    {shares > 0 && (
+                      <span className="ml-1 text-xs font-bold tabular-nums text-neutral-600">
+                        {shares}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="rounded-xl border border-neutral-100 shadow-md"
+                >
+                  <DropdownMenuItem
+                    onClick={handleCopyLink}
+                    className="text-xs font-bold text-neutral-750"
+                  >
+                    Copy Link
+                  </DropdownMenuItem>
+                  {typeof navigator !== "undefined" &&
+                    typeof navigator.share === "function" && (
+                      <DropdownMenuItem
+                        onClick={handleSystemShare}
+                        className="text-xs font-bold text-neutral-750"
+                      >
+                        Share via...
+                      </DropdownMenuItem>
+                    )}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>
@@ -1029,14 +1092,10 @@ export function PostCard({
           <>
             {/* Reply Button */}
             <Button
+              type="button"
               variant="ghost"
               size="sm"
-              onClick={() => {
-                const shouldShow = !showComments;
-                setShowComments(shouldShow);
-                if (shouldShow) void loadComments();
-                onReply(post.id);
-              }}
+              onClick={handleReplyClick}
               className="h-8 px-3 flex-shrink-0 text-neutral-500 hover:text-indigo-650 hover:bg-indigo-50/40 active:scale-[0.97] transition-all hover:scale-[1.02] flex items-center justify-center gap-1.5 duration-155 rounded-full font-bold"
             >
               <MessageCircle className="h-4 w-4" />
@@ -1224,6 +1283,22 @@ export function PostCard({
       </div>
       )}
 
+      {isFeedVariant && showReplyForm && (
+        <CommentForm
+          postId={post.id}
+          userId={currentUserId}
+          isVerifiedUser={isVerifiedUser}
+          onCommentAdded={() => {
+            setShowReplyForm(false);
+            onPostUpdated();
+          }}
+          onCancel={() => {
+            setShowReplyForm(false);
+            setShowComments(false);
+          }}
+        />
+      )}
+
       {/* Comments */}
       {showComments && loadingComments && (
         <div className={cn("mt-4 text-xs font-semibold text-neutral-400", isFeedVariant ? "sm:ml-[52px]" : "ml-[52px]")}>
@@ -1231,66 +1306,76 @@ export function PostCard({
         </div>
       )}
       {showComments && comments.length > 0 && (
-        <div className={cn("mt-4 space-y-4 border-t border-neutral-50 pt-4", isFeedVariant ? "sm:ml-[52px]" : "ml-[52px]")}>
+        <div className="mt-4 space-y-4 border-t border-neutral-50 pt-4">
           {comments.map((comment) => (
-            <div key={comment.id} id={`comment-${comment.id}`} className="group p-2 rounded-lg transition-all duration-300">
-              <div className="flex items-center gap-2 mb-1">
-                <Link
-                  href={`/users/${comment.user.id}`}
-                  className="font-bold text-neutral-900 hover:text-indigo-600 text-xs flex items-center"
-                >
-                  <span className="text-xs font-bold text-neutral-900">
-                    {comment.user.full_name}
-                  </span>
-                </Link>
-                <span className="text-[10px] text-neutral-400">
-                  {formatDistanceToNow(new Date(comment.created_at), {
-                    addSuffix: true,
-                  })}
-                </span>
-                {comment.user.id !== currentUserId && (
-                  <button
-                    onClick={() => handleVouch(comment.user.id, 'comment', comment.id)}
-                    disabled={vouchedEntities[`comment_${comment.id}`]}
-                    className={`text-[10px] font-bold flex items-center gap-0.5 ${vouchedEntities[`comment_${comment.id}`] ? 'text-indigo-600 cursor-default' : 'text-indigo-500 hover:underline'}`}
+            <div key={comment.id} id={`comment-${comment.id}`} className="group flex gap-2.5 rounded-lg p-2 transition-all duration-300">
+              <Link
+                href={`/users/${comment.user.id}`}
+                className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-xs font-bold text-primary"
+                aria-label={`View ${comment.user.full_name}'s profile`}
+              >
+                {comment.user.avatar_url ? (
+                  <img
+                    src={comment.user.avatar_url}
+                    alt={comment.user.full_name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  comment.user.full_name?.charAt(0).toUpperCase() || "V"
+                )}
+              </Link>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center gap-2">
+                  <Link
+                    href={`/users/${comment.user.id}`}
+                    className="flex items-center text-xs font-bold text-neutral-900 hover:text-indigo-600"
                   >
-                    {vouchedEntities[`comment_${comment.id}`] ? (
-                      <>
-                        <Check className="h-3 w-3" /> Vouched
-                      </>
-                    ) : (
-                      "Vouch"
-                    )}
-                  </button>
-                )}
-                {comment.user.id !== currentUserId && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="ml-auto rounded-md p-1 text-neutral-400 opacity-70 transition-colors hover:bg-neutral-100 hover:text-neutral-700 group-hover:opacity-100"
-                        aria-label="Comment actions"
-                      >
-                        <MoreVertical className="h-3.5 w-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() =>
-                          onReport("comment", comment.id, comment.text)
-                        }
-                        className="text-xs font-bold text-red-650 focus:bg-red-50 focus:text-red-650"
-                      >
-                        <Flag className="mr-2 h-3.5 w-3.5" />
-                        Report Comment
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                    {comment.user.full_name}
+                  </Link>
+                  <span className="text-[10px] text-neutral-400">
+                    {formatDistanceToNow(new Date(comment.created_at), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                  {comment.user.id !== currentUserId && (
+                    <button
+                      type="button"
+                      onClick={() => handleVouch(comment.user.id, 'comment', comment.id)}
+                      disabled={vouchedEntities[`comment_${comment.id}`]}
+                      className={`flex items-center gap-0.5 text-[10px] font-bold ${vouchedEntities[`comment_${comment.id}`] ? 'cursor-default text-indigo-600' : 'text-indigo-500 hover:underline'}`}
+                    >
+                      {vouchedEntities[`comment_${comment.id}`] ? (
+                        <><Check className="h-3 w-3" /> Vouched</>
+                      ) : "Vouch"}
+                    </button>
+                  )}
+                  {comment.user.id !== currentUserId && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="ml-auto rounded-md p-1 text-neutral-400 opacity-70 transition-colors hover:bg-neutral-100 hover:text-neutral-700 group-hover:opacity-100"
+                          aria-label="Comment actions"
+                        >
+                          <MoreVertical className="h-3.5 w-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => onReport("comment", comment.id, comment.text)}
+                          className="text-xs font-bold text-red-650 focus:bg-red-50 focus:text-red-650"
+                        >
+                          <Flag className="mr-2 h-3.5 w-3.5" />
+                          Report Comment
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+                <p className="text-sm leading-snug text-neutral-700">
+                  {comment.text}
+                </p>
               </div>
-              <p className="text-sm text-neutral-700 leading-snug">
-                {comment.text}
-              </p>
             </div>
           ))}
         </div>

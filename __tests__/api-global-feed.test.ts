@@ -117,8 +117,13 @@ describe('Global Feed & City Filtering System - API', () => {
     const response = await GET(request);
     expect(response.status).toBe(200);
 
-    // Verify user.city filter is NOT applied
-    expect(mockEq).not.toHaveBeenCalledWith('user.city', expect.any(String));
+    expect(mockEq).not.toHaveBeenCalledWith('city', expect.any(String));
+    expect(mockOrder).toHaveBeenNthCalledWith(1, 'created_at', {
+      ascending: false,
+    });
+    expect(mockOrder).toHaveBeenNthCalledWith(2, 'id', {
+      ascending: false,
+    });
   });
 
   it('should filter by a specific city when requested', async () => {
@@ -137,7 +142,7 @@ describe('Global Feed & City Filtering System - API', () => {
     expect(response.status).toBe(200);
 
     // Verify the post city filter is not applied for the Global default.
-    expect(mockEq).not.toHaveBeenCalledWith('user.city', expect.any(String));
+    expect(mockEq).not.toHaveBeenCalledWith('city', expect.any(String));
   });
 
   it('returns verified voucher profiles alongside the aggregate count', async () => {

@@ -53,7 +53,7 @@ import { VerifiedIcon } from "@/components/verified-icon";
 import { INDIAN_CITIES } from "@/lib/constants";
 
 const PROFILE_POST_SELECT =
-  "*, user:users!posts_user_id_fkey(id, full_name, city, bio, avatar_url, vouch_points, is_verified, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name))";
+  "*, user:users!posts_user_id_fkey(id, full_name, city, bio, avatar_url, vouch_points, is_verified, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name, avatar_url))";
 
 const ACTIVITY_CATEGORY_LABELS: Record<string, string> = {
   housing: "Housing",

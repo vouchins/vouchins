@@ -56,7 +56,6 @@ const CreatePostDialog = dynamic(
   () => import("@/components/create-post-dialog").then((mod) => mod.CreatePostDialog),
   { ssr: false },
 );
-const CommentForm = dynamic(() => import("@/components/comment-form").then((mod) => mod.CommentForm));
 const ReportDialog = dynamic(() => import("@/components/report-dialog").then((mod) => mod.ReportDialog));
 const VerificationModal = dynamic(() => import("@/components/verification-modal").then((mod) => mod.VerificationModal));
 
@@ -99,9 +98,6 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
   const [activeCategory, setActiveCategory] = useState(initialFilters.category);
   const [activeSubCategory, setActiveSubCategory] = useState(initialFilters.subCategory);
   const [selectedCity, setSelectedCity] = useState(initialFilters.city);
-  const [activeReplyPostId, setActiveReplyPostId] = useState<string | null>(
-    null,
-  );
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
     type: "post" | "comment";
@@ -540,9 +536,7 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
                   post={post}
                   variant="feed"
                   currentUserId={user?.id}
-                  onReply={(pid) =>
-                    setActiveReplyPostId(activeReplyPostId === pid ? null : pid)
-                  }
+                  onReply={() => {}}
                   onReport={(type, id, label) => {
                     setReportTarget({ type, id, label });
                     setReportDialogOpen(true);
@@ -550,16 +544,6 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
                   onPostUpdated={refreshPosts}
                   isVerifiedUser={user?.is_verified}
                 />
-                {activeReplyPostId === post.id && (
-                  <div className="mt-1">
-                    <CommentForm
-                      postId={post.id}
-                      userId={user?.id}
-                      isVerifiedUser={user?.is_verified}
-                      onCommentAdded={refreshPosts}
-                    />
-                  </div>
-                )}
               </div>
             </div>
             </PostViewTracker>
