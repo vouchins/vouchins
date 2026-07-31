@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowRight,
   Building2,
-  ChevronRight,
   Grid2X2,
   Home,
   Instagram,
@@ -190,14 +189,19 @@ export function LeftSidebar({
                 Posts from {effectiveCity}
               </span>
             </span>
-            {activeTab === "city" && pathname === "/feed" ? (
-              <span
-                className="h-2 w-2 shrink-0 rounded-full bg-green-500 ring-2 ring-green-100"
-                aria-label="Active feed"
-              />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-neutral-400 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
-            )}
+            <span
+              className={cn(
+                "h-2 w-2 shrink-0 rounded-full border",
+                activeTab === "city" && pathname === "/feed"
+                  ? "border-green-500 bg-green-500 ring-2 ring-green-100"
+                  : "border-neutral-300 bg-transparent",
+              )}
+              aria-label={
+                activeTab === "city" && pathname === "/feed"
+                  ? "Selected feed"
+                  : "Feed available"
+              }
+            />
           </button>
 
           <button
@@ -233,13 +237,20 @@ export function LeftSidebar({
                 <Lock className="h-3 w-3" />
                 Locked
               </span>
-            ) : activeTab === "company" && pathname === "/feed" ? (
-              <span
-                className="h-2 w-2 shrink-0 rounded-full bg-green-500 ring-2 ring-green-100"
-                aria-label="Active feed"
-              />
             ) : (
-              <ChevronRight className="h-4 w-4 text-neutral-400 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+              <span
+                className={cn(
+                  "h-2 w-2 shrink-0 rounded-full border",
+                  activeTab === "company" && pathname === "/feed"
+                    ? "border-green-500 bg-green-500 ring-2 ring-green-100"
+                    : "border-neutral-300 bg-transparent",
+                )}
+                aria-label={
+                  activeTab === "company" && pathname === "/feed"
+                    ? "Selected feed"
+                    : "Feed available"
+                }
+              />
             )}
           </button>
         </div>
