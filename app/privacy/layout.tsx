@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "Read the Vouchins Privacy Policy. Learn how we protect your data and privacy on our verified professional network.",
+  alternates: {
+    canonical: "https://www.vouchins.com/privacy",
+  },
   openGraph: {
     title: "Privacy Policy | Vouchins",
     description: "Read the Vouchins Privacy Policy.",

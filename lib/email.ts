@@ -42,7 +42,7 @@ Welcome to the network!`,
     <p style="margin-bottom: 24px;">You can now log in using your corporate email address.</p>
     
     <div style="margin: 30px 0;">
-      <a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://vouchins.com"}/login" 
+      <a href="${process.env.NEXT_PUBLIC_SITE_URL || "https://www.vouchins.com"}/login"
          style="background-color: #171717; 
                 color: #ffffff; 
                 padding: 14px 28px; 

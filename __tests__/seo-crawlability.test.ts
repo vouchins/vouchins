@@ -56,4 +56,52 @@ describe("public SEO crawl endpoints", () => {
     expect(middlewareSource).toContain("'/business'");
     expect(middlewareSource).not.toContain("'/blog', '/business', '/posts/'");
   });
+
+  it("defines canonical metadata for every static page in the sitemap", () => {
+    const metadataFiles = [
+      "app/layout.tsx",
+      "app/about/layout.tsx",
+      "app/how-it-works/layout.tsx",
+      "app/safety/layout.tsx",
+      "app/blog/layout.tsx",
+      "app/business/layout.tsx",
+      "app/contact/layout.tsx",
+      "app/privacy/layout.tsx",
+      "app/terms/layout.tsx",
+    ];
+
+    for (const metadataFile of metadataFiles) {
+      const source = fs.readFileSync(
+        path.join(process.cwd(), metadataFile),
+        "utf8",
+      );
+      expect(source).toContain("canonical:");
+      expect(source).toContain("https://www.vouchins.com");
+    }
+  });
+
+  it("defines slug-specific canonical and Open Graph URLs for blog posts", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "app/blog/[slug]/page.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("generateMetadata");
+    expect(source).toContain("canonical: canonicalUrl");
+    expect(source).toContain("url: canonicalUrl");
+  });
+
+  it("uses the canonical www origin for email link fallbacks", () => {
+    const emailSources = [
+      "lib/email.ts",
+      "lib/email-notifications.ts",
+      "app/api/admin/campaigns/route.ts",
+    ].map((file) =>
+      fs.readFileSync(path.join(process.cwd(), file), "utf8"),
+    );
+
+    for (const source of emailSources) {
+      expect(source).not.toContain('"https://vouchins.com"');
+    }
+  });
 });

@@ -1,6 +1,6 @@
 import { transporter } from "./email";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://vouchins.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.vouchins.com";
 
 export async function sendDmReminderEmail(to: string, actorName: string, actorId: string) {
   if (!process.env.SES_FROM_EMAIL) {
@@ -204,4 +204,3 @@ export function getTargetNotificationEmail(recipient: RecipientUser): string | n
 
   return null;
 }
-

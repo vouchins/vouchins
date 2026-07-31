@@ -331,7 +331,7 @@ export async function POST(req: Request) {
           .replace(/\{full_name\}/gi, userFullName);
 
         // Resolve application base URL to load the public logo image dynamically
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://vouchins.com";
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.vouchins.com";
         // If appUrl points to localhost, fall back to Github raw content URL so logo displays in test emails
         const logoUrl = (appUrl.includes("localhost") || appUrl.includes("127.0.0.1"))
           ? "https://raw.githubusercontent.com/vouchins/vouchins/main/public/images/logo.png"

@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Blog",
   description: "Read the latest updates, tips, and professional networking insights from the Vouchins team.",
+  alternates: {
+    canonical: "https://www.vouchins.com/blog",
+  },
   openGraph: {
     title: "Blog | Vouchins",
     description: "Read the latest updates, tips, and professional networking insights from the Vouchins team.",

@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   },
   description:
     "The verified professional network for experienced corporate employees. Find verified jobs, trusted recommendations, and safe transactions - all backed by real corporate email verification.",
+  alternates: {
+    canonical: "https://www.vouchins.com",
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

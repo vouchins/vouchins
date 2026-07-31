@@ -10,8 +10,71 @@ import { Navigation } from "@/components/navigation";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { BlogAnalyticsTracker } from "@/components/blog-analytics-tracker";
+import type { Metadata } from "next";
 
 export const revalidate = 60;
+
+type BlogPostMetadata = {
+  title: string;
+  excerpt: string | null;
+  cover_image_url: string | null;
+};
+
+async function getPostMetadata(slug: string): Promise<BlogPostMetadata | null> {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    },
+  );
+
+  const { data } = await supabase
+    .from("blog_posts")
+    .select("title, excerpt, cover_image_url")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .maybeSingle();
+
+  return data;
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPostMetadata(slug);
+
+  if (!post) {
+    return {};
+  }
+
+  const canonicalUrl = `https://www.vouchins.com/blog/${encodeURIComponent(slug)}`;
+  const description =
+    post.excerpt || "Read professional networking and trust insights from Vouchins.";
+
+  return {
+    title: post.title,
+    description,
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title: `${post.title} | Vouchins`,
+      description,
+      url: canonicalUrl,
+      type: "article",
+      images: post.cover_image_url ? [post.cover_image_url] : undefined,
+    },
+  };
+}
 
 export default async function BlogPostPage({
   params,

@@ -1,5 +1,21 @@
 import { Suspense } from "react";
 import { Navigation } from "@/components/navigation";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Business",
+  description:
+    "Reach verified corporate professionals through Vouchins business advertising and specialist services.",
+  alternates: {
+    canonical: "https://www.vouchins.com/business",
+  },
+  openGraph: {
+    title: "Business | Vouchins",
+    description:
+      "Reach verified corporate professionals through Vouchins business advertising and specialist services.",
+    url: "https://www.vouchins.com/business",
+  },
+};
 
 export default function BusinessLayout({
   children,
