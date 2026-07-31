@@ -139,9 +139,8 @@ export function RightSidebar({
               <p className="mt-1 text-[11px] leading-4 text-neutral-600">
                 {pulse.answeredCount === 0
                   ? "No recent conversations have replies yet"
-                  : `${pulse.answeredCount} recent ${
-                      pulse.answeredCount === 1 ? "post has" : "posts have"
-                    } received replies`}
+                  : `${pulse.answeredCount} recent ${pulse.answeredCount === 1 ? "post has" : "posts have"
+                  } received replies`}
               </p>
               <div
                 className="mt-2 h-1.5 overflow-hidden rounded-full bg-neutral-100"
