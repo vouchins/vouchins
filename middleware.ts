@@ -57,7 +57,18 @@ export async function middleware(request: NextRequest) {
   const isStandardAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
   const isAuthRoute = isStandardAuthRoute || isRecruiterAuthRoute
 
-  const publicPaths = ['/', '/about', '/privacy', '/terms', '/contact', '/how-it-works', '/safety', '/warden']
+  const publicPaths = [
+    '/',
+    '/about',
+    '/privacy',
+    '/terms',
+    '/contact',
+    '/how-it-works',
+    '/safety',
+    '/warden',
+    '/robots.txt',
+    '/sitemap.xml',
+  ]
   const publicPrefixes = ['/blog', '/business', '/posts/']
 
   const isPublicRoute =
@@ -95,6 +106,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|sw\\.js|manifest\\.json|offline\\.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|robots\\.txt|sitemap\\.xml|sw\\.js|manifest\\.json|offline\\.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

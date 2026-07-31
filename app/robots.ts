@@ -15,6 +15,6 @@ export default function robots(): MetadataRoute.Robots {
         '/api/' // Standard practice to hide your internal API routes
       ],
     },
-    sitemap: 'https://vouchins.com/sitemap.xml',
+    sitemap: 'https://www.vouchins.com/sitemap.xml',
   }
 }
