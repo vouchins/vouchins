@@ -1,40 +1,17 @@
-// app/api/users/update/route.ts
-import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { createServerSupabase } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
+const ALLOWED = ["full_name", "personal_email", "linkedin_url", "is_active", "is_verified", "onboarded", "company_id", "is_marketing_manager"] as const;
 export async function POST(request: Request) {
-  const { userId, updates } = await request.json();
-
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-
-  // Perform the update and ask Supabase to return the updated row
-  const { data, error } = await supabaseAdmin
-    .from('users')
-    .update(updates)
-    .eq('id', userId)
-    .select(); // returns an array with the updated record(s)
-
-  if (error) {
-    return NextResponse.json(
-      { error: error.message || 'Failed to update user' },
-      { status: 400 }
-    );
-  }
-
-  // `data` is an array – we only updated a single row
-  const updatedUser = data?.[0] ?? null;
-
-  return NextResponse.json(
-    { success: true, user: updatedUser },
-    { status: 200 }
-  );
+  const supabase = await createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { data: actor } = await supabaseAdmin.from("users").select("is_admin").eq("id", user.id).maybeSingle();
+  if (!actor?.is_admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const { userId, updates } = await request.json(); const safe: Record<string, unknown> = {};
+  for (const field of ALLOWED) if (field in (updates || {})) safe[field] = updates[field];
+  const { data, error } = await supabaseAdmin.from("users").update(safe).eq("id", userId).select().maybeSingle();
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return data ? NextResponse.json({ success: true, user: data }) : NextResponse.json({ error: "User not found" }, { status: 404 });
 }

@@ -45,6 +45,7 @@ export type Database = {
           is_verified: boolean;
           is_active: boolean;
           is_admin: boolean;
+          is_marketing_manager: boolean;
           onboarded: boolean;
           created_at: string;
           updated_at: string;
@@ -58,6 +59,7 @@ export type Database = {
           is_verified?: boolean;
           is_active?: boolean;
           is_admin?: boolean;
+          is_marketing_manager?: boolean;
           onboarded?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -71,6 +73,7 @@ export type Database = {
           is_verified?: boolean;
           is_active?: boolean;
           is_admin?: boolean;
+          is_marketing_manager?: boolean;
           onboarded?: boolean;
           created_at?: string;
           updated_at?: string;

@@ -25,6 +25,7 @@ import {
   Bell,
   MessageSquare,
   CheckCheck,
+  Megaphone,
 } from "lucide-react";
 import posthog from "posthog-js";
 import { supabase } from "@/lib/supabase/browser";
@@ -45,6 +46,7 @@ interface NavigationUser {
   avatar_url?: string;
   vouch_points: number;
   is_admin: boolean;
+  is_marketing_manager: boolean;
   company: {
     name: string;
     domain: string;
@@ -497,6 +499,12 @@ function NavigationContent() {
                     <span className="hidden sm:inline font-bold text-[13px]">
                       Admin
                     </span>
+                  </Button>
+                )}
+
+                {(user.is_marketing_manager || user.is_admin) && (
+                  <Button variant="ghost" size="sm" onClick={() => router.push("/marketing")} className={cn("h-9 rounded-lg px-2 md:px-3", pathname.startsWith("/marketing") ? "text-primary bg-primary/5" : "text-neutral-600")}>
+                    <Megaphone className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline font-bold text-[13px]">Marketing</span>
                   </Button>
                 )}
 

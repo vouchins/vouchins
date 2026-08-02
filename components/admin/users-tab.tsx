@@ -52,6 +52,7 @@ interface User {
   linkedin_url?: string;
   is_active: boolean;
   is_admin: boolean;
+  is_marketing_manager: boolean;
   is_verified: boolean;
   onboarded: boolean;
   created_at: string;
@@ -66,6 +67,7 @@ interface UserUpdates {
   is_active?: boolean;
   is_verified?: boolean;
   onboarded?: boolean;
+  is_marketing_manager?: boolean;
   company_id?: string | null; // raw FK column on the users table
 }
 
@@ -277,6 +279,7 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser, onRefresh, loading
         is_active: selectedUser.is_active,
         is_verified: selectedUser.is_verified,
         onboarded: selectedUser.onboarded,
+        is_marketing_manager: selectedUser.is_marketing_manager,
         company_id: finalCompanyId,
       });
       setIsEditDialogOpen(false);
@@ -803,22 +806,22 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser, onRefresh, loading
                 </div>
 
 
-                {/* <div className="flex items-center justify-between p-3 border rounded-xl bg-indigo-50/30 border-indigo-100">
+                <div className="flex items-center justify-between p-3 border rounded-xl bg-indigo-50/30 border-indigo-100">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-semibold text-indigo-900">
-                      Admin Privileges
+                      Marketing Manager
                     </Label>
                     <p className="text-[11px] text-indigo-600">
-                      Access to this admin dashboard
+                      Own blog publishing and approved campaigns
                     </p>
                   </div>
                   <Switch
-                    checked={selectedUser.is_admin}
+                    checked={Boolean(selectedUser.is_marketing_manager)}
                     onCheckedChange={(checked) =>
-                      setSelectedUser({ ...selectedUser, is_admin: checked })
+                      setSelectedUser({ ...selectedUser, is_marketing_manager: checked })
                     }
                   />
-                </div> */}
+                </div>
               </div>
 
               <div className="pt-4 border-t">

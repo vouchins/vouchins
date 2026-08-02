@@ -17,6 +17,7 @@ interface UserProfile {
   avatar_url?: string | null;
   vouch_points: number;
   is_admin: boolean;
+  is_marketing_manager?: boolean;
   company: UserCompany | null;
   is_verified: boolean;
   is_profile_complete?: boolean;
@@ -93,7 +94,7 @@ export function UserProvider({ children, initialUser = null, skipInitialFetchOnF
       const { data, error } = await supabase
         .from("users")
         .select(
-          `id, full_name, email, city, avatar_url, vouch_points, is_admin, is_verified, linkedin_url, phone_number, bio, company:companies(name, domain)`
+          `id, full_name, email, city, avatar_url, vouch_points, is_admin, is_marketing_manager, is_verified, linkedin_url, phone_number, bio, company:companies(name, domain)`
         )
         .eq("id", authUser.id)
         .maybeSingle();
@@ -107,6 +108,7 @@ export function UserProvider({ children, initialUser = null, skipInitialFetchOnF
           avatar_url: data.avatar_url,
           vouch_points: data.vouch_points || 0,
           is_admin: data.is_admin,
+          is_marketing_manager: Boolean(data.is_marketing_manager),
           company: Array.isArray(data.company)
             ? data.company[0]
             : (data.company as unknown as UserCompany),
