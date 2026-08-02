@@ -306,7 +306,12 @@ export default function UserProfilePage() {
         return;
       }
 
-      setProfile(profileData);
+      setProfile({
+        ...profileData,
+        company: Array.isArray(profileData.company)
+          ? profileData.company[0] ?? null
+          : profileData.company,
+      });
       
       const parsedPhone = parsePhone(profileData.phone_number);
       setFormDraft({
@@ -726,7 +731,22 @@ export default function UserProfilePage() {
                 <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-medium text-neutral-600 sm:justify-start">
                   {profile.company?.name && (
                     <span className="flex items-center gap-1.5">
-                      <Building2 className="h-4 w-4 text-neutral-400" />
+                      {profile.company.domain ? (
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-200 bg-white">
+                          <img
+                            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(profile.company.domain)}&sz=64`}
+                            alt={`${profile.company.name} logo`}
+                            className="h-4 w-4 object-contain"
+                            onError={(event) => {
+                              event.currentTarget.style.display = "none";
+                              event.currentTarget.nextElementSibling?.classList.remove("hidden");
+                            }}
+                          />
+                          <Building2 className="hidden h-3.5 w-3.5 text-neutral-400" aria-hidden="true" />
+                        </span>
+                      ) : (
+                        <Building2 className="h-4 w-4 text-neutral-400" />
+                      )}
                       {profile.company.name}
                       {isOwner && (
                         <button

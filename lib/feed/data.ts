@@ -46,7 +46,7 @@ export function decodeFeedCursor(value: string | null): FeedCursor | null {
 export async function getFeedUser(supabase: SupabaseClient, userId: string): Promise<FeedUser | null> {
   const { data, error } = await supabase
     .from("users")
-    .select(`id, full_name, email, city, avatar_url, vouch_points, is_admin, is_verified, onboarded, company_id, linkedin_url, phone_number, bio, company:companies(id, name, domain)`)
+    .select(`id, full_name, email, city, avatar_url, vouch_points, is_admin, is_marketing_manager, is_verified, onboarded, company_id, linkedin_url, phone_number, bio, company:companies(id, name, domain)`)
     .eq("id", userId)
     .maybeSingle();
 

@@ -37,6 +37,7 @@ import { formatDistanceToNow } from "date-fns";
 import { useUser } from "@/components/user-provider";
 import { InviteDialog, triggerNativeShare } from "@/components/invite-dialog";
 import { HomepageNavbar } from "@/components/homepage-navbar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface NavigationUser {
   id: string;
@@ -57,9 +58,21 @@ interface NavigationUser {
 
 export function Navigation() {
   return (
-    <Suspense fallback={<HomepageNavbar />}>
+    <Suspense fallback={<NavigationLoadingFallback />}>
       <NavigationContent />
     </Suspense>
+  );
+}
+
+function NavigationLoadingFallback() {
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-neutral-200 bg-white/80 backdrop-blur-md" aria-label="Loading navigation">
+      <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
+        <Image src="/images/logo.png" alt="Vouchins" width={140} height={40} className="w-[110px] object-contain" priority />
+        <div className="hidden max-w-md flex-1 md:block"><Skeleton className="h-10 w-full rounded-full" /></div>
+        <div className="flex items-center gap-2"><Skeleton className="hidden h-9 w-16 sm:block"/><Skeleton className="hidden h-9 w-20 sm:block"/><Skeleton className="h-9 w-9 rounded-full"/></div>
+      </div>
+    </header>
   );
 }
 
@@ -227,6 +240,10 @@ function NavigationContent() {
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  if (loading) {
+    return <NavigationLoadingFallback />;
+  }
 
   if (!user) {
     return <HomepageNavbar />;

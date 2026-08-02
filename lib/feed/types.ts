@@ -19,6 +19,7 @@ export interface FeedUser {
   avatar_url?: string | null;
   vouch_points: number;
   is_admin: boolean;
+  is_marketing_manager: boolean;
   is_verified: boolean;
   onboarded: boolean;
   company_id: string | null;
