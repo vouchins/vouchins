@@ -33,6 +33,9 @@ import {
   ArrowRight,
   MessageSquareText,
   Eye,
+  FileText,
+  Upload,
+  Trash2,
 } from "lucide-react";
 import posthog from "posthog-js";
 import Link from "next/link";
@@ -179,6 +182,7 @@ export default function UserProfilePage() {
     personal_email: "",
     phone_country_code: "+91",
     phone_number: "",
+    job_search_status: "",
     pref_email_messages: true,
     pref_email_comments: true,
     pref_email_digest: true,
@@ -186,6 +190,9 @@ export default function UserProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isChangeCompanyOpen, setIsChangeCompanyOpen] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [removingResume, setRemovingResume] = useState(false);
+  const [downloadingResume, setDownloadingResume] = useState(false);
   const [hasVouchedProfile, setHasVouchedProfile] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState<{
@@ -274,7 +281,8 @@ export default function UserProfilePage() {
         { data: trustSignalsData },
         { data: postsData },
         { data: vouchData },
-        { count: invitedCountData }
+        { count: invitedCountData },
+        { data: resumeData, error: resumeError }
       ] = await Promise.all([
         supabase
           .from("users")
@@ -301,7 +309,12 @@ export default function UserProfilePage() {
           .from("users")
           .select("id", { count: "exact", head: true })
           .eq("invited_by", id)
-          .eq("is_verified", true)
+          .eq("is_verified", true),
+        supabase
+          .from("users")
+          .select("resume_path, job_search_status")
+          .eq("id", id)
+          .maybeSingle()
       ]);
 
       if (!profileData) {
@@ -311,10 +324,15 @@ export default function UserProfilePage() {
 
       setProfile({
         ...profileData,
+        resume_path: resumeData?.resume_path ?? null,
+        job_search_status: resumeData?.job_search_status ?? null,
         company: Array.isArray(profileData.company)
           ? profileData.company[0] ?? null
           : profileData.company,
       });
+      if (resumeError) {
+        console.warn("Resume metadata could not be loaded", resumeError.message);
+      }
       
       const parsedPhone = parsePhone(profileData.phone_number);
       setFormDraft({
@@ -324,6 +342,7 @@ export default function UserProfilePage() {
         personal_email: profileData.personal_email || "",
         phone_country_code: parsedPhone.code,
         phone_number: parsedPhone.num,
+        job_search_status: resumeData?.job_search_status || "",
         pref_email_messages: profileData.pref_email_messages ?? true,
         pref_email_comments: profileData.pref_email_comments ?? true,
         pref_email_digest: profileData.pref_email_digest ?? true,
@@ -445,6 +464,7 @@ export default function UserProfilePage() {
         linkedin_url: formDraft.linkedin_url.trim(),
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
+        job_search_status: formDraft.job_search_status || null,
         pref_email_messages: formDraft.pref_email_messages,
         pref_email_comments: formDraft.pref_email_comments,
         pref_email_digest: formDraft.pref_email_digest,
@@ -459,6 +479,7 @@ export default function UserProfilePage() {
         linkedin_url: formDraft.linkedin_url.trim(),
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
+        job_search_status: formDraft.job_search_status || null,
         pref_email_messages: formDraft.pref_email_messages,
         pref_email_comments: formDraft.pref_email_comments,
         pref_email_digest: formDraft.pref_email_digest,
@@ -514,6 +535,107 @@ export default function UserProfilePage() {
     }
   };
 
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!extension || !["pdf", "doc", "docx"].includes(extension)) {
+      alert("Please upload a PDF, DOC, or DOCX file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Resume files must be 5 MB or smaller.");
+      return;
+    }
+
+    setUploadingResume(true);
+    const previousPath = profile.resume_path as string | null;
+    const filePath = `${me.id}/profile-resume-${Date.now()}.${extension}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          contentType: file.type || undefined,
+          upsert: false,
+        });
+      if (uploadError) throw uploadError;
+
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ resume_path: filePath })
+        .eq("id", me.id);
+      if (updateError) {
+        await supabase.storage.from("resumes").remove([filePath]);
+        throw updateError;
+      }
+
+      if (previousPath) {
+        await supabase.storage.from("resumes").remove([previousPath]);
+      }
+      setProfile({ ...profile, resume_path: filePath });
+    } catch (error: any) {
+      alert(error.message || "Failed to upload resume.");
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleResumeRemove = async () => {
+    const resumePath = profile.resume_path as string | null;
+    if (!resumePath) return;
+
+    setRemovingResume(true);
+    try {
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ resume_path: null })
+        .eq("id", me.id);
+      if (updateError) throw updateError;
+
+      const { error: removeError } = await supabase.storage
+        .from("resumes")
+        .remove([resumePath]);
+      if (removeError) throw removeError;
+
+      setProfile({ ...profile, resume_path: null });
+    } catch (error: any) {
+      alert(error.message || "Failed to remove resume.");
+    } finally {
+      setRemovingResume(false);
+    }
+  };
+
+  const handleResumeDownload = async () => {
+    const resumePath = profile.resume_path as string | null;
+    if (!resumePath) return;
+
+    setDownloadingResume(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from("resumes")
+        .createSignedUrl(resumePath, 60, { download: true });
+      if (error || !data?.signedUrl) {
+        throw error || new Error("Could not create a download link.");
+      }
+
+      const link = document.createElement("a");
+      link.href = data.signedUrl;
+      link.download = "resume";
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error: any) {
+      alert(error.message || "Failed to download resume.");
+    } finally {
+      setDownloadingResume(false);
+    }
+  };
+
   const loadActivity = async () => {
     if (activityLoading || activityLoaded) return;
 
@@ -561,6 +683,15 @@ export default function UserProfilePage() {
         .getElementById("profile-tabs")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  };
+
+  const openResumeSettings = () => {
+    setIsEditing(true);
+    window.setTimeout(() => {
+      document
+        .getElementById("profile-resume-settings")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
   };
 
   if (loading) {
@@ -846,6 +977,17 @@ export default function UserProfilePage() {
                     <Eye className="mr-2 h-4 w-4" />
                     Preview profile
                   </Button>
+                  <Button
+                    variant="ghost"
+                    className="h-10 rounded-xl font-semibold text-neutral-600 hover:bg-white/70 hover:!text-primary"
+                    onClick={openResumeSettings}
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    {profile.resume_path ? "Manage resume" : "Add resume"}
+                  </Button>
+                  <p className="-mt-2 text-center text-[11px] font-medium text-neutral-500">
+                    * Visible only to recruiters
+                  </p>
                 </>
               ) : (
                 <>
@@ -1382,6 +1524,117 @@ export default function UserProfilePage() {
                   </div>
                 </div>
 
+                <div id="profile-resume-settings" className="scroll-mt-4 rounded-xl border border-neutral-200 bg-neutral-50/70 p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <FileText className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-neutral-900">Resume</p>
+                      <p className="mt-0.5 text-xs leading-5 text-neutral-500">
+                        Only approved recruiters can view your resume. It is never shown on your public profile.
+                      </p>
+                      {profile.resume_path && (
+                        <p className="mt-2 truncate text-xs font-semibold text-emerald-700">
+                          Resume uploaded
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="relative overflow-hidden bg-white"
+                      disabled={uploadingResume || removingResume}
+                    >
+                      {uploadingResume ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="mr-2 h-4 w-4" />
+                      )}
+                      {profile.resume_path ? "Replace resume" : "Upload resume"}
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+                        aria-label={profile.resume_path ? "Replace resume" : "Upload resume"}
+                        onChange={handleResumeUpload}
+                        disabled={uploadingResume || removingResume}
+                      />
+                    </Button>
+                    {profile.resume_path && (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="bg-white"
+                          onClick={handleResumeDownload}
+                          disabled={uploadingResume || removingResume || downloadingResume}
+                        >
+                          {downloadingResume ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileText className="mr-2 h-4 w-4" />
+                          )}
+                          Download
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-600 hover:bg-red-50 hover:!text-red-700"
+                          onClick={handleResumeRemove}
+                          disabled={uploadingResume || removingResume || downloadingResume}
+                        >
+                          {removingResume ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="mr-2 h-4 w-4" />
+                          )}
+                          Remove
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  <p className="mt-2 text-[10px] text-neutral-400">PDF, DOC, or DOCX · Max 5 MB</p>
+                </div>
+
+                <div className="rounded-xl border border-neutral-200 bg-neutral-50/70 p-4">
+                  <label
+                    htmlFor="job-search-status"
+                    className="text-sm font-bold text-neutral-900"
+                  >
+                    Job search preference
+                  </label>
+                  <p className="mt-0.5 text-xs leading-5 text-neutral-500">
+                    Only approved recruiters can see this preference. It is never shown on your public profile.
+                  </p>
+                  <div className="relative mt-3">
+                    <Briefcase className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                    <select
+                      id="job-search-status"
+                      value={formDraft.job_search_status}
+                      onChange={(event) =>
+                        setFormDraft({
+                          ...formDraft,
+                          job_search_status: event.target.value,
+                        })
+                      }
+                      className="w-full appearance-none rounded-md border border-neutral-200 bg-white py-2.5 pl-10 pr-10 text-sm font-medium text-neutral-900 outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Prefer not to say</option>
+                      <option value="open_to_work">Open to work</option>
+                      <option value="open_to_opportunities">Open to the right opportunity</option>
+                      <option value="not_looking">Not looking for a job change</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  </div>
+                </div>
+
                 <hr className="border-neutral-100 my-4" />
                 
                 <div className="space-y-4">
@@ -1442,6 +1695,7 @@ export default function UserProfilePage() {
                         personal_email: profile.personal_email || "",
                         phone_country_code: parsedPhone.code,
                         phone_number: parsedPhone.num,
+                        job_search_status: profile.job_search_status || "",
                         pref_email_messages: profile.pref_email_messages ?? true,
                         pref_email_comments: profile.pref_email_comments ?? true,
                         pref_email_digest: profile.pref_email_digest ?? true,

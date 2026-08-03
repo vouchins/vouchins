@@ -37,6 +37,12 @@ import {
 import Image from "next/image";
 import { toast } from "sonner";
 
+const JOB_SEARCH_LABELS: Record<string, string> = {
+  open_to_work: "Open to work",
+  open_to_opportunities: "Open to the right opportunity",
+  not_looking: "Not looking for a change",
+};
+
 export default function RecruiterDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -587,6 +593,11 @@ export default function RecruiterDashboard() {
                               <p className="text-[10px] text-neutral-400 font-semibold mt-0.5 uppercase tracking-wide">
                                 Verified @ {app.user?.company?.name || "Corporate"}
                               </p>
+                              {app.user?.job_search_status && (
+                                <span className="mt-1.5 inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                  {JOB_SEARCH_LABELS[app.user.job_search_status] || app.user.job_search_status}
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -615,6 +626,16 @@ export default function RecruiterDashboard() {
                           >
                             <FileText className="h-3.5 w-3.5" /> View Uploaded Resume
                           </a>
+                          {app.profile_resume_url && (
+                            <a
+                              href={app.profile_resume_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ml-4 inline-flex items-center gap-1.5 text-primary hover:underline font-bold text-[11px]"
+                            >
+                              <FileText className="h-3.5 w-3.5" /> View Profile Resume
+                            </a>
+                          )}
                         </div>
 
                         {/* Recruitment Status Dropdown */}

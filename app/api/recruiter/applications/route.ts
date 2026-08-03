@@ -31,8 +31,8 @@ export async function GET(request: Request) {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (recError || !recruiter) {
-      return NextResponse.json({ error: "Forbidden: Not a recruiter" }, { status: 403 });
+    if (recError || !recruiter || !["active", "approved"].includes(recruiter.status)) {
+      return NextResponse.json({ error: "Forbidden: Approved recruiter access required" }, { status: 403 });
     }
 
     // Fetch applications
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       .select(`
         *,
         job:jobs!inner(*),
-        user:users!inner(id, full_name, email, city, avatar_url, company:companies(name))
+        user:users!inner(id, full_name, email, city, avatar_url, resume_path, job_search_status, company:companies(name))
       `);
 
     if (jobId) {
@@ -55,7 +55,35 @@ export async function GET(request: Request) {
 
     if (appError) throw appError;
 
-    return NextResponse.json({ success: true, applications });
+    const applicationsWithSecureResumes = await Promise.all(
+      (applications || []).map(async (application: any) => {
+        let resumePath = application.resume_url;
+        if (resumePath?.includes("/storage/v1/object/public/resumes/")) {
+          resumePath = resumePath.split("/storage/v1/object/public/resumes/")[1];
+        }
+
+        const { data: signedResume } = await supabase.storage
+          .from("resumes")
+          .createSignedUrl(resumePath, 60 * 10);
+
+        const { data: signedProfileResume } = application.user?.resume_path
+          ? await supabase.storage
+              .from("resumes")
+              .createSignedUrl(application.user.resume_path, 60 * 10)
+          : { data: null };
+
+        const { resume_path: _resumePath, ...safeUser } = application.user || {};
+
+        return {
+          ...application,
+          user: safeUser,
+          resume_url: signedResume?.signedUrl || null,
+          profile_resume_url: signedProfileResume?.signedUrl || null,
+        };
+      })
+    );
+
+    return NextResponse.json({ success: true, applications: applicationsWithSecureResumes });
   } catch (error: any) {
     console.error("Recruiter GET applications error:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch applications" }, { status: 500 });
@@ -95,8 +123,8 @@ export async function POST(request: Request) {
       .eq("id", user.id)
       .maybeSingle();
 
-    if (recError || !recruiter) {
-      return NextResponse.json({ error: "Forbidden: Not a recruiter" }, { status: 403 });
+    if (recError || !recruiter || !["active", "approved"].includes(recruiter.status)) {
+      return NextResponse.json({ error: "Forbidden: Approved recruiter access required" }, { status: 403 });
     }
 
     // Verify application belongs to a job posted by this recruiter

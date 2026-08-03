@@ -237,17 +237,12 @@ function JobsPageContent() {
     try {
       // 1. Upload resume to Supabase storage
       const fileExt = resumeFile.name.split(".").pop();
-      const fileName = `${currentUser.id}-${Date.now()}.${fileExt}`;
+      const fileName = `${currentUser.id}/application-${Date.now()}.${fileExt}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("resumes")
         .upload(fileName, resumeFile);
 
       if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("resumes")
-        .getPublicUrl(uploadData.path);
 
       // 2. Submit application details
       const res = await fetch("/api/jobs/apply", {
@@ -255,7 +250,7 @@ function JobsPageContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId: applyingJob.id,
-          resumeUrl: publicUrl,
+          resumeUrl: uploadData.path,
           coverLetter,
         }),
       });
