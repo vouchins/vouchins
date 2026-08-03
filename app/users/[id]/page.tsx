@@ -32,6 +32,7 @@ import {
   CalendarDays,
   ArrowRight,
   MessageSquareText,
+  Eye,
 } from "lucide-react";
 import posthog from "posthog-js";
 import Link from "next/link";
@@ -170,6 +171,7 @@ export default function UserProfilePage() {
 
   // Private Settings State
   const [isEditing, setIsEditing] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const [formDraft, setFormDraft] = useState({
     bio: "",
     city: "",
@@ -243,6 +245,7 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     const load = async () => {
+      setIsPreviewing(false);
       setActiveProfileTab("overview");
       setActivityPosts([]);
       setActivityComments([]);
@@ -566,8 +569,9 @@ export default function UserProfilePage() {
 
   if (!profile) return null;
   const isOwner = me?.id === profile.id;
+  const showOwnerControls = isOwner && !isPreviewing;
   const showProfileCompletion =
-    isOwner &&
+    showOwnerControls &&
     !(
       profile.is_verified &&
       profile.avatar_url &&
@@ -649,6 +653,32 @@ export default function UserProfilePage() {
       />
 
       <main className="relative mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 sm:py-10">
+        {isOwner && isPreviewing && (
+          <aside
+            className="flex flex-col gap-3 rounded-2xl border border-primary/15 bg-primary px-4 py-3 text-white shadow-lg sm:flex-row sm:items-center sm:justify-between sm:px-5"
+            aria-label="Profile preview mode"
+          >
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold">Viewing your public profile</p>
+                <p className="text-xs text-white/75">
+                  This is how other verified members see your profile.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="h-9 shrink-0 rounded-xl bg-white px-4 font-semibold text-primary hover:bg-white/90 hover:!text-primary"
+              onClick={() => setIsPreviewing(false)}
+            >
+              Exit preview
+            </Button>
+          </aside>
+        )}
         <div
           className={
             showProfileCompletion
@@ -695,7 +725,7 @@ export default function UserProfilePage() {
                     <VerifiedIcon className="h-5 w-5" />
                   </span>
                 )}
-                {isOwner && (
+                {showOwnerControls && (
                   <label className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-[24px] bg-primary/65 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                     {uploadingAvatar ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -748,7 +778,7 @@ export default function UserProfilePage() {
                         <Building2 className="h-4 w-4 text-neutral-400" />
                       )}
                       {profile.company.name}
-                      {isOwner && (
+                      {showOwnerControls && (
                         <button
                           onClick={() => setIsChangeCompanyOpen(true)}
                           className="ml-1 rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold text-primary ring-1 ring-neutral-200 transition hover:bg-white"
@@ -798,25 +828,37 @@ export default function UserProfilePage() {
             </div>
 
             <div className="flex w-full shrink-0 flex-col gap-3 lg:w-60">
-              {isOwner ? (
-                <Button
-                  variant="outline"
-                  className="h-11 rounded-xl border-primary/20 bg-white/80 font-semibold text-primary shadow-[0_8px_20px_-12px_rgba(31,37,87,0.55)] transition-colors hover:border-primary/30 hover:bg-primary/5 hover:!text-primary"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Edit2 className="mr-2 h-4 w-4" />
-                  Edit profile
-                </Button>
+              {showOwnerControls ? (
+                <>
+                  <Button
+                    variant="outline"
+                    className="h-11 rounded-xl border-primary/20 bg-white/80 font-semibold text-primary shadow-[0_8px_20px_-12px_rgba(31,37,87,0.55)] transition-colors hover:border-primary/30 hover:bg-primary/5 hover:!text-primary"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    Edit profile
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="h-10 rounded-xl font-semibold text-neutral-600 hover:bg-white/70 hover:!text-primary"
+                    onClick={() => setIsPreviewing(true)}
+                  >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview profile
+                  </Button>
+                </>
               ) : (
                 <>
                   <Button
                     className="h-11 rounded-xl bg-primary font-semibold shadow-[0_12px_25px_-15px_rgba(31,37,87,0.9)] hover:bg-primary/95"
                     onClick={() => {
+                      if (isPreviewing) return;
                       posthog.capture("Contact Seller", {
                         recipient_id: profile.id,
                       });
                       router.push(`/messages/${profile.id}`);
                     }}
+                    aria-disabled={isPreviewing}
                   >
                     <MessageCircle className="mr-2 h-4 w-4" />
                     Message
@@ -830,6 +872,7 @@ export default function UserProfilePage() {
                     }`}
                     onClick={handleProfileVouch}
                     disabled={hasVouchedProfile}
+                    aria-disabled={isPreviewing || hasVouchedProfile}
                   >
                     {hasVouchedProfile ? (
                       <>
@@ -844,8 +887,10 @@ export default function UserProfilePage() {
                     )}
                   </Button>
                   <button
+                    type="button"
                     className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-red-50 text-sm font-medium text-red-700 transition hover:bg-red-600 hover:text-white"
                     onClick={() => {
+                      if (isPreviewing) return;
                       setReportTarget({
                         type: "user",
                         id: profile.id,
@@ -853,6 +898,7 @@ export default function UserProfilePage() {
                       });
                       setReportDialogOpen(true);
                     }}
+                    aria-disabled={isPreviewing}
                   >
                     <Flag className="h-4 w-4" />
                     Report profile
@@ -1220,7 +1266,7 @@ export default function UserProfilePage() {
         )}
 
         {/* SECTION 6: PRIVATE SETTINGS DIALOG (OWNER ONLY) */}
-        {isOwner && (
+        {showOwnerControls && (
           <Dialog open={isEditing} onOpenChange={setIsEditing}>
             <DialogContent className="w-[95vw] sm:w-full sm:max-w-[600px] p-0 overflow-hidden bg-white text-neutral-900 border-neutral-200 rounded-2xl shadow-2xl">
               <DialogHeader className="p-4 sm:p-6 pb-2 border-b border-neutral-100 bg-neutral-50">
@@ -1431,7 +1477,7 @@ export default function UserProfilePage() {
         )}
       </main>
 
-      {isOwner && (
+      {showOwnerControls && (
         <ChangeCompanyModal
           isOpen={isChangeCompanyOpen}
           onClose={() => setIsChangeCompanyOpen(false)}
