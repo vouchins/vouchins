@@ -7,7 +7,9 @@ export async function GET() {
   const auth = await requireImporterAdmin();
   if (auth.response) return auth.response;
   const { data, error } = await supabaseAdmin.from("content_import_sources").select("*").order("created_at");
-  return error ? NextResponse.json({ error: "Unable to load sources" }, { status: 500 }) : NextResponse.json({ sources: data });
+  return error
+    ? NextResponse.json({ error: "Unable to load sources" }, { status: 500, headers: { "Cache-Control": "no-store" } })
+    : NextResponse.json({ sources: data }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: NextRequest) {

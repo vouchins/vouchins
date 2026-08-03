@@ -24,7 +24,7 @@ function rentText(item: Item) {
 }
 
 async function api(url: string, init?: RequestInit) {
-  const response = await fetch(url, { ...init, headers: { "Content-Type": "application/json", ...init?.headers } });
+  const response = await fetch(url, { ...init, cache: "no-store", headers: { "Content-Type": "application/json", ...init?.headers } });
   const body = await response.json();
   if (!response.ok) throw new Error(body.error || "Request failed");
   return body;
@@ -40,8 +40,13 @@ export function ContentImporterTab() {
   const [busy, setBusy] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [sourceUrls, setSourceUrls] = useState<Record<string, string>>({});
 
-  const loadSources = useCallback(async () => setSources((await api("/api/admin/content-importer/sources")).sources), []);
+  const loadSources = useCallback(async () => {
+    const next: Source[] = (await api("/api/admin/content-importer/sources")).sources;
+    setSources(next);
+    setSourceUrls((current) => Object.fromEntries(next.map((source) => [source.id, current[source.id] ?? source.url])));
+  }, []);
   const loadItems = useCallback(async () => {
     const query = new URLSearchParams({ status });
     if (sourceFilter) query.set("source", sourceFilter);
@@ -65,14 +70,16 @@ export function ContentImporterTab() {
       <p className="mb-4 text-sm text-neutral-500">Sources are contacted only when you choose a fetch action.</p>
       <form className="grid gap-2 md:grid-cols-[1fr_2fr_auto]" onSubmit={(event) => { event.preventDefault(); void act("add", () => api("/api/admin/content-importer/sources", { method: "POST", body: JSON.stringify({ name, url }) }), "Source added").then(() => { setName(""); setUrl(""); }); }}>
         <Input aria-label="Source name" placeholder="Source name" value={name} onChange={(event) => setName(event.target.value)} required />
-        <Input aria-label="Source URL" placeholder="https://rentd.biswanath.me/?city=Hyderabad" value={url} onChange={(event) => setUrl(event.target.value)} required />
+        <Input aria-label="Source URL" placeholder="Rentd or https://flatnest.in/listings?city=Hyderabad" value={url} onChange={(event) => setUrl(event.target.value)} required />
         <Button disabled={busy === "add"} className="bg-[#0A1B5C] text-white"><Plus className="mr-2 h-4 w-4" />Add source</Button>
       </form>
       <div className="mt-4 space-y-3">{sources.map((source) => <div key={source.id} className="rounded-lg border p-3">
-        <div className="flex flex-wrap items-center gap-3"><Switch checked={source.enabled} aria-label={`Enable ${source.name}`} onCheckedChange={(enabled) => void act(`toggle-${source.id}`, () => api(`/api/admin/content-importer/sources/${source.id}`, { method: "PATCH", body: JSON.stringify({ enabled }) }), "Source updated")} /><div className="min-w-0 flex-1"><p className="font-semibold">{source.name}</p><p className="truncate text-xs text-neutral-500">{source.url}</p></div>
+        <div className="flex flex-wrap items-center gap-3"><Switch checked={source.enabled} aria-label={`Enable ${source.name}`} onCheckedChange={(enabled) => void act(`toggle-${source.id}`, () => api(`/api/admin/content-importer/sources/${source.id}`, { method: "PATCH", body: JSON.stringify({ enabled }) }), "Source updated")} /><div className="min-w-0 flex-1"><p className="font-semibold">{source.name}</p><p className="text-xs text-neutral-500">Edit the query parameters below to filter this source.</p></div>
           {([source.cursor ? "latest" : "initial", "more"] as const).map((mode) => <Button key={mode} variant="outline" disabled={!source.enabled || busy !== null} onClick={() => void act(`${mode}-${source.id}`, () => api(`/api/admin/content-importer/sources/${source.id}/fetch`, { method: "POST", body: JSON.stringify({ mode }) }), mode === "more" ? "More content fetched" : "Latest content fetched")}><RefreshCw className="mr-2 h-4 w-4" />{mode === "initial" ? "Get content" : mode === "latest" ? "Fetch latest" : "Fetch more"}</Button>)}
           <Button variant="ghost" aria-label={`Remove ${source.name}`} onClick={() => { if (confirm("Remove this source and its imported items?")) void act(`delete-${source.id}`, () => api(`/api/admin/content-importer/sources/${source.id}`, { method: "DELETE" }), "Source removed"); }}><Trash2 className="h-4 w-4" /></Button>
-        </div>{source.last_error && <p className="mt-2 text-xs text-rose-700">{source.last_error}</p>}</div>)}</div>
+        </div>
+        <div className="mt-3 flex flex-col gap-2 md:flex-row"><Input aria-label={`Filtered URL for ${source.name}`} value={sourceUrls[source.id] ?? source.url} onChange={(event) => setSourceUrls({ ...sourceUrls, [source.id]: event.target.value })} /><Button variant="outline" disabled={busy !== null || (sourceUrls[source.id] ?? source.url) === source.url} onClick={() => void act(`url-${source.id}`, () => api(`/api/admin/content-importer/sources/${source.id}`, { method: "PATCH", body: JSON.stringify({ url: sourceUrls[source.id] }) }), "Source filters saved")}>Save filters</Button></div>
+        {source.last_error && <p className="mt-2 text-xs text-rose-700">{source.last_error}</p>}</div>)}</div>
     </section>
 
     <section className="space-y-4"><div className="flex flex-wrap gap-2"><select aria-label="Queue status" className="rounded-md border bg-white px-3 py-2 text-sm" value={status} onChange={(event) => setStatus(event.target.value)}>{["pending", "accepted", "rejected", "publish_failed"].map((value) => <option key={value} value={value}>{value.replace("_", " ")}</option>)}</select><select aria-label="Source filter" className="rounded-md border bg-white px-3 py-2 text-sm" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}><option value="">All sources</option>{sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}</select></div>
@@ -88,7 +95,7 @@ export function ContentImporterTab() {
             <p className="text-sm">{[item.location, item.city].filter(Boolean).join(", ") || "Location unavailable"} · {item.price_min ? `${item.currency || ""} ${item.price_min}${item.price_max && item.price_max !== item.price_min ? ` - ${item.price_max}` : ""}` : "Rent unavailable"}</p>
             <div className="flex flex-wrap gap-2 text-xs text-neutral-600">{item.bhk && <span className="rounded-full bg-neutral-100 px-2.5 py-1">{item.bhk} BHK</span>}{item.furnishing && <span className="rounded-full bg-neutral-100 px-2.5 py-1">{label(item.furnishing)}</span>}{item.accommodation_type && <span className="rounded-full bg-neutral-100 px-2.5 py-1">{label(item.accommodation_type)}</span>}</div>
             <p className="text-xs text-neutral-400">Source date: {item.source_published_at ? new Date(item.source_published_at).toLocaleString() : "Unavailable"} · Imported: {new Date(item.imported_at).toLocaleString()}</p>
-            <div className="flex flex-wrap gap-3 text-sm"><a className="text-[#0A1B5C] underline" href={item.source_listing_url} target="_blank" rel="noopener noreferrer">Aggregator <ExternalLink className="inline h-3 w-3" /></a>{item.original_url ? <a className="text-[#0A1B5C] underline" href={item.original_url} target="_blank" rel="noopener noreferrer">Open original listing <ExternalLink className="inline h-3 w-3" /></a> : <span className="text-neutral-400">Original link unavailable</span>}</div>
+            <div className="flex flex-wrap gap-3 text-sm"><a className="text-[#0A1B5C] underline" href={item.source_listing_url} target="_blank" rel="noopener noreferrer">Open listing <ExternalLink className="inline h-3 w-3" /></a>{item.original_url && item.original_url !== item.source_listing_url ? <a className="text-[#0A1B5C] underline" href={item.original_url} target="_blank" rel="noopener noreferrer">Open original listing <ExternalLink className="inline h-3 w-3" /></a> : !item.original_url ? <span className="text-neutral-400">Original link unavailable</span> : null}</div>
             {item.publish_error && <p className="text-sm text-rose-700">{item.publish_error}</p>}
           </div>
         </div>

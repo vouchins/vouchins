@@ -11,5 +11,7 @@ export async function GET(request: NextRequest) {
   let query = supabaseAdmin.from("content_import_items").select("*, source:content_import_sources(id,name)").eq("status", status).order("source_published_at", { ascending: false, nullsFirst: false }).order("imported_at", { ascending: false }).limit(200);
   if (source) query = query.eq("source_id", source);
   const { data, error } = await query;
-  return error ? NextResponse.json({ error: "Unable to load imported content" }, { status: 500 }) : NextResponse.json({ items: data });
+  return error
+    ? NextResponse.json({ error: "Unable to load imported content" }, { status: 500, headers: { "Cache-Control": "no-store" } })
+    : NextResponse.json({ items: data }, { headers: { "Cache-Control": "no-store" } });
 }
