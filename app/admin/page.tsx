@@ -19,6 +19,7 @@ import {
   Building2,
   Megaphone,
   BarChart3,
+  Download,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { UsersTab } from "@/components/admin/users-tab";
@@ -32,6 +33,7 @@ import { RecruitersTab } from "@/components/admin/recruiters-tab";
 import { CompaniesTab } from "@/components/admin/companies-tab";
 import { CampaignsTab } from "@/components/admin/campaigns-tab";
 import { AnalyticsTab } from "@/components/admin/analytics-tab";
+import { ContentImporterTab } from "@/components/admin/content-importer-tab";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -645,6 +647,9 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="content-importer" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
+                  <Download className="h-4 w-4 mr-2" /> Content Importer
+                </TabsTrigger>
                  <TabsTrigger value="campaigns" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <Megaphone className="h-4 w-4 mr-2" /> Campaigns{" "}
                   {(dbCounts.campaigns || 0) > 0 && (
@@ -748,6 +753,9 @@ function AdminPageContent() {
 
                     <TabsContent value="campaigns">
                       <CampaignsTab />
+                    </TabsContent>
+                    <TabsContent value="content-importer">
+                      <ContentImporterTab />
                     </TabsContent>
                   </>
                 )}
