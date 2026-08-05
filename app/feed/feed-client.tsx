@@ -613,7 +613,16 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
                 : "border-neutral-200/70 bg-white/70 text-neutral-500",
             )}
           >
-            <Building2 className="h-4 w-4 shrink-0" />
+            {user?.company?.domain ? (
+              <img
+                src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(user.company.domain)}&sz=64`}
+                alt=""
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 object-contain"
+              />
+            ) : (
+              <Building2 className="h-4 w-4 shrink-0" />
+            )}
             <span className="truncate">
               {user?.company?.name || "Company"}
             </span>
