@@ -78,6 +78,7 @@ export async function GET(
       `)
       .eq("id", postId)
       .eq("is_removed", false)
+      .eq("comments.is_removed", false)
       .maybeSingle();
 
     if (error) {

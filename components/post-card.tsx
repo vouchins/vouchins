@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useUser } from "@/components/user-provider";
 import { cn } from "@/lib/utils";
 import { VerifiedIcon } from "@/components/verified-icon";
@@ -136,8 +143,11 @@ export function PostCard({
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [comments, setComments] = useState(post.comments || []);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedText, setEditedText] = useState(post.text);
+  const [editedCategory, setEditedCategory] = useState<PostCardProps["post"]["category"]>(post.category);
+  const [editedSubCategory, setEditedSubCategory] = useState(post.sub_category || "");
   const [saving, setSaving] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [localStatus, setLocalStatus] = useState(post.status || "active");
@@ -210,7 +220,18 @@ export function PostCard({
       ?.label
     : null;
 
-  const commentCount = post.comment_count ?? post.comments?.length ?? 0;
+  const initialCommentCount = post.comment_count ?? post.comments?.length ?? 0;
+  const [localCommentCount, setLocalCommentCount] = useState(initialCommentCount);
+  const initialVouchCount = post.vouch_count ?? post.vouches?.length ?? 0;
+  const [localVouchCount, setLocalVouchCount] = useState(initialVouchCount);
+
+  useEffect(() => {
+    setLocalCommentCount(initialCommentCount);
+  }, [initialCommentCount]);
+
+  useEffect(() => {
+    setLocalVouchCount(initialVouchCount);
+  }, [initialVouchCount]);
 
   const isEdited =
     post.updated_at &&
@@ -226,6 +247,7 @@ export function PostCard({
 
     // Optimistic UI update
     setVouchedEntities(prev => ({ ...prev, [key]: true }));
+    if (entityType === 'post') setLocalVouchCount((count) => count + 1);
 
     const { error } = await supabase.from('vouches').insert({
       vouching_user_id: currentUserId,
@@ -234,6 +256,9 @@ export function PostCard({
     });
 
     if (error) {
+      if (entityType === 'post') {
+        setLocalVouchCount((count) => Math.max(initialVouchCount, count - 1));
+      }
       if (error.code !== '23505') {
         console.error("Vouch error:", error);
         // Revert optimistic update on real error
@@ -368,6 +393,11 @@ export function PostCard({
 
   const saveEdit = async () => {
     if (!editedText.trim()) return;
+    const availableEditedSubCategories = SUB_CATEGORIES[editedCategory] || [];
+    if (availableEditedSubCategories.length > 0 && !editedSubCategory) {
+      toast.error("Please select a sub-category");
+      return;
+    }
     setSaving(true);
 
     try {
@@ -383,6 +413,8 @@ export function PostCard({
         .from("posts")
         .update({
           text: editedText.trim(),
+          category: editedCategory,
+          sub_category: availableEditedSubCategories.length > 0 ? editedSubCategory : null,
           image_urls: finalUrls,
           updated_at: new Date().toISOString(),
         })
@@ -403,6 +435,14 @@ export function PostCard({
     } finally {
       setSaving(false);
     }
+  };
+
+  const startEditing = () => {
+    setEditedText(post.text);
+    setEditedCategory(post.category);
+    setEditedSubCategory(post.sub_category || "");
+    setEditedImages(post.image_urls || []);
+    setIsEditing(true);
   };
 
   const deletePost = async () => {
@@ -456,15 +496,15 @@ export function PostCard({
     return { views, shares, saves };
   };
 
-  const vouchCount = post.vouch_count ?? post.vouches?.length ?? 0;
+  const vouchCount = localVouchCount;
   const verifiedVoucherProfiles = (post.vouchers ?? []).filter(
     (voucher) => voucher.user?.is_verified,
   );
   const displayedVoucherProfiles = verifiedVoucherProfiles.slice(0, 3);
   const { views, shares, saves } = getDeterministicMetrics();
 
-  const loadComments = async () => {
-    if (comments.length > 0 || commentCount === 0 || loadingComments) return;
+  const loadComments = async (force = false) => {
+    if ((!force && (comments.length > 0 || localCommentCount === 0)) || loadingComments) return;
     setLoadingComments(true);
     try {
       const response = await fetch(`/api/posts/${post.id}/comments`);
@@ -476,6 +516,38 @@ export function PostCard({
       toast.error("Could not load comments");
     } finally {
       setLoadingComments(false);
+    }
+  };
+
+  const handleCommentAdded = async () => {
+    setShowReplyForm(false);
+    setShowComments(true);
+    setLocalCommentCount((count) => count + 1);
+    await loadComments(true);
+    onPostUpdated();
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("Delete this reply? This cannot be undone.")) return;
+
+    const previousComments = comments;
+    setDeletingCommentId(commentId);
+    setComments((current) => current.filter((comment) => comment.id !== commentId));
+    setLocalCommentCount((count) => Math.max(0, count - 1));
+
+    try {
+      const response = await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Failed to delete reply");
+
+      toast.success("Reply deleted");
+      onPostUpdated();
+    } catch (error) {
+      setComments(previousComments);
+      setLocalCommentCount((count) => count + 1);
+      toast.error(error instanceof Error ? error.message : "Failed to delete reply");
+    } finally {
+      setDeletingCommentId(null);
     }
   };
 
@@ -520,7 +592,7 @@ export function PostCard({
         )}
         {isOwner ? (
           <>
-            <DropdownMenuItem onClick={() => setIsEditing(true)} className="text-xs font-semibold">
+            <DropdownMenuItem onClick={startEditing} className="text-xs font-semibold">
               <Edit2 className="mr-2 h-3.5 w-3.5" />
               Edit post
             </DropdownMenuItem>
@@ -808,6 +880,54 @@ export function PostCard({
 
         {isEditing ? (
           <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-neutral-700">Category</label>
+                <Select
+                  value={editedCategory}
+                  onValueChange={(value) => {
+                    const category = value as PostCardProps["post"]["category"];
+                    const options = SUB_CATEGORIES[category] || [];
+                    setEditedCategory(category);
+                    setEditedSubCategory((current) =>
+                      options.some((option) => option.value === current)
+                        ? current
+                        : options[0]?.value || "",
+                    );
+                  }}
+                >
+                  <SelectTrigger aria-label="Edit category">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map((category) => (
+                      <SelectItem key={category.value} value={category.value}>
+                        {category.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(SUB_CATEGORIES[editedCategory] || []).length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-neutral-700">Sub-category</label>
+                  <Select value={editedSubCategory} onValueChange={setEditedSubCategory}>
+                    <SelectTrigger aria-label="Edit sub-category">
+                      <SelectValue placeholder="Select a sub-category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(SUB_CATEGORIES[editedCategory] || []).map((subCategory) => (
+                        <SelectItem key={subCategory.value} value={subCategory.value}>
+                          {subCategory.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
             <textarea
               value={editedText}
               onChange={(e) => setEditedText(e.target.value)}
@@ -996,7 +1116,7 @@ export function PostCard({
                 <MessageCircle className="mr-1.5 h-4 w-4 shrink-0" />
                 <span className="truncate text-xs font-bold">Reply</span>
                 <span className="ml-1 text-xs font-bold tabular-nums text-neutral-600">
-                  {commentCount}
+                  {localCommentCount}
                 </span>
               </Button>
               {!isOwner && (
@@ -1100,9 +1220,9 @@ export function PostCard({
             >
               <MessageCircle className="h-4 w-4" />
               <span className="text-xs font-semibold">Reply</span>
-              {commentCount > 0 && (
+              {localCommentCount > 0 && (
                 <span className="text-[10px] bg-neutral-100 px-1.5 py-0.5 rounded-full text-neutral-600 font-bold ml-0.5">
-                  {commentCount}
+                  {localCommentCount}
                 </span>
               )}
             </Button>
@@ -1213,7 +1333,7 @@ export function PostCard({
               <DropdownMenuContent align="end" className="w-40 rounded-xl shadow-md border border-neutral-100">
                 {isOwner ? (
                   <>
-                    <DropdownMenuItem onClick={() => setIsEditing(true)} className="text-xs font-bold text-neutral-705">
+                    <DropdownMenuItem onClick={startEditing} className="text-xs font-bold text-neutral-705">
                       <Edit2 className="h-3.5 w-3.5 mr-2 text-neutral-500" />
                       Edit Post
                     </DropdownMenuItem>
@@ -1268,6 +1388,8 @@ export function PostCard({
               onClick={() => {
                 setIsEditing(false);
                 setEditedText(post.text);
+                setEditedCategory(post.category);
+                setEditedSubCategory(post.sub_category || "");
                 setEditedImages(post.image_urls || []);
                 newPreviews.forEach((url) => URL.revokeObjectURL(url));
                 setNewFiles([]);
@@ -1289,8 +1411,7 @@ export function PostCard({
           userId={currentUserId}
           isVerifiedUser={isVerifiedUser}
           onCommentAdded={() => {
-            setShowReplyForm(false);
-            onPostUpdated();
+            void handleCommentAdded();
           }}
           onCancel={() => {
             setShowReplyForm(false);
@@ -1349,18 +1470,27 @@ export function PostCard({
                       ) : "Vouch"}
                     </button>
                   )}
-                  {comment.user.id !== currentUserId && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="ml-auto rounded-md p-1 text-neutral-400 opacity-70 transition-colors hover:bg-neutral-100 hover:text-neutral-700 group-hover:opacity-100"
-                          aria-label="Comment actions"
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={deletingCommentId === comment.id}
+                        className="ml-auto rounded-md p-1 text-neutral-400 opacity-70 transition-colors hover:bg-neutral-100 hover:text-neutral-700 group-hover:opacity-100 disabled:opacity-40"
+                        aria-label="Comment actions"
+                      >
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {comment.user.id === currentUserId ? (
+                        <DropdownMenuItem
+                          onClick={() => void handleDeleteComment(comment.id)}
+                          className="text-xs font-bold text-red-650 focus:bg-red-50 focus:text-red-650"
                         >
-                          <MoreVertical className="h-3.5 w-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
+                          <Trash2 className="mr-2 h-3.5 w-3.5" />
+                          Delete Reply
+                        </DropdownMenuItem>
+                      ) : (
                         <DropdownMenuItem
                           onClick={() => onReport("comment", comment.id, comment.text)}
                           className="text-xs font-bold text-red-650 focus:bg-red-50 focus:text-red-650"
@@ -1368,9 +1498,9 @@ export function PostCard({
                           <Flag className="mr-2 h-3.5 w-3.5" />
                           Report Comment
                         </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <p className="text-sm leading-snug text-neutral-700">
                   {comment.text}
