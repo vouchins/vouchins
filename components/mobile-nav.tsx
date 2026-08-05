@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { MapPin, Search, Plus, Lock, Building2, X, Briefcase } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { MapPin, Plus, Lock, Building2, Briefcase, MessageCircle } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 
@@ -38,41 +37,6 @@ export function MobileNav({
 }: MobileNavProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Internal state to track which icon is highlighted
-  const [localActiveTab, setLocalActiveTab] = useState<
-    "city" | "company" | "search" | "create"
-  >("city");
-
-  // --- Search Logic from navigation.tsx ---
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-
-  // Sync search query if URL changes externally
-  useEffect(() => {
-    setSearchQuery(searchParams.get("q") || "");
-  }, [searchParams]);
-
-  useEffect(() => {
-    setLocalActiveTab(activeTab);
-  }, [activeTab]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/feed?q=${encodeURIComponent(searchQuery.trim())}`);
-      // setIsSearching(false); // Close search overlay after submitting
-    } else {
-      router.push("/feed");
-    }
-  };
-
-  const clearSearch = () => {
-    setSearchQuery("");
-    router.push("/feed");
-    setIsSearching(false);
-  };
 
   const cityLabel = selectedCity || user?.city || "City";
   const companyLabel = user?.company?.name || "Company";
@@ -82,49 +46,6 @@ export function MobileNav({
 
   return (
     <>
-      {/* Search Overlay (Slide up from bottom when Search is clicked) */}
-      {isSearching && (
-        <div
-          role="search"
-          className="fixed inset-x-0 bottom-[72px] z-[60] animate-in slide-in-from-bottom-2 border-t border-neutral-200 bg-white p-4 shadow-2xl duration-200"
-        >
-          <form
-            onSubmit={handleSearch}
-            className="relative flex items-center gap-2"
-          >
-            <div className="relative flex-1 group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 group-focus-within:text-primary" />
-              <input
-                autoFocus
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search in ${user?.city || "your city"}...`}
-                className="w-full h-11 pl-10 pr-10 bg-neutral-100 border-transparent rounded-xl text-sm font-bold outline-none focus:bg-white focus:ring-2 focus:ring-primary/10 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                clearSearch();
-                setIsSearching(false);
-              }}
-              className="text-xs font-black text-neutral-500 uppercase px-2"
-            >
-              Cancel
-            </button>
-          </form>
-        </div>
-      )}
       <nav
         aria-label="Mobile navigation"
         className="fixed bottom-0 left-0 right-0 z-50 grid h-[72px] grid-cols-5 items-end border-t border-white/90 bg-white/90 px-2 pb-2 pt-1 shadow-[0_-10px_30px_-24px_rgba(31,37,87,0.55)] backdrop-blur-xl lg:hidden"
@@ -135,12 +56,11 @@ export function MobileNav({
           aria-pressed={activeTab === "city"}
           type="button"
           onClick={() => {
-            setLocalActiveTab("city");
             setActiveTab("city");
           }}
           className={cn(
             "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",
-            localActiveTab !== "search" && activeTab === "city"
+            activeTab === "city"
               ? "text-primary"
               : "text-neutral-500",
           )}
@@ -157,12 +77,11 @@ export function MobileNav({
           aria-pressed={activeTab === "company"}
           type="button"
           onClick={() => {
-            setLocalActiveTab("company");
             setActiveTab("company");
           }}
           className={cn(
             "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",
-            localActiveTab !== "search" && activeTab === "company"
+            activeTab === "company"
               ? "text-primary"
               : "text-neutral-500",
           )}
@@ -234,22 +153,20 @@ export function MobileNav({
           <span className="text-[10px] font-semibold">Jobs</span>
         </button>
 
-        {/* Search */}
+        {/* Messages */}
         <button
           type="button"
-          aria-label={isSearching ? "Close search" : "Open search"}
-          aria-expanded={isSearching}
+          aria-label="Open messages"
           onClick={() => {
-            setLocalActiveTab("search");
-            setIsSearching(!isSearching);
+            router.push("/messages");
           }}
           className={cn(
             "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",
-            localActiveTab === "search" ? "text-primary" : "text-neutral-500",
+            pathname.startsWith("/messages") ? "text-primary" : "text-neutral-500",
           )}
         >
-          <Search className="h-5 w-5" />
-          <span className="text-[10px] font-semibold">Search</span>
+          <MessageCircle className="h-5 w-5" />
+          <span className="text-[10px] font-semibold">Messages</span>
         </button>
       </nav>
     </>

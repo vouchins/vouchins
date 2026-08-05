@@ -64,4 +64,17 @@ describe('Frontend MobileNav Component (components/mobile-nav)', () => {
     );
     expect(screen.getByText('City')).toBeInTheDocument();
   });
+
+  it('renders messages instead of search in the mobile navigation', () => {
+    render(
+      <MobileNav
+        user={mockUser}
+        onOpenCreatePost={jest.fn()}
+        setActiveTab={jest.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Open messages' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open search' })).not.toBeInTheDocument();
+  });
 });
