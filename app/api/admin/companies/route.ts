@@ -2,6 +2,31 @@ import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { getMarketingPrincipal } from '@/lib/marketing/auth';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+
+export async function GET(req: Request) {
+  const principal = await getMarketingPrincipal();
+  if (!principal?.isAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const companyId = new URL(req.url).searchParams.get("companyId");
+  if (!companyId) {
+    const { data, error } = await supabaseAdmin.from("users").select("company_id").not("company_id", "is", null);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    const counts: Record<string, number> = {};
+    for (const user of data || []) counts[user.company_id] = (counts[user.company_id] || 0) + 1;
+    return NextResponse.json({ counts });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .select("id, full_name, email, city, is_verified, is_active, is_admin, is_marketing_manager, created_at")
+    .eq("company_id", companyId)
+    .order("full_name");
+  return error
+    ? NextResponse.json({ error: error.message }, { status: 400 })
+    : NextResponse.json({ users: data || [] });
+}
 
 export async function POST(req: Request) {
   try {

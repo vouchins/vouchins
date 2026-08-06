@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Plus, Settings2, Trash2, Building2, AlertCircle, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Search, Plus, Settings2, Trash2, Building2, AlertCircle, RefreshCw, Users, ExternalLink, ChevronLeft, ChevronRight, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -31,6 +32,21 @@ interface CompaniesTabProps {
   loading?: boolean;
 }
 
+interface CompanyUser {
+  id: string;
+  full_name: string;
+  email: string;
+  city: string | null;
+  is_verified: boolean;
+  is_active: boolean;
+  is_admin: boolean;
+  is_marketing_manager: boolean;
+  created_at: string;
+}
+
+const USERS_PER_PAGE = 10;
+type CompanySortKey = "name" | "domain" | "users" | "created_at";
+
 export function CompaniesTab({
   companies,
   onCreateCompany,
@@ -54,12 +70,87 @@ export function CompaniesTab({
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [userCounts, setUserCounts] = useState<Record<string, number>>({});
+  const [usersCompany, setUsersCompany] = useState<Company | null>(null);
+  const [companyUsers, setCompanyUsers] = useState<CompanyUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [verificationFilter, setVerificationFilter] = useState<"all" | "verified" | "unverified">("all");
+  const [activityFilter, setActivityFilter] = useState<"all" | "active" | "inactive">("all");
+  const [usersPage, setUsersPage] = useState(1);
+  const [sortKey, setSortKey] = useState<CompanySortKey>("users");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  const filteredCompanies = companies.filter(
+  const loadUserCounts = async () => {
+    try {
+      const response = await fetch("/api/admin/companies");
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
+      setUserCounts(result.counts || {});
+    } catch (err) {
+      console.error("Unable to load company user counts", err);
+    }
+  };
+
+  useEffect(() => { void loadUserCounts(); }, [companies]);
+
+  const handleViewUsers = async (company: Company) => {
+    setUsersCompany(company);
+    setCompanyUsers([]);
+    setUserSearch("");
+    setVerificationFilter("all");
+    setActivityFilter("all");
+    setUsersPage(1);
+    setUsersError("");
+    setUsersLoading(true);
+    try {
+      const response = await fetch(`/api/admin/companies?companyId=${encodeURIComponent(company.id)}`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to load users");
+      setCompanyUsers(result.users || []);
+    } catch (err: any) {
+      setUsersError(err.message || "Unable to load users");
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const filteredUsers = useMemo(() => companyUsers.filter((user) => {
+    const term = userSearch.trim().toLowerCase();
+    const matchesSearch = !term || user.full_name.toLowerCase().includes(term) || user.email.toLowerCase().includes(term) || (user.city || "").toLowerCase().includes(term);
+    const matchesVerification = verificationFilter === "all" || (verificationFilter === "verified" ? user.is_verified : !user.is_verified);
+    const matchesActivity = activityFilter === "all" || (activityFilter === "active" ? user.is_active : !user.is_active);
+    return matchesSearch && matchesVerification && matchesActivity;
+  }), [companyUsers, userSearch, verificationFilter, activityFilter]);
+
+  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+  const visibleUsers = filteredUsers.slice((usersPage - 1) * USERS_PER_PAGE, usersPage * USERS_PER_PAGE);
+
+  useEffect(() => { setUsersPage(1); }, [userSearch, verificationFilter, activityFilter]);
+
+  const filteredCompanies = useMemo(() => companies.filter(
     (c) =>
       c.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.domain?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ).sort((a, b) => {
+    let comparison = 0;
+    if (sortKey === "users") comparison = (userCounts[a.id] || 0) - (userCounts[b.id] || 0);
+    else if (sortKey === "created_at") comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    else comparison = (a[sortKey] || "").localeCompare(b[sortKey] || "", undefined, { sensitivity: "base" });
+    return sortDirection === "asc" ? comparison : -comparison;
+  }), [companies, searchTerm, sortKey, sortDirection, userCounts]);
+
+  const handleSort = (key: CompanySortKey) => {
+    if (sortKey === key) setSortDirection((direction) => direction === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDirection("asc"); }
+  };
+
+  const SortIcon = ({ column }: { column: CompanySortKey }) => sortKey !== column
+    ? <ArrowUpDown className="h-3.5 w-3.5 text-neutral-400" />
+    : sortDirection === "asc"
+      ? <ArrowUp className="h-3.5 w-3.5 text-primary" />
+      : <ArrowDown className="h-3.5 w-3.5 text-primary" />;
 
   const handleCreate = async () => {
     if (!newName.trim() || !newDomain.trim()) {
@@ -153,9 +244,10 @@ export function CompaniesTab({
           <table className="w-full text-left text-sm">
             <thead className="bg-neutral-50/50 border-b border-neutral-200 text-neutral-500 font-medium">
               <tr>
-                <th className="px-6 py-4">Company Name</th>
-                <th className="px-6 py-4">Domain</th>
-                <th className="px-6 py-4">Created At</th>
+                <th className="px-6 py-4"><button onClick={() => handleSort("name")} className="inline-flex items-center gap-1.5 hover:text-primary">Company Name <SortIcon column="name"/></button></th>
+                <th className="px-6 py-4"><button onClick={() => handleSort("domain")} className="inline-flex items-center gap-1.5 hover:text-primary">Domain <SortIcon column="domain"/></button></th>
+                <th className="px-6 py-4 text-center"><button onClick={() => handleSort("users")} className="inline-flex items-center gap-1.5 hover:text-primary">Users <SortIcon column="users"/></button></th>
+                <th className="px-6 py-4"><button onClick={() => handleSort("created_at")} className="inline-flex items-center gap-1.5 hover:text-primary">Created At <SortIcon column="created_at"/></button></th>
                 <th className="px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -186,10 +278,18 @@ export function CompaniesTab({
                   <td className="px-6 py-4 text-neutral-600 font-mono text-xs">
                     {c.domain}
                   </td>
+                  <td className="px-6 py-4 text-center">
+                    <button onClick={() => void handleViewUsers(c)} className="font-semibold text-primary hover:underline">
+                      {userCounts[c.id] ?? 0}
+                    </button>
+                  </td>
                   <td className="px-6 py-4 text-neutral-500">
                     {new Date(c.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
+                    <Button variant="ghost" size="icon" onClick={() => void handleViewUsers(c)} className="rounded-full" title="View users">
+                      <Users className="h-4 w-4 text-neutral-500" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -203,7 +303,7 @@ export function CompaniesTab({
               ))}
               {filteredCompanies.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-neutral-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
                     No companies found.
                   </td>
                 </tr>
@@ -212,6 +312,23 @@ export function CompaniesTab({
           </table>
         </div>
       </div>
+
+      <Dialog open={Boolean(usersCompany)} onOpenChange={(open) => { if (!open) setUsersCompany(null); }}>
+        <DialogContent className="max-w-5xl max-h-[88vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>{usersCompany?.name} users</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+            <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"/><Input value={userSearch} onChange={(event) => setUserSearch(event.target.value)} placeholder="Search name, email, or city…" className="pl-9"/></div>
+            <select value={verificationFilter} onChange={(event) => setVerificationFilter(event.target.value as typeof verificationFilter)} className="h-10 rounded-md border border-neutral-200 bg-white px-3 text-sm"><option value="all">All verification</option><option value="verified">Verified</option><option value="unverified">Unverified</option></select>
+            <select value={activityFilter} onChange={(event) => setActivityFilter(event.target.value as typeof activityFilter)} className="h-10 rounded-md border border-neutral-200 bg-white px-3 text-sm"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-neutral-200">
+            {usersLoading ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-neutral-500"><Loader2 className="h-4 w-4 animate-spin"/>Loading users…</div> : usersError ? <div className="p-8 text-center text-sm text-red-600">{usersError}</div> : visibleUsers.length === 0 ? <div className="p-8 text-center text-sm text-neutral-500">No users match these filters.</div> : <table className="w-full text-left text-sm"><thead className="sticky top-0 bg-neutral-50 text-xs text-neutral-500"><tr><th className="px-4 py-3">User</th><th className="px-4 py-3">City</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Joined</th><th className="px-4 py-3 text-right">Profile</th></tr></thead><tbody className="divide-y divide-neutral-100">{visibleUsers.map((user) => <tr key={user.id}><td className="px-4 py-3"><div className="font-semibold text-neutral-900">{user.full_name}</div><div className="text-xs text-neutral-500">{user.email}</div></td><td className="px-4 py-3 text-neutral-600">{user.city || "—"}</td><td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${user.is_active ? "bg-green-50 text-green-700" : "bg-neutral-100 text-neutral-500"}`}>{user.is_active ? "Active" : "Inactive"}</span>{user.is_verified && <span className="ml-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700">Verified</span>}</td><td className="px-4 py-3 text-xs text-neutral-600">{user.is_admin ? "Admin" : user.is_marketing_manager ? "Marketing" : "Member"}</td><td className="px-4 py-3 text-xs text-neutral-500">{new Date(user.created_at).toLocaleDateString()}</td><td className="px-4 py-3 text-right"><Button asChild variant="ghost" size="icon"><Link href={`/users/${user.id}`} target="_blank" aria-label={`Open ${user.full_name}'s profile`}><ExternalLink className="h-4 w-4"/></Link></Button></td></tr>)}</tbody></table>}
+          </div>
+          {!usersLoading && !usersError && filteredUsers.length > 0 && <div className="flex items-center justify-between text-xs text-neutral-500"><span>Showing {(usersPage - 1) * USERS_PER_PAGE + 1}–{Math.min(usersPage * USERS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length}</span><div className="flex items-center gap-2"><Button variant="outline" size="icon" className="h-8 w-8" disabled={usersPage === 1} onClick={() => setUsersPage((page) => page - 1)}><ChevronLeft className="h-4 w-4"/></Button><span>Page {usersPage} of {totalUserPages}</span><Button variant="outline" size="icon" className="h-8 w-8" disabled={usersPage === totalUserPages} onClick={() => setUsersPage((page) => page + 1)}><ChevronRight className="h-4 w-4"/></Button></div></div>}
+        </DialogContent>
+      </Dialog>
 
       {/* Add Company Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
