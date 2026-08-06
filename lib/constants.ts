@@ -62,7 +62,6 @@ export const INDIAN_CITIES = [
   'Seoul',
   'Shanghai',
   'Hong Kong',
-  'Other International',
 ];
 
 export const REPORT_REASONS = [
