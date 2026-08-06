@@ -186,6 +186,7 @@ export default function UserProfilePage() {
     pref_email_messages: true,
     pref_email_comments: true,
     pref_email_digest: true,
+    pref_email_campaigns: true,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isChangeCompanyOpen, setIsChangeCompanyOpen] = useState(false);
@@ -286,7 +287,7 @@ export default function UserProfilePage() {
       ] = await Promise.all([
         supabase
           .from("users")
-          .select("id, full_name, city, created_at, linkedin_url, bio, personal_email, avatar_url, phone_number, is_verified, vouch_points, pref_email_messages, pref_email_comments, pref_email_digest, company:companies(name, domain)")
+          .select("id, full_name, city, created_at, linkedin_url, bio, personal_email, avatar_url, phone_number, is_verified, vouch_points, pref_email_messages, pref_email_comments, pref_email_digest, pref_email_campaigns, company:companies(name, domain)")
           .eq("id", id)
           .maybeSingle(),
         supabase.rpc("get_vouch_score", { profile_id: id }),
@@ -346,6 +347,7 @@ export default function UserProfilePage() {
         pref_email_messages: profileData.pref_email_messages ?? true,
         pref_email_comments: profileData.pref_email_comments ?? true,
         pref_email_digest: profileData.pref_email_digest ?? true,
+        pref_email_campaigns: profileData.pref_email_campaigns ?? true,
       });
 
       if (vouchData) setHasVouchedProfile(true);
@@ -468,6 +470,7 @@ export default function UserProfilePage() {
         pref_email_messages: formDraft.pref_email_messages,
         pref_email_comments: formDraft.pref_email_comments,
         pref_email_digest: formDraft.pref_email_digest,
+        pref_email_campaigns: formDraft.pref_email_campaigns,
       })
       .eq("id", me.id);
 
@@ -483,6 +486,7 @@ export default function UserProfilePage() {
         pref_email_messages: formDraft.pref_email_messages,
         pref_email_comments: formDraft.pref_email_comments,
         pref_email_digest: formDraft.pref_email_digest,
+        pref_email_campaigns: formDraft.pref_email_campaigns,
       });
       window.dispatchEvent(
         new CustomEvent("user-updated", {
@@ -1679,6 +1683,19 @@ export default function UserProfilePage() {
                         Receive daily activity digest email
                       </label>
                     </div>
+
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        id="pref_email_campaigns"
+                        checked={formDraft.pref_email_campaigns}
+                        onCheckedChange={(checked) =>
+                          setFormDraft({ ...formDraft, pref_email_campaigns: !!checked })
+                        }
+                      />
+                      <label htmlFor="pref_email_campaigns" className="text-sm font-semibold text-neutral-700 cursor-pointer select-none">
+                        Receive Vouchins announcements and campaign emails
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -1699,6 +1716,7 @@ export default function UserProfilePage() {
                         pref_email_messages: profile.pref_email_messages ?? true,
                         pref_email_comments: profile.pref_email_comments ?? true,
                         pref_email_digest: profile.pref_email_digest ?? true,
+                        pref_email_campaigns: profile.pref_email_campaigns ?? true,
                       });
                       setIsEditing(false);
                     }}

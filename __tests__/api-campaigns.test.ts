@@ -2,7 +2,24 @@
  * @jest-environment node
  */
 
-import { POST, DELETE } from '@/app/api/admin/campaigns/route';
+import { GET, POST, DELETE } from '@/app/api/admin/campaigns/route';
+
+const mockGetMarketingPrincipal = jest.fn();
+jest.mock('@/lib/marketing/auth', () => ({
+  getMarketingPrincipal: () => mockGetMarketingPrincipal(),
+}));
+
+const mockAdminFrom = jest.fn();
+jest.mock('@/lib/supabase/admin', () => ({
+  supabaseAdmin: { from: (...args: any[]) => mockAdminFrom(...args) },
+}));
+
+jest.mock('@/lib/marketing/email-preferences', () => ({
+  campaignEmailFooter: () => '<div>Email preferences footer</div>',
+  emailPreferenceUrls: () => ({ unsubscribeUrl: 'https://www.vouchins.com/email-preferences?token=test' }),
+  getUnsubscribedCampaignEmails: async () => new Set<string>(),
+  normalizeCampaignEmail: (email: string) => email.trim().toLowerCase(),
+}));
 
 // Mock Next.js Headers & Cookies
 const mockCookieStore = {
@@ -58,6 +75,20 @@ describe('Campaigns Admin API Endpoint', () => {
     jest.clearAllMocks();
     mockFrom.mockReturnValue(mockQuery);
     process.env.SES_FROM_EMAIL = 'admin@vouchins.com';
+  });
+
+  it('should include draft campaigns created by marketing managers for admins', async () => {
+    mockGetMarketingPrincipal.mockResolvedValue({ id: 'admin-id', isAdmin: true });
+    const drafts = [{ id: 'campaign-draft', status: 'draft', created_by: 'marketing-manager-id' }];
+    const order = jest.fn().mockResolvedValue({ data: drafts, error: null });
+    const select = jest.fn().mockReturnValue({ order });
+    mockAdminFrom.mockReturnValue({ select });
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ success: true, campaigns: drafts });
+    expect(mockAdminFrom).toHaveBeenCalledWith('campaigns');
   });
 
   it('should return 401 if user is not authenticated', async () => {

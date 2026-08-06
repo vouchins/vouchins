@@ -1,8 +1,25 @@
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { transporter } from "@/lib/email";
 import { getTargetNotificationEmail } from "@/lib/email-notifications";
+import { campaignEmailFooter, emailPreferenceUrls, getUnsubscribedCampaignEmails, normalizeCampaignEmail } from "@/lib/marketing/email-preferences";
 
 async function recipients(groupId: string, groupName: string) {
+  if (groupId === "manual_emails") {
+    const emails = Array.from(new Set(groupName.split(",").map((email) => email.trim().toLowerCase()).filter(Boolean)));
+    if (!emails.length) return [];
+    const [corporate, personal] = await Promise.all([
+      supabaseAdmin.from("users").select("id,email,personal_email,full_name").in("email", emails),
+      supabaseAdmin.from("users").select("id,email,personal_email,full_name").in("personal_email", emails),
+    ]);
+    if (corporate.error) throw corporate.error;
+    if (personal.error) throw personal.error;
+    const usersByEmail = new Map<string, any>();
+    for (const user of [...(corporate.data || []), ...(personal.data || [])]) {
+      if (user.email) usersByEmail.set(user.email.toLowerCase(), user);
+      if (user.personal_email) usersByEmail.set(user.personal_email.toLowerCase(), user);
+    }
+    return emails.map((email) => usersByEmail.get(email) || ({ id: null, email, personal_email: null, full_name: "there" }));
+  }
   let query = supabaseAdmin.from("users").select("id,email,personal_email,full_name").eq("is_active", true);
   if (groupId === "default_verified") query = query.eq("is_verified", true);
   else if (["default_email", "default_google", "default_linkedin"].includes(groupId)) {
@@ -45,8 +62,9 @@ export async function deliverApprovedCampaign(campaignId: string, actorId: strin
   if (error || !campaign || campaign.status !== "sending") throw error || new Error("Campaign is not ready for delivery");
   try {
     const targets = await recipients(campaign.recipient_group_id, campaign.recipient_group_name);
+    let deliveredCount = targets.length;
     if (campaign.target_type === "notification") {
-      const rows = targets.map((u: any) => ({
+      const rows = targets.filter((u: any) => u.id).map((u: any) => ({
         user_id: u.id, actor_id: actorId, type: "SYSTEM_ANNOUNCEMENT",
         entity_id: campaign.id, entity_type: "campaign", is_read: false,
         metadata: { title: personalize(campaign.title, u.full_name), message: personalize(campaign.body, u.full_name) },
@@ -57,17 +75,24 @@ export async function deliverApprovedCampaign(campaignId: string, actorId: strin
       }
     } else {
       if (!process.env.SES_FROM_EMAIL) throw new Error("SES_FROM_EMAIL is not configured");
-      for (const user of targets) {
-        const to = getTargetNotificationEmail(user) || user.email;
+      const addressedTargets = targets.map((user: any) => ({ user, to: getTargetNotificationEmail(user) || user.email })).filter(({ to }: any) => Boolean(to));
+      const unsubscribed = await getUnsubscribedCampaignEmails(addressedTargets.map(({ to }: any) => to));
+      const eligibleTargets = addressedTargets.filter(({ to }: any) => !unsubscribed.has(normalizeCampaignEmail(to)));
+      deliveredCount = eligibleTargets.length;
+      for (const { user, to } of eligibleTargets) {
         if (!to) continue;
+        const headers = user.id
+          ? { "List-Unsubscribe": `<${emailPreferenceUrls(to, user.id).unsubscribeUrl}>` }
+          : undefined;
         await transporter.sendMail({
           from: `Vouchins <${process.env.SES_FROM_EMAIL}>`, to,
           subject: personalize(campaign.title, user.full_name),
-          html: `<div style="font-family:sans-serif;max-width:600px;margin:auto;line-height:1.7">${personalize(campaign.body, user.full_name)}</div>`,
+          html: `<div style="font-family:sans-serif;max-width:600px;margin:auto;line-height:1.7">${personalize(campaign.body, user.full_name)}${campaignEmailFooter(to, user.id)}</div>`,
+          headers,
         });
       }
     }
-    await supabaseAdmin.from("campaigns").update({ status: "sent", sent_count: targets.length, updated_at: new Date().toISOString() }).eq("id", campaignId).eq("status", "sending");
+    await supabaseAdmin.from("campaigns").update({ status: "sent", sent_count: deliveredCount, updated_at: new Date().toISOString() }).eq("id", campaignId).eq("status", "sending");
   } catch (error) {
     await supabaseAdmin.from("campaigns").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", campaignId).eq("status", "sending");
     throw error;

@@ -46,6 +46,7 @@ export type Database = {
           is_active: boolean;
           is_admin: boolean;
           is_marketing_manager: boolean;
+          pref_email_campaigns: boolean;
           onboarded: boolean;
           created_at: string;
           updated_at: string;
@@ -60,6 +61,7 @@ export type Database = {
           is_active?: boolean;
           is_admin?: boolean;
           is_marketing_manager?: boolean;
+          pref_email_campaigns?: boolean;
           onboarded?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -74,6 +76,7 @@ export type Database = {
           is_active?: boolean;
           is_admin?: boolean;
           is_marketing_manager?: boolean;
+          pref_email_campaigns?: boolean;
           onboarded?: boolean;
           created_at?: string;
           updated_at?: string;

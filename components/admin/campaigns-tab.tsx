@@ -29,12 +29,22 @@ import {
   ChevronDown,
   Code2,
   ArrowLeft,
+  Eye,
+  MoreHorizontal,
+  Copy,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -73,7 +83,7 @@ interface Campaign {
   target_type: "email" | "notification";
   recipient_group_id: string;
   recipient_group_name: string;
-  status: "draft" | "sending" | "sent" | "failed";
+  status: "draft" | "pending_approval" | "rejected" | "sending" | "sent" | "failed";
   sent_count: number;
   created_at: string;
 }
@@ -142,6 +152,10 @@ export function CampaignsTab() {
   const [submittingCampaign, setSubmittingCampaign] = useState(false);
   const [submittingGroup, setSubmittingGroup] = useState(false);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
+  const [isReusingCampaign, setIsReusingCampaign] = useState(false);
+  const [busyCampaignId, setBusyCampaignId] = useState<string | null>(null);
+  const [viewingCampaign, setViewingCampaign] = useState<Campaign | null>(null);
 
   // Campaign Form State
   const [campaignTitle, setCampaignTitle] = useState("");
@@ -151,6 +165,38 @@ export function CampaignsTab() {
   const [manualEmails, setManualEmails] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
   const [isCodeView, setIsCodeView] = useState(false);
+
+  const resetCampaignForm = () => {
+    setEditingCampaignId(null);
+    setIsReusingCampaign(false);
+    setCampaignTitle("");
+    setCampaignBody("");
+    setCampaignGroupId("");
+    setManualEmails("");
+    if (editorRef.current) editorRef.current.innerHTML = "";
+  };
+
+  const handleEditCampaign = (campaign: Campaign) => {
+    setIsReusingCampaign(false);
+    setEditingCampaignId(campaign.id);
+    setCampaignTitle(campaign.title);
+    setCampaignBody(campaign.body);
+    setCampaignTargetType(campaign.target_type);
+    setCampaignGroupId(campaign.recipient_group_id);
+    setManualEmails(campaign.recipient_group_id === "manual_emails" ? campaign.recipient_group_name : "");
+    setViewMode("create");
+  };
+
+  const handleReuseCampaign = (campaign: Campaign) => {
+    setEditingCampaignId(null);
+    setIsReusingCampaign(true);
+    setCampaignTitle(campaign.title);
+    setCampaignBody(campaign.body);
+    setCampaignTargetType(campaign.target_type);
+    setCampaignGroupId(campaign.recipient_group_id);
+    setManualEmails(campaign.recipient_group_id === "manual_emails" ? campaign.recipient_group_name : "");
+    setViewMode("create");
+  };
 
   // Sync visual editor content when switching back from code view
   useEffect(() => {
@@ -190,6 +236,13 @@ export function CampaignsTab() {
 
       const cData = await campaignsRes.json();
       const gData = await groupsRes.json();
+
+      if (!campaignsRes.ok) {
+        throw new Error(cData.error || "Failed to load campaigns");
+      }
+      if (!groupsRes.ok) {
+        throw new Error(gData.error || "Failed to load user groups");
+      }
 
       setCampaigns(cData.campaigns || []);
       setGroups(gData.groups || []);
@@ -296,40 +349,62 @@ export function CampaignsTab() {
 
     setSubmittingCampaign(true);
     try {
-      const res = await fetch("/api/admin/campaigns", {
-        method: "POST",
+      const res = await fetch(editingCampaignId ? "/api/marketing/campaigns" : "/api/admin/campaigns", {
+        method: editingCampaignId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: campaignTitle,
-          body: finalBody,
-          targetType: campaignTargetType,
-          recipientGroupId: campaignGroupId,
-          recipientGroupName: recipientGroupName,
-          status: statusToSet,
+        body: JSON.stringify(editingCampaignId ? {
+          id: editingCampaignId, title: campaignTitle, body: finalBody,
+          target_type: campaignTargetType, recipient_group_id: campaignGroupId,
+          recipient_group_name: recipientGroupName,
+        } : {
+          title: campaignTitle, body: finalBody, targetType: campaignTargetType,
+          recipientGroupId: campaignGroupId, recipientGroupName, status: statusToSet,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create campaign");
 
-      toast.success(
-        statusToSet === "sent"
-          ? `Campaign sent successfully to ${data.campaign.sent_count} users!`
-          : "Campaign draft saved!"
-      );
+      let finalCampaign = data.campaign;
+      if (editingCampaignId && statusToSet === "sent") {
+        const publishRes = await fetch("/api/marketing/campaigns/action", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingCampaignId, action: "publish" }),
+        });
+        const publishData = await publishRes.json();
+        if (!publishRes.ok) throw new Error(publishData.error || "Failed to publish campaign");
+        finalCampaign = publishData.campaign;
+      }
+      toast.success(statusToSet === "sent"
+        ? `Campaign sent successfully to ${finalCampaign.sent_count} users!`
+        : editingCampaignId ? "Campaign draft updated!" : "Campaign draft saved!");
       setViewMode("dashboard");
-      // reset form
-      setCampaignTitle("");
-      setCampaignBody("");
-      setCampaignGroupId("");
-      setManualEmails("");
-      if (editorRef.current) editorRef.current.innerHTML = "";
+      resetCampaignForm();
       fetchData();
     } catch (err: any) {
       console.error(err);
       toast.error("Error: " + err.message);
     } finally {
       setSubmittingCampaign(false);
+    }
+  };
+
+  const handlePublishCampaign = async (id: string) => {
+    if (!window.confirm("Publish and send this campaign now?")) return;
+    setBusyCampaignId(id);
+    try {
+      const res = await fetch("/api/marketing/campaigns/action", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "publish" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to publish campaign");
+      toast.success(`Campaign sent successfully to ${data.campaign.sent_count} users!`);
+      await fetchData();
+    } catch (err: any) {
+      toast.error("Error publishing campaign: " + err.message);
+    } finally {
+      setBusyCampaignId(null);
     }
   };
 
@@ -487,8 +562,8 @@ export function CampaignsTab() {
               <p className="text-xs text-neutral-500 mt-0.5">Logs of emails and notifications sent to users.</p>
             </div>
             <Button
-              onClick={() => setViewMode("create")}
-              className="flex items-center gap-1 bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-bold rounded-lg h-9 px-3.5"
+              onClick={() => { resetCampaignForm(); setViewMode("create"); }}
+              className="flex items-center gap-1 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold rounded-lg h-9 px-3.5 shadow-sm"
             >
               <Plus className="h-4 w-4" /> Create Campaign
             </Button>
@@ -566,15 +641,37 @@ export function CampaignsTab() {
                         })}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteCampaign(c.id)}
-                          className="h-8 w-8 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete Campaign Log"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" disabled={busyCampaignId === c.id}
+                              className="h-8 w-8 rounded-lg text-neutral-500" aria-label={`Actions for ${c.title}`}>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem onSelect={() => setViewingCampaign(c)} className="gap-2 cursor-pointer">
+                              <Eye className="h-4 w-4" /> View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleReuseCampaign(c)} className="gap-2 cursor-pointer">
+                              <Copy className="h-4 w-4" /> Reuse
+                            </DropdownMenuItem>
+                            {["draft", "rejected", "failed"].includes(c.status) && (
+                              <DropdownMenuItem onSelect={() => handleEditCampaign(c)} className="gap-2 cursor-pointer">
+                                <Edit3 className="h-4 w-4" /> Edit
+                              </DropdownMenuItem>
+                            )}
+                            {["draft", "rejected", "failed"].includes(c.status) && (
+                              <DropdownMenuItem onSelect={() => void handlePublishCampaign(c.id)} className="gap-2 cursor-pointer text-green-700 focus:text-green-700">
+                                <Send className="h-4 w-4" /> Publish
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => void handleDeleteCampaign(c.id)} disabled={c.status === "sending"}
+                              className="gap-2 cursor-pointer text-red-600 focus:text-red-600">
+                              <Trash2 className="h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -659,20 +756,56 @@ export function CampaignsTab() {
       </div>
       )}
 
+      <Dialog open={Boolean(viewingCampaign)} onOpenChange={(open) => { if (!open) setViewingCampaign(null); }}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Campaign details</DialogTitle>
+          </DialogHeader>
+          {viewingCampaign && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-xl font-bold text-neutral-950">{viewingCampaign.title}</h3>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-neutral-600">
+                  <Badge variant="secondary" className="capitalize">{viewingCampaign.status.replaceAll("_", " ")}</Badge>
+                  <Badge variant="outline" className="capitalize">{viewingCampaign.target_type === "notification" ? "In-app notification" : "Email"}</Badge>
+                </div>
+              </div>
+              <div className="grid gap-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm sm:grid-cols-3">
+                <div><div className="text-xs font-semibold text-neutral-500">Audience</div><div className="mt-1 font-medium break-words">{viewingCampaign.recipient_group_name}</div></div>
+                <div><div className="text-xs font-semibold text-neutral-500">Delivered</div><div className="mt-1 font-medium">{viewingCampaign.sent_count ?? 0}</div></div>
+                <div><div className="text-xs font-semibold text-neutral-500">Created</div><div className="mt-1 font-medium">{new Date(viewingCampaign.created_at).toLocaleString()}</div></div>
+              </div>
+              <div>
+                <div className="mb-2 text-xs font-semibold text-neutral-500">Message</div>
+                {viewingCampaign.target_type === "email" ? (
+                  <div className="prose prose-sm max-w-none rounded-xl border border-neutral-200 bg-white p-5"
+                    dangerouslySetInnerHTML={{ __html: viewingCampaign.body }} />
+                ) : (
+                  <div className="whitespace-pre-wrap rounded-xl border border-neutral-200 bg-white p-5 text-sm">{viewingCampaign.body}</div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingCampaign(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Campaign Creator - Full View */}
       {viewMode === "create" && (
         <div className="bg-white border border-neutral-200/70 shadow-sm rounded-2xl p-8 max-w-4xl mx-auto space-y-6">
           <div className="flex flex-col gap-4 border-b border-neutral-100 pb-6">
             <Button
               variant="ghost"
-              onClick={() => setViewMode("dashboard")}
+              onClick={() => { resetCampaignForm(); setViewMode("dashboard"); }}
               className="flex items-center gap-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 self-start text-xs font-semibold px-3 h-8 -ml-3"
             >
               <ArrowLeft className="h-4 w-4" /> Back to campaigns
             </Button>
             <div>
               <h3 className="text-xl font-black text-neutral-950 flex items-center gap-2">
-                <Send className="h-5 w-5 text-indigo-600" /> Create Announcement Campaign
+                <Send className="h-5 w-5 text-indigo-600" /> {editingCampaignId ? "Edit Campaign Draft" : isReusingCampaign ? "Reuse Campaign" : "Create Announcement Campaign"}
               </h3>
               <p className="text-xs text-neutral-500 mt-1">Compose and target announcement campaigns for your user base.</p>
             </div>
@@ -996,7 +1129,7 @@ export function CampaignsTab() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setViewMode("dashboard")}
+                onClick={() => { resetCampaignForm(); setViewMode("dashboard"); }}
                 className="text-xs font-bold text-neutral-600 h-10"
               >
                 Cancel
@@ -1085,7 +1218,7 @@ export function CampaignsTab() {
                     />
                   </div>
                   <div style={{ backgroundColor: "#f8fafc", padding: "24px", textAlign: "center", borderTop: "1px solid #f1f5f9", fontSize: "11px", color: "#94a3b8", fontWeight: "500" }}>
-                    <p style={{ margin: "0 0 8px 0", color: "#64748b" }}>You received this announcement from the Vouchins Admin Console.</p>
+                    {campaignGroupId === "manual_emails" ? <p style={{ margin: "0 0 8px" }}><span style={{ color: "#475569" }}>How it works</span> &middot; <span style={{ color: "#475569" }}>Blogs</span></p> : <><p style={{ margin: "0 0 8px 0", color: "#64748b" }}>You’re receiving this email because you’re a member of the Vouchins community.</p><p style={{ margin: "0 0 8px" }}><span style={{ color: "#475569" }}>Manage email preferences</span> &middot; <span style={{ color: "#475569" }}>Unsubscribe</span> &middot; <span style={{ color: "#475569" }}>Privacy Policy</span></p></>}
                     <p style={{ margin: "0" }}>&copy; 2026 Vouchins. All rights reserved.</p>
                   </div>
                 </div>

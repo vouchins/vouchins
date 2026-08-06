@@ -4,48 +4,20 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { transporter } from "@/lib/email";
 import { getTargetNotificationEmail } from "@/lib/email-notifications";
+import { getMarketingPrincipal } from "@/lib/marketing/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { campaignEmailFooter, emailPreferenceUrls, getUnsubscribedCampaignEmails, normalizeCampaignEmail } from "@/lib/marketing/email-preferences";
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    // 1. Authenticate and Authorize the Admin
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseUser.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // Verify admin status
-    const { data: adminUser, error: adminError } = await supabaseAdmin
-      .from("users")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    if (adminError || !adminUser?.is_admin) {
+    const principal = await getMarketingPrincipal();
+    if (!principal?.isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Fetch campaigns
+    // Use the same service-role client as the marketing workspace. Besides
+    // bypassing campaign RLS for admins, this guarantees drafts created by a
+    // marketing manager are read from the same configured Supabase project.
     const { data: campaigns, error: fetchError } = await supabaseAdmin
       .from("campaigns")
       .select("*")
@@ -305,6 +277,8 @@ export async function POST(req: Request) {
       }
     }
 
+    let sentCount = targetUsers.length;
+
     // For emails: SMTP sending
     if (targetType === "email") {
       const sesFromEmail = process.env.SES_FROM_EMAIL;
@@ -312,10 +286,16 @@ export async function POST(req: Request) {
         throw new Error("SES_FROM_EMAIL is not configured on the server.");
       }
 
-      // Dispatch emails in sequential chunks to prevent overloading/timeouts
-      for (const targetUser of targetUsers) {
-        const targetEmail = getTargetNotificationEmail(targetUser) || targetUser.email;
-        if (!targetEmail) continue;
+      const addressedTargets = targetUsers.map((targetUser) => ({
+        targetUser,
+        targetEmail: getTargetNotificationEmail(targetUser) || targetUser.email,
+      })).filter(({ targetEmail }) => Boolean(targetEmail));
+      const unsubscribed = await getUnsubscribedCampaignEmails(addressedTargets.map(({ targetEmail }) => targetEmail));
+      sentCount = 0;
+
+      // Dispatch emails sequentially to prevent overloading/timeouts
+      for (const { targetUser, targetEmail } of addressedTargets) {
+        if (!targetEmail || unsubscribed.has(normalizeCampaignEmail(targetEmail))) continue;
 
         const userFullName = targetUser.full_name || "there";
         const personalizedSubject = title.trim()
@@ -349,10 +329,7 @@ export async function POST(req: Request) {
                 ${personalizedBody}
               </div>
             </div>
-            <div style="background-color: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8; font-weight: 500;">
-              <p style="margin: 0 0 8px 0; color: #64748b;">You received this announcement from the Vouchins Admin Console.</p>
-              <p style="margin: 0;">&copy; 2026 Vouchins. All rights reserved.</p>
-            </div>
+            ${campaignEmailFooter(targetEmail, targetUser.id)}
           </div>
         `;
 
@@ -362,7 +339,11 @@ export async function POST(req: Request) {
             to: targetEmail,
             subject: personalizedSubject,
             html: formattedHtml,
+            headers: targetUser.id
+              ? { "List-Unsubscribe": `<${emailPreferenceUrls(targetEmail, targetUser.id).unsubscribeUrl}>` }
+              : undefined,
           });
+          sentCount += 1;
         } catch (mailErr) {
           console.error(`Failed to send email to ${targetEmail}:`, mailErr);
           // Continue to next user even if one fails
@@ -375,7 +356,7 @@ export async function POST(req: Request) {
       .from("campaigns")
       .update({
         status: "sent",
-        sent_count: targetUsers.length,
+        sent_count: sentCount,
         updated_at: new Date().toISOString(),
       })
       .eq("id", campaign.id)
