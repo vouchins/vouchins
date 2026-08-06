@@ -203,16 +203,24 @@ export function UserProvider({ children, initialUser = null, skipInitialFetchOnF
     });
 
     // Listen for custom user update event
-    const handleUserUpdate = (e: any) => {
-      if (e.detail?.city) {
-        setUser((prev) => (prev ? { ...prev, city: e.detail.city } : prev));
-      }
+    const handleUserUpdate = (e: CustomEvent<Partial<UserProfile>>) => {
+      if (!e.detail) return;
+      setUser((prev) => {
+        if (!prev) return prev;
+        const updated = { ...prev, ...e.detail };
+        const completedFields = [updated.is_verified, updated.avatar_url, updated.linkedin_url, updated.phone_number].filter(Boolean).length;
+        return {
+          ...updated,
+          is_profile_complete: completedFields === 4,
+          profile_completion_percentage: (completedFields / 4) * 100,
+        };
+      });
     };
-    window.addEventListener("user-updated", handleUserUpdate);
+    window.addEventListener("user-updated", handleUserUpdate as EventListener);
 
     return () => {
       subscription.unsubscribe();
-      window.removeEventListener("user-updated", handleUserUpdate);
+      window.removeEventListener("user-updated", handleUserUpdate as EventListener);
     };
   }, [pathname]);
 

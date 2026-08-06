@@ -73,6 +73,7 @@ interface UserGroup {
   description: string;
   is_system: boolean;
   member_count: number;
+  member_ids?: string[];
   rules?: any;
 }
 
@@ -92,6 +93,7 @@ interface User {
   id: string;
   full_name: string;
   email: string;
+  city?: string | null;
   is_verified: boolean;
   company?: { id: string; name: string } | null;
 }
@@ -149,6 +151,7 @@ export function CampaignsTab() {
   // View states
   const [viewMode, setViewMode] = useState<"dashboard" | "create">("dashboard");
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [submittingCampaign, setSubmittingCampaign] = useState(false);
   const [submittingGroup, setSubmittingGroup] = useState(false);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
@@ -211,6 +214,7 @@ export function CampaignsTab() {
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [groupSearchTerm, setGroupSearchTerm] = useState("");
   const [filterCompanyId, setFilterCompanyId] = useState<string>("all");
+  const [filterCity, setFilterCity] = useState<string>("all");
   const [filterVerified, setFilterVerified] = useState<boolean>(false);
 
   // Search states for dropdowns
@@ -219,6 +223,30 @@ export function CampaignsTab() {
   const [companySearch, setCompanySearch] = useState("");
   const [isCompanyComboOpen, setIsCompanyComboOpen] = useState(false);
   const [groupsListSearch, setGroupsListSearch] = useState("");
+
+  const resetGroupForm = () => {
+    setEditingGroupId(null);
+    setGroupName("");
+    setGroupDescription("");
+    setSelectedUserIds([]);
+    setGroupSearchTerm("");
+    setFilterCompanyId("all");
+    setFilterCity("all");
+    setFilterVerified(false);
+  };
+
+  const handleOpenCreateGroup = () => {
+    resetGroupForm();
+    setIsGroupDialogOpen(true);
+  };
+
+  const handleEditGroup = (group: UserGroup) => {
+    setEditingGroupId(group.id);
+    setGroupName(group.name);
+    setGroupDescription(group.description || "");
+    setSelectedUserIds(group.member_ids || []);
+    setIsGroupDialogOpen(true);
+  };
 
   useEffect(() => {
     fetchData();
@@ -230,7 +258,7 @@ export function CampaignsTab() {
       const [campaignsRes, groupsRes, usersRes, companiesRes] = await Promise.all([
         fetch("/api/admin/campaigns"),
         fetch("/api/admin/user-groups"),
-        supabase.from("users").select("id, full_name, email, is_verified, company:companies(id, name)").order("full_name"),
+        supabase.from("users").select("id, full_name, email, city, is_verified, company:companies(id, name)").order("full_name"),
         supabase.from("companies").select("id, name").order("name"),
       ]);
 
@@ -252,6 +280,7 @@ export function CampaignsTab() {
           id: u.id,
           full_name: u.full_name,
           email: u.email,
+          city: u.city,
           is_verified: u.is_verified,
           company: comp ? { id: comp.id, name: comp.name } : null,
         };
@@ -445,7 +474,8 @@ export function CampaignsTab() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "create",
+          action: editingGroupId ? "update" : "create",
+          groupId: editingGroupId,
           name: groupName,
           description: groupDescription,
           userIds: selectedUserIds,
@@ -455,12 +485,9 @@ export function CampaignsTab() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create group");
 
-      toast.success(`User group "${groupName}" created successfully!`);
+      toast.success(`User group "${groupName}" ${editingGroupId ? "updated" : "created"} successfully!`);
       setIsGroupDialogOpen(false);
-      // Reset form
-      setGroupName("");
-      setGroupDescription("");
-      setSelectedUserIds([]);
+      resetGroupForm();
       fetchData();
     } catch (err: any) {
       console.error(err);
@@ -515,6 +542,8 @@ export function CampaignsTab() {
     c.name.toLowerCase().includes(companySearch.toLowerCase())
   );
 
+  const availableCities = Array.from(new Set(users.map((u) => u.city?.trim()).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b));
+
   const filteredGroupsList = groups.filter((g) =>
     g.name.toLowerCase().includes(groupsListSearch.toLowerCase()) ||
     (g.description || "").toLowerCase().includes(groupsListSearch.toLowerCase())
@@ -526,9 +555,10 @@ export function CampaignsTab() {
       u.email.toLowerCase().includes(groupSearchTerm.toLowerCase());
 
     const matchesCompany = filterCompanyId === "all" || u.company?.id === filterCompanyId;
+    const matchesCity = filterCity === "all" || u.city === filterCity;
     const matchesVerified = !filterVerified || u.is_verified;
 
-    return matchesSearch && matchesCompany && matchesVerified;
+    return matchesSearch && matchesCompany && matchesCity && matchesVerified;
   });
 
   const toggleUserSelection = (userId: string) => {
@@ -689,7 +719,7 @@ export function CampaignsTab() {
               <p className="text-xs text-neutral-500 mt-0.5">Manage system and custom recipient list groupings.</p>
             </div>
             <Button
-              onClick={() => setIsGroupDialogOpen(true)}
+              onClick={handleOpenCreateGroup}
               variant="outline"
               className="flex items-center gap-1 text-neutral-700 border-neutral-200 text-xs font-bold rounded-lg h-9 px-3 hover:bg-neutral-50"
             >
@@ -738,14 +768,18 @@ export function CampaignsTab() {
                     </div>
 
                     {!g.is_system && (
-                      <Button
-                        onClick={() => handleDeleteGroup(g.id, g.name)}
-                        size="icon"
-                        variant="ghost"
-                        className="text-neutral-400 hover:text-red-600 h-8 w-8 hover:bg-red-50 rounded-lg self-center shrink-0"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="text-neutral-500 h-8 w-8 rounded-lg self-center shrink-0" aria-label={`Actions for ${g.name}`}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-36">
+                          <DropdownMenuItem onSelect={() => handleEditGroup(g)} className="gap-2 cursor-pointer"><Edit3 className="h-4 w-4"/>Edit</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onSelect={() => void handleDeleteGroup(g.id, g.name)} className="gap-2 cursor-pointer text-red-600 focus:text-red-600"><Trash2 className="h-4 w-4"/>Delete</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
                 ))}
@@ -1139,7 +1173,7 @@ export function CampaignsTab() {
                   type="button"
                   onClick={() => setIsPreviewDialogOpen(true)}
                   variant="outline"
-                  className="text-xs font-bold text-indigo-700 border-indigo-200 hover:bg-indigo-50/50 h-10 px-4 rounded-lg"
+                  className="text-xs font-bold text-indigo-700 border-indigo-200 hover:!bg-indigo-50 hover:!text-indigo-700 h-10 px-4 rounded-lg"
                 >
                   Preview Email
                 </Button>
@@ -1149,7 +1183,7 @@ export function CampaignsTab() {
                 variant="outline"
                 disabled={submittingCampaign}
                 onClick={() => handleCreateCampaign("draft")}
-                className="text-xs font-bold text-neutral-700 border-neutral-200 hover:bg-neutral-50 h-10 px-4 rounded-lg"
+                className="text-xs font-bold text-neutral-700 border-neutral-200 hover:!bg-neutral-100 hover:!text-neutral-900 h-10 px-4 rounded-lg"
               >
                 {submittingCampaign ? "Saving..." : "Save as Draft"}
               </Button>
@@ -1187,12 +1221,6 @@ export function CampaignsTab() {
               const mockName = "John Doe";
               const rawBody = (!isCodeView && editorRef.current) ? editorRef.current.innerHTML : campaignBody;
 
-              const personalizedSubject = (campaignTitle || "Campaign Subject Line")
-                .replace(/\{\{name\}\}/gi, mockName)
-                .replace(/\{name\}/gi, mockName)
-                .replace(/\{\{full_name\}\}/gi, mockName)
-                .replace(/\{full_name\}/gi, mockName);
-
               const personalizedBody = (rawBody || "<p>Please compose email content...</p>")
                 .replace(/\{\{name\}\}/gi, mockName)
                 .replace(/\{name\}/gi, mockName)
@@ -1209,9 +1237,6 @@ export function CampaignsTab() {
                     />
                   </div>
                   <div style={{ padding: "40px 32px", backgroundColor: "#ffffff" }}>
-                    <h2 style={{ color: "#0f172a", fontSize: "22px", fontWeight: "800", marginTop: "0", marginBottom: "24px", borderBottom: "1px solid #f1f5f9", paddingBottom: "12px", letterSpacing: "-0.02em" }}>
-                      {personalizedSubject}
-                    </h2>
                     <div 
                       style={{ color: "#334155", fontSize: "15px", lineHeight: "1.7", fontWeight: "400" }} 
                       dangerouslySetInnerHTML={{ __html: personalizedBody }}
@@ -1239,11 +1264,11 @@ export function CampaignsTab() {
       </Dialog>
 
       {/* dialog for Custom Group Creator */}
-      <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+      <Dialog open={isGroupDialogOpen} onOpenChange={(open) => { setIsGroupDialogOpen(open); if (!open) resetGroupForm(); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-white rounded-2xl p-6 border shadow-xl">
           <DialogHeader className="mb-4">
             <DialogTitle className="text-xl font-black text-neutral-950 flex items-center gap-2">
-              <Plus className="h-5 w-5 text-indigo-600" /> Create Custom User Group
+              {editingGroupId ? <Edit3 className="h-5 w-5 text-indigo-600" /> : <Plus className="h-5 w-5 text-indigo-600" />} {editingGroupId ? "Edit Custom User Group" : "Create Custom User Group"}
             </DialogTitle>
           </DialogHeader>
 
@@ -1276,7 +1301,7 @@ export function CampaignsTab() {
             <div className="border border-neutral-200/80 rounded-xl overflow-hidden bg-white">
               <div className="bg-neutral-50 p-4 border-b border-neutral-200/50 space-y-3">
                 <Label className="text-xs font-bold text-neutral-700">Filter Professionals List</Label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* search */}
                   <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-400" />
@@ -1352,6 +1377,19 @@ export function CampaignsTab() {
                       </div>
                     </PopoverContent>
                   </Popover>
+
+                  {/* City filter */}
+                  <Select value={filterCity} onValueChange={setFilterCity}>
+                    <SelectTrigger className="h-9 rounded-lg border-neutral-200 bg-white text-xs text-neutral-700">
+                      <SelectValue placeholder="All Cities" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[260px] bg-white">
+                      <SelectItem value="all" className="text-xs">All Cities</SelectItem>
+                      {availableCities.map((city) => (
+                        <SelectItem key={city} value={city} className="text-xs">{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
                   {/* Verification filter */}
                   <div className="flex items-center gap-2 bg-white px-3 rounded-lg border border-neutral-200 h-9">
@@ -1444,7 +1482,7 @@ export function CampaignsTab() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => setIsGroupDialogOpen(false)}
+                onClick={() => { setIsGroupDialogOpen(false); resetGroupForm(); }}
                 className="text-xs font-bold text-neutral-600"
               >
                 Cancel
@@ -1452,9 +1490,9 @@ export function CampaignsTab() {
               <Button
                 type="submit"
                 disabled={submittingGroup}
-                className="bg-neutral-950 hover:bg-neutral-800 text-white text-xs font-bold px-4 h-10 rounded-lg"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold px-4 h-10 rounded-lg shadow-sm"
               >
-                {submittingGroup ? "Creating..." : "Create Group"}
+                {submittingGroup ? (editingGroupId ? "Saving..." : "Creating...") : (editingGroupId ? "Save Changes" : "Create Group")}
               </Button>
             </DialogFooter>
           </form>

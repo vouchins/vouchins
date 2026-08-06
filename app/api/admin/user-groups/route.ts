@@ -54,13 +54,15 @@ export async function GET(req: Request) {
     // Fetch custom group member counts
     const { data: memberCounts, error: countsError } = await supabaseAdmin
       .from("user_group_members")
-      .select("group_id");
+      .select("group_id, user_id");
 
     if (countsError) throw countsError;
 
     const customCountsMap: Record<string, number> = {};
+    const customMembersMap: Record<string, string[]> = {};
     memberCounts?.forEach((m: any) => {
       customCountsMap[m.group_id] = (customCountsMap[m.group_id] || 0) + 1;
+      customMembersMap[m.group_id] = [...(customMembersMap[m.group_id] || []), m.user_id];
     });
 
     // 3. Resolve default groups dynamically
@@ -193,6 +195,7 @@ export async function GET(req: Request) {
       description: g.description,
       is_system: false,
       member_count: customCountsMap[g.id] || 0,
+      member_ids: customMembersMap[g.id] || [],
       rules: g.rules,
     })) || [];
 
@@ -298,10 +301,12 @@ export async function POST(req: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", groupId)
+        .eq("is_system", false)
         .select()
-        .single();
+        .maybeSingle();
 
       if (updateErr) throw updateErr;
+      if (!updatedGroup) return NextResponse.json({ error: "Custom group not found" }, { status: 404 });
 
       // Replace members
       if (userIds && Array.isArray(userIds)) {
@@ -336,12 +341,16 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Group ID is required" }, { status: 400 });
       }
 
-      const { error: deleteErr } = await supabaseAdmin
+      const { data: deletedGroup, error: deleteErr } = await supabaseAdmin
         .from("user_groups")
         .delete()
-        .eq("id", groupId);
+        .eq("id", groupId)
+        .eq("is_system", false)
+        .select("id")
+        .maybeSingle();
 
       if (deleteErr) throw deleteErr;
+      if (!deletedGroup) return NextResponse.json({ error: "Custom group not found" }, { status: 404 });
 
       return NextResponse.json({ success: true });
     }

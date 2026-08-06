@@ -324,7 +324,6 @@ export async function POST(req: Request) {
               <img src="${logoUrl}" alt="Vouchins" style="height: 36px; max-height: 36px; display: block; margin: auto; border: 0;" />
             </div>
             <div style="padding: 40px 32px; background-color: #ffffff;">
-              <h2 style="color: #0f172a; font-size: 22px; font-weight: 800; margin-top: 0; margin-bottom: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; letter-spacing: -0.02em;">${personalizedSubject}</h2>
               <div style="color: #334155; font-size: 15px; line-height: 1.7; font-weight: 400;">
                 ${personalizedBody}
               </div>

@@ -67,6 +67,8 @@ const ACTIVITY_CATEGORY_LABELS: Record<string, string> = {
   jobs: "Jobs",
 };
 
+const LINKEDIN_URL_PREFIX = "https://www.linkedin.com/";
+
 export const getHighestBadge = (count: number) => {
   if (count >= 50) return { name: "Founding Connector", icon: "🏆" };
   if (count >= 25) return { name: "Network Catalyst", icon: "🚀" };
@@ -178,7 +180,7 @@ export default function UserProfilePage() {
   const [formDraft, setFormDraft] = useState({
     bio: "",
     city: "",
-    linkedin_url: "",
+    linkedin_url: LINKEDIN_URL_PREFIX,
     personal_email: "",
     phone_country_code: "+91",
     phone_number: "",
@@ -339,7 +341,7 @@ export default function UserProfilePage() {
       setFormDraft({
         bio: profileData.bio || "",
         city: profileData.city || "",
-        linkedin_url: profileData.linkedin_url || "",
+        linkedin_url: profileData.linkedin_url || LINKEDIN_URL_PREFIX,
         personal_email: profileData.personal_email || "",
         phone_country_code: parsedPhone.code,
         phone_number: parsedPhone.num,
@@ -427,10 +429,14 @@ export default function UserProfilePage() {
       return;
     }
 
+    const linkedinUrl = formDraft.linkedin_url.trim() === LINKEDIN_URL_PREFIX
+      ? ""
+      : formDraft.linkedin_url.trim();
+
     // Simple validation for LinkedIn URL
     if (
-      formDraft.linkedin_url &&
-      !formDraft.linkedin_url.includes("linkedin.com/")
+      linkedinUrl &&
+      !linkedinUrl.includes("linkedin.com/")
     ) {
       alert(
         "Please enter a valid LinkedIn URL (e.g., https://linkedin.com/in/username)",
@@ -463,7 +469,7 @@ export default function UserProfilePage() {
       .update({
         bio: formDraft.bio.trim(),
         city: formDraft.city,
-        linkedin_url: formDraft.linkedin_url.trim(),
+        linkedin_url: linkedinUrl,
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
         job_search_status: formDraft.job_search_status || null,
@@ -475,11 +481,11 @@ export default function UserProfilePage() {
       .eq("id", me.id);
 
     if (!error) {
-      setProfile({ 
+      const updatedProfile = {
         ...profile, 
         bio: formDraft.bio.trim(),
         city: formDraft.city,
-        linkedin_url: formDraft.linkedin_url.trim(),
+        linkedin_url: linkedinUrl,
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
         job_search_status: formDraft.job_search_status || null,
@@ -487,10 +493,25 @@ export default function UserProfilePage() {
         pref_email_comments: formDraft.pref_email_comments,
         pref_email_digest: formDraft.pref_email_digest,
         pref_email_campaigns: formDraft.pref_email_campaigns,
-      });
+      };
+      setProfile(updatedProfile);
+
+      const completionPoints = [
+        updatedProfile.is_verified,
+        updatedProfile.avatar_url,
+        updatedProfile.linkedin_url,
+        updatedProfile.phone_number,
+      ].filter(Boolean).length * 25;
+      setVouchScore(communityVouchesTotal + completionPoints);
+
       window.dispatchEvent(
         new CustomEvent("user-updated", {
-          detail: { city: formDraft.city },
+          detail: {
+            city: updatedProfile.city,
+            linkedin_url: updatedProfile.linkedin_url,
+            phone_number: updatedProfile.phone_number,
+            bio: updatedProfile.bio,
+          },
         }),
       );
       setIsEditing(false);
@@ -1100,7 +1121,10 @@ export default function UserProfilePage() {
 
             <div className="flex flex-col items-center gap-7 sm:flex-row">
               <div className="flex w-44 shrink-0 flex-col items-center gap-3">
-                <div className="relative flex h-44 w-44 items-center justify-center rounded-full bg-[conic-gradient(from_215deg,#1f2557_0deg,#3349a3_275deg,#dce3f1_275deg,#dce3f1_360deg)] p-2 shadow-[0_18px_36px_-25px_rgba(31,37,87,0.85)]">
+                <div
+                  className="relative flex h-44 w-44 items-center justify-center rounded-full p-2 shadow-[0_18px_36px_-25px_rgba(31,37,87,0.85)] transition-all duration-500"
+                  style={{ background: `conic-gradient(from 215deg, #1f2557 0deg, #3349a3 ${Math.min(Math.max(vouchScore, 0), 100) * 3.6}deg, #dce3f1 ${Math.min(Math.max(vouchScore, 0), 100) * 3.6}deg, #dce3f1 360deg)` }}
+                >
                   <div className="flex h-full w-full items-center justify-center rounded-full border border-white bg-white/95">
                     <span className="text-6xl font-semibold tracking-[-0.06em] text-primary">
                       {vouchScore}
@@ -1708,7 +1732,7 @@ export default function UserProfilePage() {
                       setFormDraft({
                         bio: profile.bio || "",
                         city: profile.city || "",
-                        linkedin_url: profile.linkedin_url || "",
+                        linkedin_url: profile.linkedin_url || LINKEDIN_URL_PREFIX,
                         personal_email: profile.personal_email || "",
                         phone_country_code: parsedPhone.code,
                         phone_number: parsedPhone.num,
