@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+const OTP_CHALLENGE_TTL_MS = 10 * 60 * 1000;
+
+type PendingOtpChallenge = {
+  email: string;
+  expiresAt: number;
+};
+
 export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
   const [step, setStep] = useState(1); // 1: Choice, 2: Email, 3: Manual, 4: OTP, 5: Success
   const [loading, setLoading] = useState(false);
@@ -41,6 +48,44 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
   const [linkedinUrl, setLinkedinUrl] = useState("");
   const [manualWorkEmail, setManualWorkEmail] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const pendingOtpStorageKey = user?.id
+    ? `vouchins:pending-otp:${user.id}`
+    : null;
+
+  useEffect(() => {
+    if (!isOpen || !pendingOtpStorageKey) return;
+
+    try {
+      const savedChallenge = window.localStorage.getItem(pendingOtpStorageKey);
+      if (!savedChallenge) return;
+
+      const challenge = JSON.parse(savedChallenge) as PendingOtpChallenge;
+      if (
+        typeof challenge.email === "string" &&
+        challenge.email.length > 0 &&
+        challenge.expiresAt > Date.now()
+      ) {
+        setCorporateEmail(challenge.email);
+        setStep(4);
+        return;
+      }
+
+      window.localStorage.removeItem(pendingOtpStorageKey);
+    } catch {
+      // Storage can be unavailable in privacy-restricted browser contexts.
+    }
+  }, [isOpen, pendingOtpStorageKey]);
+
+  const clearPendingOtpChallenge = () => {
+    if (!pendingOtpStorageKey) return;
+
+    try {
+      window.localStorage.removeItem(pendingOtpStorageKey);
+    } catch {
+      // Verification should still work when browser storage is unavailable.
+    }
+  };
 
   // Helper to change step and clear errors
   const navigateTo = (nextStep: number) => {
@@ -62,7 +107,23 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
           firstName: user.full_name,
         }),
       });
-      if (res.ok) navigateTo(4); // Navigate to OTP code entry step
+      if (res.ok) {
+        if (pendingOtpStorageKey) {
+          const challenge: PendingOtpChallenge = {
+            email: corporateEmail.trim().toLowerCase(),
+            expiresAt: Date.now() + OTP_CHALLENGE_TTL_MS,
+          };
+          try {
+            window.localStorage.setItem(
+              pendingOtpStorageKey,
+              JSON.stringify(challenge),
+            );
+          } catch {
+            // Continue to OTP entry even if persistence is unavailable.
+          }
+        }
+        navigateTo(4); // Navigate to OTP code entry step
+      }
       else throw new Error("Failed to send code. Please try again.");
     } catch (err: any) {
       setError(err.message);
@@ -79,6 +140,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
         body: JSON.stringify({ email: corporateEmail, otp, userId: user.id }),
       });
       if (res.ok) {
+        clearPendingOtpChallenge();
         onVerified();
         onClose();
       } else throw new Error("Invalid verification code.");
@@ -87,6 +149,12 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBackFromOtp = () => {
+    clearPendingOtpChallenge();
+    setOtp("");
+    navigateTo(2);
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -139,7 +207,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
             </button>
           ) : step === 4 ? (
             <button
-              onClick={() => navigateTo(2)}
+              onClick={handleBackFromOtp}
               className="p-2 -ml-2 hover:bg-neutral-100 rounded-full transition-colors"
             >
               <ArrowLeft className="h-5 w-5 text-neutral-600" />
@@ -422,12 +490,14 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
               <Input
                 value={otp}
                 onChange={(e) => {
-                  setOtp(e.target.value);
+                  setOtp(e.target.value.replace(/\D/g, "").slice(0, 6));
                   if (error) setError("");
                 }}
                 placeholder="Enter 6-digit code"
                 className="h-12 sm:h-14 text-center text-lg sm:text-xl font-mono rounded-2xl bg-neutral-50 border-none tracking-[0.2em]"
                 maxLength={6}
+                inputMode="numeric"
+                autoComplete="one-time-code"
               />
               <Button
                 className="w-full h-12 sm:h-14 rounded-2xl bg-primary font-bold transition-all active:scale-[0.99]"

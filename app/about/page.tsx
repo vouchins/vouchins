@@ -1,6 +1,6 @@
 "use client";
 
-import { HomepageNavbar } from "@/components/homepage-navbar";
+import { Navigation } from "@/components/navigation";
 import {
   ArrowUpRight,
   ChevronRight,
@@ -16,7 +16,7 @@ import Link from "next/link";
 export default function AboutPage() {
   return (
     <>
-      <HomepageNavbar />
+      <Navigation />
       <div className="min-h-screen bg-neutral-50 selection:bg-[#4FD1C5]/30 flex flex-col">
 
         {/* ==================================================

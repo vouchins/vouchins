@@ -38,9 +38,20 @@ import {
   ListOrdered,
   Link as LinkIcon,
   Code,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/browser";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface BlogTabProps {
   posts: any[];
@@ -55,6 +66,7 @@ export function BlogTab({ posts, onCreate, onUpdate, onDelete }: BlogTabProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isRemovingImage, setIsRemovingImage] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -91,6 +103,7 @@ export function BlogTab({ posts, onCreate, onUpdate, onDelete }: BlogTabProps) {
   };
 
   const handleCloseForm = () => {
+    setIsPreviewOpen(false);
     setView("list");
     setEditingPost(null);
   };
@@ -423,6 +436,15 @@ export function BlogTab({ posts, onCreate, onUpdate, onDelete }: BlogTabProps) {
               <Button
                 type="button"
                 variant="outline"
+                onClick={() => setIsPreviewOpen(true)}
+                disabled={isSubmitting}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Preview
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleCloseForm}
                 disabled={isSubmitting}
               >
@@ -437,6 +459,80 @@ export function BlogTab({ posts, onCreate, onUpdate, onDelete }: BlogTabProps) {
               </Button>
             </div>
           </form>
+
+          <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+            <DialogContent className="flex h-[92vh] w-[96vw] max-w-5xl flex-col gap-0 overflow-hidden border-neutral-200 bg-white p-0">
+              <DialogHeader className="border-b border-neutral-200 bg-neutral-50 px-5 py-4 text-left">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <DialogTitle>Blog preview</DialogTitle>
+                </div>
+                <DialogDescription>
+                  Draft preview only. Nothing is submitted or published until you save the post.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="min-h-0 flex-1 overflow-y-auto bg-white">
+                <main className="container mx-auto max-w-3xl px-4 py-10 sm:py-12">
+                  <nav aria-label="Preview breadcrumb" className="mb-8 text-sm text-neutral-500">
+                    <ol className="flex flex-wrap items-center gap-2">
+                      <li>Home</li>
+                      <li aria-hidden="true">/</li>
+                      <li>Blog</li>
+                      <li aria-hidden="true">/</li>
+                      <li className="max-w-[18rem] truncate text-neutral-700" aria-current="page">
+                        {formData.title || "Untitled post"}
+                      </li>
+                    </ol>
+                  </nav>
+
+                  <article>
+                    <header className="mb-10">
+                      <h1 className="mb-6 text-4xl font-extrabold leading-tight tracking-tight text-neutral-900 md:text-5xl">
+                        {formData.title || "Untitled post"}
+                      </h1>
+                      <div className="flex items-center gap-4 border-y border-neutral-100 py-4 text-sm text-neutral-500">
+                        <span className="font-bold text-neutral-900">Vouchins Team</span>
+                        <span aria-hidden="true">•</span>
+                        <time>
+                          {new Intl.DateTimeFormat(undefined, {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          }).format(new Date())}
+                        </time>
+                      </div>
+                    </header>
+
+                    {formData.cover_image_url && (
+                      <div className="mb-10 overflow-hidden rounded-2xl bg-neutral-100">
+                        <img
+                          src={formData.cover_image_url}
+                          alt={formData.title || "Blog cover"}
+                          className="max-h-[400px] h-auto w-full object-cover"
+                        />
+                      </div>
+                    )}
+
+                    <div className="prose prose-lg prose-indigo max-w-none leading-relaxed text-neutral-700">
+                      {formData.content ? (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeRaw]}
+                        >
+                          {formData.content}
+                        </ReactMarkdown>
+                      ) : (
+                        <p className="italic text-neutral-400">
+                          Start writing to preview your post content.
+                        </p>
+                      )}
+                    </div>
+                  </article>
+                </main>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     );
