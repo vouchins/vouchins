@@ -65,7 +65,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { supabase } from "@/lib/supabase/browser";
 
 interface UserGroup {
   id: string;
@@ -255,15 +254,15 @@ export function CampaignsTab() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [campaignsRes, groupsRes, usersRes, companiesRes] = await Promise.all([
+      const [campaignsRes, groupsRes, optionsRes] = await Promise.all([
         fetch("/api/admin/campaigns"),
         fetch("/api/admin/user-groups"),
-        supabase.from("users").select("id, full_name, email, city, is_verified, company:companies(id, name)").order("full_name"),
-        supabase.from("companies").select("id, name").order("name"),
+        fetch("/api/admin/dashboard?resource=campaign-options", { cache: "no-store" }),
       ]);
 
       const cData = await campaignsRes.json();
       const gData = await groupsRes.json();
+      const optionsData = await optionsRes.json();
 
       if (!campaignsRes.ok) {
         throw new Error(cData.error || "Failed to load campaigns");
@@ -271,10 +270,13 @@ export function CampaignsTab() {
       if (!groupsRes.ok) {
         throw new Error(gData.error || "Failed to load user groups");
       }
+      if (!optionsRes.ok) {
+        throw new Error(optionsData.error || "Failed to load campaign options");
+      }
 
       setCampaigns(cData.campaigns || []);
       setGroups(gData.groups || []);
-      const formattedUsers = (usersRes.data || []).map((u: any) => {
+      const formattedUsers = (optionsData.users || []).map((u: any) => {
         const comp = Array.isArray(u.company) ? u.company[0] : u.company;
         return {
           id: u.id,
@@ -286,7 +288,7 @@ export function CampaignsTab() {
         };
       });
       setUsers(formattedUsers);
-      setCompanies(companiesRes.data || []);
+      setCompanies(optionsData.companies || []);
     } catch (e) {
       console.error("Failed to load campaign data", e);
       toast.error("Failed to load campaigns and user groups");

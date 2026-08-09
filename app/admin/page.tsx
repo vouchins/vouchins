@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,46 +55,54 @@ function AdminPageContent() {
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [recruiters, setRecruiters] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
+  const sessionInvalidated = useRef(false);
+
+  const clearAdminState = () => {
+    setUser(null);
+    setDbCounts({});
+    setReports([]);
+    setFlaggedPosts([]);
+    setWaitlist([]);
+    setAllUsers([]);
+    setFeedback([]);
+    setBlogPosts([]);
+    setRecruiters([]);
+    setCompanies([]);
+    setLoadedTabs({});
+  };
+
+  const expireAdminSession = () => {
+    if (sessionInvalidated.current) return;
+    sessionInvalidated.current = true;
+    clearAdminState();
+    router.replace("/login?reason=session-expired");
+  };
+
+  const adminFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const response = await fetch(input, { ...init, cache: "no-store" });
+    if (response.status === 401 || response.status === 403) {
+      expireAdminSession();
+      throw new Error("Your admin session has expired");
+    }
+    return response;
+  };
 
   useEffect(() => {
-    checkAuth();
+    void checkAuth();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || ((event === "TOKEN_REFRESHED" || event === "USER_UPDATED") && !session)) {
+        expireAdminSession();
+      }
+    });
+    return () => subscription.unsubscribe();
   }, [router]);
 
   const fetchDbCounts = async () => {
     try {
-      const [
-        usersRes,
-        reportsRes,
-        flaggedRes,
-        waitlistRes,
-        feedbackRes,
-        recruitersRes,
-        companiesRes,
-        campaignsRes,
-        blogRes,
-      ] = await Promise.all([
-        supabase.from("users").select("*", { count: "exact", head: true }),
-        supabase.from("reports").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("posts").select("*", { count: "exact", head: true }).eq("is_flagged", true).eq("is_removed", false),
-        supabase.from("manual_verification_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("feedback").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("recruiters").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("companies").select("*", { count: "exact", head: true }),
-        supabase.from("campaigns").select("*", { count: "exact", head: true }),
-        supabase.from("blog_posts").select("*", { count: "exact", head: true }),
-      ]);
-
-      setDbCounts({
-        users: usersRes.count || 0,
-        reports: reportsRes.count || 0,
-        flagged: flaggedRes.count || 0,
-        waitlist: waitlistRes.count || 0,
-        feedback: feedbackRes.count || 0,
-        recruiters: recruitersRes.count || 0,
-        companies: companiesRes.count || 0,
-        campaigns: campaignsRes.count || 0,
-        blog: blogRes.count || 0,
-      });
+      const response = await adminFetch("/api/admin/dashboard?resource=counts");
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to load counts");
+      setDbCounts(result.data || {});
     } catch (error) {
       console.error("Failed to fetch database counts:", error);
     }
@@ -142,106 +150,50 @@ function AdminPageContent() {
   };
 
   const checkAuth = async () => {
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-
-    if (!authUser) {
-      router.push("/login");
-      return;
+    try {
+      const response = await adminFetch("/api/admin/dashboard?resource=overview");
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to initialize admin dashboard");
+      setUser(result.profile);
+      setDbCounts(result.dbCounts || {});
+      setAllUsers(result.users || []);
+      setLoadedTabs({ users: true });
+      setLoading(false);
+    } catch (error) {
+      if (!sessionInvalidated.current) {
+        console.error("Admin initialization failed", error);
+        toast.error("Unable to initialize the admin dashboard");
+      }
     }
-
-    const { data: userData } = await supabase
-      .from("users")
-      .select(`*, company:companies(*)`)
-      .eq("id", authUser.id)
-      .maybeSingle();
-
-    if (!userData || !userData.is_admin) {
-      router.push("/feed");
-      return;
-    }
-
-    setUser(userData);
-    await fetchDbCounts();
-    await loadTabData("users");
-    setLoading(false);
   };
 
   // --- Fetchers ---
   const fetchReports = async () => {
-    const { data } = await supabase
-      .from("reports")
-      .select(
-        `
-        *,
-        reporter:users!reports_reporter_id_fkey(full_name, email),
-        post:posts(id, text, is_removed, user:users!posts_user_id_fkey(id, full_name, email, is_active, is_admin)),
-        comment:comments(id, post_id, text, is_removed, user:users!comments_user_id_fkey(id, full_name, email, is_active, is_admin)),
-        reported_user:users!reports_reported_user_id_fkey(id, full_name, email, is_active, is_admin, company:companies(name))
-      `,
-      )
-      .order("created_at", { ascending: false });
-    setReports(data || []);
+    setReports(await fetchAdminResource("reports"));
   };
 
   const fetchFlaggedPosts = async () => {
-    const { data } = await supabase
-      .from("posts")
-      .select(
-        `*, user:users!posts_user_id_fkey(full_name, email, company:companies(name))`,
-      )
-      .eq("is_flagged", true)
-      .eq("is_removed", false)
-      .order("created_at", { ascending: false });
-    setFlaggedPosts(data || []);
+    setFlaggedPosts(await fetchAdminResource("flagged"));
   };
 
   const fetchWaitlist = async () => {
-    const { data, error } = await supabase
-      .from("manual_verification_requests")
-      .select(
-        `
-  *,
-  user:users!manual_verification_requests_user_id_fkey(
-    id,
-    full_name,
-    city,
-    email,
-    personal_email,
-    linkedin_url
-  )
-`,
-      )
-      .order("created_at", { ascending: false });
+    setWaitlist(await fetchAdminResource("waitlist"));
+  };
 
-    if (error) {
-      console.error("Error fetching verification requests:", error);
-      return;
-    }
-
-    setWaitlist(data || []);
+  const fetchAdminResource = async (resource: string) => {
+    const response = await adminFetch(`/api/admin/dashboard?resource=${encodeURIComponent(resource)}`);
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `Unable to load ${resource}`);
+    return result.data || [];
   };
 
   const fetchAllUsers = async () => {
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, full_name, email, personal_email, linkedin_url, is_active, is_admin, is_marketing_manager, is_verified, onboarded, created_at, company:companies(id, name)")
-      .order("created_at", { ascending: false });
-    
-    if (error) {
-      console.error("Error fetching users:", error);
-      toast.error("Failed to load users list: " + error.message);
-    } else {
-      setAllUsers(data || []);
-    }
+    setAllUsers(await fetchAdminResource("users"));
   };
 
   const fetchFeedback = async () => {
     try {
-      const res = await fetch("/api/feedback/get-feedback");
-      const data = await res.json();
-      setFeedback(data.feedback || []);
+      setFeedback(await fetchAdminResource("feedback"));
     } catch (error) {
       console.error("Failed to fetch feedback:", error);
       setFeedback([]);
@@ -249,27 +201,15 @@ function AdminPageContent() {
   };
 
   const fetchBlogPosts = async () => {
-    const { data } = await supabase
-      .from("blog_posts")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setBlogPosts(data || []);
+    setBlogPosts(await fetchAdminResource("blog"));
   };
 
   const fetchRecruiters = async () => {
-    const { data } = await supabase
-      .from("recruiters")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setRecruiters(data || []);
+    setRecruiters(await fetchAdminResource("recruiters"));
   };
 
   const fetchCompanies = async () => {
-    const { data } = await supabase
-      .from("companies")
-      .select("*")
-      .order("name", { ascending: true });
-    setCompanies(data || []);
+    setCompanies(await fetchAdminResource("companies"));
   };
 
   // --- Global Handlers (Passed to children) ---
@@ -281,7 +221,7 @@ function AdminPageContent() {
       | "remove_content"
       | "suspend_user",
   ) => {
-    const response = await fetch("/api/admin/reports", {
+    const response = await adminFetch("/api/admin/reports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reportId, action }),
@@ -321,7 +261,7 @@ function AdminPageContent() {
     }
 
     try {
-      const response = await fetch("/api/admin/flagged", {
+      const response = await adminFetch("/api/admin/flagged", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action, postIds }),
@@ -351,7 +291,7 @@ function AdminPageContent() {
   // --- User Management Handlers ---
   const handleUpdateUser = async (userId: string, updates: any) => {
     try {
-      const res = await fetch('/api/users/update', {
+      const res = await adminFetch('/api/users/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, updates }),
@@ -370,7 +310,7 @@ function AdminPageContent() {
   const handleDeleteUser = async (userId: string) => {
     if (!confirm("Are you sure you want to permanently delete this user? This will remove all their posts, messages, and account details.")) return;
     try {
-      const res = await fetch("/api/admin/delete-user", {
+      const res = await adminFetch("/api/admin/delete-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
@@ -389,7 +329,7 @@ function AdminPageContent() {
   };
 
   const handleCreateCompany = async (name: string, domain: string) => {
-    const res = await fetch("/api/admin/companies", {
+    const res = await adminFetch("/api/admin/companies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "create", name, domain }),
@@ -403,7 +343,7 @@ function AdminPageContent() {
   };
 
   const handleUpdateCompany = async (companyId: string, name: string, domain: string) => {
-    const res = await fetch("/api/admin/companies", {
+    const res = await adminFetch("/api/admin/companies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "update", companyId, name, domain }),
@@ -417,7 +357,7 @@ function AdminPageContent() {
   };
 
   const handleDeleteCompany = async (companyId: string) => {
-    const res = await fetch("/api/admin/companies", {
+    const res = await adminFetch("/api/admin/companies", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete", companyId }),
@@ -438,7 +378,7 @@ function AdminPageContent() {
   ) => {
     if (action === "reject" && !confirm("Reject this applicant?")) return;
     try {
-      const res = await fetch("/api/auth/approve-waitlist", {
+      const res = await adminFetch("/api/auth/approve-waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ waitlistId, notes, action, domain }),
@@ -452,21 +392,23 @@ function AdminPageContent() {
   };
 
   const handleRecruiterAction = async (recruiterId: string, action: "approved" | "rejected" | "suspended") => {
-    const { error } = await supabase
-      .from("recruiters")
-      .update({ status: action })
-      .eq("id", recruiterId);
-    if (!error) {
+    const response = await adminFetch("/api/admin/dashboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update-recruiter", id: recruiterId, status: action }),
+    });
+    if (response.ok) {
       await fetchRecruiters();
       await fetchDbCounts();
     } else {
-      alert("Failed to update recruiter status: " + error.message);
+      const result = await response.json();
+      alert("Failed to update recruiter status: " + (result.error || "Unknown error"));
     }
   };
 
   const handleReviewFeedback = async (feedbackId: string) => {
     try {
-      const res = await fetch("/api/feedback/update-feedback", {
+      const res = await adminFetch("/api/feedback/update-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feedbackId, status: "reviewed" }),
@@ -482,29 +424,28 @@ function AdminPageContent() {
   };
 
   const handleCreateBlog = async (post: any) => {
-    const { error } = await supabase.from("blog_posts").insert({
-      ...post,
-      author_id: user.id,
-      published_at:
-        post.status === "published" ? new Date().toISOString() : null,
+    const response = await adminFetch("/api/admin/dashboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create-blog", values: post }),
     });
-    if (error) {
-      alert("Error creating post: " + error.message);
+    if (!response.ok) {
+      const result = await response.json();
+      alert("Error creating post: " + (result.error || "Unknown error"));
     } else {
       await fetchBlogPosts();
     }
   };
 
   const handleUpdateBlog = async (id: string, updates: any) => {
-    if (updates.status === "published" && !updates.published_at) {
-      updates.published_at = new Date().toISOString();
-    }
-    const { error } = await supabase
-      .from("blog_posts")
-      .update(updates)
-      .eq("id", id);
-    if (error) {
-      alert("Error updating post: " + error.message);
+    const response = await adminFetch("/api/admin/dashboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update-blog", id, values: updates }),
+    });
+    if (!response.ok) {
+      const result = await response.json();
+      alert("Error updating post: " + (result.error || "Unknown error"));
     } else {
       await fetchBlogPosts();
     }
@@ -512,9 +453,14 @@ function AdminPageContent() {
 
   const handleDeleteBlog = async (id: string) => {
     if (!confirm("Are you sure you want to delete this blog post?")) return;
-    const { error } = await supabase.from("blog_posts").delete().eq("id", id);
-    if (error) {
-      alert("Error deleting post: " + error.message);
+    const response = await adminFetch("/api/admin/dashboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete-blog", id }),
+    });
+    if (!response.ok) {
+      const result = await response.json();
+      alert("Error deleting post: " + (result.error || "Unknown error"));
     } else {
       await fetchBlogPosts();
     }
