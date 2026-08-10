@@ -307,6 +307,28 @@ function AdminPageContent() {
     }
   };
 
+  const handleAdjustVouchScore = async (
+    userId: string,
+    delta: number,
+    reason?: string,
+  ) => {
+    try {
+      const res = await adminFetch("/api/admin/vouch-score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, delta, reason }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result?.error || "Failed to update vouch score");
+      }
+      await fetchAllUsers();
+      await fetchDbCounts();
+    } catch (err: any) {
+      throw new Error(err?.message || "Failed to update vouch score");
+    }
+  };
+
   const handleDeleteUser = async (userId: string) => {
     if (!confirm("Are you sure you want to permanently delete this user? This will remove all their posts, messages, and account details.")) return;
     try {
@@ -631,6 +653,7 @@ function AdminPageContent() {
                       <UsersTab
                         users={allUsers}
                         onUpdateUser={handleUpdateUser}
+                        onAdjustVouchScore={handleAdjustVouchScore}
                         onDeleteUser={handleDeleteUser}
                         onRefresh={handleRefreshActiveTab}
                         loading={loading || isTabLoading}

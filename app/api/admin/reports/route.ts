@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireActiveAdmin } from "@/lib/admin/auth";
 
 const allowedActions = [
   "mark_reviewed",
@@ -30,27 +30,50 @@ async function resolveTargetReports(
   if (error) throw error;
 }
 
+async function applyVouchPenalty(params: {
+  reportId: string;
+  userId: string;
+  delta: number;
+  reason: string;
+  adminId: string;
+}) {
+  const { data: user, error: userError } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("id", params.userId)
+    .maybeSingle();
+
+  if (userError) throw userError;
+  if (!user) return;
+
+  const { data: previousScoreData, error: scoreError } = await supabaseAdmin.rpc("get_vouch_score", {
+    profile_id: params.userId,
+  });
+  if (scoreError) throw scoreError;
+  const previousScore = Number(previousScoreData) || 0;
+  const newScore = Math.max(0, previousScore + params.delta);
+  const appliedDelta = newScore - previousScore;
+
+  const { error: auditError } = await supabaseAdmin
+    .from("vouch_score_adjustments")
+    .insert({
+      user_id: params.userId,
+      admin_id: params.adminId,
+      report_id: params.reportId,
+      delta: appliedDelta,
+      previous_score: previousScore,
+      new_score: newScore,
+      reason: params.reason,
+      source: "report",
+    });
+
+  if (auditError) throw auditError;
+}
+
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerSupabase();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: adminUser } = await supabaseAdmin
-      .from("users")
-      .select("is_admin")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (!adminUser?.is_admin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireActiveAdmin();
+    if (auth.response) return auth.response;
 
     const body = await request.json().catch(() => ({}));
     const reportId = typeof body?.reportId === "string" ? body.reportId : "";
@@ -83,7 +106,7 @@ export async function POST(request: Request) {
 
     const resolvedAt = new Date().toISOString();
     const baseResolution = {
-      reviewed_by: user.id,
+      reviewed_by: auth.user.id,
       reviewed_at: resolvedAt,
       resolution_notes: notes,
     };
@@ -129,6 +152,24 @@ export async function POST(request: Request) {
         status: "reviewed",
         resolution_action: "content_removed",
       });
+
+      const targetUserId = report.reported_user_id
+        || (report.post_id
+          ? (await supabaseAdmin.from("posts").select("user_id").eq("id", report.post_id).maybeSingle()).data?.user_id
+          : null)
+        || (report.comment_id
+          ? (await supabaseAdmin.from("comments").select("user_id").eq("id", report.comment_id).maybeSingle()).data?.user_id
+          : null);
+
+      if (targetUserId) {
+        await applyVouchPenalty({
+          reportId: report.id,
+          userId: targetUserId,
+          delta: -5,
+          reason: notes || "Content removed after report review",
+          adminId: auth.user.id,
+        });
+      }
     }
 
     if (action === "suspend_user") {
@@ -152,7 +193,7 @@ export async function POST(request: Request) {
         targetUserId = comment?.user_id || null;
       }
 
-      if (!targetUserId || targetUserId === user.id) {
+      if (!targetUserId || targetUserId === auth.user.id) {
         return NextResponse.json(
           { error: "The target user cannot be suspended" },
           { status: 400 },
@@ -179,6 +220,14 @@ export async function POST(request: Request) {
         ...baseResolution,
         status: "reviewed",
         resolution_action: "user_suspended",
+      });
+
+      await applyVouchPenalty({
+        reportId: report.id,
+        userId: targetUserId,
+        delta: -10,
+        reason: notes || "User suspended after report review",
+        adminId: auth.user.id,
       });
     }
 

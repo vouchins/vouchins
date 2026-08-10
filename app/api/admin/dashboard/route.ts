@@ -4,6 +4,21 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const usersQuery = () => supabaseAdmin.from("users").select("id, full_name, email, personal_email, linkedin_url, is_active, is_admin, is_marketing_manager, is_verified, onboarded, created_at, company:companies(id, name)").order("created_at", { ascending: false });
 
+async function enrichUsersWithScores(users: any[]) {
+  const scoredUsers = await Promise.all(
+    users.map(async (user) => {
+      const { data: vouchScore } = await supabaseAdmin.rpc("get_vouch_score", {
+        profile_id: user.id,
+      });
+      return {
+        ...user,
+        vouch_score: Number(vouchScore) || 0,
+      };
+    }),
+  );
+  return scoredUsers;
+}
+
 async function counts() {
   const results = await Promise.all([
     supabaseAdmin.from("users").select("id", { count: "exact", head: true }),
@@ -30,7 +45,11 @@ export async function GET(request: Request) {
     if (resource === "overview") {
       const [dbCounts, users] = await Promise.all([counts(), usersQuery()]);
       if (users.error) throw users.error;
-      return NextResponse.json({ profile: auth.profile, dbCounts, users: users.data ?? [] });
+      return NextResponse.json({
+        profile: auth.profile,
+        dbCounts,
+        users: await enrichUsersWithScores(users.data ?? []),
+      });
     }
     let query;
     if (resource === "users") query = usersQuery();
@@ -53,6 +72,9 @@ export async function GET(request: Request) {
     else return NextResponse.json({ error: "Unknown resource" }, { status: 400 });
     const { data, error } = await query;
     if (error) throw error;
+    if (resource === "users") {
+      return NextResponse.json({ data: await enrichUsersWithScores(data ?? []) });
+    }
     return NextResponse.json({ data: data ?? [] });
   } catch (error) {
     console.error("Admin dashboard query failed", error);

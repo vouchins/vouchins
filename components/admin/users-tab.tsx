@@ -48,6 +48,7 @@ interface User {
   id: string;
   full_name: string;
   email: string; // Corporate
+  vouch_score: number;
   personal_email?: string;
   linkedin_url?: string;
   is_active: boolean;
@@ -74,12 +75,13 @@ interface UserUpdates {
 interface UsersTabProps {
   users: User[];
   onUpdateUser: (userId: string, updates: UserUpdates) => Promise<void>;
+  onAdjustVouchScore: (userId: string, delta: number, reason?: string) => Promise<void>;
   onDeleteUser: (userId: string) => Promise<void>;
   onRefresh?: () => Promise<void>;
   loading?: boolean;
 }
 
-export function UsersTab({ users, onUpdateUser, onDeleteUser, onRefresh, loading: parentLoading }: UsersTabProps) {
+export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser, onRefresh, loading: parentLoading }: UsersTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterVerification, setFilterVerification] = useState<"all" | "verified" | "unverified" | "onboarded" | "not_onboarded">("all");
   const [filterCompany, setFilterCompany] = useState<string>("all");
@@ -117,6 +119,9 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser, onRefresh, loading
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [vouchDelta, setVouchDelta] = useState("");
+  const [vouchReason, setVouchReason] = useState("");
+  const [scoreSaving, setScoreSaving] = useState(false);
 
 
   useEffect(() => {
@@ -203,6 +208,8 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser, onRefresh, loading
     setError(null);
     setShowDeleteConfirm(false);
     setDeleteConfirmText("");
+    setVouchDelta("");
+    setVouchReason("");
     setIsEditDialogOpen(true);
   };
 
@@ -821,6 +828,88 @@ export function UsersTab({ users, onUpdateUser, onDeleteUser, onRefresh, loading
                       setSelectedUser({ ...selectedUser, is_marketing_manager: checked })
                     }
                   />
+                </div>
+
+                <div className="space-y-2 rounded-xl border border-amber-100 bg-amber-50/40 p-3">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold text-amber-900">
+                      Vouch Score
+                    </Label>
+                    <p className="text-[11px] text-amber-700">
+                      Manually increase or reduce the score for this user.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <Input
+                      type="number"
+                      value={vouchDelta}
+                      onChange={(e) => setVouchDelta(e.target.value)}
+                      placeholder="e.g. 5 or -10"
+                      className="bg-white"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setVouchDelta((prev) => String(Number(prev || 0) - 1))}
+                        className="h-10"
+                      >
+                        -1
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setVouchDelta((prev) => String(Number(prev || 0) + 1))}
+                        className="h-10"
+                      >
+                        +1
+                      </Button>
+                    </div>
+                  </div>
+                  <Input
+                    value={vouchReason}
+                    onChange={(e) => setVouchReason(e.target.value)}
+                    placeholder="Optional reason"
+                    className="bg-white"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[11px] text-neutral-500">
+                      Current score:{" "}
+                      <span className="font-semibold text-neutral-900">
+                        {selectedUser.vouch_score ?? 0}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      disabled={scoreSaving || !Number.isInteger(Number(vouchDelta)) || Number(vouchDelta) === 0}
+                      onClick={async () => {
+                        const delta = Number(vouchDelta);
+                        if (!Number.isInteger(delta) || delta === 0) return;
+                        setScoreSaving(true);
+                        try {
+                          await onAdjustVouchScore(
+                            selectedUser.id,
+                            delta,
+                            vouchReason.trim() || undefined,
+                          );
+                          setVouchDelta("");
+                          setVouchReason("");
+                          toast.success("Vouch score updated", {
+                            id: "vouch-score-update-success",
+                          });
+                        } catch (err: any) {
+                          toast.error(err?.message || "Failed to update vouch score", {
+                            id: "vouch-score-update-error",
+                          });
+                        } finally {
+                          setScoreSaving(false);
+                        }
+                      }}
+                      className="h-9 bg-amber-600 text-white hover:bg-amber-700"
+                    >
+                      {scoreSaving ? "Updating…" : "Apply change"}
+                    </Button>
+                  </div>
                 </div>
               </div>
 
