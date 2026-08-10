@@ -127,7 +127,7 @@ export default function RecruiterOnboardingPage() {
                     id="companyName"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Acme Corp"
+                    placeholder="Vouchins Corporation"
                     required
                     className="pl-9 h-11 bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20"
                   />
@@ -142,7 +142,7 @@ export default function RecruiterOnboardingPage() {
                     id="website"
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
-                    placeholder="https://acme.com"
+                    placeholder="https://www.vouchins.com"
                     className="pl-9 h-11 bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20"
                   />
                 </div>
@@ -157,7 +157,7 @@ export default function RecruiterOnboardingPage() {
                     type="email"
                     value={billingEmail}
                     onChange={(e) => setBillingEmail(e.target.value)}
-                    placeholder="billing@acme.com"
+                    placeholder="billing@vouchins.com"
                     required
                     className="pl-9 h-11 bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20"
                   />

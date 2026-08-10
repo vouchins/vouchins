@@ -43,7 +43,10 @@ export default function RecruiterSignupPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Signup failed");
+        const errorMessage = data.code === "already_registered"
+          ? data.error || "You already have a Vouchins account. Please sign in."
+          : data.error || "Signup failed";
+        throw new Error(errorMessage);
       }
 
       setSuccess(true);
@@ -96,7 +99,16 @@ export default function RecruiterSignupPage() {
             {error && (
               <Alert variant="destructive" className="mb-6 rounded-2xl">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <p>{error}</p>
+                    {error.toLowerCase().includes("already have a vouchins account") && (
+                      <Button asChild size="sm" className="mt-2">
+                        <Link href="/recruiter/login">Go to recruiter login</Link>
+                      </Button>
+                    )}
+                  </div>
+                </AlertDescription>
               </Alert>
             )}
 
@@ -119,7 +131,7 @@ export default function RecruiterSignupPage() {
                       id="companyName"
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="Acme Corp"
+                      placeholder="Vouchins Corporation"
                       required
                       className="pl-9 h-11 bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20"
                     />
@@ -134,7 +146,7 @@ export default function RecruiterSignupPage() {
                       id="website"
                       value={website}
                       onChange={(e) => setWebsite(e.target.value)}
-                      placeholder="https://acme.com"
+                      placeholder="https://www.vouchins.com"
                       className="pl-9 h-11 bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20"
                     />
                   </div>
@@ -151,7 +163,7 @@ export default function RecruiterSignupPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="hiring@acme.com"
+                      placeholder="hiring@vouchins.com"
                       required
                       className="pl-9 h-11 bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20"
                     />
@@ -167,7 +179,7 @@ export default function RecruiterSignupPage() {
                       type="email"
                       value={billingEmail}
                       onChange={(e) => setBillingEmail(e.target.value)}
-                      placeholder="billing@acme.com"
+                      placeholder="billing@vouchins.com"
                       required
                       className="pl-9 h-11 bg-neutral-50 border-none focus-visible:ring-2 focus-visible:ring-primary/20"
                     />

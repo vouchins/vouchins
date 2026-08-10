@@ -42,6 +42,17 @@ export async function POST(req: Request) {
       },
     });
 
+    if (error?.message?.toLowerCase().includes("user already registered")) {
+      return NextResponse.json(
+        {
+          error:
+            "You already have a Vouchins account. Please sign in with your existing credentials to continue as a recruiter.",
+          code: "already_registered",
+        },
+        { status: 409 },
+      );
+    }
+
     if (error || !data.user) {
       return NextResponse.json(
         { error: error?.message || "Signup failed" },
@@ -64,6 +75,12 @@ export async function POST(req: Request) {
     });
 
     if (recruiterError) {
+      if (recruiterError.code === "23505") {
+        return NextResponse.json(
+          { error: "Recruiter profile already exists for this account" },
+          { status: 409 }
+        );
+      }
       console.error("Recruiter insert error:", recruiterError);
       return NextResponse.json(
         { error: recruiterError.message || "Failed to create recruiter profile" },
