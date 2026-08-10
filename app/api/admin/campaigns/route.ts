@@ -72,10 +72,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { title, body, targetType, recipientGroupId, recipientGroupName, status } = await req.json();
+    const { title, body, targetType, recipientGroupId, recipientGroupName, status, scheduledAt } = await req.json();
 
     if (!title || !body || !targetType || !recipientGroupId || !recipientGroupName) {
       return NextResponse.json({ error: "Missing required campaign fields" }, { status: 400 });
+    }
+
+    const parsedScheduledAt = typeof scheduledAt === "string" && scheduledAt.trim() ? new Date(scheduledAt) : null;
+    const isScheduled = status === "scheduled";
+    if (isScheduled && (!parsedScheduledAt || Number.isNaN(parsedScheduledAt.getTime()))) {
+      return NextResponse.json({ error: "A valid scheduled date/time is required" }, { status: 400 });
     }
 
     // Create campaign record
@@ -87,7 +93,8 @@ export async function POST(req: Request) {
         target_type: targetType,
         recipient_group_id: recipientGroupId,
         recipient_group_name: recipientGroupName,
-        status: status === "sent" ? "sending" : "draft",
+        status: isScheduled ? "scheduled" : status === "sent" ? "sending" : "draft",
+        scheduled_at: parsedScheduledAt?.toISOString() || null,
         created_by: user.id,
       })
       .select()
@@ -95,8 +102,8 @@ export async function POST(req: Request) {
 
     if (createError) throw createError;
 
-    // If it's a draft, stop here
-    if (status === "draft") {
+    // If it's a draft or scheduled send, stop here
+    if (status === "draft" || isScheduled) {
       return NextResponse.json({ success: true, campaign });
     }
 
@@ -353,11 +360,12 @@ export async function POST(req: Request) {
     // Update campaign status
     const { data: finalCampaign, error: updateError } = await supabaseAdmin
       .from("campaigns")
-      .update({
-        status: "sent",
-        sent_count: sentCount,
-        updated_at: new Date().toISOString(),
-      })
+        .update({
+          status: "sent",
+          sent_count: sentCount,
+          sent_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
       .eq("id", campaign.id)
       .select()
       .single();

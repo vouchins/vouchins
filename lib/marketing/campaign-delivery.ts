@@ -92,7 +92,7 @@ export async function deliverApprovedCampaign(campaignId: string, actorId: strin
         });
       }
     }
-    await supabaseAdmin.from("campaigns").update({ status: "sent", sent_count: deliveredCount, updated_at: new Date().toISOString() }).eq("id", campaignId).eq("status", "sending");
+    await supabaseAdmin.from("campaigns").update({ status: "sent", sent_count: deliveredCount, sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", campaignId).eq("status", "sending");
   } catch (error) {
     await supabaseAdmin.from("campaigns").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", campaignId).eq("status", "sending");
     throw error;

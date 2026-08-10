@@ -83,8 +83,10 @@ interface Campaign {
   target_type: "email" | "notification";
   recipient_group_id: string;
   recipient_group_name: string;
-  status: "draft" | "pending_approval" | "rejected" | "sending" | "sent" | "failed";
+  status: "draft" | "scheduled" | "pending_approval" | "rejected" | "sending" | "sent" | "failed";
   sent_count: number;
+  scheduled_at?: string | null;
+  sent_at?: string | null;
   created_at: string;
 }
 
@@ -165,6 +167,9 @@ export function CampaignsTab() {
   const [campaignTargetType, setCampaignTargetType] = useState<"email" | "notification">("notification");
   const [campaignGroupId, setCampaignGroupId] = useState("");
   const [manualEmails, setManualEmails] = useState("");
+  const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
   const [isCodeView, setIsCodeView] = useState(false);
 
@@ -175,6 +180,9 @@ export function CampaignsTab() {
     setCampaignBody("");
     setCampaignGroupId("");
     setManualEmails("");
+    setSendMode("now");
+    setScheduledDate("");
+    setScheduledTime("");
     if (editorRef.current) editorRef.current.innerHTML = "";
   };
 
@@ -186,6 +194,16 @@ export function CampaignsTab() {
     setCampaignTargetType(campaign.target_type);
     setCampaignGroupId(campaign.recipient_group_id);
     setManualEmails(campaign.recipient_group_id === "manual_emails" ? campaign.recipient_group_name : "");
+    if (campaign.scheduled_at) {
+      const scheduled = new Date(campaign.scheduled_at);
+      setSendMode("schedule");
+      setScheduledDate(scheduled.toISOString().slice(0, 10));
+      setScheduledTime(scheduled.toISOString().slice(11, 16));
+    } else {
+      setSendMode("now");
+      setScheduledDate("");
+      setScheduledTime("");
+    }
     setViewMode("create");
   };
 
@@ -197,6 +215,9 @@ export function CampaignsTab() {
     setCampaignTargetType(campaign.target_type);
     setCampaignGroupId(campaign.recipient_group_id);
     setManualEmails(campaign.recipient_group_id === "manual_emails" ? campaign.recipient_group_name : "");
+    setSendMode("now");
+    setScheduledDate("");
+    setScheduledTime("");
     setViewMode("create");
   };
 
@@ -337,7 +358,7 @@ export function CampaignsTab() {
   };
 
   // Send / Save Campaign Handler
-  const handleCreateCampaign = async (statusToSet: "draft" | "sent") => {
+  const handleCreateCampaign = async (statusToSet: "draft" | "sent" | "scheduled") => {
     if (!campaignTitle.trim()) {
       toast.error("Please enter a campaign title / subject");
       return;
@@ -349,6 +370,10 @@ export function CampaignsTab() {
     }
     if (!campaignGroupId) {
       toast.error("Please select a recipient group");
+      return;
+    }
+    if (statusToSet === "scheduled" && (!scheduledDate || !scheduledTime)) {
+      toast.error("Please choose a date and time for the scheduled send");
       return;
     }
 
@@ -380,16 +405,19 @@ export function CampaignsTab() {
 
     setSubmittingCampaign(true);
     try {
+      const scheduledAt = statusToSet === "scheduled"
+        ? new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString()
+        : null;
       const res = await fetch(editingCampaignId ? "/api/marketing/campaigns" : "/api/admin/campaigns", {
         method: editingCampaignId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editingCampaignId ? {
           id: editingCampaignId, title: campaignTitle, body: finalBody,
           target_type: campaignTargetType, recipient_group_id: campaignGroupId,
-          recipient_group_name: recipientGroupName,
+          recipient_group_name: recipientGroupName, scheduled_at: scheduledAt, status: statusToSet,
         } : {
           title: campaignTitle, body: finalBody, targetType: campaignTargetType,
-          recipientGroupId: campaignGroupId, recipientGroupName, status: statusToSet,
+          recipientGroupId: campaignGroupId, recipientGroupName, status: statusToSet, scheduledAt,
         }),
       });
 
@@ -408,6 +436,8 @@ export function CampaignsTab() {
       }
       toast.success(statusToSet === "sent"
         ? `Campaign sent successfully to ${finalCampaign.sent_count} users!`
+        : statusToSet === "scheduled"
+          ? "Campaign scheduled successfully!"
         : editingCampaignId ? "Campaign draft updated!" : "Campaign draft saved!");
       setViewMode("dashboard");
       resetCampaignForm();
@@ -665,12 +695,21 @@ export function CampaignsTab() {
                         {c.sent_count}
                       </td>
                       <td className="px-6 py-4 text-neutral-500">
-                        {new Date(c.created_at).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        <div className="space-y-0.5">
+                          <div>
+                            {new Date(c.scheduled_at || c.created_at).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                          {c.status === "scheduled" && (
+                            <div className="text-[10px] font-semibold text-amber-600">
+                              (scheduled)
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <DropdownMenu>
@@ -983,6 +1022,57 @@ export function CampaignsTab() {
                   </Select>
                 </div>
               )}
+
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50/40 p-4">
+                <Label className="text-xs font-bold text-neutral-700">Delivery timing</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant={sendMode === "now" ? "default" : "outline"}
+                    className="h-9 rounded-lg text-xs font-bold"
+                    onClick={() => setSendMode("now")}
+                  >
+                    Send now
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={sendMode === "schedule" ? "default" : "outline"}
+                    className="h-9 rounded-lg text-xs font-bold"
+                    onClick={() => setSendMode("schedule")}
+                  >
+                    Schedule for later
+                  </Button>
+                </div>
+                {sendMode === "schedule" && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="scheduled-date" className="text-[11px] font-bold text-neutral-600">Date</Label>
+                      <Input
+                        id="scheduled-date"
+                        type="date"
+                        value={scheduledDate}
+                        onChange={(e) => setScheduledDate(e.target.value)}
+                        className="h-10 rounded-lg border-neutral-200 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="scheduled-time" className="text-[11px] font-bold text-neutral-600">Time</Label>
+                      <Input
+                        id="scheduled-time"
+                        type="time"
+                        value={scheduledTime}
+                        onChange={(e) => setScheduledTime(e.target.value)}
+                        className="h-10 rounded-lg border-neutral-200 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+                {sendMode === "schedule" && scheduledDate && scheduledTime && (
+                  <p className="text-[11px] text-neutral-500">
+                    Scheduled for <span className="font-semibold text-neutral-700">{new Date(`${scheduledDate}T${scheduledTime}:00`).toLocaleString()}</span> in your local timezone.
+                  </p>
+                )}
+              </div>
             </div>
 
             {campaignGroupId === "manual_emails" && (
@@ -1184,25 +1274,27 @@ export function CampaignsTab() {
                 type="button"
                 variant="outline"
                 disabled={submittingCampaign}
-                onClick={() => handleCreateCampaign("draft")}
+                onClick={() => handleCreateCampaign(sendMode === "schedule" ? "scheduled" : "draft")}
                 className="text-xs font-bold text-neutral-700 border-neutral-200 hover:!bg-neutral-100 hover:!text-neutral-900 h-10 px-4 rounded-lg"
               >
-                {submittingCampaign ? "Saving..." : "Save as Draft"}
+                {submittingCampaign ? "Saving..." : sendMode === "schedule" ? "Save Scheduled" : "Save as Draft"}
               </Button>
-              <Button
-                type="button"
-                disabled={submittingCampaign}
-                onClick={() => handleCreateCampaign("sent")}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 h-10 rounded-lg flex items-center gap-1.5"
-              >
-                {submittingCampaign ? (
-                  "Sending..."
-                ) : (
-                  <>
-                    <Send className="h-3.5 w-3.5" /> Send Immediately
-                  </>
-                )}
-              </Button>
+              {sendMode === "now" && (
+                <Button
+                  type="button"
+                  disabled={submittingCampaign}
+                  onClick={() => handleCreateCampaign("sent")}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 h-10 rounded-lg flex items-center gap-1.5"
+                >
+                  {submittingCampaign ? (
+                    "Sending..."
+                  ) : (
+                    <>
+                      <Send className="h-3.5 w-3.5" /> Send Immediately
+                    </>
+                  )}
+                </Button>
+              )}
             </DialogFooter>
           </form>
         </div>

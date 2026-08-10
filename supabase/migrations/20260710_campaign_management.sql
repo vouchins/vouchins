@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS public.campaigns (
   target_type text NOT NULL CHECK (target_type = ANY (ARRAY['email'::text, 'notification'::text])),
   recipient_group_id text, -- Can be 'default_verified', 'default_all', etc. or a custom user group UUID
   recipient_group_name text NOT NULL,
-  status text DEFAULT 'draft' CHECK (status = ANY (ARRAY['draft'::text, 'sending'::text, 'sent'::text, 'failed'::text])),
+  status text DEFAULT 'draft' CHECK (status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'sending'::text, 'sent'::text, 'failed'::text])),
+  scheduled_at timestamptz,
+  sent_at timestamptz,
   sent_count integer DEFAULT 0,
   created_by uuid REFERENCES public.users(id) ON DELETE SET NULL,
   created_at timestamp with time zone DEFAULT now() NOT NULL,

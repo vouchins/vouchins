@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getMarketingPrincipal } from "@/lib/marketing/auth";
 
-const editable = ["title", "body", "target_type", "recipient_group_id", "recipient_group_name"] as const;
+const editable = ["title", "body", "target_type", "recipient_group_id", "recipient_group_name", "status", "scheduled_at"] as const;
 function values(body: any) { const out: any = {}; for (const k of editable) if (k in body) out[k] = body[k]; return out; }
 async function validAudience(id: string) {
   if (id === "manual_emails") return true;
@@ -35,14 +35,15 @@ export async function POST(req: Request) {
   const p = await getMarketingPrincipal(); if (!p) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json(); const input = values(body);
   if (!input.title || !input.body || !["email", "notification"].includes(input.target_type) || !await validAudience(input.recipient_group_id)) return NextResponse.json({ error: "Invalid campaign" }, { status: 400 });
-  const { data, error } = await supabaseAdmin.from("campaigns").insert({ ...input, status: "draft", created_by: p.id }).select().single();
+  const status = input.status === "scheduled" ? "scheduled" : "draft";
+  const { data, error } = await supabaseAdmin.from("campaigns").insert({ ...input, status, created_by: p.id }).select().single();
   return error ? NextResponse.json({ error: error.message }, { status: 400 }) : NextResponse.json({ campaign: data }, { status: 201 });
 }
 export async function PATCH(req: Request) {
   const p = await getMarketingPrincipal(); if (!p) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json(); const input = values(body);
   if (input.recipient_group_id && !await validAudience(input.recipient_group_id)) return NextResponse.json({ error: "Invalid audience" }, { status: 400 });
-  let q = supabaseAdmin.from("campaigns").update({ ...input, updated_at: new Date().toISOString() }).eq("id", body.id).in("status", ["draft", "rejected", "failed"]);
+  let q = supabaseAdmin.from("campaigns").update({ ...input, updated_at: new Date().toISOString() }).eq("id", body.id).in("status", ["draft", "scheduled", "rejected", "failed"]);
   if (!p.isAdmin) q = q.eq("created_by", p.id);
   const { data, error } = await q.select().maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
