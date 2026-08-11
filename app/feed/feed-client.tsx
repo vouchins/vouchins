@@ -733,7 +733,7 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
                     >
                       <MapPin className="h-4 w-4 shrink-0 text-primary" />
                       <SelectValue />
-                      <span className="hidden text-[10px] font-medium text-neutral-400 sm:inline">
+                      <span className="!hidden text-[10px] font-medium text-neutral-400 sm:!inline">
                         Change city
                       </span>
                     </SelectTrigger>
