@@ -1,6 +1,6 @@
 # Vouchins: The Verified Corporate Network & Professional Marketplace
 
-**Vouchins** is a high-trust digital ecosystem designed exclusively for verified corporate professionals (MNC employees). It serves as a secure, accountability-driven marketplace to exchange housing leads, buy/sell requests, and trusted professional recommendations—free from anonymity, spam, and broker noise.
+**Vouchins** is a high-trust digital ecosystem designed exclusively for verified corporate professionals. It serves as a secure, accountability-driven marketplace to exchange housing leads, buy/sell requests, and trusted professional recommendations—free from anonymity, spam, and broker noise.
 
 ## System Purpose & Platform Context
 
