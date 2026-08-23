@@ -106,7 +106,7 @@ function maskName(name: string) {
 
 function redactAndClip(text: string) {
   const words = text.split(/\s+/);
-  const clipped = words.slice(0, 12).join(" ");
+  const clipped = words.slice(0, 20).join(" ");
   let redacted = clipped;
 
   // Redact 10-digit Indian phone numbers
@@ -422,7 +422,7 @@ export default async function FlatmatesHyderabadPage() {
               </div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(isVerifiedUser ? posts : posts.slice(0, 3)).map((post) => {
+                {(isVerifiedUser ? posts : posts.slice(0, 6)).map((post) => {
                   const { locality, rent } = parseListingDetails(post.text);
                   const rawUser = post.user;
                   const postUser = (Array.isArray(rawUser) ? rawUser[0] : rawUser) as any;
@@ -497,7 +497,7 @@ export default async function FlatmatesHyderabadPage() {
                               href="/signup"
                               className="text-[#4FD1C5] font-black hover:underline"
                             >
-                              Verify to Contact
+                              Signup to Contact
                             </Link>
                           )}
                         </div>
