@@ -512,7 +512,7 @@ export default function Home() {
                 </div>
 
                 {/* Card 3: Find Flatmates You Can Trust */}
-                <div className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">
+                <Link href="/flatmates-in-hyderabad" className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">
                   <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
                     <HomeIcon className="h-5 w-5" />
                   </div>
@@ -522,7 +522,7 @@ export default function Home() {
                       Connect with verified professionals for premium housing.
                     </p>
                   </div>
-                </div>
+                </Link>
 
                 {/* Card 4: Recommendations That Matter */}
                 <div className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">

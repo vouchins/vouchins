@@ -3,6 +3,7 @@ export const FOOTER_LINKS = [
   { href: "/verified-professional-community", label: "Community" },
   { href: "/employee-referrals", label: "Referrals" },
   { href: "/verified-flatmates", label: "Flatmates" },
+  { href: "/flatmates-in-hyderabad", label: "Flatmates in Hyderabad" },
   { href: "/corporate-marketplace", label: "Marketplace" },
   { href: "/trusted-recommendations", label: "Recommendations" },
   { href: "/business", label: "Companies" },

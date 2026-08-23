@@ -3,6 +3,36 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+function maskName(name: string) {
+  if (!name) return "Verified Professional";
+  return name
+    .split(" ")
+    .map((p) => {
+      if (p.length <= 2) return p;
+      return p[0] + "*".repeat(p.length - 2) + p.slice(-1);
+    })
+    .join(" ");
+}
+
+function getPublicPreviewText(text: string) {
+  if (!text) return "";
+  
+  // First clip to 50 characters
+  let clipped = text;
+  if (text.length > 50) {
+    clipped = text.substring(0, 50) + "...";
+  }
+  
+  // Redact phone numbers and emails
+  const phoneRegex = /(?:\+?91[\s-]?)?[6-9]\d{9}|[6-9]\d{2}[\s-]\d{3}[\s-]\d{4}/g;
+  let redacted = clipped.replace(phoneRegex, "[Contact info redacted]");
+  
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+  redacted = redacted.replace(emailRegex, "[Email redacted]");
+  
+  return redacted;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -132,39 +162,37 @@ export async function GET(
     
     // Case 1: User is NOT logged in
     if (!userData) {
-      const isAuthorAdmin = post.user?.is_admin;
-      if (isAuthorAdmin) {
-        // Non-logged-in user CAN see posts made by Admin fully
-        return NextResponse.json({ post, isLoggedIn: false });
-      } else {
-        // Non-logged-in user opens non-admin post:
-        // Truncate the text to 150 characters and clear attachments/comments
-        const truncatedPost = {
-          ...post,
-          text: post.text && post.text.length > 150 ? post.text.substring(0, 150) + "..." : post.text,
-          image_urls: [], // Clear attachments
-          comments: [],   // Clear comments
-        };
-        return NextResponse.json({ post: truncatedPost, isLoggedIn: false, isTruncated: true });
-      }
+      // Non-logged-in user opens post:
+      // Truncate the text and redact sensitive details
+      const truncatedPost = {
+        ...post,
+        text: getPublicPreviewText(post.text),
+        image_urls: [], // Clear attachments
+        comments: [],   // Clear comments
+        user: post.user ? {
+          ...post.user,
+          full_name: maskName(post.user.full_name),
+          email: undefined,
+        } : null,
+      };
+      return NextResponse.json({ post: truncatedPost, isLoggedIn: false, isTruncated: true });
     }
 
     // Case 2: User is logged in but NOT verified
     if (!userData.is_verified) {
-      const isAuthorAdmin = post.user?.is_admin;
-      if (isAuthorAdmin) {
-        // Unverified user can see posts made by Admin fully
-        return NextResponse.json({ post, isLoggedIn: true, isVerified: false });
-      } else {
-        // Unverified user sees a truncated version of standard posts (same as feed restriction)
-        const truncatedPost = {
-          ...post,
-          text: post.text && post.text.length > 150 ? post.text.substring(0, 150) + "..." : post.text,
-          image_urls: [], // Clear attachments
-          comments: [],   // Clear comments
-        };
-        return NextResponse.json({ post: truncatedPost, isLoggedIn: true, isVerified: false, isTruncated: true });
-      }
+      // Unverified user sees a truncated version of standard posts
+      const truncatedPost = {
+        ...post,
+        text: getPublicPreviewText(post.text),
+        image_urls: [], // Clear attachments
+        comments: [],   // Clear comments
+        user: post.user ? {
+          ...post.user,
+          full_name: maskName(post.user.full_name),
+          email: undefined,
+        } : null,
+      };
+      return NextResponse.json({ post: truncatedPost, isLoggedIn: true, isVerified: false, isTruncated: true });
     }
 
     // Case 3: User is logged in AND verified

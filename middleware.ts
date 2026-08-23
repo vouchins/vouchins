@@ -80,7 +80,7 @@ export async function middleware(request: NextRequest) {
     '/robots.txt',
     '/sitemap.xml',
   ]
-  const publicPrefixes = ['/blog', '/posts/']
+  const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad']
 
   const isPublicRoute =
     isAuthRoute ||
@@ -104,7 +104,9 @@ export async function middleware(request: NextRequest) {
   const isIndexableRoute =
     indexablePaths.includes(url.pathname) ||
     url.pathname === '/blog' ||
-    url.pathname.startsWith('/blog/')
+    url.pathname.startsWith('/blog/') ||
+    url.pathname === '/flatmates-in-hyderabad' ||
+    url.pathname.startsWith('/flatmates-in-hyderabad/')
   // If user is logged in and trying to access an auth route, redirect to the appropriate dashboard
   if (user && isAuthRoute) {
     if (isRecruiterAuthRoute) {

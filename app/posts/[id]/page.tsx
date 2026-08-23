@@ -316,7 +316,10 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
     <div className="min-h-screen bg-[#F8F9FB] pb-16">
       {renderNavbar()}
 
-      <div className="container mx-auto max-w-7xl flex gap-8 p-4 lg:p-8">
+      <div className={cn(
+        "container mx-auto max-w-7xl flex gap-8 px-4 pb-4 lg:px-8 lg:pb-8",
+        currentUser ? "pt-4 lg:pt-8" : "pt-24 md:pt-28"
+      )}>
         {/* --- LEFT SIDEBAR (The Navigation) --- */}
         {renderLeftSidebar()}
 
@@ -395,8 +398,8 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
             </div>
           ) : (
             <>
-              {/* --- SCENARIO 1: Unauthenticated (Logged Out) + Non-Admin Post (Truncated View) --- */}
-              {!currentUser && isTruncated && !post.user?.is_admin && (
+              {/* --- SCENARIO 1: Unauthenticated (Logged Out) (Truncated View) --- */}
+              {!currentUser && isTruncated && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-500">
                   <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm relative overflow-hidden">
                     {/* Header */}
@@ -477,8 +480,8 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
                 </div>
               )}
 
-              {/* --- SCENARIO 2: Logged In but Unverified + Non-Admin Post (Blurred View) --- */}
-              {currentUser && !currentUser.is_verified && isTruncated && !post.user?.is_admin && (
+              {/* --- SCENARIO 2: Logged In but Unverified (Blurred View) --- */}
+              {currentUser && !currentUser.is_verified && isTruncated && (
                 <div className="animate-in fade-in duration-500">
                   <BlurredPostCard
                     post={post}
@@ -487,8 +490,8 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
                 </div>
               )}
 
-              {/* --- SCENARIO 3: Full View (Admin Post, or Logged In & Verified user) --- */}
-              {(!isTruncated || (currentUser && currentUser.is_verified) || post.user?.is_admin) && (
+              {/* --- SCENARIO 3: Full View (Logged In & Verified user) --- */}
+              {(!isTruncated || (currentUser && currentUser.is_verified)) && (
                 <div className="space-y-4 animate-in fade-in duration-500">
                   <PostCard
                     post={post}

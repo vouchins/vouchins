@@ -20,6 +20,7 @@ const PUBLIC_PAGES: MetadataRoute.Sitemap = [
   { url: `${BASE_URL}/verified-professional-community`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${BASE_URL}/employee-referrals`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${BASE_URL}/verified-flatmates`, changeFrequency: "monthly", priority: 0.8 },
+  { url: `${BASE_URL}/flatmates-in-hyderabad`, changeFrequency: "weekly", priority: 0.9 },
   { url: `${BASE_URL}/corporate-marketplace`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${BASE_URL}/trusted-recommendations`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${BASE_URL}/contact`, changeFrequency: "monthly", priority: 0.5 },
