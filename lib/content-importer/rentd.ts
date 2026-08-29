@@ -54,15 +54,18 @@ export function extractRentdRows(html: string): unknown[] {
 async function fetchHtml(url: URL) {
   const response = await fetch(url, {
     cache: "no-store",
-    redirect: "error",
-    signal: AbortSignal.timeout(15_000),
-    headers: { "User-Agent": "VouchinsContentImporter/1.0" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(25_000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    },
   });
   if (!response.ok) throw new Error(`Source returned ${response.status}`);
   const declaredSize = Number(response.headers.get("content-length") ?? 0);
-  if (declaredSize > 2_000_000) throw new Error("Source response was too large");
+  if (declaredSize > 5_000_000) throw new Error("Source response was too large");
   const html = await response.text();
-  if (html.length > 2_000_000) throw new Error("Source response was too large");
+  if (html.length > 5_000_000) throw new Error("Source response was too large");
   return html;
 }
 
