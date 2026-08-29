@@ -123,6 +123,13 @@ export async function POST(req: Request) {
         .eq("is_active", true)
         .eq("is_verified", true);
       targetUsers = data || [];
+    } else if (recipientGroupId === "default_unverified") {
+      const { data } = await supabaseAdmin
+        .from("users")
+        .select("id, email, personal_email, full_name, company:companies(domain)")
+        .eq("is_active", true)
+        .eq("is_verified", false);
+      targetUsers = data || [];
     } else if (recipientGroupId === "default_email") {
       // Find users with 'email' provider
       const { data: providers } = await supabaseAdmin

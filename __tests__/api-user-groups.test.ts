@@ -81,9 +81,10 @@ describe('User Groups Admin API Endpoint', () => {
       .mockImplementationOnce((resolve) => resolve({ data: [{ group_id: 'group-1' }], error: null })) // 3. member counts
       .mockImplementationOnce((resolve) => resolve({ count: 10, error: null })) // 4. total active
       .mockImplementationOnce((resolve) => resolve({ count: 5, error: null })) // 5. verified active
-      .mockImplementationOnce((resolve) => resolve({ data: [{ provider: 'google' }], error: null })) // 6. providers
-      .mockImplementationOnce((resolve) => resolve({ data: [{ id: 'comp-1', name: 'Google' }], error: null })) // 7. companies
-      .mockImplementationOnce((resolve) => resolve({ data: [{ company_id: 'comp-1' }], error: null })); // 8. user companies
+      .mockImplementationOnce((resolve) => resolve({ count: 5, error: null })) // 6. unverified active
+      .mockImplementationOnce((resolve) => resolve({ data: [{ provider: 'google' }], error: null })) // 7. providers
+      .mockImplementationOnce((resolve) => resolve({ data: [{ id: 'comp-1', name: 'Google' }], error: null })) // 8. companies
+      .mockImplementationOnce((resolve) => resolve({ data: [{ company_id: 'comp-1' }], error: null })); // 9. user companies
 
     const request = new Request('http://localhost/api/admin/user-groups');
     const response = await GET(request);
@@ -91,5 +92,9 @@ describe('User Groups Admin API Endpoint', () => {
     const json = await response.json();
     expect(json.groups).toBeDefined();
     expect(json.groups.length).toBeGreaterThan(0);
+    const unverifiedGroup = json.groups.find((g: any) => g.id === 'default_unverified');
+    expect(unverifiedGroup).toBeDefined();
+    expect(unverifiedGroup.name).toBe('Unverified Users');
+    expect(unverifiedGroup.member_count).toBe(5);
   });
 });

@@ -15,6 +15,7 @@ export async function GET() {
   return NextResponse.json({ audiences: [
     { id: "default_all", name: "All active users", is_system: true },
     { id: "default_verified", name: "Verified users", is_system: true },
+    { id: "default_unverified", name: "Unverified users", is_system: true },
     { id: "default_email", name: "Logged in via Email", is_system: true },
     { id: "default_google", name: "Logged in via Google", is_system: true },
     { id: "default_linkedin", name: "Logged in via LinkedIn", is_system: true },

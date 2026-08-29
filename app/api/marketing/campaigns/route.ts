@@ -6,7 +6,7 @@ const editable = ["title", "body", "target_type", "recipient_group_id", "recipie
 function values(body: any) { const out: any = {}; for (const k of editable) if (k in body) out[k] = body[k]; return out; }
 async function validAudience(id: string) {
   if (id === "manual_emails") return true;
-  if (["default_all", "default_verified", "default_email", "default_google", "default_linkedin"].includes(id)) return true;
+  if (["default_all", "default_verified", "default_unverified", "default_email", "default_google", "default_linkedin"].includes(id)) return true;
   if (id?.startsWith("default_company_")) {
     const { count } = await supabaseAdmin.from("companies").select("id", { count: "exact", head: true }).eq("id", id.slice("default_company_".length));
     return Boolean(count);

@@ -22,6 +22,7 @@ async function recipients(groupId: string, groupName: string) {
   }
   let query = supabaseAdmin.from("users").select("id,email,personal_email,full_name").eq("is_active", true);
   if (groupId === "default_verified") query = query.eq("is_verified", true);
+  else if (groupId === "default_unverified") query = query.eq("is_verified", false);
   else if (["default_email", "default_google", "default_linkedin"].includes(groupId)) {
     let providerQuery = supabaseAdmin.from("user_identity_providers").select("user_id");
     providerQuery = groupId === "default_linkedin"

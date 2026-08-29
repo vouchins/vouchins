@@ -74,7 +74,7 @@ export async function GET(req: Request) {
 
     if (totalErr) throw totalErr;
 
-    // B. Fetch verified users count
+    // B. Fetch verified and unverified users count
     const { count: verifiedCount, error: verifiedErr } = await supabaseAdmin
       .from("users")
       .select("*", { count: "exact", head: true })
@@ -82,6 +82,14 @@ export async function GET(req: Request) {
       .eq("is_verified", true);
 
     if (verifiedErr) throw verifiedErr;
+
+    const { count: unverifiedCount, error: unverifiedErr } = await supabaseAdmin
+      .from("users")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true)
+      .eq("is_verified", false);
+
+    if (unverifiedErr) throw unverifiedErr;
 
     // C. Fetch OAuth provider counts using RPC or SQL execution since we are on server
     // We run a direct query using executeSql on supabaseAdmin if needed, or query auth.identities
@@ -151,6 +159,13 @@ export async function GET(req: Request) {
         description: "Users who have completed corporate email or manual verification",
         is_system: true,
         member_count: verifiedCount || 0,
+      },
+      {
+        id: "default_unverified",
+        name: "Unverified Users",
+        description: "Users who have not yet completed corporate email verification",
+        is_system: true,
+        member_count: unverifiedCount || 0,
       },
       {
         id: "default_email",
