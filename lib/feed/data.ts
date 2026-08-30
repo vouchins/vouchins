@@ -85,7 +85,7 @@ export async function getFeedPage(
   if (filters.tab === "company") {
     query = query.eq("visibility", "company").eq("user.company_id", viewer.company_id);
   } else {
-    query = query.eq("visibility", "all");
+    query = query.in("visibility", ["all", "public"]);
   }
   if (filters.category !== "all") query = query.eq("category", filters.category);
   if (filters.subCategory !== "all") query = query.eq("sub_category", filters.subCategory);

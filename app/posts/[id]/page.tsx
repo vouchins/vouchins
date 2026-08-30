@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowLeft, Lock, Loader2, ShieldAlert, CheckCircle2, MessageCircle, Flag, MapPin, Eye, Building2 } from "lucide-react";
+import { ArrowLeft, Lock, Loader2, ShieldAlert, FileQuestion, CheckCircle2, MessageCircle, Flag, MapPin, Eye, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Navigation } from "@/components/navigation";
@@ -284,21 +284,41 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
 
   // Render error state
   if (error) {
+    const isRestricted =
+      error.includes("restricted") ||
+      error.includes("private") ||
+      error.includes("Forbidden") ||
+      error.includes("Unauthorized");
+
     return (
       <div className="min-h-screen bg-[#F8F9FB]">
         {renderNavbar()}
-        <main className="container mx-auto max-w-2xl px-4 flex flex-col items-center justify-center text-center pt-12">
-          <div className="h-16 w-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
-            <ShieldAlert className="h-8 w-8" />
+        <main className="container mx-auto max-w-2xl px-4 flex flex-col items-center justify-center text-center pt-28 sm:pt-36">
+          <div
+            className={cn(
+              "h-16 w-16 rounded-full flex items-center justify-center mb-4 shadow-sm",
+              isRestricted ? "bg-amber-50 text-amber-600" : "bg-neutral-100 text-neutral-500"
+            )}
+          >
+            {isRestricted ? (
+              <ShieldAlert className="h-8 w-8" />
+            ) : (
+              <FileQuestion className="h-8 w-8 text-neutral-400" />
+            )}
           </div>
-          <h1 className="text-2xl font-black text-neutral-900 mb-2">Access Restricted</h1>
-          <p className="text-neutral-500 text-sm max-w-md mb-8">
-            {error === "Forbidden: This post is restricted to verified employees of the author's company"
-              ? "This discussion is private to verified employees of the author's workspace. If you are a member of this company, please verify your email."
-              : error}
+          <h1 className="text-2xl font-black text-neutral-900 mb-2">
+            {isRestricted ? "Access Restricted" : "Post is Deleted or Unavailable"}
+          </h1>
+          <p className="text-neutral-500 text-sm max-w-md mb-8 leading-relaxed">
+            {isRestricted
+              ? "This discussion is private to verified employees of the author's company. If you are a member of this company, please verify your corporate email."
+              : "This post has been removed by its author or is no longer available on Vouchins."}
           </p>
-          <Button onClick={() => router.push(currentUser ? "/feed" : "/login")} className="rounded-xl font-bold px-6">
-            {currentUser ? "Back to Feed" : "Log In to Continue"}
+          <Button
+            onClick={() => router.push(currentUser ? "/feed" : "/")}
+            className="rounded-xl font-bold px-6 bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white shadow-md text-xs uppercase tracking-wider h-10"
+          >
+            {currentUser ? "Back to Feed" : "Explore Community"}
           </Button>
         </main>
       </div>
@@ -465,13 +485,13 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
                       Log in or sign up to view the full discussion, high-resolution image attachments, and replies from verified corporate professionals.
                     </p>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                      <Link href="/login" className="w-full sm:w-auto">
+                      <Link href={`/login?returnTo=/posts/${post.id}`} className="w-full sm:w-auto">
                         <Button variant="outline" className="w-full rounded-xl font-bold h-11 px-8">
                           Log In
                         </Button>
                       </Link>
-                      <Link href="/signup" className="w-full sm:w-auto">
-                        <Button className="w-full rounded-xl font-bold h-11 px-8 shadow-lg shadow-primary/10">
+                      <Link href={`/signup?returnTo=/posts/${post.id}`} className="w-full sm:w-auto">
+                        <Button className="w-full rounded-xl font-bold h-11 px-8 bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white shadow-lg shadow-[#0A1B5C]/10">
                           Sign Up Now
                         </Button>
                       </Link>
@@ -490,7 +510,7 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
                 </div>
               )}
 
-              {/* --- SCENARIO 3: Full View (Logged In & Verified user) --- */}
+              {/* --- SCENARIO 3: Full View (Logged In & Verified user OR Public Post) --- */}
               {(!isTruncated || (currentUser && currentUser.is_verified)) && (
                 <div className="space-y-4 animate-in fade-in duration-500">
                   <PostCard
@@ -534,17 +554,17 @@ export default function PostDetailsPage({ params }: PostDetailsPageProps) {
                   {!currentUser && (
                     <div className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-6 text-center shadow-sm">
                       <p className="text-sm font-bold text-indigo-900 mb-3">
-                        Join the Vouchins professional network to comment on this post.
+                        Want to reply or message this member? Sign up with your corporate email to join the discussion.
                       </p>
                       <div className="flex items-center justify-center gap-3">
-                        <Link href="/login">
-                          <Button variant="ghost" className="h-9 font-bold text-xs uppercase tracking-wider text-indigo-600 rounded-full px-5">
+                        <Link href={`/login?returnTo=/posts/${post.id}`}>
+                          <Button variant="ghost" className="h-9 font-bold text-xs uppercase tracking-wider text-indigo-600 rounded-full px-5 hover:bg-indigo-100/50">
                             Log In
                           </Button>
                         </Link>
-                        <Link href="/signup">
-                          <Button className="h-9 font-bold text-xs uppercase tracking-wider rounded-full px-5 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-100">
-                            Sign Up
+                        <Link href={`/signup?returnTo=/posts/${post.id}`}>
+                          <Button className="h-9 font-bold text-xs uppercase tracking-wider rounded-full px-5 bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white shadow-md">
+                            Sign Up to Reply
                           </Button>
                         </Link>
                       </div>

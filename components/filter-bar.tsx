@@ -158,6 +158,7 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All posts</SelectItem>
+                  <SelectItem value="public">Public only</SelectItem>
                   <SelectItem value="company">My company only</SelectItem>
                 </SelectContent>
               </Select>

@@ -88,7 +88,7 @@ export type Database = {
           user_id: string;
           text: string;
           category: 'housing' | 'buy_sell' | 'recommendations' | 'jobs';
-          visibility: 'company' | 'all';
+          visibility: 'company' | 'all' | 'public';
           sub_category: 'flatmates' | 'rentals' | 'sale' | 'pg' | 'hiring' | 'seeking_referral' | 'offering_referral' | 'seeking_job' | null;
           image_url: string | null;
           is_flagged: boolean;
@@ -102,7 +102,7 @@ export type Database = {
           user_id: string;
           text: string;
           category: 'housing' | 'buy_sell' | 'recommendations' | 'jobs';
-          visibility: 'company' | 'all';
+          visibility?: 'company' | 'all' | 'public';
           sub_category?: 'flatmates' | 'rentals' | 'sale' | 'pg' | 'hiring' | 'seeking_referral' | 'offering_referral' | 'seeking_job' | null;
           image_url?: string | null;
           is_flagged?: boolean;
@@ -116,7 +116,7 @@ export type Database = {
           user_id?: string;
           text?: string;
           category?: 'housing' | 'buy_sell' | 'recommendations' | 'jobs';
-          visibility?: 'company' | 'all';
+          visibility?: 'company' | 'all' | 'public';
           sub_category?: 'flatmates' | 'rentals' | 'sale' | 'pg' | 'hiring' | 'seeking_referral' | 'offering_referral' | 'seeking_job' | null;
           image_url?: string | null;
           is_flagged?: boolean;

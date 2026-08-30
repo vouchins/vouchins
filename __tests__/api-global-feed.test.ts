@@ -21,6 +21,7 @@ const mockSingle = jest.fn();
 const mockMaybeSingle = jest.fn();
 const mockSelect = jest.fn();
 const mockEq = jest.fn();
+const mockIn = jest.fn();
 const mockOrder = jest.fn();
 const mockRange = jest.fn();
 const mockLimit = jest.fn();
@@ -29,6 +30,7 @@ const mockTextSearch = jest.fn();
 const mockQuery = {
   select: mockSelect,
   eq: mockEq,
+  in: mockIn,
   single: mockSingle,
   maybeSingle: mockMaybeSingle,
   order: mockOrder,
@@ -39,6 +41,7 @@ const mockQuery = {
 
 mockSelect.mockReturnValue(mockQuery);
 mockEq.mockReturnValue(mockQuery);
+mockIn.mockReturnValue(mockQuery);
 mockSingle.mockReturnValue(mockQuery);
 mockMaybeSingle.mockReturnValue(mockQuery);
 mockOrder.mockReturnValue(mockQuery);
@@ -109,7 +112,7 @@ describe('Global Feed & City Filtering System - API', () => {
     
     // Verify other default filters are applied
     expect(mockEq).toHaveBeenCalledWith('is_removed', false);
-    expect(mockEq).toHaveBeenCalledWith('visibility', 'all');
+    expect(mockIn).toHaveBeenCalledWith('visibility', ['all', 'public']);
   });
 
   it('should bypass city filtering when city parameter is "Global"', async () => {

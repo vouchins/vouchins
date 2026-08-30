@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,13 @@ import Image from "next/image";
 import { HomepageNavbar } from "@/components/homepage-navbar";
 import posthog from "posthog-js";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  const safeReturnTo =
+    returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +30,7 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/oauth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider: "google" }),
+      body: JSON.stringify({ provider: "google", returnTo: safeReturnTo }),
     });
 
     const data = await res.json();
@@ -43,7 +48,7 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/oauth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider: "linkedin_oidc" }),
+      body: JSON.stringify({ provider: "linkedin_oidc", returnTo: safeReturnTo }),
     });
 
     const data = await res.json();
@@ -78,7 +83,7 @@ export default function LoginPage() {
       }
 
       posthog.capture("Login", { method: "email" });
-      router.replace("/feed");
+      router.replace(safeReturnTo || "/feed");
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
@@ -357,6 +362,16 @@ export default function LoginPage() {
                     "Log In"
                   )}
                 </Button>
+
+                <p className="text-center text-xs text-neutral-500 font-medium pt-2">
+                  Don&apos;t have an account?{" "}
+                  <Link
+                    href={safeReturnTo ? `/signup?returnTo=${encodeURIComponent(safeReturnTo)}` : "/signup"}
+                    className="font-bold text-[#0A1B5C] hover:underline"
+                  >
+                    Sign up
+                  </Link>
+                </p>
               </form>
             </div>
           </div>
@@ -371,5 +386,13 @@ export default function LoginPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }

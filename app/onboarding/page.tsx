@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -21,8 +21,13 @@ import { toast } from "sonner"; // Assuming you use sonner or similar for toasts
 import { isCorporateEmail, extractDomainFromEmail, deriveCompanyNameFromDomain } from "@/lib/auth/validation";
 import posthog from "posthog-js";
 
-export default function OnboardingPage() {
+function OnboardingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  const safeReturnTo =
+    returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
+
   const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
@@ -93,7 +98,7 @@ export default function OnboardingPage() {
         .single();
 
       if (userData?.onboarded) {
-        router.push("/feed");
+        router.push(safeReturnTo || "/feed");
         return;
       }
 
@@ -271,7 +276,7 @@ export default function OnboardingPage() {
         .eq("id", authUser?.id);
 
       if (updateError) throw updateError;
-      router.push("/feed");
+      router.push(safeReturnTo || "/feed");
     } catch (err: any) {
       setError(err.message);
       setSubmitting(false);
@@ -491,5 +496,21 @@ export default function OnboardingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+          <div className="animate-pulse text-neutral-500 font-medium">
+            Loading Vouchins Profile...
+          </div>
+        </div>
+      }
+    >
+      <OnboardingContent />
+    </Suspense>
   );
 }

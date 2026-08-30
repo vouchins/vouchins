@@ -79,7 +79,27 @@ export async function GET(request: Request) {
     .eq("id", data.user.id)
     .maybeSingle();
 
-  const destination = profile?.onboarded ? "/feed" : "/onboarding";
+  // Read returnTo from search params or cookie
+  const paramReturnTo = url.searchParams.get("returnTo");
+  const cookieReturnTo = cookieStore.get("vouchins_return_to")?.value;
+  const rawReturnTo = paramReturnTo || cookieReturnTo || null;
+  const safeReturnTo =
+    rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
+      ? rawReturnTo
+      : null;
+
+  if (cookieReturnTo) {
+    try {
+      cookieStore.delete("vouchins_return_to");
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  let destination = profile?.onboarded ? (safeReturnTo || "/feed") : "/onboarding";
+  if (!profile?.onboarded && safeReturnTo) {
+    destination = `/onboarding?returnTo=${encodeURIComponent(safeReturnTo)}`;
+  }
 
   return NextResponse.redirect(`${origin}${destination}`);
 }

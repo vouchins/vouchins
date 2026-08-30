@@ -6,7 +6,8 @@ export const CATEGORIES = [
 ] as const;
 
 export const VISIBILITY_OPTIONS = [
-  { value: 'all', label: 'All Companies' },
+  { value: 'public', label: 'Public (Web & Search Engines)' },
+  { value: 'all', label: 'Verified Network (All Companies)' },
   { value: 'company', label: 'My Company Only' },
 ] as const;
 

@@ -45,7 +45,7 @@ export interface FeedPost {
   text: string;
   category: "housing" | "buy_sell" | "recommendations" | "jobs" | "referrals";
   sub_category?: "flatmates" | "rentals" | "sale" | "pg" | "hiring" | "seeking_referral" | "offering_referral" | "seeking_job" | null;
-  visibility: "company" | "all";
+  visibility: "company" | "all" | "public";
   image_urls: string[];
   is_flagged: boolean;
   flag_reasons: string[];

@@ -19,6 +19,9 @@ import { HomepageNavbar } from "@/components/homepage-navbar";
 function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  const safeReturnTo =
+    returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
 
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -72,7 +75,7 @@ function SignupContent() {
       const res = await fetch("/api/auth/oauth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: supabaseProvider }),
+        body: JSON.stringify({ provider: supabaseProvider, returnTo: safeReturnTo }),
       });
 
       const data = await res.json();
@@ -126,7 +129,9 @@ function SignupContent() {
         posthog.capture("Invite Converted", { inviter_id: inviteVal });
       }
 
-      window.location.href = "/onboarding";
+      window.location.href = safeReturnTo
+        ? `/onboarding?returnTo=${encodeURIComponent(safeReturnTo)}`
+        : "/onboarding";
     } catch (err: any) {
       setError(err.message || "Failed to create account.");
     } finally {
@@ -443,6 +448,16 @@ function SignupContent() {
                 >
                   {loading ? "Processing..." : "Create Account"}
                 </Button>
+
+                <p className="text-center text-xs text-neutral-500 font-medium pt-2">
+                  Already have an account?{" "}
+                  <Link
+                    href={safeReturnTo ? `/login?returnTo=${encodeURIComponent(safeReturnTo)}` : "/login"}
+                    className="font-bold text-[#0A1B5C] hover:underline"
+                  >
+                    Log in
+                  </Link>
+                </p>
               </form>
             </div>
           </div>

@@ -4,9 +4,28 @@ import { cookies } from "next/headers";
 
 export async function POST(req: Request) {
   try {
-    const { provider } = await req.json();
+    const { provider, returnTo } = await req.json();
     const origin = new URL(req.url).origin;
     const cookieStore = await cookies();
+
+    // Sanitize returnTo
+    const safeReturnTo =
+      typeof returnTo === "string" && returnTo.startsWith("/") && !returnTo.startsWith("//")
+        ? returnTo
+        : null;
+
+    if (safeReturnTo) {
+      try {
+        cookieStore.set("vouchins_return_to", safeReturnTo, {
+          path: "/",
+          httpOnly: true,
+          sameSite: "lax",
+          maxAge: 3600,
+        });
+      } catch (e) {
+        // Ignore cookie write issues
+      }
+    }
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,10 +46,14 @@ export async function POST(req: Request) {
       }
     );
 
+    const callbackUrl = safeReturnTo
+      ? `${origin}/api/auth/callback?returnTo=${encodeURIComponent(safeReturnTo)}`
+      : `${origin}/api/auth/callback`;
+
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${origin}/api/auth/callback`,
+        redirectTo: callbackUrl,
       },
     });
 

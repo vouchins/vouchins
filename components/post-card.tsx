@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Linkify from "linkify-react";
 import posthog from "posthog-js";
 import {
@@ -27,6 +28,7 @@ import {
   CheckCircle2,
   RotateCcw,
   Lock,
+  Globe,
   MoreVertical,
   Eye,
 } from "lucide-react";
@@ -39,6 +41,16 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -72,7 +84,7 @@ interface PostCardProps {
     | "offering_referral"
     | "seeking_job"
     | null;
-    visibility: "company" | "all";
+    visibility: "company" | "all" | "public";
     image_urls: string[];
     is_flagged: boolean;
     flag_reasons: string[];
@@ -112,7 +124,7 @@ interface PostCardProps {
     view_count?: number;
   };
   isVerifiedUser: boolean;
-  currentUserId: string;
+  currentUserId?: string;
   onReply: (postId: string) => void;
   onReport: (
     targetType: "post" | "comment",
@@ -136,6 +148,7 @@ export function PostCard({
   defaultShowComments = false,
   variant = "default",
 }: PostCardProps) {
+  const router = useRouter();
   const isFeedVariant = variant === "feed";
   // --- START: YOUR ORIGINAL LOGIC (FULLY PRESERVED) ---
   const isOwner = post.user.id === currentUserId;
@@ -151,6 +164,8 @@ export function PostCard({
   const [saving, setSaving] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [localStatus, setLocalStatus] = useState(post.status || "active");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const togglePostStatus = async () => {
     const newStatus = localStatus === "active" ? "closed" : "active";
@@ -242,6 +257,15 @@ export function PostCard({
   const { vouchedEntities, setVouchedEntities, savedPostIds, setSavedPostIds } = useUser();
 
   const handleVouch = async (targetUserId: string, entityType: 'post' | 'comment', entityId: string) => {
+    if (!currentUserId) {
+      router.push(`/signup?returnTo=/posts/${post.id}`);
+      return;
+    }
+    if (!isVerifiedUser) {
+      if (onVerifyClick) onVerifyClick(post.id);
+      else toast.error("You must be verified to vouch for members");
+      return;
+    }
     const key = `${entityType}_${entityId}`;
     if (targetUserId === currentUserId || vouchedEntities[key]) return;
 
@@ -272,6 +296,10 @@ export function PostCard({
   const isSaved = savedPostIds ? savedPostIds.has(post.id) : false;
 
   const handleToggleSave = async () => {
+    if (!currentUserId) {
+      router.push(`/signup?returnTo=/posts/${post.id}`);
+      return;
+    }
     if (!isVerifiedUser) {
       if (onVerifyClick) onVerifyClick(post.id);
       else toast.error("You must be verified to save posts");
@@ -445,22 +473,29 @@ export function PostCard({
     setIsEditing(true);
   };
 
-  const deletePost = async () => {
-    const confirmed = confirm("Delete this post? This cannot be undone.");
-    if (!confirmed) return;
-    const { error } = await supabase
-      .from("posts")
-      .update({ is_removed: true })
-      .eq("id", post.id);
-    if (error) {
-      console.error("Delete error:", error);
-      return;
+  const handleConfirmDelete = async () => {
+    try {
+      setIsDeleting(true);
+      const res = await fetch(`/api/posts/${post.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete post");
+      }
+      posthog.capture("Post Deleted", { post_id: post.id });
+      if (post.category === "buy_sell") {
+        posthog.capture("Listing Closed", { post_id: post.id });
+      }
+      toast.success("Post deleted");
+      setShowDeleteConfirm(false);
+      onPostUpdated();
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      toast.error(err.message || "Failed to delete post");
+    } finally {
+      setIsDeleting(false);
     }
-    posthog.capture("Post Deleted", { post_id: post.id });
-    if (post.category === "buy_sell") {
-      posthog.capture("Listing Closed", { post_id: post.id });
-    }
-    onPostUpdated();
   };
 
   const handleNewFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -554,6 +589,10 @@ export function PostCard({
   const handleReplyClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    if (!currentUserId) {
+      router.push(`/signup?returnTo=/posts/${post.id}`);
+      return;
+    }
     const shouldShow = !showComments;
     setShowComments(shouldShow);
     if (shouldShow) void loadComments();
@@ -610,8 +649,8 @@ export function PostCard({
               )}
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={deletePost}
-              className="text-xs font-semibold text-red-600 focus:bg-red-50 focus:text-red-700"
+              onSelect={() => setShowDeleteConfirm(true)}
+              className="text-xs font-semibold text-red-600 focus:bg-red-50 focus:text-red-700 cursor-pointer"
             >
               <Trash2 className="mr-2 h-3.5 w-3.5" />
               Delete post
@@ -799,6 +838,15 @@ export function PostCard({
               Company Only
             </Badge>
           )}
+          {post.visibility === "public" && (
+            <Badge
+              variant="secondary"
+              className="bg-emerald-50 text-emerald-700 border-none text-[10px] px-2 py-0 font-semibold flex items-center gap-1"
+            >
+              <Globe className="h-3 w-3" />
+              Public
+            </Badge>
+          )}
         </div>
       </div>
       )}
@@ -837,6 +885,12 @@ export function PostCard({
               <Badge variant="outline" className="h-5 border-blue-100 bg-blue-50 px-2 text-[10px] font-semibold text-blue-700">
                 <Lock className="mr-1 h-3 w-3" />
                 Company only
+              </Badge>
+            )}
+            {post.visibility === "public" && (
+              <Badge variant="outline" className="h-5 border-emerald-100 bg-emerald-50 px-2 text-[10px] font-semibold text-emerald-700">
+                <Globe className="mr-1 h-3 w-3" />
+                Public
               </Badge>
             )}
             {post.sub_category && subCategoryLabel && (
@@ -1350,7 +1404,10 @@ export function PostCard({
                         </>
                       )}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={deletePost} className="text-red-650 focus:text-red-650 focus:bg-red-50 text-xs font-bold">
+                    <DropdownMenuItem
+                      onSelect={() => setShowDeleteConfirm(true)}
+                      className="text-red-650 focus:text-red-650 focus:bg-red-50 text-xs font-bold cursor-pointer"
+                    >
                       <Trash2 className="h-3.5 w-3.5 mr-2" />
                       Delete Post
                     </DropdownMenuItem>
@@ -1405,7 +1462,7 @@ export function PostCard({
       </div>
       )}
 
-      {isFeedVariant && showReplyForm && (
+      {isFeedVariant && showReplyForm && currentUserId && (
         <CommentForm
           postId={post.id}
           userId={currentUserId}
@@ -1510,6 +1567,35 @@ export function PostCard({
           ))}
         </div>
       )}
+
+      {/* Delete Post Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent className="max-w-md rounded-2xl p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold text-neutral-900">
+              Delete this post?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-neutral-500 leading-relaxed mt-1">
+              This action cannot be undone. This post will be permanently removed from the community feed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 flex flex-row items-center justify-end gap-2.5">
+            <AlertDialogCancel disabled={isDeleting} className="rounded-xl text-xs font-bold h-9">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmDelete();
+              }}
+              disabled={isDeleting}
+              className="rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold h-9 shadow-sm"
+            >
+              {isDeleting ? "Deleting..." : "Delete Post"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

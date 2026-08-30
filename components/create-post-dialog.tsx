@@ -355,6 +355,12 @@ export function CreatePostDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="public">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Public</span>
+                    </div>
+                  </SelectItem>
                   <SelectItem value="all">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
@@ -373,18 +379,28 @@ export function CreatePostDialog({
                         ) : (
                           <Building2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
                         )}
-                        <span>My Company Network ({user?.company?.name})</span>
+                        <span>{user?.company?.name} Colleagues</span>
                       </div>
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-neutral-500 mt-1.5 leading-relaxed">
+                {visibility === "public" &&
+                  "Public: Discoverable by search engines and readable by anyone on the web. Contact info is protected for verified members."}
                 {visibility === "all" &&
                   "Verified: Visible to all verified professionals across all companies in the network."}
                 {visibility === "company" &&
                   `Private: Only your colleagues at ${user?.company?.name} can see this.`}
               </p>
+              {visibility === "public" && (
+                <div className="mt-2.5 flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200/80 text-amber-900 text-xs leading-relaxed">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Warning:</strong> Public posts are indexed by search engines and readable by anyone on the web. Contact details will be hidden from non-members, but do not share confidential internal company information.
+                  </span>
+                </div>
+              )}
             </div>
 
             <div>
