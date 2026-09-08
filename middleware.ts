@@ -133,7 +133,9 @@ export async function middleware(request: NextRequest) {
     return noIndex(NextResponse.redirect(url))
   }
 
-  if (!isIndexableRoute && !isWardenHost) {
+  const isProductionHost = isMainHost || isWardenHost
+
+  if (!isProductionHost || (!isIndexableRoute && !isWardenHost)) {
     return noIndex(supabaseResponse)
   }
 

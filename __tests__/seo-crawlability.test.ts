@@ -123,6 +123,7 @@ describe("public SEO crawl endpoints", () => {
       "response.headers.set('X-Robots-Tag', 'noindex, follow')",
     );
     expect(middlewareSource).toContain("const isIndexableRoute =");
+    expect(middlewareSource).toContain("const isProductionHost = isMainHost || isWardenHost");
     expect(loginMetadata).toContain("index: false");
     expect(signupMetadata).toContain("index: false");
   });
