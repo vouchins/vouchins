@@ -1,4 +1,5 @@
 import { isValidDomain, cn } from '@/lib/utils';
+import { isValidLinkedInUrl, normalizeLinkedInUrl, LINKEDIN_URL_PREFIX } from '@/lib/auth/validation';
 
 describe('Utility Functions', () => {
   describe('isValidDomain', () => {
@@ -17,6 +18,32 @@ describe('Utility Functions', () => {
       expect(isValidDomain('.invalid.com')).toBe(false);
       expect(isValidDomain('invalid..com')).toBe(false);
       expect(isValidDomain('my_domain.com')).toBe(false); // underscores not allowed in domains usually
+    });
+  });
+
+  describe('LinkedIn URL Validation', () => {
+    it('should return true for valid LinkedIn URLs', () => {
+      expect(isValidLinkedInUrl('https://www.linkedin.com/in/satyanadella')).toBe(true);
+      expect(isValidLinkedInUrl('https://linkedin.com/in/sundarpichai')).toBe(true);
+      expect(isValidLinkedInUrl('https://in.linkedin.com/in/user-profile-123')).toBe(true);
+      expect(isValidLinkedInUrl('linkedin.com/in/username')).toBe(true);
+      expect(isValidLinkedInUrl('www.linkedin.com/company/google')).toBe(true);
+    });
+
+    it('should return false for empty or prefix-only LinkedIn inputs', () => {
+      expect(isValidLinkedInUrl('')).toBe(false);
+      expect(isValidLinkedInUrl(LINKEDIN_URL_PREFIX)).toBe(false);
+      expect(isValidLinkedInUrl('https://linkedin.com/')).toBe(false);
+      expect(isValidLinkedInUrl('https://www.linkedin.com/')).toBe(false);
+      expect(isValidLinkedInUrl('https://facebook.com/username')).toBe(false);
+      expect(isValidLinkedInUrl('not-a-url')).toBe(false);
+    });
+
+    it('should correctly normalize LinkedIn URLs', () => {
+      expect(normalizeLinkedInUrl('linkedin.com/in/user')).toBe('https://linkedin.com/in/user');
+      expect(normalizeLinkedInUrl('https://www.linkedin.com/in/user')).toBe('https://www.linkedin.com/in/user');
+      expect(normalizeLinkedInUrl(LINKEDIN_URL_PREFIX)).toBe('');
+      expect(normalizeLinkedInUrl('')).toBe('');
     });
   });
 

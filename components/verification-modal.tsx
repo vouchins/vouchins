@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { isCorporateEmail } from "@/lib/auth/validation";
+import { isCorporateEmail, LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
 import { supabase } from "@/lib/supabase/browser";
 import {
   Loader2,
@@ -45,7 +45,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
   const [otp, setOtp] = useState("");
 
   // Manual States
-  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState(LINKEDIN_URL_PREFIX);
   const [manualWorkEmail, setManualWorkEmail] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -54,6 +54,9 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
     : null;
 
   useEffect(() => {
+    if (isOpen && user) {
+      setLinkedinUrl(user.linkedin_url || LINKEDIN_URL_PREFIX);
+    }
     if (!isOpen || !pendingOtpStorageKey) return;
 
     try {
@@ -162,10 +165,17 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
     setLoading(true);
     setError("");
 
+    if (!linkedinUrl || linkedinUrl.trim() === LINKEDIN_URL_PREFIX || !isValidLinkedInUrl(linkedinUrl)) {
+      setError("Please provide a valid LinkedIn URL (e.g., https://www.linkedin.com/in/username)");
+      setLoading(false);
+      return;
+    }
+
     try {
       let fileUrl = null;
       if (selectedFile) {
-        const fileName = `${user.id}/${Date.now()}-${selectedFile.name}`;
+        const fileExt = selectedFile.name.split(".").pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from("verification-docs")
           .upload(fileName, selectedFile);
@@ -178,7 +188,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
         .insert({
           user_id: user.id,
           company_name: user?.company?.name || "Unknown Company",
-          linkedin_url: linkedinUrl.trim(),
+          linkedin_url: normalizeLinkedInUrl(linkedinUrl),
           corporate_email: manualWorkEmail.trim() || null,
           id_card_url: fileUrl,
           status: "pending",
@@ -393,7 +403,7 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
                       setLinkedinUrl(e.target.value);
                       if (error) setError("");
                     }}
-                    placeholder="https://linkedin.com/in/username"
+                    placeholder="https://www.linkedin.com/in/username"
                     className="h-12 sm:h-13 rounded-2xl bg-neutral-50 border-none text-sm font-semibold"
                     required
                   />

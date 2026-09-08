@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "@/components/user-provider";
 import { supabase } from "@/lib/supabase/browser";
-import { isCorporateEmail } from "@/lib/auth/validation";
+import { isCorporateEmail, LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
 import {
   Dialog,
   DialogContent,
@@ -122,7 +122,7 @@ export function ProfileCompletionDialog({
   const [successMsg, setSuccessMsg] = useState("");
 
   // Form states
-  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState(LINKEDIN_URL_PREFIX);
   const [phoneCountryCode, setPhoneCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -131,7 +131,7 @@ export function ProfileCompletionDialog({
   const [verifyStep, setVerifyStep] = useState(1); // 1: Choice, 2: OTP Email, 3: Manual, 4: Enter OTP, 5: Success Info
   const [corporateEmail, setCorporateEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [manualLinkedinUrl, setManualLinkedinUrl] = useState("");
+  const [manualLinkedinUrl, setManualLinkedinUrl] = useState(LINKEDIN_URL_PREFIX);
   const [manualWorkEmail, setManualWorkEmail] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -152,7 +152,7 @@ export function ProfileCompletionDialog({
     if (isOpen && user) {
       setError("");
       setSuccessMsg("");
-      setLinkedinUrl(user.linkedin_url || "");
+      setLinkedinUrl(user.linkedin_url || LINKEDIN_URL_PREFIX);
       const parsedPhone = parsePhone(user.phone_number || null);
       setPhoneCountryCode(parsedPhone.code);
       setPhoneNumber(parsedPhone.num);
@@ -161,7 +161,7 @@ export function ProfileCompletionDialog({
       setVerifyStep(1);
       setCorporateEmail("");
       setOtp("");
-      setManualLinkedinUrl(user.linkedin_url || "");
+      setManualLinkedinUrl(user.linkedin_url || LINKEDIN_URL_PREFIX);
       setManualWorkEmail("");
       setSelectedFile(null);
 
@@ -220,8 +220,8 @@ export function ProfileCompletionDialog({
     setError("");
     setSuccessMsg("");
 
-    if (linkedinUrl && !linkedinUrl.includes("linkedin.com/")) {
-      setError("Please enter a valid LinkedIn URL (e.g., https://linkedin.com/in/username)");
+    if (!linkedinUrl || linkedinUrl.trim() === LINKEDIN_URL_PREFIX || !isValidLinkedInUrl(linkedinUrl)) {
+      setError("Please enter a valid LinkedIn URL (e.g., https://www.linkedin.com/in/username)");
       return;
     }
 
@@ -229,7 +229,7 @@ export function ProfileCompletionDialog({
     try {
       const { error: updateError } = await supabase
         .from("users")
-        .update({ linkedin_url: linkedinUrl.trim() })
+        .update({ linkedin_url: normalizeLinkedInUrl(linkedinUrl) })
         .eq("id", user.id);
 
       if (updateError) throw updateError;
@@ -322,10 +322,16 @@ export function ProfileCompletionDialog({
     setLoading(true);
     setError("");
 
+    if (!manualLinkedinUrl || manualLinkedinUrl.trim() === LINKEDIN_URL_PREFIX || !isValidLinkedInUrl(manualLinkedinUrl)) {
+      setError("Please provide a valid LinkedIn URL (e.g., https://www.linkedin.com/in/username)");
+      return;
+    }
+
     try {
       let fileUrl = null;
       if (selectedFile) {
-        const fileName = `${user.id}/${Date.now()}-${selectedFile.name}`;
+        const fileExt = selectedFile.name.split(".").pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from("verification-docs")
           .upload(fileName, selectedFile);
@@ -338,7 +344,7 @@ export function ProfileCompletionDialog({
         .insert({
           user_id: user.id,
           company_name: user?.company?.name || "Unknown Company",
-          linkedin_url: manualLinkedinUrl.trim(),
+          linkedin_url: normalizeLinkedInUrl(manualLinkedinUrl),
           corporate_email: manualWorkEmail.trim() || null,
           id_card_url: fileUrl,
           status: "pending",
@@ -541,7 +547,7 @@ export function ProfileCompletionDialog({
                       type="url"
                       value={linkedinUrl}
                       onChange={(e) => setLinkedinUrl(e.target.value)}
-                      placeholder="https://linkedin.com/in/..."
+                      placeholder="https://www.linkedin.com/in/username"
                       className="w-full bg-transparent pl-3 pr-2 py-1 text-xs font-semibold text-neutral-800 outline-none placeholder-neutral-400"
                     />
                   </div>

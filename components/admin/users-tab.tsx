@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
+import { LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -199,7 +200,10 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
   }
 
   const handleEditClick = (user: User) => {
-    setSelectedUser({ ...user });
+    setSelectedUser({
+      ...user,
+      linkedin_url: user.linkedin_url || LINKEDIN_URL_PREFIX,
+    });
     // Pre-populate company from the user's existing company (if any)
     setCompany(user.company?.name ?? '');
     setSelectedCompanyId(user.company?.id ?? null);
@@ -279,10 +283,20 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
         finalCompanyId = null;
       }
 
+      const rawLinkedin = selectedUser.linkedin_url?.trim();
+      const hasEnteredLinkedin = rawLinkedin && rawLinkedin !== LINKEDIN_URL_PREFIX;
+      if (hasEnteredLinkedin && !isValidLinkedInUrl(rawLinkedin)) {
+        const errMsg = "Please enter a valid LinkedIn URL (e.g., https://www.linkedin.com/in/username)";
+        setError(errMsg);
+        toast.error(errMsg, { id: "linkedin-invalid-toast" });
+        return;
+      }
+      const finalLinkedinUrl = hasEnteredLinkedin ? normalizeLinkedInUrl(rawLinkedin) : undefined;
+
       await onUpdateUser(selectedUser.id, {
         full_name: selectedUser.full_name,
         personal_email: selectedUser.personal_email,
-        linkedin_url: selectedUser.linkedin_url,
+        linkedin_url: finalLinkedinUrl,
         is_active: selectedUser.is_active,
         is_verified: selectedUser.is_verified,
         onboarded: selectedUser.onboarded,
@@ -673,7 +687,7 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                   <Input
                     id="linkedin"
                     className="pl-10"
-                    placeholder="linkedin.com/in/username"
+                    placeholder="https://www.linkedin.com/in/username"
                     value={selectedUser.linkedin_url || ""}
                     onChange={(e) =>
                       setSelectedUser({

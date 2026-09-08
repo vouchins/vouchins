@@ -18,7 +18,7 @@ import { supabase } from "@/lib/supabase/browser";
 import { INDIAN_CITIES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner"; // Assuming you use sonner or similar for toasts
-import { isCorporateEmail, extractDomainFromEmail, deriveCompanyNameFromDomain } from "@/lib/auth/validation";
+import { isCorporateEmail, extractDomainFromEmail, deriveCompanyNameFromDomain, LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
 import posthog from "posthog-js";
 
 function OnboardingContent() {
@@ -43,12 +43,11 @@ function OnboardingContent() {
   const [userId, setUserId] = useState("");
   const [isCorporate, setIsCorporate] = useState(false);
 
-  // OTP related
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
   const [manualVerification, setManualVerification] = useState(false);
-  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState(LINKEDIN_URL_PREFIX);
 
   // New states for company search
   const [companySuggestions, setCompanySuggestions] = useState<any[]>([]);
@@ -206,11 +205,11 @@ function OnboardingContent() {
   };
 
   const handleManualVerificationSubmit = async () => {
-    if (!linkedinUrl.trim()) {
-      setOtpError("Please provide your LinkedIn URL for manual verification.");
+    if (!linkedinUrl || linkedinUrl.trim() === LINKEDIN_URL_PREFIX || !isValidLinkedInUrl(linkedinUrl)) {
+      setOtpError("Please provide a valid LinkedIn URL (e.g., https://www.linkedin.com/in/username)");
       return;
     }
-    await completeOnboarding(false, linkedinUrl.trim());
+    await completeOnboarding(false, normalizeLinkedInUrl(linkedinUrl));
   };
 
   const completeOnboarding = async (isVerified: boolean, manualLinkedinUrl: string | null) => {
@@ -469,8 +468,11 @@ function OnboardingContent() {
                       <Label className="text-xs font-bold uppercase tracking-wider text-neutral-500">LinkedIn Profile URL</Label>
                       <Input
                         value={linkedinUrl}
-                        onChange={(e) => setLinkedinUrl(e.target.value)}
-                        placeholder="https://linkedin.com/in/username"
+                        onChange={(e) => {
+                          setLinkedinUrl(e.target.value);
+                          if (otpError) setOtpError("");
+                        }}
+                        placeholder="https://www.linkedin.com/in/username"
                         className="mt-1.5 h-12 rounded-xl"
                       />
                       <p className="text-[10px] text-neutral-400 mt-1 font-semibold">
@@ -480,7 +482,7 @@ function OnboardingContent() {
                     <Button
                       className="w-full h-12 rounded-xl font-bold"
                       onClick={handleManualVerificationSubmit}
-                      disabled={submitting || !linkedinUrl.trim()}
+                      disabled={submitting || !linkedinUrl.trim() || linkedinUrl.trim() === LINKEDIN_URL_PREFIX}
                     >
                       {submitting ? "Submitting..." : "Submit for Manual Verification"}
                     </Button>

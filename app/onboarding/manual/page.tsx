@@ -9,10 +9,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Upload, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
+import { LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
 
 export default function ManualVerificationPage() {
   const router = useRouter();
-  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState(LINKEDIN_URL_PREFIX);
   const [corporateEmail, setCorporateEmail] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,6 +30,12 @@ export default function ManualVerificationPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    if (!linkedinUrl || linkedinUrl.trim() === LINKEDIN_URL_PREFIX || !isValidLinkedInUrl(linkedinUrl)) {
+      setError("Please provide a valid LinkedIn URL (e.g., https://www.linkedin.com/in/username)");
+      setLoading(false);
+      return;
+    }
 
     try {
       const {
@@ -56,7 +63,7 @@ export default function ManualVerificationPage() {
         .insert({
           user_id: user.id,
           corporate_email: corporateEmail,
-          linkedin_url: linkedinUrl,
+          linkedin_url: normalizeLinkedInUrl(linkedinUrl),
           id_card_url: idCardUrl,
           status: "pending",
         });
@@ -127,7 +134,7 @@ export default function ManualVerificationPage() {
                 <Input
                   value={linkedinUrl}
                   onChange={(e) => setLinkedinUrl(e.target.value)}
-                  placeholder="https://linkedin.com/in/..."
+                  placeholder="https://www.linkedin.com/in/username"
                   required
                 />
               </div>

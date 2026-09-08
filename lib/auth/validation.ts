@@ -81,3 +81,40 @@ export function validateFirstName(name: string): boolean {
 export function validateCity(city: string): boolean {
   return city.trim().length >= 2 && city.trim().length <= 100;
 }
+
+export const LINKEDIN_URL_PREFIX = "https://www.linkedin.com/";
+
+/**
+ * Validates if the string is a valid LinkedIn URL (with actual path after domain)
+ */
+export function isValidLinkedInUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = url.trim();
+  if (
+    !trimmed ||
+    trimmed === LINKEDIN_URL_PREFIX ||
+    trimmed === "https://linkedin.com/" ||
+    trimmed === "http://www.linkedin.com/" ||
+    trimmed === "http://linkedin.com/"
+  ) {
+    return false;
+  }
+  // Matches URLs like https://www.linkedin.com/in/username, linkedin.com/in/username, etc.
+  const regex = /^(https?:\/\/)?([a-z]{2,3}\.)?linkedin\.com\/(in\/|pub\/|company\/|school\/|[a-zA-Z0-9_-]+).+/i;
+  return regex.test(trimmed);
+}
+
+/**
+ * Normalizes LinkedIn URL to ensure https:// prefix and strips prefix if left empty
+ */
+export function normalizeLinkedInUrl(url: string | null | undefined): string {
+  if (!url || typeof url !== "string") return "";
+  let trimmed = url.trim();
+  if (!trimmed || trimmed === LINKEDIN_URL_PREFIX || trimmed === "https://linkedin.com/") {
+    return "";
+  }
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+    trimmed = `https://${trimmed}`;
+  }
+  return trimmed;
+}
