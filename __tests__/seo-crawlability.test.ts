@@ -20,15 +20,24 @@ describe("public SEO crawl endpoints", () => {
     expect(middlewareSource).toContain("sitemap\\\\.xml");
   });
 
-  it("generates canonical public URLs and published blog entries", () => {
-    const entries = buildSitemap([
-      {
-        slug: "trust-guide",
-        published_at: "2026-07-01T00:00:00.000Z",
-        updated_at: "2026-07-02T00:00:00.000Z",
-        created_at: "2026-06-30T00:00:00.000Z",
-      },
-    ]);
+  it("generates canonical public URLs, published blog entries, and public feed posts", () => {
+    const entries = buildSitemap(
+      [
+        {
+          slug: "trust-guide",
+          published_at: "2026-07-01T00:00:00.000Z",
+          updated_at: "2026-07-02T00:00:00.000Z",
+          created_at: "2026-06-30T00:00:00.000Z",
+        },
+      ],
+      [
+        {
+          id: "post-123-abc",
+          created_at: "2026-08-01T00:00:00.000Z",
+          updated_at: "2026-08-02T00:00:00.000Z",
+        },
+      ],
+    );
 
     expect(entries.length).toBeGreaterThan(0);
     for (const entry of entries) {
@@ -36,6 +45,9 @@ describe("public SEO crawl endpoints", () => {
     }
     expect(entries.map((entry) => entry.url)).toContain(
       "https://www.vouchins.com/blog/trust-guide",
+    );
+    expect(entries.map((entry) => entry.url)).toContain(
+      "https://www.vouchins.com/posts/post-123-abc",
     );
   });
 
@@ -89,6 +101,18 @@ describe("public SEO crawl endpoints", () => {
     expect(source).toContain("generateMetadata");
     expect(source).toContain("canonical: canonicalUrl");
     expect(source).toContain("url: canonicalUrl");
+  });
+
+  it("defines dynamic canonical and Open Graph metadata for public feed posts", () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), "app/posts/[id]/page.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("generateMetadata");
+    expect(source).toContain("canonical: canonicalUrl");
+    expect(source).toContain("url: canonicalUrl");
+    expect(source).toContain('"DiscussionForumPosting"');
   });
 
   it("uses the canonical www origin for email link fallbacks", () => {
@@ -146,9 +170,13 @@ describe("public SEO crawl endpoints", () => {
     }
   });
 
-  it("adds article, breadcrumb, and FAQ structured data", () => {
+  it("adds article, breadcrumb, FAQ, and public post structured data", () => {
     const articleSource = fs.readFileSync(
       path.join(process.cwd(), "app/blog/[slug]/page.tsx"),
+      "utf8",
+    );
+    const postSource = fs.readFileSync(
+      path.join(process.cwd(), "app/posts/[id]/page.tsx"),
       "utf8",
     );
     const howItWorksSource = fs.readFileSync(
@@ -162,6 +190,7 @@ describe("public SEO crawl endpoints", () => {
 
     expect(articleSource).toContain('"@type": "BlogPosting"');
     expect(articleSource).toContain('"@type": "BreadcrumbList"');
+    expect(postSource).toContain('"@type": "DiscussionForumPosting"');
     expect(howItWorksSource).toContain('"@type": "FAQPage"');
     expect(productSource).toContain('"@type": "FAQPage"');
     expect(productSource).toContain('"@type": "BreadcrumbList"');

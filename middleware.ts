@@ -105,6 +105,7 @@ export async function middleware(request: NextRequest) {
     indexablePaths.includes(url.pathname) ||
     url.pathname === '/blog' ||
     url.pathname.startsWith('/blog/') ||
+    url.pathname.startsWith('/posts/') ||
     url.pathname === '/flatmates-in-hyderabad' ||
     url.pathname.startsWith('/flatmates-in-hyderabad/')
   // If user is logged in and trying to access an auth route, redirect to the appropriate dashboard

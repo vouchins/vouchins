@@ -10,6 +10,12 @@ type PublishedBlogPost = {
   created_at: string | null;
 };
 
+type PublicFeedPost = {
+  id: string;
+  created_at: string | null;
+  updated_at?: string | null;
+};
+
 const PUBLIC_PAGES: MetadataRoute.Sitemap = [
   { url: BASE_URL, changeFrequency: "weekly", priority: 1 },
   { url: `${BASE_URL}/about`, changeFrequency: "monthly", priority: 0.8 },
@@ -30,6 +36,7 @@ const PUBLIC_PAGES: MetadataRoute.Sitemap = [
 
 export function buildSitemap(
   publishedPosts: PublishedBlogPost[] = [],
+  publicFeedPosts: PublicFeedPost[] = [],
 ): MetadataRoute.Sitemap {
   const blogEntries: MetadataRoute.Sitemap = publishedPosts.map((post) => ({
     url: `${BASE_URL}/blog/${encodeURIComponent(post.slug)}`,
@@ -39,7 +46,15 @@ export function buildSitemap(
     priority: 0.7,
   }));
 
-  return [...PUBLIC_PAGES, ...blogEntries];
+  const postEntries: MetadataRoute.Sitemap = publicFeedPosts.map((post) => ({
+    url: `${BASE_URL}/posts/${encodeURIComponent(post.id)}`,
+    lastModified:
+      post.updated_at ?? post.created_at ?? undefined,
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
+  return [...PUBLIC_PAGES, ...blogEntries, ...postEntries];
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -53,16 +68,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const { data, error } = await supabase
-    .from("blog_posts")
-    .select("slug, published_at, updated_at, created_at")
-    .eq("status", "published")
-    .order("published_at", { ascending: false });
 
-  if (error) {
-    console.error("Unable to include published blog posts in sitemap", error);
+  try {
+    const [blogResult, postsResult] = await Promise.all([
+      supabase
+        .from("blog_posts")
+        .select("slug, published_at, updated_at, created_at")
+        .eq("status", "published")
+        .order("published_at", { ascending: false }),
+      supabase
+        .from("posts")
+        .select("id, created_at, updated_at")
+        .eq("visibility", "public")
+        .eq("is_removed", false)
+        .eq("is_flagged", false)
+        .order("created_at", { ascending: false })
+        .limit(5000),
+    ]);
+
+    if (blogResult.error) {
+      console.error("Unable to include published blog posts in sitemap", blogResult.error);
+    }
+    if (postsResult.error) {
+      console.error("Unable to include public feed posts in sitemap", postsResult.error);
+    }
+
+    return buildSitemap(blogResult.data ?? [], postsResult.data ?? []);
+  } catch (error) {
+    console.error("Error generating sitemap:", error);
     return buildSitemap();
   }
-
-  return buildSitemap(data ?? []);
 }
