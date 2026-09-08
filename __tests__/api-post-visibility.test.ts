@@ -132,6 +132,11 @@ describe('API: /api/posts/[id] Post Visibility & Redaction', () => {
     // Author name is masked
     expect(json.post.user.full_name).toBe('S****r P****i');
     expect(json.post.user.email).toBeUndefined();
+    expect(json.post.user_id).toBeUndefined();
+    expect(json.post.user.id).toBeUndefined();
+    expect(json.post.user.company.id).toBeUndefined();
+    expect(json.post.user.company.name).toBe('Google');
+    expect(json.post.user.company.domain).toBe('google.com');
   });
 
   it('returns 50-character truncated preview for unauthenticated viewer on Verified Network (all) post', async () => {

@@ -161,6 +161,22 @@ export async function GET(
 
     const isPublicPost = post.visibility === "public";
 
+    // Sanitize author details for non-verified or anonymous viewers
+    const sanitizeUser = (user: any) => {
+      if (!user) return null;
+      return {
+        full_name: maskName(user.full_name),
+        city: user.city,
+        avatar_url: null,
+        company: user.company
+          ? {
+              name: user.company.name,
+              domain: user.company.domain,
+            }
+          : null,
+      };
+    };
+
     // Security guard rails:
     
     // Case 1: User is NOT logged in
@@ -169,14 +185,11 @@ export async function GET(
         // Public post: return full text with contact details stripped for SEO & public readers
         const publicPost = {
           ...post,
+          user_id: undefined,
           text: stripContactDetails(post.text),
           image_urls: post.image_urls || [],
           comments: [], // Comments are gated
-          user: post.user ? {
-            ...post.user,
-            full_name: maskName(post.user.full_name),
-            email: undefined,
-          } : null,
+          user: sanitizeUser(post.user),
         };
         return NextResponse.json({
           post: publicPost,
@@ -190,14 +203,11 @@ export async function GET(
       // Verified Network post: Truncate the text and redact sensitive details
       const truncatedPost = {
         ...post,
+        user_id: undefined,
         text: getPublicPreviewText(post.text),
         image_urls: [], // Clear attachments
         comments: [],   // Clear comments
-        user: post.user ? {
-          ...post.user,
-          full_name: maskName(post.user.full_name),
-          email: undefined,
-        } : null,
+        user: sanitizeUser(post.user),
       };
       return NextResponse.json({
         post: truncatedPost,
@@ -214,14 +224,11 @@ export async function GET(
         // Public post: return full text with contact details stripped
         const publicPost = {
           ...post,
+          user_id: undefined,
           text: stripContactDetails(post.text),
           image_urls: post.image_urls || [],
           comments: [], // Comments are gated
-          user: post.user ? {
-            ...post.user,
-            full_name: maskName(post.user.full_name),
-            email: undefined,
-          } : null,
+          user: sanitizeUser(post.user),
         };
         return NextResponse.json({
           post: publicPost,
@@ -235,14 +242,11 @@ export async function GET(
       // Verified Network post: Unverified user sees a truncated version
       const truncatedPost = {
         ...post,
+        user_id: undefined,
         text: getPublicPreviewText(post.text),
         image_urls: [], // Clear attachments
         comments: [],   // Clear comments
-        user: post.user ? {
-          ...post.user,
-          full_name: maskName(post.user.full_name),
-          email: undefined,
-        } : null,
+        user: sanitizeUser(post.user),
       };
       return NextResponse.json({
         post: truncatedPost,
