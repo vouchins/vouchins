@@ -23,6 +23,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Incorrect code" }, { status: 400 });
     }
 
+    // 2.5 Check if corporate email is already claimed by another user
+    const { data: existingUser } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .or(`email.eq.${normalizedEmail},secondary_email.eq.${normalizedEmail}`)
+      .neq("id", userId)
+      .maybeSingle();
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "This corporate email is already associated with another account." },
+        { status: 400 }
+      );
+    }
+
     // 3. Resolve Company (Auto-creation logic)
     const domain = normalizedEmail.split("@")[1];
     let { data: company } = await supabaseAdmin.from("companies").select("id").eq("domain", domain).maybeSingle();

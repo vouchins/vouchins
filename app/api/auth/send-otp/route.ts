@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { sendOtpEmail } from "@/lib/email";
 import { isCorporateEmail } from "@/lib/auth/validation";
@@ -25,6 +26,31 @@ export async function POST(req: Request) {
     }
 
     const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if user is authenticated to allow verifying their own registration email
+    const supabase = await createServerSupabase();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
+    // Check if corporate email is already claimed by another user
+    let duplicateQuery = supabaseAdmin
+      .from("users")
+      .select("id")
+      .or(`email.eq.${normalizedEmail},secondary_email.eq.${normalizedEmail}`);
+
+    if (authUser?.id) {
+      duplicateQuery = duplicateQuery.neq("id", authUser.id);
+    }
+
+    const { data: existingUser } = await duplicateQuery.maybeSingle();
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "This corporate email is already associated with another account." },
+        { status: 400 }
+      );
+    }
 
     /* -------------------- Rate Limiting -------------------- */
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
