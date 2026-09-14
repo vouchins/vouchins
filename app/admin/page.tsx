@@ -75,14 +75,26 @@ function AdminPageContent() {
     if (sessionInvalidated.current) return;
     sessionInvalidated.current = true;
     clearAdminState();
-    router.replace("/login?reason=session-expired");
+    router.replace("/login?reason=session-expired&returnTo=/admin");
+  };
+
+  const handleForbidden = () => {
+    if (sessionInvalidated.current) return;
+    sessionInvalidated.current = true;
+    clearAdminState();
+    toast.error("Access denied: You do not have administrator permissions.");
+    router.replace("/feed");
   };
 
   const adminFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const response = await fetch(input, { ...init, cache: "no-store" });
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       expireAdminSession();
-      throw new Error("Your admin session has expired");
+      throw new Error("Your session has expired. Please log in again.");
+    }
+    if (response.status === 403) {
+      handleForbidden();
+      throw new Error("You do not have administrator privileges.");
     }
     return response;
   };

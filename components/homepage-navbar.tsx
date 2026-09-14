@@ -64,7 +64,7 @@ export function HomepageNavbar() {
                       </span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item mt-1">
+                  {/* <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item mt-1">
                     <a
                       href="https://warden.vouchins.com"
                       className="flex items-start gap-4 px-4 py-3"
@@ -81,7 +81,7 @@ export function HomepageNavbar() {
                         </span>
                       </span>
                     </a>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                 </DropdownMenuContent>
               </DropdownMenu>
               <Link
