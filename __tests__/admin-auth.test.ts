@@ -7,9 +7,12 @@ import { requireActiveAdmin } from "@/lib/admin/auth";
 const mockGetUser = jest.fn();
 const mockMaybeSingle = jest.fn();
 
+const mockServerFrom = jest.fn();
+
 jest.mock("@/lib/supabase/server", () => ({
   createServerSupabase: jest.fn(async () => ({
     auth: { getUser: mockGetUser },
+    from: mockServerFrom,
   })),
 }));
 
@@ -52,6 +55,29 @@ describe("requireActiveAdmin", () => {
     const profile = { id: "admin-1", is_admin: true, is_active: true };
     mockGetUser.mockResolvedValue({ data: { user }, error: null });
     mockMaybeSingle.mockResolvedValue({ data: profile });
+    const result = await requireActiveAdmin();
+    expect(result).toEqual({ user, profile });
+  });
+
+  it("allows an administrator when is_active is null or undefined", async () => {
+    const user = { id: "admin-1" };
+    const profile = { id: "admin-1", is_admin: true, is_active: null };
+    mockGetUser.mockResolvedValue({ data: { user }, error: null });
+    mockMaybeSingle.mockResolvedValue({ data: profile });
+    const result = await requireActiveAdmin();
+    expect(result).toEqual({ user, profile });
+  });
+
+  it("falls back to authenticated server client if supabaseAdmin returns null", async () => {
+    const user = { id: "admin-1" };
+    const profile = { id: "admin-1", is_admin: true, is_active: true };
+    mockGetUser.mockResolvedValue({ data: { user }, error: null });
+    mockMaybeSingle.mockResolvedValue({ data: null });
+    mockServerFrom.mockReturnValue({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({ maybeSingle: jest.fn().mockResolvedValue({ data: profile }) })),
+      })),
+    });
     const result = await requireActiveAdmin();
     expect(result).toEqual({ user, profile });
   });

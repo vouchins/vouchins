@@ -2,7 +2,11 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { transporter } from "@/lib/email";
 
 export async function sendCampaignApprovalEmail(campaign: any) {
-  const { data: admins, error } = await supabaseAdmin.from("users").select("email,personal_email").eq("is_admin", true).eq("is_active", true);
+  const { data: admins, error } = await supabaseAdmin
+    .from("users")
+    .select("email,personal_email")
+    .eq("is_admin", true)
+    .neq("is_active", false);
   if (error) throw error;
   const recipients = Array.from(new Set((admins || []).map((a: any) => a.personal_email || a.email).filter(Boolean)));
   if (!recipients.length) throw new Error("No active admin email address is configured");

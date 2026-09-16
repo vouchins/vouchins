@@ -8,13 +8,29 @@ export async function requireActiveAdmin() {
   if (error || !user) {
     return { response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
-  const { data: profile } = await supabaseAdmin
+
+  // First try service role admin client, fallback to user's authenticated client
+  let profile = null;
+  const { data: adminProfile } = await supabaseAdmin
     .from("users")
     .select("id, full_name, email, is_admin, is_active")
     .eq("id", user.id)
     .maybeSingle();
-  if (!profile?.is_admin || !profile.is_active) {
+
+  if (adminProfile) {
+    profile = adminProfile;
+  } else {
+    const { data: userProfile } = await supabase
+      .from("users")
+      .select("id, full_name, email, is_admin, is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+    profile = userProfile;
+  }
+
+  if (!profile?.is_admin || profile.is_active === false) {
     return { response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
   return { user, profile };
 }
+

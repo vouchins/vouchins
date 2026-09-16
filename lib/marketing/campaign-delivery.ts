@@ -20,7 +20,7 @@ async function recipients(groupId: string, groupName: string) {
     }
     return emails.map((email) => usersByEmail.get(email) || ({ id: null, email, personal_email: null, full_name: "there" }));
   }
-  let query = supabaseAdmin.from("users").select("id,email,personal_email,full_name").eq("is_active", true);
+  let query = supabaseAdmin.from("users").select("id,email,personal_email,full_name").neq("is_active", false);
   if (groupId === "default_verified") query = query.eq("is_verified", true);
   else if (groupId === "default_unverified") query = query.eq("is_verified", false);
   else if (["default_email", "default_google", "default_linkedin"].includes(groupId)) {
