@@ -170,12 +170,13 @@ function AdminPageContent() {
       setDbCounts(result.dbCounts || {});
       setAllUsers(result.users || []);
       setLoadedTabs({ users: true });
-      setLoading(false);
     } catch (error) {
       if (!sessionInvalidated.current) {
         console.error("Admin initialization failed", error);
         toast.error("Unable to initialize the admin dashboard");
       }
+    } finally {
+      setLoading(false);
     }
   };
 

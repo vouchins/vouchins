@@ -2,39 +2,74 @@ import { NextResponse } from "next/server";
 import { requireActiveAdmin } from "@/lib/admin/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-const usersQuery = () => supabaseAdmin.from("users").select("id, full_name, email, personal_email, linkedin_url, is_active, is_admin, is_marketing_manager, is_verified, onboarded, created_at, company:companies(id, name)").order("created_at", { ascending: false });
+const usersQuery = () =>
+  supabaseAdmin
+    .from("users")
+    .select("id, full_name, email, personal_email, linkedin_url, is_active, is_admin, is_marketing_manager, is_verified, onboarded, created_at, company:companies(id, name)")
+    .order("created_at", { ascending: false });
 
 async function enrichUsersWithScores(users: any[]) {
-  const scoredUsers = await Promise.all(
-    users.map(async (user) => {
-      const { data: vouchScore } = await supabaseAdmin.rpc("get_vouch_score", {
-        profile_id: user.id,
-      });
-      return {
-        ...user,
-        vouch_score: Number(vouchScore) || 0,
-      };
-    }),
-  );
-  return scoredUsers;
+  if (!users || !users.length) return [];
+  try {
+    const [vouchesRes, adjustmentsRes] = await Promise.all([
+      supabaseAdmin.from("vouches").select("target_user_id"),
+      supabaseAdmin.from("vouch_score_adjustments").select("user_id, delta"),
+    ]);
+
+    const scoreMap = new Map<string, number>();
+    (vouchesRes.data || []).forEach((v: any) => {
+      if (v.target_user_id) {
+        scoreMap.set(v.target_user_id, (scoreMap.get(v.target_user_id) || 0) + 1);
+      }
+    });
+    (adjustmentsRes.data || []).forEach((a: any) => {
+      if (a.user_id) {
+        scoreMap.set(a.user_id, (scoreMap.get(a.user_id) || 0) + Number(a.delta || 0));
+      }
+    });
+
+    return users.map((user) => ({
+      ...user,
+      vouch_score: scoreMap.get(user.id) || 0,
+    }));
+  } catch (error) {
+    console.warn("[Admin Dashboard] Batch score aggregation failed, defaulting to 0:", error);
+    return users.map((u) => ({ ...u, vouch_score: 0 }));
+  }
 }
 
 async function counts() {
-  const results = await Promise.all([
-    supabaseAdmin.from("users").select("id", { count: "exact", head: true }),
-    supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabaseAdmin.from("posts").select("id", { count: "exact", head: true }).eq("is_flagged", true).eq("is_removed", false),
-    supabaseAdmin.from("manual_verification_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabaseAdmin.from("feedback").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabaseAdmin.from("recruiters").select("id", { count: "exact", head: true }).eq("status", "pending"),
-    supabaseAdmin.from("companies").select("id", { count: "exact", head: true }),
-    supabaseAdmin.from("campaigns").select("id", { count: "exact", head: true }),
-    supabaseAdmin.from("blog_posts").select("id", { count: "exact", head: true }),
-  ]);
-  const error = results.find((result) => result.error)?.error;
-  if (error) throw error;
-  const keys = ["users", "reports", "flagged", "waitlist", "feedback", "recruiters", "companies", "campaigns", "blog"];
-  return Object.fromEntries(keys.map((key, index) => [key, results[index].count ?? 0]));
+  const tableDefinitions = [
+    { key: "users", query: () => supabaseAdmin.from("users").select("id", { count: "exact", head: true }) },
+    { key: "reports", query: () => supabaseAdmin.from("reports").select("id", { count: "exact", head: true }).eq("status", "pending") },
+    { key: "flagged", query: () => supabaseAdmin.from("posts").select("id", { count: "exact", head: true }).eq("is_flagged", true).eq("is_removed", false) },
+    { key: "waitlist", query: () => supabaseAdmin.from("manual_verification_requests").select("id", { count: "exact", head: true }).eq("status", "pending") },
+    { key: "feedback", query: () => supabaseAdmin.from("feedback").select("id", { count: "exact", head: true }).eq("status", "pending") },
+    { key: "recruiters", query: () => supabaseAdmin.from("recruiters").select("id", { count: "exact", head: true }).eq("status", "pending") },
+    { key: "companies", query: () => supabaseAdmin.from("companies").select("id", { count: "exact", head: true }) },
+    { key: "campaigns", query: () => supabaseAdmin.from("campaigns").select("id", { count: "exact", head: true }) },
+    { key: "blog", query: () => supabaseAdmin.from("blog_posts").select("id", { count: "exact", head: true }) },
+  ];
+
+  const countsMap: Record<string, number> = {};
+  await Promise.all(
+    tableDefinitions.map(async ({ key, query }) => {
+      try {
+        const { count, error } = await query();
+        if (error) {
+          console.warn(`[Admin Counts] Query for "${key}" failed:`, error.message);
+          countsMap[key] = 0;
+        } else {
+          countsMap[key] = count ?? 0;
+        }
+      } catch (err) {
+        console.warn(`[Admin Counts] Exception for "${key}":`, err);
+        countsMap[key] = 0;
+      }
+    })
+  );
+
+  return countsMap;
 }
 
 export async function GET(request: Request) {
