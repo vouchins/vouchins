@@ -115,7 +115,7 @@ function FeedCardSkeleton({ image = false }: { image?: boolean }) {
 
 export default function FeedLoading() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#f5f7fb] pb-16 lg:pb-0">
+    <div className="relative min-h-screen overflow-x-clip bg-[#f5f7fb] pb-16 lg:pb-0">
       <StaticHeader />
 
       <div

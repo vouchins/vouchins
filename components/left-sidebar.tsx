@@ -63,8 +63,8 @@ export function LeftSidebar({
     selectedCity === "All Cities"
       ? "Global"
       : selectedCity ||
-        (user?.city === "All Cities" ? "Global" : user?.city) ||
-        "Global";
+      (user?.city === "All Cities" ? "Global" : user?.city) ||
+      "Global";
   const router = useRouter();
   const pathname = usePathname();
 
@@ -100,7 +100,7 @@ export function LeftSidebar({
   return (
     <aside
       aria-label="Feed navigation"
-      className="sticky top-[76px] hidden h-fit w-72 shrink-0 flex-col gap-4 lg:flex"
+      className="top-[76px] hidden h-fit w-72 shrink-0 flex-col gap-4 lg:flex"
     >
       {user && (
         <section className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-[0_14px_38px_-28px_rgba(31,37,87,0.55)]">

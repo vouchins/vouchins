@@ -555,14 +555,14 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
 
   return (
     <PostViewBatchProvider userId={user.id}>
-    <div className="relative min-h-screen overflow-hidden bg-[#f5f7fb] pb-16 lg:pb-0">
+    <div className="relative min-h-screen overflow-x-clip bg-[#f5f7fb] pb-16 lg:pb-0">
       <a
         href="#feed-content"
         className="feed-focus fixed left-4 top-3 z-[100] -translate-y-20 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0"
       >
         Skip to feed
       </a>
-      <Suspense fallback={<div className="h-16 border-b bg-white" />}>
+      <Suspense fallback={<div className="sticky top-0 z-50 h-16 w-full border-b bg-white" />}>
         <Navigation />
       </Suspense>
 
