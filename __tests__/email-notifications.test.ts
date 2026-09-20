@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import { getTargetNotificationEmail } from '@/lib/email-notifications';
 
 describe('getTargetNotificationEmail', () => {

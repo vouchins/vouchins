@@ -1,11 +1,27 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
   try {
     const { email, otp, userId } = await req.json();
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = email?.toLowerCase().trim();
+
+    if (!normalizedEmail || !otp) {
+      return NextResponse.json({ error: "Email and verification code are required" }, { status: 400 });
+    }
+
+    let targetUserId = userId;
+    if (!targetUserId) {
+      const supabase = await createServerSupabase();
+      const { data: { user } } = await supabase.auth.getUser();
+      targetUserId = user?.id;
+    }
+
+    if (!targetUserId) {
+      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    }
 
     // 1. Fetch & Validate OTP
     const { data: otpRow } = await supabaseAdmin.from("email_otps").select("*").eq("email", normalizedEmail).maybeSingle();
@@ -28,7 +44,7 @@ export async function POST(req: Request) {
       .from("users")
       .select("id")
       .or(`email.eq.${normalizedEmail},secondary_email.eq.${normalizedEmail}`)
-      .neq("id", userId)
+      .neq("id", targetUserId)
       .maybeSingle();
 
     if (existingUser) {
@@ -60,7 +76,7 @@ export async function POST(req: Request) {
         onboarded: true,
         verification_method: 'otp'
       })
-      .eq("id", userId);
+      .eq("id", targetUserId);
 
     if (updateError) throw updateError;
 

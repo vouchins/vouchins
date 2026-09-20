@@ -87,31 +87,31 @@ export function ProfileCompletionDialog({
 
   const checklist = user
     ? [
-        {
-          id: "avatar",
-          label: "Profile Picture",
-          isComplete: !!user.avatar_url,
-          icon: User,
-        },
-        {
-          id: "linkedin",
-          label: "LinkedIn URL",
-          isComplete: !!user.linkedin_url,
-          icon: Linkedin,
-        },
-        {
-          id: "phone",
-          label: "Phone Number",
-          isComplete: !!user.phone_number,
-          icon: Phone,
-        },
-        {
-          id: "verified",
-          label: "Work Verification",
-          isComplete: user.is_verified,
-          icon: ShieldCheck,
-        },
-      ]
+      {
+        id: "avatar",
+        label: "Profile Picture",
+        isComplete: !!user.avatar_url,
+        icon: User,
+      },
+      {
+        id: "linkedin",
+        label: "LinkedIn URL",
+        isComplete: !!user.linkedin_url,
+        icon: Linkedin,
+      },
+      {
+        id: "phone",
+        label: "Phone Number",
+        isComplete: !!user.phone_number,
+        icon: Phone,
+      },
+      {
+        id: "verified",
+        label: "Work Verification",
+        isComplete: user.is_verified,
+        icon: ShieldCheck,
+      },
+    ]
     : [];
 
   const pendingItems = checklist.filter((item) => !item.isComplete);
@@ -156,7 +156,7 @@ export function ProfileCompletionDialog({
       const parsedPhone = parsePhone(user.phone_number || null);
       setPhoneCountryCode(parsedPhone.code);
       setPhoneNumber(parsedPhone.num);
-      
+
       // Reset verify states
       setVerifyStep(1);
       setCorporateEmail("");
@@ -363,7 +363,7 @@ export function ProfileCompletionDialog({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[92vw] sm:w-full sm:max-w-[660px] p-0 overflow-hidden bg-[#FBFBFC] text-neutral-900 border border-neutral-200/80 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl flex flex-col max-h-[85vh] h-auto gap-0 transition-all duration-500 ease-smooth z-50">
-        
+
         {/* COMPACT HEADER PANEL */}
         <div className="bg-white border-b border-neutral-100 p-4 sm:p-5 flex flex-col gap-4 shrink-0">
           <div className="flex flex-row justify-between items-center">
@@ -408,8 +408,8 @@ export function ProfileCompletionDialog({
                         item.isComplete
                           ? "bg-emerald-500 text-white border-emerald-600 shadow-emerald-400/20"
                           : isSelected
-                          ? "bg-primary text-white border-primary shadow-primary/20"
-                          : "bg-white text-neutral-450 border-neutral-200"
+                            ? "bg-primary text-white border-primary shadow-primary/20"
+                            : "bg-white text-neutral-450 border-neutral-200"
                       )}
                     >
                       {item.isComplete ? (
@@ -435,7 +435,7 @@ export function ProfileCompletionDialog({
 
         {/* ACTIVE PANEL CONTENT */}
         <div className="flex-1 bg-white px-4 py-6 sm:p-8 overflow-y-auto no-scrollbar flex flex-col">
-          
+
           {/* Status Messages */}
           {error && (
             <Alert
@@ -460,7 +460,7 @@ export function ProfileCompletionDialog({
 
           {/* Active section container */}
           <div className="flex-1 flex flex-col justify-center items-center">
-            
+
             {/* 1. PROFILE PICTURE */}
             {activeTab === "avatar" && (
               <div className="space-y-5 text-center max-w-[340px] w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-smooth">
@@ -631,8 +631,8 @@ export function ProfileCompletionDialog({
 
             {/* 4. WORK VERIFICATION */}
             {activeTab === "verified" && (
-              <div className="w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-2 duration-500 ease-smooth text-left">
-                
+              <div className="w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-smooth text-left">
+
                 {/* Step 1: Verification Options */}
                 {verifyStep === 1 && (
                   <div className="space-y-4">
