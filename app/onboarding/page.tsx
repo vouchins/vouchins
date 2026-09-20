@@ -2,20 +2,11 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, MapPin, Building2 } from "lucide-react";
+import { AlertCircle, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
-import { INDIAN_CITIES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner"; // Assuming you use sonner or similar for toasts
 import { isCorporateEmail, extractDomainFromEmail, deriveCompanyNameFromDomain, LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
@@ -210,6 +201,19 @@ function OnboardingContent() {
       return;
     }
     await completeOnboarding(false, normalizeLinkedInUrl(linkedinUrl));
+  };
+
+  const handleSkipVerification = async () => {
+    if (!agreed) {
+      setError("You must agree to the community guidelines.");
+      return;
+    }
+    if (!company.trim()) {
+      setError("Please enter your company name.");
+      return;
+    }
+    setShowOtpModal(false);
+    await completeOnboarding(false, null);
   };
 
   const completeOnboarding = async (isVerified: boolean, manualLinkedinUrl: string | null) => {
@@ -425,14 +429,37 @@ function OnboardingContent() {
               className="w-full h-12 rounded-xl bg-primary hover:bg-primary/95 text-white font-bold text-sm shadow-md transition-all active:scale-[0.98]"
               disabled={!agreed || submitting}
             >
-              {submitting ? "Finalizing..." : "Enter Vouchins"}
+              {submitting ? "Finalizing..." : (isCorporate ? "Verify & Enter Vouchins" : "Enter Vouchins")}
             </Button>
           </form>
 
+          {isCorporate && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={handleSkipVerification}
+                disabled={submitting || !agreed}
+                className="text-xs font-semibold text-neutral-500 hover:text-primary transition-colors disabled:opacity-50"
+              >
+                Skip verification for now →
+              </button>
+            </div>
+          )}
+
           {showOtpModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-neutral-200">
-                <h2 className="text-xl font-bold tracking-tight mb-2">Verify Corporate Email</h2>
+              <div className="relative bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-neutral-200">
+                <button
+                  type="button"
+                  onClick={() => setShowOtpModal(false)}
+                  className="absolute right-4 top-4 text-neutral-400 hover:text-neutral-600 transition-colors p-1 rounded-lg focus:outline-none"
+                  aria-label="Close verification dialog"
+                  disabled={submitting}
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+                <h2 className="text-xl font-bold tracking-tight mb-2 pr-6">Verify Corporate Email</h2>
                 <p className="text-sm text-neutral-600 mb-4">
                   We sent a 6-digit verification code to <strong>{userEmail}</strong>.
                 </p>
@@ -455,11 +482,11 @@ function OnboardingContent() {
                       maxLength={6}
                     />
                     <Button
-                      className="w-full mb-2 h-12 rounded-xl font-bold"
+                      className="w-full mb-2 h-12 rounded-xl font-bold bg-primary hover:bg-primary/95 text-white"
                       onClick={verifyOtp}
                       disabled={submitting || otp.length !== 6}
                     >
-                      {submitting ? "Verifying..." : "Verify"}
+                      {submitting ? "Verifying..." : "Verify & Enter"}
                     </Button>
                   </>
                 ) : (
@@ -480,7 +507,7 @@ function OnboardingContent() {
                       </p>
                     </div>
                     <Button
-                      className="w-full h-12 rounded-xl font-bold"
+                      className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/95 text-white"
                       onClick={handleManualVerificationSubmit}
                       disabled={submitting || !linkedinUrl.trim() || linkedinUrl.trim() === LINKEDIN_URL_PREFIX}
                     >
@@ -489,9 +516,17 @@ function OnboardingContent() {
                   </div>
                 )}
 
-                <Button variant="ghost" className="w-full mt-2 h-12 rounded-xl font-semibold text-neutral-500" onClick={() => setShowOtpModal(false)} disabled={submitting}>
-                  Cancel
-                </Button>
+                <div className="mt-3 flex flex-col gap-1.5 text-center">
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    className="w-full h-10 rounded-xl text-xs font-semibold text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100"
+                    onClick={handleSkipVerification}
+                    disabled={submitting}
+                  >
+                    Skip verification for now
+                  </Button>
+                </div>
               </div>
             </div>
           )}
