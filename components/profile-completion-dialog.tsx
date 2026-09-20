@@ -362,7 +362,7 @@ export function ProfileCompletionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="w-[92vw] sm:w-full sm:max-w-[660px] p-0 overflow-hidden bg-[#FBFBFC] text-neutral-900 border border-neutral-200/80 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl flex flex-col max-h-[85vh] h-auto gap-0 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] z-50">
+      <DialogContent className="w-[92vw] sm:w-full sm:max-w-[660px] p-0 overflow-hidden bg-[#FBFBFC] text-neutral-900 border border-neutral-200/80 rounded-[1.75rem] sm:rounded-[2rem] shadow-2xl flex flex-col max-h-[85vh] h-auto gap-0 transition-all duration-500 ease-smooth z-50">
         
         {/* COMPACT HEADER PANEL */}
         <div className="bg-white border-b border-neutral-100 p-4 sm:p-5 flex flex-col gap-4 shrink-0">
@@ -404,7 +404,7 @@ export function ProfileCompletionDialog({
                   <div className="bg-neutral-50/50 p-0.5 rounded-full border border-neutral-100 group-hover:scale-105 transition-all duration-300">
                     <div
                       className={cn(
-                        "flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] border shadow-inner",
+                        "flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-full transition-all duration-500 ease-smooth border shadow-inner",
                         item.isComplete
                           ? "bg-emerald-500 text-white border-emerald-600 shadow-emerald-400/20"
                           : isSelected
@@ -463,7 +463,7 @@ export function ProfileCompletionDialog({
             
             {/* 1. PROFILE PICTURE */}
             {activeTab === "avatar" && (
-              <div className="space-y-5 text-center max-w-[340px] w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+              <div className="space-y-5 text-center max-w-[340px] w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-smooth">
                 {/* Concentric Double-Bezel Frame */}
                 <div className="bg-neutral-50/50 p-2.5 rounded-[2.25rem] border border-neutral-100 w-28 h-28 mx-auto relative group shadow-sm">
                   <div className="h-full w-full rounded-[calc(2.25rem-0.625rem)] bg-neutral-100 border border-neutral-200/80 flex items-center justify-center overflow-hidden shadow-inner relative z-0">
@@ -529,7 +529,7 @@ export function ProfileCompletionDialog({
 
             {/* 2. LINKEDIN URL */}
             {activeTab === "linkedin" && (
-              <div className="space-y-4 max-w-[350px] w-full text-left animate-in fade-in slide-in-from-bottom-2 duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+              <div className="space-y-4 max-w-[350px] w-full text-left animate-in fade-in slide-in-from-bottom-2 duration-500 ease-smooth">
                 <div className="space-y-1 text-center sm:text-left">
                   <h3 className="font-extrabold text-xs text-neutral-800">
                     {user.linkedin_url ? "LinkedIn URL connected (+25 Vouch points)" : "Add linkedin url and get 25 Vouch points"}
@@ -571,7 +571,7 @@ export function ProfileCompletionDialog({
 
             {/* 3. PHONE NUMBER */}
             {activeTab === "phone" && (
-              <div className="space-y-4 max-w-[350px] w-full text-left animate-in fade-in slide-in-from-bottom-2 duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+              <div className="space-y-4 max-w-[350px] w-full text-left animate-in fade-in slide-in-from-bottom-2 duration-500 ease-smooth">
                 <div className="space-y-1 text-center sm:text-left">
                   <h3 className="font-extrabold text-xs text-neutral-800">
                     {user.phone_number ? "Phone number saved (+25 Vouch points)" : "Add phone number and get 25 Vouch points"}
@@ -631,7 +631,7 @@ export function ProfileCompletionDialog({
 
             {/* 4. WORK VERIFICATION */}
             {activeTab === "verified" && (
-              <div className="w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-2 duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] text-left">
+              <div className="w-full max-w-[420px] animate-in fade-in slide-in-from-bottom-2 duration-500 ease-smooth text-left">
                 
                 {/* Step 1: Verification Options */}
                 {verifyStep === 1 && (

@@ -83,9 +83,14 @@ const config: Config = {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
       },
+      transitionTimingFunction: {
+        smooth: 'cubic-bezier(0.32, 0.72, 0, 1)',
+      },
     },
   },
-  plugins: [require('tailwindcss-animate'), require("tailwindcss-animate"),
-  require("@tailwindcss/typography")],
+  plugins: [
+    require('tailwindcss-animate'),
+    require('@tailwindcss/typography'),
+  ],
 };
 export default config;
