@@ -7,7 +7,6 @@ import { getTargetNotificationEmail } from "@/lib/email-notifications";
 import { getMarketingPrincipal } from "@/lib/marketing/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { campaignEmailFooter, emailPreferenceUrls, getUnsubscribedCampaignEmails, normalizeCampaignEmail } from "@/lib/marketing/email-preferences";
-
 export async function GET() {
   try {
     const principal = await getMarketingPrincipal();
@@ -335,7 +334,7 @@ export async function POST(req: Request) {
         const formattedHtml = `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; color: #334155; line-height: 1.7; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
             <div style="background-color: #ffffff; padding: 24px; text-align: center; border-bottom: 3px solid #4FD1C5;">
-              <img src="${logoUrl}" alt="Vouchins" style="height: 36px; max-height: 36px; display: block; margin: auto; border: 0;" />
+              <img src="${logoUrl}" alt="Vouchins" style="height: 36px; max-height: 36px; display: block; margin: auto; border: 0; background-color: #ffffff;" />
             </div>
             <div style="padding: 40px 32px; background-color: #ffffff;">
               <div style="color: #334155; font-size: 15px; line-height: 1.7; font-weight: 400;">

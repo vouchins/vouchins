@@ -1327,7 +1327,7 @@ export function CampaignsTab() {
                     <img 
                       src="https://raw.githubusercontent.com/vouchins/vouchins/main/public/images/logo.png" 
                       alt="Vouchins" 
-                      style={{ height: "36px", maxHeight: "36px", display: "block", margin: "auto", border: "0" }} 
+                      style={{ height: "36px", maxHeight: "36px", display: "block", margin: "auto", border: "0", backgroundColor: "#ffffff" }} 
                     />
                   </div>
                   <div style={{ padding: "40px 32px", backgroundColor: "#ffffff" }}>

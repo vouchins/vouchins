@@ -20,7 +20,7 @@ async function recipients(groupId: string, groupName: string) {
     }
     return emails.map((email) => usersByEmail.get(email) || ({ id: null, email, personal_email: null, full_name: "there" }));
   }
-  let query = supabaseAdmin.from("users").select("id,email,personal_email,full_name").neq("is_active", false);
+  let query = supabaseAdmin.from("users").select("id,email,personal_email,full_name").or("is_active.eq.true,is_active.is.null");
   if (groupId === "default_verified") query = query.eq("is_verified", true);
   else if (groupId === "default_unverified") query = query.eq("is_verified", false);
   else if (["default_email", "default_google", "default_linkedin"].includes(groupId)) {
@@ -80,15 +80,37 @@ export async function deliverApprovedCampaign(campaignId: string, actorId: strin
       const unsubscribed = await getUnsubscribedCampaignEmails(addressedTargets.map(({ to }: any) => to));
       const eligibleTargets = addressedTargets.filter(({ to }: any) => !unsubscribed.has(normalizeCampaignEmail(to)));
       deliveredCount = eligibleTargets.length;
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.vouchins.com";
+      const logoUrl = (appUrl.includes("localhost") || appUrl.includes("127.0.0.1"))
+        ? "https://raw.githubusercontent.com/vouchins/vouchins/main/public/images/logo.png"
+        : `${appUrl}/images/logo.png`;
+
       for (const { user, to } of eligibleTargets) {
         if (!to) continue;
         const headers = user.id
           ? { "List-Unsubscribe": `<${emailPreferenceUrls(to, user.id).unsubscribeUrl}>` }
           : undefined;
+
+        const formattedHtml = `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; color: #334155; line-height: 1.7; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+            <div style="background-color: #ffffff; padding: 24px; text-align: center; border-bottom: 3px solid #4FD1C5;">
+              <img src="${logoUrl}" alt="Vouchins" style="height: 36px; max-height: 36px; display: block; margin: auto; border: 0; background-color: #ffffff;" />
+            </div>
+            <div style="padding: 40px 32px; background-color: #ffffff;">
+              <div style="color: #334155; font-size: 15px; line-height: 1.7; font-weight: 400;">
+                ${personalize(campaign.body, user.full_name)}
+              </div>
+            </div>
+            ${campaignEmailFooter(to, user.id)}
+          </div>
+        `;
+
         await transporter.sendMail({
-          from: `Vouchins <${process.env.SES_FROM_EMAIL}>`, to,
+          from: `Vouchins <${process.env.SES_FROM_EMAIL}>`,
+          to,
           subject: personalize(campaign.title, user.full_name),
-          html: `<div style="font-family:sans-serif;max-width:600px;margin:auto;line-height:1.7">${personalize(campaign.body, user.full_name)}${campaignEmailFooter(to, user.id)}</div>`,
+          html: formattedHtml,
           headers,
         });
       }
@@ -98,4 +120,40 @@ export async function deliverApprovedCampaign(campaignId: string, actorId: strin
     await supabaseAdmin.from("campaigns").update({ status: "failed", updated_at: new Date().toISOString() }).eq("id", campaignId).eq("status", "sending");
     throw error;
   }
+}
+
+export async function processDueScheduledCampaigns(): Promise<Array<{ id: string; status: string }>> {
+  const nowIso = new Date().toISOString();
+  const { data: dueCampaigns, error } = await supabaseAdmin
+    .from("campaigns")
+    .select("id, status, scheduled_at, created_by")
+    .eq("status", "scheduled")
+    .lte("scheduled_at", nowIso)
+    .order("scheduled_at", { ascending: true });
+
+  if (error || !dueCampaigns?.length) return [];
+
+  const results: Array<{ id: string; status: string }> = [];
+
+  for (const campaign of dueCampaigns) {
+    const { data: claimed, error: claimError } = await supabaseAdmin
+      .from("campaigns")
+      .update({ status: "sending", updated_at: nowIso })
+      .eq("id", campaign.id)
+      .eq("status", "scheduled")
+      .select("id")
+      .maybeSingle();
+
+    if (claimError || !claimed) continue;
+
+    try {
+      await deliverApprovedCampaign(campaign.id, campaign.created_by || "system");
+      results.push({ id: campaign.id, status: "sent" });
+    } catch (sendError) {
+      results.push({ id: campaign.id, status: "failed" });
+      console.error(`Scheduled campaign ${campaign.id} failed:`, sendError);
+    }
+  }
+
+  return results;
 }
