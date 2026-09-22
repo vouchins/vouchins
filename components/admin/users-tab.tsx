@@ -15,9 +15,11 @@ import {
   RefreshCw,
   ChevronDown,
   X,
+  MapPin,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
+import { INDIAN_CITIES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,6 +54,7 @@ interface User {
   vouch_score: number;
   personal_email?: string;
   linkedin_url?: string;
+  city?: string | null;
   is_active: boolean;
   is_admin: boolean;
   is_marketing_manager: boolean;
@@ -66,6 +69,7 @@ interface UserUpdates {
   full_name?: string;
   personal_email?: string;
   linkedin_url?: string;
+  city?: string | null;
   is_active?: boolean;
   is_verified?: boolean;
   onboarded?: boolean;
@@ -88,7 +92,10 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
   const [filterCompany, setFilterCompany] = useState<string>("all");
   const [companySearch, setCompanySearch] = useState("");
   const [isCompanyComboOpen, setIsCompanyComboOpen] = useState(false);
-  const [sortField, setSortField] = useState<"name" | "email" | "company" | "status" | null>(null);
+  const [filterCity, setFilterCity] = useState<string>("all");
+  const [citySearch, setCitySearch] = useState("");
+  const [isCityComboOpen, setIsCityComboOpen] = useState(false);
+  const [sortField, setSortField] = useState<"name" | "email" | "company" | "city" | "status" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Extract unique companies from users list
@@ -101,7 +108,18 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
     ).values()
   );
 
-  const handleSort = (field: "name" | "email" | "company" | "status") => {
+  // Extract unique cities from users list (with 'Global' guaranteed)
+  const uniqueCities = Array.from(
+    new Set(
+      ["Global", ...users.map((u) => u.city?.trim()).filter((c): c is string => Boolean(c) && c !== "Global")]
+    )
+  ).sort((a, b) => {
+    if (a === "Global") return -1;
+    if (b === "Global") return 1;
+    return a.localeCompare(b);
+  });
+
+  const handleSort = (field: "name" | "email" | "company" | "city" | "status") => {
     if (sortField === field) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
@@ -124,7 +142,6 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
   const [vouchReason, setVouchReason] = useState("");
   const [scoreSaving, setScoreSaving] = useState(false);
 
-
   useEffect(() => {
     const searchCompanies = async () => {
       if (company.trim().length < 2 || selectedCompanyId) {
@@ -146,18 +163,23 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
     return () => clearTimeout(timer);
   }, [company, selectedCompanyId]);
 
-
   const filteredCompaniesForFilter = uniqueCompanies.filter((c) =>
     c.name.toLowerCase().includes(companySearch.toLowerCase())
   );
 
+  const filteredCitiesForFilter = uniqueCities.filter((c) =>
+    c.toLowerCase().includes(citySearch.toLowerCase())
+  );
+
   const filteredUsers = users.filter((u) => {
     const searchLower = searchTerm.toLowerCase();
+    const userCity = u.city?.trim() || "Global";
     const matchesSearch =
       (u.full_name || "").toLowerCase().includes(searchLower) ||
       (u.email || "").toLowerCase().includes(searchLower) ||
       (u.company?.name || "").toLowerCase().includes(searchLower) ||
-      (u.personal_email || "").toLowerCase().includes(searchLower);
+      (u.personal_email || "").toLowerCase().includes(searchLower) ||
+      userCity.toLowerCase().includes(searchLower);
 
     const matchesVerification =
       filterVerification === "all" ||
@@ -170,7 +192,11 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
       filterCompany === "all" ||
       u.company?.id === filterCompany;
 
-    return matchesSearch && matchesVerification && matchesCompany;
+    const matchesCity =
+      filterCity === "all" ||
+      userCity.toLowerCase() === filterCity.toLowerCase();
+
+    return matchesSearch && matchesVerification && matchesCompany && matchesCity;
   });
 
   if (sortField) {
@@ -187,6 +213,9 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
       } else if (sortField === "company") {
         valA = a.company?.name || "";
         valB = b.company?.name || "";
+      } else if (sortField === "city") {
+        valA = a.city?.trim() || "Global";
+        valB = b.city?.trim() || "Global";
       } else if (sortField === "status") {
         return sortDirection === "asc"
           ? (a.is_verified === b.is_verified ? 0 : a.is_verified ? 1 : -1)
@@ -297,6 +326,7 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
         full_name: selectedUser.full_name,
         personal_email: selectedUser.personal_email,
         linkedin_url: finalLinkedinUrl,
+        city: selectedUser.city?.trim() || "Global",
         is_active: selectedUser.is_active,
         is_verified: selectedUser.is_verified,
         onboarded: selectedUser.onboarded,
@@ -323,7 +353,7 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
         <div className="relative max-w-xs w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
           <Input
-            placeholder="Search by name or email..."
+            placeholder="Search by name, email or city..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 bg-white shadow-sm h-10 text-xs rounded-xl"
@@ -409,6 +439,73 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
           </PopoverContent>
         </Popover>
 
+        {/* City Filter Popover Combobox */}
+        <Popover open={isCityComboOpen} onOpenChange={setIsCityComboOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={isCityComboOpen}
+              className="w-[160px] justify-between h-10 border-neutral-200 text-xs text-neutral-700 bg-white hover:bg-neutral-50/50 hover:text-neutral-900 rounded-xl px-3 font-normal"
+            >
+              <span className="truncate">
+                {filterCity === "all"
+                  ? "All Cities"
+                  : filterCity}
+              </span>
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[180px] p-2 bg-white border border-neutral-200 shadow-lg rounded-xl z-50">
+            <div className="flex items-center border-b border-neutral-100 pb-2 mb-2">
+              <Search className="mr-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+              <Input
+                placeholder="Search city..."
+                value={citySearch}
+                onChange={(e) => setCitySearch(e.target.value)}
+                className="h-8 border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-xs px-0"
+              />
+            </div>
+            <div className="max-h-[200px] overflow-y-auto space-y-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterCity("all");
+                  setIsCityComboOpen(false);
+                  setCitySearch("");
+                }}
+                className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-neutral-50 ${
+                  filterCity === "all" ? "bg-indigo-50/50 text-indigo-700 font-semibold" : "text-neutral-700"
+                }`}
+              >
+                All Cities
+              </button>
+              {filteredCitiesForFilter.length === 0 && citySearch ? (
+                <div className="text-neutral-400 text-xs py-4 text-center">No city found.</div>
+              ) : (
+                filteredCitiesForFilter.map((cityName) => (
+                  <button
+                    key={cityName}
+                    type="button"
+                    onClick={() => {
+                      setFilterCity(cityName);
+                      setIsCityComboOpen(false);
+                      setCitySearch("");
+                    }}
+                    className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-neutral-50 truncate ${
+                      filterCity.toLowerCase() === cityName.toLowerCase()
+                        ? "bg-indigo-50/50 text-indigo-700 font-semibold"
+                        : "text-neutral-700"
+                    }`}
+                  >
+                    {cityName}
+                  </button>
+                ))
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
         {onRefresh && (
           <Button
             onClick={onRefresh}
@@ -422,10 +519,13 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
         )}
       </div>
 
-      {/* Active Filters Badges */}
-      {(searchTerm || filterVerification !== "all" || filterCompany !== "all") && (
+      {/* Active Filters Badges & Result Count */}
+      {(searchTerm || filterVerification !== "all" || filterCompany !== "all" || filterCity !== "all") && (
         <div className="flex flex-wrap items-center gap-2 mt-2 pb-1.5 animate-in fade-in-50 duration-200">
           <span className="text-[11px] text-neutral-400 font-bold mr-1">Active Filters:</span>
+          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 px-2 py-0.5 text-[10px] font-bold rounded-full">
+            {filteredUsers.length} of {users.length} results
+          </Badge>
           {searchTerm && (
             <Badge variant="secondary" className="bg-neutral-100 text-neutral-700 border border-neutral-200 px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1">
               Search: "{searchTerm}"
@@ -450,12 +550,21 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
               </button>
             </Badge>
           )}
+          {filterCity !== "all" && (
+            <Badge variant="secondary" className="bg-neutral-100 text-neutral-700 border border-neutral-200 px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1">
+              City: {filterCity}
+              <button type="button" onClick={() => setFilterCity("all")} className="hover:bg-neutral-200 rounded-full p-0.5 transition-colors">
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </Badge>
+          )}
           <button 
             type="button"
             onClick={() => {
               setSearchTerm("");
               setFilterVerification("all");
               setFilterCompany("all");
+              setFilterCity("all");
             }} 
             className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold ml-1 hover:underline transition-colors"
           >
@@ -463,6 +572,16 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
           </button>
         </div>
       )}
+
+      {/* Result Count Status Bar */}
+      <div className="flex items-center justify-between text-xs text-neutral-500 px-1">
+        <span className="font-medium">
+          Showing <strong className="text-neutral-900 font-semibold">{filteredUsers.length}</strong> {filteredUsers.length === 1 ? "user" : "users"}
+          {(searchTerm || filterVerification !== "all" || filterCompany !== "all" || filterCity !== "all") && (
+            <span className="text-neutral-400"> (filtered from {users.length} total)</span>
+          )}
+        </span>
+      </div>
 
       {/* Users Table */}
       <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
@@ -496,6 +615,14 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                 </th>
                 <th
                   className="px-6 py-4 cursor-pointer hover:text-neutral-900 select-none transition-colors"
+                  onClick={() => handleSort("city")}
+                >
+                  <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-neutral-500">
+                    City {sortField === "city" && (sortDirection === "asc" ? "▲" : "▼")}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-4 cursor-pointer hover:text-neutral-900 select-none transition-colors"
                   onClick={() => handleSort("status")}
                 >
                   <div className="flex items-center gap-1 font-bold text-xs uppercase tracking-wider text-neutral-500">
@@ -507,7 +634,37 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {filteredUsers.map((u) => (
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-neutral-500">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="h-10 w-10 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400">
+                        <Search className="h-5 w-5" />
+                      </div>
+                      <p className="text-sm font-semibold text-neutral-800">No users found</p>
+                      <p className="text-xs text-neutral-400">
+                        No users match your current search and filter criteria.
+                      </p>
+                      {(searchTerm || filterVerification !== "all" || filterCompany !== "all" || filterCity !== "all") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSearchTerm("");
+                            setFilterVerification("all");
+                            setFilterCompany("all");
+                            setFilterCity("all");
+                          }}
+                          className="mt-2 text-xs h-8 rounded-lg"
+                        >
+                          Clear all filters
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((u) => (
                 <tr
                   key={u.id}
                   className="hover:bg-neutral-50/30 transition-colors"
@@ -553,6 +710,13 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
 
                   <td className="px-6 py-4 text-neutral-600 font-medium">
                     {u.company?.name || "N/A"}
+                  </td>
+
+                  <td className="px-6 py-4 text-neutral-600 font-medium text-xs">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-50 text-neutral-700 font-medium border border-neutral-200/60">
+                      <MapPin className="h-3 w-3 text-neutral-400" />
+                      {u.city?.trim() || "Global"}
+                    </span>
                   </td>
 
                   <td className="px-6 py-4">
@@ -608,7 +772,7 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                     </Button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
@@ -697,6 +861,32 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                     }
                   />
                 </div>
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="city" className="text-neutral-600">
+                  City
+                </Label>
+                <Select
+                  value={selectedUser.city?.trim() || "Global"}
+                  onValueChange={(val) =>
+                    setSelectedUser({
+                      ...selectedUser,
+                      city: val,
+                    })
+                  }
+                >
+                  <SelectTrigger id="city" className="w-full bg-white">
+                    <SelectValue placeholder="Select City" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white max-h-56">
+                    {["Global", ...INDIAN_CITIES].map((cityName) => (
+                      <SelectItem key={cityName} value={cityName}>
+                        {cityName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <hr className="my-2 border-neutral-100" />

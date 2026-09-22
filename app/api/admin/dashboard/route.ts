@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 const usersQuery = () =>
   supabaseAdmin
     .from("users")
-    .select("id, full_name, email, personal_email, linkedin_url, is_active, is_admin, is_marketing_manager, is_verified, onboarded, created_at, company:companies(id, name)")
+    .select("id, full_name, email, personal_email, linkedin_url, is_active, is_admin, is_marketing_manager, is_verified, onboarded, city, created_at, company:companies(id, name)")
     .order("created_at", { ascending: false });
 
 async function enrichUsersWithScores(users: any[]) {

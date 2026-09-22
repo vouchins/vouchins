@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-const ALLOWED = ["full_name", "personal_email", "linkedin_url", "is_active", "is_verified", "onboarded", "company_id", "is_marketing_manager"] as const;
+const ALLOWED = ["full_name", "personal_email", "linkedin_url", "is_active", "is_verified", "onboarded", "company_id", "is_marketing_manager", "city"] as const;
 export async function POST(request: Request) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
