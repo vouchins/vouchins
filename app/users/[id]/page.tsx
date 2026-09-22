@@ -324,8 +324,11 @@ export default function UserProfilePage() {
         return;
       }
 
+      const normalizedCity = !profileData.city || profileData.city === "All Cities" ? "Global" : profileData.city;
+
       setProfile({
         ...profileData,
+        city: normalizedCity,
         resume_path: resumeData?.resume_path ?? null,
         job_search_status: resumeData?.job_search_status ?? null,
         company: Array.isArray(profileData.company)
@@ -339,7 +342,7 @@ export default function UserProfilePage() {
       const parsedPhone = parsePhone(profileData.phone_number);
       setFormDraft({
         bio: profileData.bio || "",
-        city: profileData.city || "",
+        city: normalizedCity,
         linkedin_url: profileData.linkedin_url || LINKEDIN_URL_PREFIX,
         personal_email: profileData.personal_email || "",
         phone_country_code: parsedPhone.code,
@@ -380,7 +383,7 @@ export default function UserProfilePage() {
       let topCategory = "";
       let topCount = 0;
 
-      (trustSignalsData || []).forEach((row: any) => {
+      (Array.isArray(trustSignalsData) ? trustSignalsData : []).forEach((row: any) => {
         const count = Number(row.count) || 0;
         let cat = row.category;
         if (cat === 'jobs') cat = 'referrals'; // legacy mapping
@@ -423,10 +426,7 @@ export default function UserProfilePage() {
   }, [id, router]);
 
   const handleSaveProfile = async () => {
-    if (!formDraft.city) {
-      alert("Please select your city.");
-      return;
-    }
+    const selectedCity = formDraft.city || "Global";
 
     const rawLinkedinUrl = formDraft.linkedin_url.trim();
     const hasEnteredLinkedin = rawLinkedinUrl && rawLinkedinUrl !== LINKEDIN_URL_PREFIX;
@@ -464,7 +464,7 @@ export default function UserProfilePage() {
       .from("users")
       .update({
         bio: formDraft.bio.trim(),
-        city: formDraft.city,
+        city: selectedCity,
         linkedin_url: linkedinUrl,
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
@@ -480,7 +480,7 @@ export default function UserProfilePage() {
       const updatedProfile = {
         ...profile, 
         bio: formDraft.bio.trim(),
-        city: formDraft.city,
+        city: selectedCity,
         linkedin_url: linkedinUrl,
         personal_email: formDraft.personal_email.trim(),
         phone_number: fullPhone,
@@ -942,7 +942,7 @@ export default function UserProfilePage() {
                   )}
                   <span className="flex items-center gap-1.5">
                     <MapPin className="h-4 w-4 text-neutral-400" />
-                    {profile.city || "Unknown location"}
+                    {profile.city || "Global"}
                   </span>
                 </div>
 
@@ -1468,19 +1468,13 @@ export default function UserProfilePage() {
                     <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
                     <select
                       id="profile-city"
-                      value={formDraft.city}
+                      value={formDraft.city || "Global"}
                       onChange={(e) =>
                         setFormDraft({ ...formDraft, city: e.target.value })
                       }
                       className="w-full appearance-none rounded-md border border-neutral-200 bg-white py-2.5 pl-10 pr-10 text-sm font-medium text-neutral-900 outline-none focus:ring-1 focus:ring-primary"
                     >
-                      <option value="" disabled>
-                        Select your city
-                      </option>
-                      {formDraft.city &&
-                        !INDIAN_CITIES.includes(formDraft.city) && (
-                          <option value={formDraft.city}>{formDraft.city}</option>
-                        )}
+                      <option value="Global">Global</option>
                       {INDIAN_CITIES.map((city) => (
                         <option key={city} value={city}>
                           {city}
@@ -1727,7 +1721,7 @@ export default function UserProfilePage() {
                       const parsedPhone = parsePhone(profile.phone_number);
                       setFormDraft({
                         bio: profile.bio || "",
-                        city: profile.city || "",
+                        city: profile.city || "Global",
                         linkedin_url: profile.linkedin_url || LINKEDIN_URL_PREFIX,
                         personal_email: profile.personal_email || "",
                         phone_country_code: parsedPhone.code,
