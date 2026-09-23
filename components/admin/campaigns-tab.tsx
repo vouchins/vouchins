@@ -164,7 +164,7 @@ export function CampaignsTab() {
   // Campaign Form State
   const [campaignTitle, setCampaignTitle] = useState("");
   const [campaignBody, setCampaignBody] = useState("");
-  const [campaignTargetType, setCampaignTargetType] = useState<"email" | "notification">("notification");
+  const [campaignTargetType, setCampaignTargetType] = useState<"email" | "notification">("email");
   const [campaignGroupId, setCampaignGroupId] = useState("");
   const [manualEmails, setManualEmails] = useState("");
   const [sendMode, setSendMode] = useState<"now" | "schedule">("now");
@@ -178,6 +178,7 @@ export function CampaignsTab() {
     setIsReusingCampaign(false);
     setCampaignTitle("");
     setCampaignBody("");
+    setCampaignTargetType("email");
     setCampaignGroupId("");
     setManualEmails("");
     setSendMode("now");
