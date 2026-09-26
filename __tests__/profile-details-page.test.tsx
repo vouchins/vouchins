@@ -35,6 +35,8 @@ jest.mock("@/lib/supabase/browser", () => ({
   supabase: {
     auth: {
       getUser: jest.fn(),
+      getSession: jest.fn(),
+      onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
     },
     from: jest.fn(),
     rpc: jest.fn(),
@@ -53,6 +55,11 @@ describe("UserProfilePage Location Fallback", () => {
 
     (supabase.auth.getUser as jest.Mock).mockResolvedValue({
       data: { user: { id: "logged-in-user" } },
+      error: null,
+    });
+
+    (supabase.auth.getSession as jest.Mock).mockResolvedValue({
+      data: { session: { user: { id: "logged-in-user" } } },
       error: null,
     });
 

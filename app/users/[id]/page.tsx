@@ -261,11 +261,44 @@ export default function UserProfilePage() {
       setActivityLoaded(false);
       setActivityError("");
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      let user: any = null;
+      if (typeof supabase.auth?.getSession === "function") {
+        try {
+          const sessionRes = await supabase.auth.getSession();
+          if (sessionRes?.data?.session?.user) {
+            user = sessionRes.data.session.user;
+          }
+        } catch {
+          // Ignore getSession errors
+        }
+      }
+
+      if (!user && typeof supabase.auth?.getUser === "function") {
+        try {
+          const userRes = await supabase.auth.getUser();
+          user = userRes?.data?.user ?? null;
+        } catch {
+          // Ignore getUser errors
+        }
+      }
+
+      if (!user && typeof supabase.auth?.onAuthStateChange === "function") {
+        const authPromise = new Promise<any>((resolve) => {
+          const timeout = setTimeout(() => resolve(null), 1500);
+          const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (session?.user) {
+              clearTimeout(timeout);
+              subscription.unsubscribe();
+              resolve(session.user);
+            }
+          });
+        });
+        user = await authPromise;
+      }
+
       if (!user) {
-        router.push("/login");
+        const returnPath = typeof window !== "undefined" ? window.location.pathname + window.location.search : "";
+        router.push(returnPath ? `/login?returnTo=${encodeURIComponent(returnPath)}` : "/login");
         return;
       }
 

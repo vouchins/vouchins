@@ -126,11 +126,13 @@ export async function middleware(request: NextRequest) {
 
   // If user is not logged in and trying to access a protected route, redirect to login
   if (!user && !isPublicRoute && !url.pathname.startsWith('/api/')) {
+    const returnTo = `${url.pathname}${url.search}`
     if (url.pathname.startsWith('/recruiter')) {
       url.pathname = '/recruiter/login'
     } else {
       url.pathname = '/login'
     }
+    url.searchParams.set('returnTo', returnTo)
     return noIndex(NextResponse.redirect(url))
   }
 
