@@ -2,19 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/campaigns",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/digest",
       "schedule": "0 12 * * *"
-    },
-    {
-      "path": "/api/cron/reminders",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/verification-reminders",
-      "schedule": "30 4 * * *"
     }
   ]
 }
