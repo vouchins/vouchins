@@ -16,10 +16,10 @@ export function Footer() {
   return (
     <footer className="border-t border-neutral-200/80 bg-[#F5F5F7] text-neutral-900 pt-12 pb-6 transition-colors">
       <div className="max-w-6xl mx-auto px-6">
-        
+
         {/* Main Grid: Brand Column + Navigation Links */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 lg:gap-8 pb-8">
-          
+
           {/* Brand & Location Info (Spans 2 columns on lg) */}
           <div className="col-span-2 flex flex-col items-start gap-3.5 pr-0 lg:pr-6">
             <Link href="/" className="inline-flex items-center hover:opacity-85 transition-opacity">
@@ -46,7 +46,7 @@ export function Footer() {
                 <span>Registered Office</span>
               </div>
               <p className="text-[11px] text-neutral-500 leading-relaxed pl-6.5">
-                8th floor, 1107, Alimineti Madhava Reddy Flyover, Fateh Maidan, Basheer Bagh, Hyderabad, Telangana 500001
+                C/O Edventure Park, beside NMDC, Venkatadri Colony, Masab Tank, Hyderabad, Telangana 500006
               </p>
             </div>
           </div>

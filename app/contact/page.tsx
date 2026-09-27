@@ -235,8 +235,7 @@ export default function ContactPage() {
                     <div className="flex items-start gap-3">
                       <MapPin className="h-5 w-5 text-indigo-600 mt-0.5 shrink-0" />
                       <p className="text-sm text-neutral-600 leading-relaxed">
-                        8th floor, 1107, Alimineti Madhava Reddy Flyover, Fateh Maidan,
-                        Basheer Bagh, Hyderabad, Telangana 500001
+                        C/O Edventure Park, beside NMDC, Venkatadri Colony, Masab Tank, Hyderabad, Telangana 500006
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
