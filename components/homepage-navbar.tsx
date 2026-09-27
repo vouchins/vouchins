@@ -52,7 +52,14 @@ export function HomepageNavbar() {
                   <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item">
                     <Link href="/login" className="flex items-start gap-4 px-4 py-3">
                       <span className="mt-0.5 rounded-xl bg-gradient-to-br from-[#0A1B5C]/10 to-[#0A1B5C]/5 p-2.5 text-[#0A1B5C] shadow-sm ring-1 ring-inset ring-[#0A1B5C]/10 group-hover/item:scale-105 transition-transform">
-                        <ShieldCheck className="h-5 w-5" />
+                        <Image
+                          src="/favicon.png"
+                          alt="Vouchins"
+                          width={20}
+                          height={20}
+                          className="object-contain"
+                          priority
+                        />
                       </span>
                       <span>
                         <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#0A1B5C] transition-colors">
