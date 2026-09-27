@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     // 2. Query users who are eligible for a daily digest
     const { data: users, error: usersError } = await supabaseAdmin
       .from("users")
-      .select("id, email, personal_email, last_seen, last_digest_sent_at, company:companies(domain)")
+      .select("id, email, personal_email, full_name, last_seen, last_digest_sent_at, company:companies(domain)")
       .eq("pref_email_digest", true)
       .lt("last_seen", twentyFourHoursAgo.toISOString())
       .or(`last_digest_sent_at.is.null,last_digest_sent_at.lt.${twentyFourHoursAgo.toISOString()}`);
@@ -85,7 +85,7 @@ export async function GET(req: Request) {
       const totalActivity = unreadDmsCount + newCommentsCount + newVouchesCount;
       if (totalActivity > 0) {
         try {
-          await sendDailyDigestEmail(targetEmail, unreadDmsCount, newCommentsCount, newVouchesCount);
+          await sendDailyDigestEmail(targetEmail, unreadDmsCount, newCommentsCount, newVouchesCount, user.full_name);
           sentDigestsCount++;
           usersToUpdateLastDigest.push(user.id);
           allProcessedNotificationIds.push(...userNotifs.map((n) => n.id));

@@ -185,21 +185,25 @@ export async function sendDailyDigestEmail(
   to: string,
   unreadDmsCount: number,
   newCommentsCount: number,
-  newVouchesCount: number
+  newVouchesCount: number,
+  fullName?: string | null
 ) {
   if (!process.env.SES_FROM_EMAIL) {
     throw new Error("SES_FROM_EMAIL not configured");
   }
 
+  const name = fullName ? fullName.trim().split(" ")[0] : null;
+  const greeting = name ? `Hi ${name},` : "Hi there,";
   const feedLink = `${siteUrl}/feed`;
 
   await transporter.sendMail({
     from: `Vouchins <${process.env.SES_FROM_EMAIL}>`,
     to,
-    subject: "Your Vouchins Daily Activity Digest",
+    subject: name ? `Your Vouchins Daily Activity Digest - ${name}` : "Your Vouchins Daily Activity Digest",
     html: `
       <div style="font-family: sans-serif; max-width: 600px; margin: auto; color: #404040; line-height: 1.6;">
-        <h2 style="color: #1F2557; margin-bottom: 16px;">Daily Activity Digest</h2>
+        <h2 style="color: #0A1B5C; margin-bottom: 16px;">Daily Activity Digest</h2>
+        <p style="margin-bottom: 12px; font-size: 16px; font-weight: 600; color: #0A1B5C;">${greeting}</p>
         <p style="margin-bottom: 24px;">Here is a summary of what you missed on Vouchins in the last 24 hours:</p>
         
         <div style="background-color: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #f0f0f0;">
@@ -212,7 +216,7 @@ export async function sendDailyDigestEmail(
         
         <div style="margin: 30px 0;">
           <a href="${feedLink}" 
-             style="background-color: #1F2557; 
+             style="background-color: #0A1B5C; 
                     color: #ffffff; 
                     padding: 14px 28px; 
                     text-decoration: none; 
