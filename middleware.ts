@@ -79,6 +79,7 @@ export async function middleware(request: NextRequest) {
     '/trusted-recommendations',
     '/robots.txt',
     '/sitemap.xml',
+    '/llms.txt',
   ]
   const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad']
 
@@ -147,6 +148,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|robots\\.txt|sitemap\\.xml|sw\\.js|manifest\\.json|offline\\.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|robots\\.txt|sitemap\\.xml|llms\\.txt|sw\\.js|manifest\\.json|offline\\.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

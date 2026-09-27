@@ -1,35 +1,23 @@
 # Vouchins
 
-Last updated: 2026-08-01
+> A verified professional network and member marketplace where access is confirmed through corporate email verification.
 
-Vouchins is a professional community and member marketplace currently focused on users in India. Access is confirmed by sending a one-time verification code to a supported corporate or professional email address.
+Vouchins connects verified working professionals to discover housing, find flatmates, request employee referrals, and exchange peer recommendations with greater accountability and trust.
 
-## What members can do
+## Core Pages
 
-- Connect with other professionals.
-- Discover job and employee-referral opportunities.
-- Find flatmates, housing leads, and local recommendations.
-- Buy and sell items within a professional community.
-- Share and receive peer vouches and recommendations.
+- [Homepage](https://www.vouchins.com/): Official homepage and platform overview
+- [About Vouchins](https://www.vouchins.com/about): Mission, trust framework, and company vision
+- [How It Works](https://www.vouchins.com/how-it-works): Work email verification, trust signals, and peer vouches
+- [Community Safety](https://www.vouchins.com/safety): Safety policies and member guidelines
+- [Blog](https://www.vouchins.com/blog): Professional networking articles, market guides, and platform updates
+- [Flatmates in Hyderabad](https://www.vouchins.com/flatmates-in-hyderabad): Dedicated directory for finding verified flatmates in Hyderabad
+- [Business Solutions](https://www.vouchins.com/business): Employer solutions and corporate partnerships
+- [Contact Support](https://www.vouchins.com/contact): Customer support and team communication channels
+- [Privacy Policy](https://www.vouchins.com/privacy): Data privacy policies and protection
+- [Terms of Service](https://www.vouchins.com/terms): Platform user agreements and guidelines
 
-## Verification limitations
+## Optional
 
-Corporate-email verification confirms that a person could receive a code at a supported work domain at the time of verification. It is not a government-identity check, employment-history verification, criminal-background check, financial check, or guarantee of future conduct. A vouch is a member-provided reputation signal, not a financial or safety guarantee. Members should independently verify important claims and follow the safety guidance before meeting, exchanging items, sharing information, or making payments.
-
-## Official public pages
-
-- Homepage: https://www.vouchins.com/
-- About: https://www.vouchins.com/about
-- How It Works: https://www.vouchins.com/how-it-works
-- Safety: https://www.vouchins.com/safety
-- Blog: https://www.vouchins.com/blog
-- Business: https://www.vouchins.com/business
-- Contact: https://www.vouchins.com/contact
-- Privacy Policy: https://www.vouchins.com/privacy
-- Terms of Service: https://www.vouchins.com/terms
-
-## Crawler policy
-
-Vouchins intentionally permits general-purpose search and AI discovery crawlers, including GPTBot, ChatGPT-User, PerplexityBot, ClaudeBot, Google-Extended, and Bingbot, to access public pages. Authentication, authorization, row-level security, and `noindex` directives protect private application content independently of crawler rules.
-
-Only the pages listed in the XML sitemap should be treated as intended public search destinations. Official social profiles are omitted here until their ownership and monitoring status are confirmed.
+- [Sitemap](https://www.vouchins.com/sitemap.xml): Complete XML sitemap of all indexed public routes
+- [Robots Policy](https://www.vouchins.com/robots.txt): Search engine crawler directives
