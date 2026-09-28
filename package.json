@@ -12,7 +12,8 @@
     "prod:local": "rm -rf .next && next build",
     "prepare": "husky install",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:e2e": "NODE_PATH=./node_modules npx tsx --env-file=.env.local e2e/run-all.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
