@@ -4,6 +4,8 @@ import { requireImporterAdmin } from "@/lib/content-importer/auth";
 import type { ImportMode } from "@/lib/content-importer/types";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireImporterAdmin();
   if (auth.response) return auth.response;
@@ -35,8 +37,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     await supabaseAdmin.from("content_import_sources").update({ cursor: result.cursor, last_fetched_at: attemptedAt, last_success_at: attemptedAt, last_error: null, updated_at: attemptedAt }).eq("id", id);
     return NextResponse.json({ fetched: rows.length, inserted });
   } catch (error) {
-    console.error("Content importer fetch failed", { sourceId: id, error });
-    await supabaseAdmin.from("content_import_sources").update({ last_fetched_at: attemptedAt, last_error: "The source could not be fetched", updated_at: attemptedAt }).eq("id", id);
-    return NextResponse.json({ error: "The source could not be fetched. Try again later." }, { status: 502 });
+    const errorMessage = error instanceof Error ? error.message : "The source could not be fetched";
+    console.error("Content importer fetch failed", { sourceId: id, error: errorMessage });
+    await supabaseAdmin.from("content_import_sources").update({ last_fetched_at: attemptedAt, last_error: errorMessage, updated_at: attemptedAt }).eq("id", id);
+    return NextResponse.json({ error: `The source could not be fetched: ${errorMessage}` }, { status: 502 });
   }
 }

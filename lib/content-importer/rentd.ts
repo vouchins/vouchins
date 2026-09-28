@@ -51,14 +51,20 @@ export function extractRentdRows(html: string): unknown[] {
   return extractJsonArray(html, "initialListings");
 }
 
-async function fetchHtml(url: URL) {
+async function fetchHtml(url: URL, timeoutMs = 15_000) {
   const response = await fetch(url, {
     cache: "no-store",
     redirect: "follow",
-    signal: AbortSignal.timeout(25_000),
+    signal: AbortSignal.timeout(timeoutMs),
     headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "none",
+      "Sec-Fetch-User": "?1",
+      "Upgrade-Insecure-Requests": "1",
     },
   });
   if (!response.ok) throw new Error(`Source returned ${response.status}`);
@@ -77,7 +83,7 @@ export function extractOriginalFacebookUrl(html: string) {
 async function originalUrlFor(id: string) {
   try {
     const detailUrl = new URL(`/listing/${encodeURIComponent(id)}`, `https://${RENTD_HOST}`);
-    const html = await fetchHtml(detailUrl);
+    const html = await fetchHtml(detailUrl, 2_500);
     return extractOriginalFacebookUrl(html);
   } catch {
     return null;
