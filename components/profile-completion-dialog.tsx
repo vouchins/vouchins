@@ -308,7 +308,8 @@ export function ProfileCompletionDialog({
         setVerifyStep(5);
         await refetch();
       } else {
-        throw new Error("Invalid verification code.");
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Invalid verification code.");
       }
     } catch (err: any) {
       setError(err.message);

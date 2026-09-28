@@ -68,7 +68,10 @@ export function ChangeCompanyModal({ isOpen, onClose, user, onVerified }: any) {
       });
       if (res.ok) {
         navigateTo(4);
-      } else throw new Error("Invalid verification code.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Invalid verification code.");
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

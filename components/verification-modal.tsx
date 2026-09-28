@@ -146,7 +146,10 @@ export function VerificationModal({ isOpen, onClose, user, onVerified }: any) {
         clearPendingOtpChallenge();
         onVerified();
         onClose();
-      } else throw new Error("Invalid verification code.");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Invalid verification code.");
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
