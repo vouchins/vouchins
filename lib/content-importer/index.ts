@@ -2,8 +2,9 @@ import { rentdAdapter } from "./rentd";
 import type { SourceAdapter } from "./types";
 import { createHash } from "node:crypto";
 import { flatnestAdapter } from "./flatnest";
+import { redditAdapter } from "./reddit";
 
-const adapters: SourceAdapter[] = [rentdAdapter, flatnestAdapter];
+const adapters: SourceAdapter[] = [rentdAdapter, flatnestAdapter, redditAdapter];
 
 export function normalizeExternalUrl(value: string | null) {
   if (!value) return null;

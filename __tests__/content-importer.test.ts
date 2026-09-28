@@ -1,6 +1,7 @@
 import { contentFingerprint, normalizeExternalUrl, parseSupportedSource } from "@/lib/content-importer";
 import { extractOriginalFacebookUrl, extractRentdRows, rentdAdapter } from "@/lib/content-importer/rentd";
 import { flatnestAdapter, flatnestApiUrl } from "@/lib/content-importer/flatnest";
+import { redditAdapter, extractBhk, extractRent, detectCity, extractLocation } from "@/lib/content-importer/reddit";
 
 describe("content importer", () => {
   afterEach(() => jest.restoreAllMocks());
@@ -73,5 +74,51 @@ describe("content importer", () => {
     expect(first.items[0].raw).not.toHaveProperty("whatsapp_number");
     expect(first.items[0].raw).not.toHaveProperty("posted_by");
     await expect(flatnestAdapter.fetch(sourceUrl, "more", { page: 0 })).resolves.toMatchObject({ cursor: { page: 1 } });
+  });
+
+  it("accepts supported Reddit subreddit URLs and parses listing fields", async () => {
+    expect(parseSupportedSource("https://www.reddit.com/r/HyderabadFlatmates/").adapter.key).toBe("reddit");
+    expect(parseSupportedSource("https://reddit.com/r/HyderabadFlatmates").adapter.key).toBe("reddit");
+    expect(parseSupportedSource("https://old.reddit.com/r/HyderabadFlatmates/").adapter.key).toBe("reddit");
+    expect(() => parseSupportedSource("https://www.reddit.com/user/someone")).toThrow("not supported");
+    expect(() => parseSupportedSource("https://www.reddit.com/")).toThrow("not supported");
+
+    expect(extractBhk("Need 2 BHK flatmate in Kondapur")).toBe("2");
+    expect(extractRent("Rent is ₹25,000 including maintenance")).toEqual({ min: 25000, max: 25000 });
+    expect(extractRent("Rent: 15k to 20k")).toEqual({ min: 15000, max: 20000 });
+    expect(detectCity("HyderabadFlatmates", "Room in Kondapur")).toBe("Hyderabad");
+    expect(extractLocation("Available in Gachibowli near DLF", "Hyderabad")).toBe("Gachibowli");
+
+    const fetchMock = jest.fn(async () => {
+      const body = JSON.stringify({
+        data: [
+          {
+            id: "abc123",
+            title: "Available 1 BHK in Gachibowli",
+            selftext: "Fully furnished 1 BHK, rent is ₹20,000. Close to office.",
+            created_utc: 1790409248,
+            author: "test_user",
+            permalink: "/r/HyderabadFlatmates/comments/abc123/available_1_bhk_in_gachibowli/",
+            url: "https://www.reddit.com/r/HyderabadFlatmates/comments/abc123/available_1_bhk_in_gachibowli/",
+          },
+        ],
+      });
+      return { ok: true, status: 200, json: async () => JSON.parse(body) } as unknown as Response;
+    });
+    Object.defineProperty(global, "fetch", { value: fetchMock, configurable: true });
+
+    const sourceUrl = new URL("https://www.reddit.com/r/HyderabadFlatmates/");
+    const result = await redditAdapter.fetch(sourceUrl, "latest", null);
+    expect(result.items.length).toBe(1);
+    expect(result.items[0]).toMatchObject({
+      externalId: "abc123",
+      title: "Available 1 BHK in Gachibowli",
+      city: "Hyderabad",
+      location: "Gachibowli",
+      bhk: "1",
+      priceMin: 20000,
+      currency: "INR",
+      sourceListingUrl: "https://www.reddit.com/r/HyderabadFlatmates/comments/abc123/available_1_bhk_in_gachibowli/",
+    });
   });
 });

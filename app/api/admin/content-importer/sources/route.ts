@@ -3,6 +3,8 @@ import { requireImporterAdmin } from "@/lib/content-importer/auth";
 import { parseSupportedSource } from "@/lib/content-importer";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const auth = await requireImporterAdmin();
   if (auth.response) return auth.response;

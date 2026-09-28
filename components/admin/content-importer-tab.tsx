@@ -59,18 +59,49 @@ export function ContentImporterTab() {
 
   const act = async (key: string, work: () => Promise<unknown>, message: string) => {
     setBusy(key);
-    try { await work(); toast.success(message); await Promise.all([loadSources(), loadItems()]); }
-    catch (error) { toast.error(error instanceof Error ? error.message : "Request failed"); }
-    finally { setBusy(null); }
+    try {
+      await work();
+      toast.success(message);
+      await Promise.all([loadSources(), loadItems()]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Request failed");
+      await Promise.allSettled([loadSources(), loadItems()]);
+    } finally {
+      setBusy(null);
+    }
   };
 
   return <div className="space-y-6">
     <section className="rounded-xl border bg-white p-4 shadow-sm">
-      <h2 className="text-lg font-bold text-[#0A1B5C]">Content sources</h2>
-      <p className="mb-4 text-sm text-neutral-500">Sources are contacted only when you choose a fetch action.</p>
-      <form className="grid gap-2 md:grid-cols-[1fr_2fr_auto]" onSubmit={(event) => { event.preventDefault(); void act("add", () => api("/api/admin/content-importer/sources", { method: "POST", body: JSON.stringify({ name, url }) }), "Source added").then(() => { setName(""); setUrl(""); }); }}>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-[#0A1B5C]">Content sources</h2>
+          <p className="mb-4 text-sm text-neutral-500">Sources are contacted only when you choose a fetch action.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-neutral-200 text-[#0A1B5C] hover:bg-neutral-50"
+          onClick={() => void act("refresh", () => Promise.all([loadSources(), loadItems()]), "Sources refreshed")}
+          disabled={busy !== null}
+        >
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+      <form
+        className="grid gap-2 md:grid-cols-[1fr_2fr_auto]"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const targetUrl = url;
+          const targetName = name;
+          await act("add", () => api("/api/admin/content-importer/sources", { method: "POST", body: JSON.stringify({ name: targetName, url: targetUrl }) }), "Source added");
+          setName("");
+          setUrl("");
+        }}
+      >
         <Input aria-label="Source name" placeholder="Source name" value={name} onChange={(event) => setName(event.target.value)} required />
-        <Input aria-label="Source URL" placeholder="Rentd or https://flatnest.in/listings?city=Hyderabad" value={url} onChange={(event) => setUrl(event.target.value)} required />
+        <Input aria-label="Source URL" placeholder="Rentd, Flatnest, or https://www.reddit.com/r/HyderabadFlatmates/" value={url} onChange={(event) => setUrl(event.target.value)} required />
         <Button disabled={busy === "add"} className="bg-[#0A1B5C] text-white"><Plus className="mr-2 h-4 w-4" />Add source</Button>
       </form>
       <div className="mt-4 space-y-3">{sources.map((source) => <div key={source.id} className="rounded-lg border p-3">
