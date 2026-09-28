@@ -60,6 +60,11 @@ The test suite runs against the live local application server (`http://127.0.0.1
    - Queries conversation history.
    - Updates message read receipt and verifies state persistence.
 
+8. **Flow 8: Storage Buckets & File Uploads (`e2e/flows/08-file-uploads.ts`)**
+   - Tests file upload and public asset resolution for `post-images` and `avatars`.
+   - Tests private authenticated uploads and signed URL creation for `resumes` and `verification-docs`.
+   - Cleans up all test binary assets upon completion.
+
 ### Teardown & Isolation Guarantee
 
 The suite executes inside a `try ... finally` block managed by `e2e/helpers/cleanup.ts`. Regardless of whether tests pass or fail:

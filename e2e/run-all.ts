@@ -5,6 +5,7 @@ import { runFeedAndPostsFlow } from "./flows/04-feed-and-posts";
 import { runSavedPostsFlow } from "./flows/05-saved-posts";
 import { runJobsFlow } from "./flows/06-jobs";
 import { runMessagingFlow } from "./flows/07-messaging";
+import { runFileUploadsFlow } from "./flows/08-file-uploads";
 import { runTeardown, CleanupContext } from "./helpers/cleanup";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -92,9 +93,14 @@ async function main() {
     await runMessagingFlow(userId);
     stepsSummary.push({ name: "Flow 7: Direct Messaging", duration: `${Date.now() - t7}ms`, status: "PASS" });
 
+    // Flow 8: Storage Buckets & File Uploads
+    const t8 = Date.now();
+    await runFileUploadsFlow(userId);
+    stepsSummary.push({ name: "Flow 8: Storage & File Uploads", duration: `${Date.now() - t8}ms`, status: "PASS" });
+
     const totalSeconds = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log("\n===============================================================");
-    console.log(`🎉 ALL 7 E2E FLOWS COMPLETED SUCCESSFULLY in ${totalSeconds}s`);
+    console.log(`🎉 ALL 8 E2E FLOWS COMPLETED SUCCESSFULLY in ${totalSeconds}s`);
     console.log("===============================================================");
     console.table(stepsSummary);
   } catch (err: any) {
