@@ -9,6 +9,14 @@ jest.mock('@/lib/marketing/auth', () => ({
   getMarketingPrincipal: () => mockGetMarketingPrincipal(),
 }));
 
+const mockRequireActiveAdmin = jest.fn().mockResolvedValue({
+  user: { id: 'admin-id' },
+  profile: { id: 'admin-id', is_admin: true, is_active: true },
+});
+jest.mock('@/lib/admin/auth', () => ({
+  requireActiveAdmin: () => mockRequireActiveAdmin(),
+}));
+
 const mockAdminFrom = jest.fn();
 jest.mock('@/lib/supabase/admin', () => ({
   supabaseAdmin: { from: (...args: any[]) => mockAdminFrom(...args) },
@@ -74,6 +82,11 @@ describe('Campaigns Admin API Endpoint', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockFrom.mockReturnValue(mockQuery);
+    mockAdminFrom.mockReturnValue(mockQuery);
+    mockRequireActiveAdmin.mockResolvedValue({
+      user: { id: 'admin-id' },
+      profile: { id: 'admin-id', is_admin: true, is_active: true },
+    });
     process.env.SES_FROM_EMAIL = 'admin@vouchins.com';
   });
 
@@ -92,7 +105,9 @@ describe('Campaigns Admin API Endpoint', () => {
   });
 
   it('should return 401 if user is not authenticated', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null } });
+    mockRequireActiveAdmin.mockResolvedValueOnce({
+      response: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+    });
     const request = new Request('http://localhost/api/admin/campaigns', {
       method: 'POST',
       body: JSON.stringify({
@@ -109,15 +124,11 @@ describe('Campaigns Admin API Endpoint', () => {
   });
 
   it('should send email with replaced placeholders for registered user group', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'admin-id' } } });
-
     // Mock query calls:
-    // 1. users: check is_admin
-    // 2. campaigns: insert row
-    // 3. users: select target users
-    // 4. campaigns: update row to sent
+    // 1. campaigns: insert row
+    // 2. users: select target users
+    // 3. campaigns: update row to sent
     mockThen
-      .mockImplementationOnce((resolve) => resolve({ data: { is_admin: true }, error: null }))
       .mockImplementationOnce((resolve) => resolve({ data: { id: 'campaign-1', title: 'Hello {{name}}', body: 'Hi {name}!' }, error: null }))
       .mockImplementationOnce((resolve) => resolve({
         data: [
@@ -151,16 +162,12 @@ describe('Campaigns Admin API Endpoint', () => {
   });
 
   it('should parse manual emails and send personalized templates', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'admin-id' } } });
-
     // Mock query calls:
-    // 1. users: check is_admin
-    // 2. campaigns: insert row
-    // 3. users: parallel check of corporate email
-    // 4. users: parallel check of personal email
-    // 5. campaigns: update row to sent
+    // 1. campaigns: insert row
+    // 2. users: parallel check of corporate email
+    // 3. users: parallel check of personal email
+    // 4. campaigns: update row to sent
     mockThen
-      .mockImplementationOnce((resolve) => resolve({ data: { is_admin: true }, error: null }))
       .mockImplementationOnce((resolve) => resolve({ data: { id: 'campaign-2', title: 'Welcome' }, error: null }))
       .mockImplementationOnce((resolve) => resolve({ data: [{ id: 'user-2', email: 'registered@vouchins.com', full_name: 'Alice Smith' }], error: null })) // resEmail
       .mockImplementationOnce((resolve) => resolve({ data: [], error: null })) // resPersonal
@@ -194,13 +201,9 @@ describe('Campaigns Admin API Endpoint', () => {
   });
 
   it('should delete campaign and return 200', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'admin-id' } } });
-
     // Mock query calls:
-    // 1. users: check is_admin
-    // 2. campaigns: delete query
+    // 1. campaigns: delete query
     mockThen
-      .mockImplementationOnce((resolve) => resolve({ data: { is_admin: true }, error: null }))
       .mockImplementationOnce((resolve) => resolve({ data: null, error: null }));
 
     const request = new Request('http://localhost/api/admin/campaigns?id=campaign-to-delete', {

@@ -19,6 +19,14 @@ jest.mock("@/lib/marketing/auth", () => ({
   getMarketingPrincipal: () => mockGetMarketingPrincipal(),
 }));
 
+const mockRequireActiveAdmin = jest.fn().mockResolvedValue({
+  user: { id: "admin-id" },
+  profile: { id: "admin-id", is_admin: true, is_active: true },
+});
+jest.mock("@/lib/admin/auth", () => ({
+  requireActiveAdmin: () => mockRequireActiveAdmin(),
+}));
+
 jest.mock("@/lib/supabase/admin", () => ({
   supabaseAdmin: {
     from: (...args: unknown[]) => mockAdminFrom(...args),

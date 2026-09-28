@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerSupabase } from "@/lib/supabase/server";
+import { requireActiveAdmin } from "@/lib/admin/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const allowedActions = ["ignore", "remove", "suspend"] as const;
@@ -7,25 +7,8 @@ type FlaggedAction = (typeof allowedActions)[number];
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createServerSupabase();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: adminUser } = await supabaseAdmin
-      .from("users")
-      .select("is_admin")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (!adminUser?.is_admin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireActiveAdmin();
+    if (auth.response) return auth.response;
 
     const body = await request.json();
     const action = body?.action as FlaggedAction;

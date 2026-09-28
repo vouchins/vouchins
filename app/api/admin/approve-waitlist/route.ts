@@ -1,11 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { sendApprovalEmail, sendRejectionEmail } from "@/lib/email";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { requireActiveAdmin } from "@/lib/admin/auth";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireActiveAdmin();
+    if (auth.response) return auth.response;
+    const { user } = auth;
+
     const { waitlistId, notes, action, domain } = await req.json();
 
     if (!waitlistId || !action) {
@@ -13,55 +16,6 @@ export async function POST(req: Request) {
         { error: "Invalid request payload" },
         { status: 400 }
       );
-    }
-
-    /* ---------------- AUTH CHECK ---------------- */
-
-    const cookieStore = await cookies();
-
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-        },
-      }
-    );
-
-    const {
-      data: { user },
-    } = await supabaseUser.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    /* ---------------- SERVICE ROLE CLIENT ---------------- */
-
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-
-    /* ---------------- ADMIN CHECK ---------------- */
-
-    const { data: adminUser, error: adminError } = await supabaseAdmin
-      .from("users")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    if (adminError || !adminUser?.is_admin) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     /* ---------------- REJECTION FLOW ---------------- */

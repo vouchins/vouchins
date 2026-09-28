@@ -304,7 +304,7 @@ function AdminPageContent() {
   // --- User Management Handlers ---
   const handleUpdateUser = async (userId: string, updates: any) => {
     try {
-      const res = await adminFetch('/api/users/update', {
+      const res = await adminFetch('/api/admin/users/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, updates }),
@@ -413,7 +413,7 @@ function AdminPageContent() {
   ) => {
     if (action === "reject" && !confirm("Reject this applicant?")) return;
     try {
-      const res = await adminFetch("/api/auth/approve-waitlist", {
+      const res = await adminFetch("/api/admin/approve-waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ waitlistId, notes, action, domain }),
@@ -443,7 +443,7 @@ function AdminPageContent() {
 
   const handleReviewFeedback = async (feedbackId: string) => {
     try {
-      const res = await adminFetch("/api/feedback/update-feedback", {
+      const res = await adminFetch("/api/admin/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feedbackId, status: "reviewed" }),
