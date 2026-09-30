@@ -121,10 +121,44 @@ function cleanMarkdown(text: string): string {
     .trim();
 }
 
-async function fetchFromPullPush(
+async function fetchRedditPosts(
   subreddit: string,
   before?: number
 ): Promise<{ items: any[]; oldestCreatedUtc: number | null }> {
+  // 1. Try Arctic Shift (reliable, active archive & live mirror)
+  try {
+    let apiUrl = `https://arctic-shift.photon-reddit.com/api/posts/search?subreddit=${encodeURIComponent(subreddit)}&limit=25`;
+    if (before) {
+      apiUrl += `&before=${before}`;
+    }
+
+    const response = await fetch(apiUrl, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "web:vouchins.content-importer:v1.0 (by /u/vouchins-admin)",
+      },
+    });
+
+    if (response.ok) {
+      const json = await response.json();
+      const posts = Array.isArray(json.data) ? json.data : [];
+      let oldest: number | null = null;
+      for (const post of posts) {
+        if (typeof post.created_utc === "number") {
+          if (oldest === null || post.created_utc < oldest) {
+            oldest = post.created_utc;
+          }
+        }
+      }
+      return { items: posts, oldestCreatedUtc: oldest };
+    }
+  } catch (err) {
+    console.warn("Arctic Shift fetch failed, attempting fallback:", err);
+  }
+
+  // 2. Fallback to PullPush
   let apiUrl = `https://api.pullpush.io/reddit/search/submission/?subreddit=${encodeURIComponent(subreddit)}&size=25`;
   if (before) {
     apiUrl += `&before=${before}`;
@@ -139,7 +173,7 @@ async function fetchFromPullPush(
     },
   });
 
-  if (!response.ok) throw new Error(`PullPush returned ${response.status}`);
+  if (!response.ok) throw new Error(`Reddit service returned ${response.status}`);
   const json = await response.json();
   const posts = Array.isArray(json.data) ? json.data : [];
 
@@ -170,7 +204,7 @@ export const redditAdapter: SourceAdapter = {
     if (!subreddit) throw new Error("Invalid subreddit URL");
 
     const before = mode === "more" ? (cursor as any)?.before : undefined;
-    const { items: posts, oldestCreatedUtc } = await fetchFromPullPush(subreddit, before);
+    const { items: posts, oldestCreatedUtc } = await fetchRedditPosts(subreddit, before);
 
     const items: ImportedContent[] = posts
       .filter((post) => post && post.id && !post.removed_by_category)

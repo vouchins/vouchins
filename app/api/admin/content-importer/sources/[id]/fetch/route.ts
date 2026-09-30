@@ -16,6 +16,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!source) return NextResponse.json({ error: "Source not found" }, { status: 404 });
   if (!source.enabled) return NextResponse.json({ error: "Enable this source before fetching" }, { status: 400 });
   const attemptedAt = new Date().toISOString();
+  if (source.adapter === "excel" || source.url.includes("bulk-excel-import")) {
+    return NextResponse.json(
+      { error: "Excel bulk import is managed by uploading an Excel/CSV spreadsheet in the Bulk Excel Import section above." },
+      { status: 400 }
+    );
+  }
   try {
     const { url, adapter } = parseSupportedSource(source.url);
     if (adapter.key !== source.adapter) throw new Error("Source adapter mismatch");
