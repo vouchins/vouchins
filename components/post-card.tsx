@@ -213,12 +213,14 @@ export function PostCard({
   const postBody = hasFeedTitle
     ? remainingTextLines.join("\n").trim()
     : post.text;
-  const characterLimit = isFeedVariant ? 280 : 400;
+  const hasImages = Boolean(post.image_urls && post.image_urls.length > 0);
+  const characterLimit = hasImages ? 140 : (isFeedVariant ? 280 : 400);
   const shouldTruncate = postBody.length > characterLimit;
   const displayedText =
     isExpanded || !shouldTruncate
       ? postBody
       : `${postBody.substring(0, characterLimit).trim()}...`;
+
 
   // --- NEW: IMAGE EDITING STATE ---
   const [editedImages, setEditedImages] = useState<string[]>(
@@ -1061,7 +1063,6 @@ export function PostCard({
                 isFeedVariant ? "text-sm leading-6 sm:text-[15px]" : "text-[15px] leading-relaxed",
               )}
             >
-              {/* {displayedText} */}
               <Linkify
                 options={{
                   target: "_blank",
@@ -1070,10 +1071,37 @@ export function PostCard({
               >
                 {displayedText}
               </Linkify>
+              {hasImages && shouldTruncate && !isExpanded && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    posthog.capture("Read More Clicked", { post_id: post.id });
+                    setIsExpanded(true);
+                  }}
+                  className="ml-1 inline font-semibold text-neutral-500 hover:text-[#0A1B5C] hover:underline"
+                >
+                  Show more
+                </button>
+              )}
             </p>
 
-            {shouldTruncate && (
+            {hasImages && shouldTruncate && isExpanded && (
               <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(false);
+                }}
+                className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-neutral-500 hover:text-[#0A1B5C] hover:underline"
+              >
+                Show less <X className="h-3 w-3" />
+              </button>
+            )}
+
+            {!hasImages && shouldTruncate && (
+              <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   if (!isExpanded) {
