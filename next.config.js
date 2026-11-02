@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: { unoptimized: true },
-  //Dont committ this to production
-  reactStrictMode: false, // 👈 Add this line to stop double-renders
+  serverExternalPackages: ['pdf-parse', 'mammoth'],
 
   async headers() {
     return [

@@ -67,13 +67,7 @@ const ACTIVITY_CATEGORY_LABELS: Record<string, string> = {
   referrals: "Referrals",
   jobs: "Jobs",
 };
-
-export const getHighestBadge = (count: number) => {
-  if (count >= 50) return { name: "Founding Connector", icon: "🏆" };
-  if (count >= 25) return { name: "Network Catalyst", icon: "🚀" };
-  if (count >= 5) return { name: "Community Builder", icon: "🌱" };
-  return null;
-};
+import { getHighestBadge } from "@/lib/badges";
 
 function ProfilePageSkeleton() {
   return (

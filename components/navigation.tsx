@@ -26,6 +26,7 @@ import {
   MessageSquare,
   CheckCheck,
   Megaphone,
+  Zap,
 } from "lucide-react";
 import posthog from "posthog-js";
 import { supabase } from "@/lib/supabase/browser";
@@ -70,7 +71,7 @@ function NavigationLoadingFallback() {
       <div className="container mx-auto flex h-16 items-center justify-between gap-4 px-4">
         <Image src="/images/logo.png" alt="Vouchins" width={140} height={40} className="w-[110px] object-contain" priority />
         <div className="hidden max-w-md flex-1 md:block"><Skeleton className="h-10 w-full rounded-full" /></div>
-        <div className="flex items-center gap-2"><Skeleton className="hidden h-9 w-16 sm:block"/><Skeleton className="hidden h-9 w-20 sm:block"/><Skeleton className="h-9 w-9 rounded-full"/></div>
+        <div className="flex items-center gap-2"><Skeleton className="hidden h-9 w-16 sm:block" /><Skeleton className="hidden h-9 w-20 sm:block" /><Skeleton className="h-9 w-9 rounded-full" /></div>
       </div>
     </header>
   );
@@ -121,7 +122,7 @@ function NavigationContent() {
       .select("id", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("is_read", false);
-    
+
     if (count !== null && !error) {
       setUnreadNotificationsCount(count);
     }
@@ -136,7 +137,7 @@ function NavigationContent() {
       .update({ is_read: true, read_at: new Date().toISOString() })
       .eq("user_id", user.id)
       .eq("is_read", false);
-    
+
     if (!error) {
       setUnreadNotificationsCount(0);
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
@@ -154,7 +155,7 @@ function NavigationContent() {
           setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, is_read: true } : item));
         });
     }
-    
+
     if (n.type === 'MESSAGE_RECEIVED') {
       router.push(`/messages/${n.actor?.id || n.entity_id}`);
     } else if (n.type === 'COMMENT_RECEIVED' || n.type === 'POST_VOUCHED') {
@@ -331,17 +332,16 @@ function NavigationContent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => router.push("/jobs")}
+                  onClick={() => router.push("/jobs/dashboard")}
                   className={cn(
-                    "h-9 rounded-lg px-2 md:px-3",
-                    pathname === "/feed" && "hidden md:inline-flex",
-                    pathname === "/jobs"
+                    "h-9 rounded-lg px-2 md:px-3 relative group",
+                    (pathname?.startsWith("/jobs") || pathname?.startsWith("/jobs/dashboard") || pathname?.startsWith("/jobs/resume"))
                       ? "text-primary bg-primary/5"
-                      : "text-neutral-600",
+                      : "text-neutral-700 hover:text-neutral-900",
                   )}
                 >
-                  <Briefcase className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline font-bold text-[13px]">
+                  <Briefcase className="h-4 w-4 sm:mr-1.5 text-[#0A1B5C] group-hover:text-[#4FD1C5] transition-colors" />
+                  <span className="hidden sm:inline font-bold text-[13px] text-neutral-900">
                     Jobs
                   </span>
                 </Button>
@@ -430,7 +430,7 @@ function NavigationContent() {
                         )}
                       </Button>
                     </DropdownMenuTrigger>
-                    
+
                     <DropdownMenuContent
                       align="end"
                       className="w-96 mt-2 rounded-xl shadow-xl border-neutral-200 p-0 overflow-hidden bg-white text-neutral-900"
@@ -447,7 +447,7 @@ function NavigationContent() {
                           </button>
                         )}
                       </div>
-                      
+
                       <div className="max-h-[350px] overflow-y-auto no-scrollbar py-1 divide-y divide-neutral-100">
                         {notifications.length === 0 ? (
                           <div className="px-4 py-8 text-center text-xs font-semibold text-neutral-400">
@@ -474,7 +474,7 @@ function NavigationContent() {
                                   <MessageCircle className="h-4 w-4 text-emerald-500" />
                                 )}
                               </div>
-                              
+
                               <div className="flex-1 space-y-1 min-w-0">
                                 <p className={cn(
                                   "text-xs text-neutral-700 leading-normal break-words",
@@ -486,7 +486,7 @@ function NavigationContent() {
                                   {formatRelativeTime(n.created_at)}
                                 </p>
                               </div>
-                              
+
                               {!n.is_read && (
                                 <div className="h-2 w-2 rounded-full bg-indigo-600 mt-2 shrink-0" />
                               )}
@@ -586,6 +586,18 @@ function NavigationContent() {
                       </div>
                     </Link>
                     <DropdownMenuSeparator />
+                    {/* <DropdownMenuItem
+                      asChild
+                      className="cursor-pointer py-2.5 font-bold text-sm text-[#0A1B5C] hover:text-[#0A1B5C] bg-[#0A1B5C]/5 hover:bg-[#0A1B5C]/10 rounded-lg mx-1 my-1"
+                    >
+                      <Link
+                        href="/jobs"
+                        className="flex items-center w-full"
+                      >
+                        <Briefcase className="h-4 w-4 mr-2 text-[#0A1B5C]" />
+                        Jobs Dashboard
+                      </Link>
+                    </DropdownMenuItem> */}
                     <DropdownMenuItem
                       onClick={async () => {
                         const shared = await triggerNativeShare(user.id);

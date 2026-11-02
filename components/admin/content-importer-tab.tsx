@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, CheckCircle2, Download, ExternalLink, FileSpreadsheet, Loader2, Plus, RefreshCw, Trash2, UploadCloud, X } from "lucide-react";
+import { AlertCircle, Briefcase, CheckCircle2, Download, ExternalLink, FileSpreadsheet, Loader2, Plus, RefreshCw, Trash2, UploadCloud, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,34 @@ export function ContentImporterTab() {
     totalRows: number;
     validationErrors?: string[];
   } | null>(null);
+
+  const [isCrawlingJobs, setIsCrawlingJobs] = useState(false);
+  const [crawlResult, setCrawlResult] = useState<{
+    crawled: number;
+    inserted: number;
+    skippedDuplicates: number;
+    importedJobs?: { title: string; company: string; location: string }[];
+  } | null>(null);
+
+  const handleRunJobCrawl = async () => {
+    setIsCrawlingJobs(true);
+    setCrawlResult(null);
+    try {
+      const res = await fetch("/api/admin/jobs/crawl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ limit: 15 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to crawl jobs");
+      setCrawlResult(data);
+      toast.success(`Crawl completed: ${data.inserted} new jobs added!`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error running job crawler");
+    } finally {
+      setIsCrawlingJobs(false);
+    }
+  };
 
   const loadSources = useCallback(async () => {
     const next: Source[] = (await api("/api/admin/content-importer/sources")).sources;
@@ -112,6 +140,82 @@ export function ContentImporterTab() {
   };
 
   return <div className="space-y-6">
+    {/* Tech Jobs Live Crawler Section */}
+    <section className="rounded-xl border bg-white p-5 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5 text-[#0A1B5C]" />
+            <h2 className="text-lg font-bold text-[#0A1B5C]">Tech Jobs Crawler & Importer</h2>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#4FD1C5]/20 text-[#0A1B5C]">
+              Jobs Platform
+            </span>
+          </div>
+          <p className="text-sm text-neutral-500 mt-1">
+            Crawl live job openings directly from Tier-1 tech company ATS feeds (Greenhouse & Lever) and sync them into the Jobs directory.
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-neutral-500">
+            <span className="font-semibold text-neutral-700">Supported boards:</span>
+            {["Figma", "Stripe", "Airbnb", "DoorDash", "Spotify"].map((company) => (
+              <span key={company} className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium text-[11px]">
+                {company}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            onClick={handleRunJobCrawl}
+            disabled={isCrawlingJobs}
+            className="bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs flex items-center gap-2 transition-all active:scale-95"
+          >
+            {isCrawlingJobs ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Crawling & Importing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4" />
+                Crawl & Import Jobs Now
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {crawlResult && (
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs text-emerald-950 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-sm text-emerald-900">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span>
+                Crawl completed! {crawlResult.inserted} new jobs imported ({crawlResult.skippedDuplicates} duplicate postings skipped).
+              </span>
+            </div>
+            <span className="text-[11px] font-semibold text-emerald-700">
+              Total scanned: {crawlResult.crawled}
+            </span>
+          </div>
+
+          {crawlResult.importedJobs && crawlResult.importedJobs.length > 0 && (
+            <div className="pt-2 border-t border-emerald-200/60">
+              <span className="font-bold text-emerald-900 block mb-1">Recent Discoveries:</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {crawlResult.importedJobs.slice(0, 6).map((job, idx) => (
+                  <div key={idx} className="bg-white/90 rounded-lg p-2 border border-emerald-200/50 shadow-xs">
+                    <p className="font-bold text-neutral-900 truncate">{job.title}</p>
+                    <p className="text-[11px] text-neutral-500">{job.company} · {job.location}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+
     <section className="rounded-xl border bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>

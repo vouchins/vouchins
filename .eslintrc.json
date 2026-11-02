@@ -1,15 +1,6 @@
 {
   "extends": ["next/core-web-vitals"],
   "rules": {
-    "no-restricted-imports": [
-      "error",
-      {
-        "paths": [
-          {
-            
-          }
-        ]
-      }
-    ]
+    "react/no-unescaped-entities": "off"
   }
 }

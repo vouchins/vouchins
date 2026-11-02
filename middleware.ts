@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { sanitizeReturnTo } from '@/lib/auth/return-to'
 
 function noIndex(response: NextResponse) {
   response.headers.set('X-Robots-Tag', 'noindex, follow')
@@ -8,7 +9,9 @@ function noIndex(response: NextResponse) {
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
-  const hostname = (request.headers.get('host') || '').split(':')[0].toLowerCase()
+  const hostHeader = (request.headers.get('host') || '').toLowerCase()
+  const [hostname] = hostHeader.split(':')
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost')
   const isWardenHost = hostname === 'warden.vouchins.com'
   const isMainHost = hostname === 'vouchins.com' || hostname === 'www.vouchins.com'
 
@@ -33,30 +36,56 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key",
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
+  function redirectWithCookies(destination: URL | string, status?: number) {
+    const res = NextResponse.redirect(destination, status)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      res.cookies.set(cookie.name, cookie.value, cookie)
+    })
+    return res
+  }
+
+  const allCookies = request.cookies.getAll()
+  const hasAuthCookie = allCookies.some((c) =>
+    (c.name.startsWith('sb-') && c.name.includes('-auth-token') && !c.name.includes('-code-verifier')) ||
+    c.name.includes('supabase-auth-token')
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+
+  if (hasAuthCookie) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key",
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+            supabaseResponse = NextResponse.next({
+              request,
+            })
+            cookiesToSet.forEach(({ name, value, options }) =>
+              supabaseResponse.cookies.set(name, value, options)
+            )
+          },
+        },
+      }
+    )
+
+    try {
+      const userPromise = supabase.auth.getUser()
+      const timeoutMs = isLocalHost ? 3000 : 4000
+      const timeoutPromise = new Promise<{ data: { user: null } }>((resolve) =>
+        setTimeout(() => resolve({ data: { user: null } }), timeoutMs)
+      )
+      const res = await Promise.race([userPromise, timeoutPromise])
+      user = res?.data?.user ?? null
+    } catch {
+      user = null
+    }
+  }
 
   const isRecruiterAuthRoute = url.pathname === '/recruiter/login' || url.pathname === '/recruiter/signup'
   const isStandardAuthRoute = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
@@ -77,11 +106,14 @@ export async function middleware(request: NextRequest) {
     '/verified-flatmates',
     '/corporate-marketplace',
     '/trusted-recommendations',
+    '/jobs',
+    '/jobs/dashboard',
+    '/jobs/recommend',
     '/robots.txt',
     '/sitemap.xml',
     '/llms.txt',
   ]
-  const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad']
+  const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad', '/jobs']
 
   const isPublicRoute =
     isAuthRoute ||
@@ -101,6 +133,9 @@ export async function middleware(request: NextRequest) {
     '/verified-flatmates',
     '/corporate-marketplace',
     '/trusted-recommendations',
+    '/jobs',
+    '/jobs/dashboard',
+    '/jobs/recommend',
   ]
   const isIndexableRoute =
     indexablePaths.includes(url.pathname) ||
@@ -109,20 +144,30 @@ export async function middleware(request: NextRequest) {
     url.pathname.startsWith('/posts/') ||
     url.pathname === '/flatmates-in-hyderabad' ||
     url.pathname.startsWith('/flatmates-in-hyderabad/')
-  // If user is logged in and trying to access an auth route, redirect to the appropriate dashboard
+  // If user is logged in and trying to access an auth route, redirect to the appropriate dashboard or returnTo
   if (user && isAuthRoute) {
     if (isRecruiterAuthRoute) {
       url.pathname = '/recruiter/dashboard'
-    } else {
-      url.pathname = '/feed'
+      return noIndex(redirectWithCookies(url))
     }
-    return noIndex(NextResponse.redirect(url))
+    const rawReturnTo = url.searchParams.get('returnTo')
+    const safeReturnTo = sanitizeReturnTo(rawReturnTo)
+    if (safeReturnTo) {
+      if (safeReturnTo.startsWith('http://') || safeReturnTo.startsWith('https://')) {
+        return noIndex(redirectWithCookies(new URL(safeReturnTo)))
+      }
+      url.pathname = safeReturnTo
+      url.search = ''
+      return noIndex(redirectWithCookies(url))
+    }
+    url.pathname = '/feed'
+    return noIndex(redirectWithCookies(url))
   }
 
   // If user is logged in and visits the landing page, redirect to feed (Industry Standard)
   if (user && url.pathname === '/') {
     url.pathname = '/feed'
-    return NextResponse.redirect(url)
+    return redirectWithCookies(url)
   }
 
   // If user is not logged in and trying to access a protected route, redirect to login
@@ -134,7 +179,7 @@ export async function middleware(request: NextRequest) {
       url.pathname = '/login'
     }
     url.searchParams.set('returnTo', returnTo)
-    return noIndex(NextResponse.redirect(url))
+    return noIndex(redirectWithCookies(url))
   }
 
   const isProductionHost = isMainHost || isWardenHost

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { sanitizeReturnTo } from "@/lib/auth/return-to";
 
 export async function POST(req: Request) {
   try {
@@ -9,10 +10,7 @@ export async function POST(req: Request) {
     const cookieStore = await cookies();
 
     // Sanitize returnTo
-    const safeReturnTo =
-      typeof returnTo === "string" && returnTo.startsWith("/") && !returnTo.startsWith("//")
-        ? returnTo
-        : null;
+    const safeReturnTo = sanitizeReturnTo(returnTo);
 
     if (safeReturnTo) {
       try {

@@ -1,6 +1,5 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export async function GET(request: Request) {
   try {
@@ -10,26 +9,10 @@ export async function GET(request: Request) {
     const jobType = searchParams.get("job_type") || "all";
     const experienceLevel = searchParams.get("experience_level") || "all";
     const location = searchParams.get("location") || "all";
+    const limit = parseInt(searchParams.get("limit") || "150", 10);
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) { return cookieStore.get(name)?.value; },
-        },
-      }
-    );
-
-    // Get session user to ensure they are logged in
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Build the query
-    let query = supabase
+    // Build query using supabaseAdmin to allow active jobs to be browsed
+    let query = supabaseAdmin
       .from("jobs")
       .select(`
         *,
@@ -57,7 +40,9 @@ export async function GET(request: Request) {
       query = query.or(`title.ilike.%${queryStr}%,company_name.ilike.%${queryStr}%,description.ilike.%${queryStr}%`);
     }
 
-    const { data: jobs, error: jobsError } = await query.order("created_at", { ascending: false });
+    const { data: jobs, error: jobsError } = await query
+      .order("created_at", { ascending: false })
+      .limit(limit);
 
     if (jobsError) {
       throw jobsError;

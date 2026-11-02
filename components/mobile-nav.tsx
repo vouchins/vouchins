@@ -142,11 +142,11 @@ export function MobileNav({
           type="button"
           aria-label="Open jobs"
           onClick={() => {
-            router.push("/jobs");
+            router.push("/jobs/dashboard");
           }}
           className={cn(
             "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",
-            pathname === "/jobs" ? "text-primary" : "text-neutral-500",
+            pathname?.startsWith("/jobs") ? "text-primary" : "text-neutral-500",
           )}
         >
           <Briefcase className="h-5 w-5" />

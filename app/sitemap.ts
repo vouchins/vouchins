@@ -18,6 +18,8 @@ type PublicFeedPost = {
 
 const PUBLIC_PAGES: MetadataRoute.Sitemap = [
   { url: BASE_URL, changeFrequency: "weekly", priority: 1 },
+  { url: `${BASE_URL}/jobs`, changeFrequency: "weekly", priority: 0.9 },
+  { url: `${BASE_URL}/jobs/dashboard`, changeFrequency: "weekly", priority: 0.9 },
   { url: `${BASE_URL}/about`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${BASE_URL}/how-it-works`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${BASE_URL}/safety`, changeFrequency: "monthly", priority: 0.8 },
@@ -87,15 +89,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ]);
 
     if (blogResult.error) {
-      console.error("Unable to include published blog posts in sitemap", blogResult.error);
+      console.warn("Sitemap: Unable to include published blog posts (Supabase offline or unreachable at build time)");
     }
     if (postsResult.error) {
-      console.error("Unable to include public feed posts in sitemap", postsResult.error);
+      console.warn("Sitemap: Unable to include public feed posts (Supabase offline or unreachable at build time)");
     }
 
     return buildSitemap(blogResult.data ?? [], postsResult.data ?? []);
   } catch (error) {
-    console.error("Error generating sitemap:", error);
+    console.warn("Sitemap: Error generating dynamic entries, using static fallback.");
     return buildSitemap();
   }
 }

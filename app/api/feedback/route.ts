@@ -1,41 +1,62 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, email, type, message } = body;
+    let { name, email, type, message } = body;
 
-    if (!name || !email || !type || !message) {
+    if (!message || !message.trim()) {
       return NextResponse.json(
-        { error: "All fields are required." },
+        { error: "Feedback message is required." },
         { status: 400 }
       );
     }
 
-    const cookieStore = await cookies();
+    // Try to get authenticated user if name or email are not supplied
+    if (!name || !email) {
+      try {
+        const supabase = await createServerSupabase();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-    // Initialize Supabase client
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) { return cookieStore.get(name)?.value; },
-          set(name: string, value: string, options: any) { cookieStore.set(name, value, options); },
-          remove(name: string, options: any) { cookieStore.set(name, "", options); },
-        },
+        if (user) {
+          if (!email) email = user.email;
+          if (!name) name = user.user_metadata?.full_name || user.email?.split("@")[0];
+        }
+      } catch {
+        // Continue with defaults
       }
-    );
+    }
 
-    // Insert into database
-    const { error } = await supabase.from("feedback").insert({ name, email, type, message });
+    const feedbackPayload = {
+      name: (name && name.trim()) || "Jobs Candidate",
+      email: (email && email.trim()) || "anonymous@vouchins.com",
+      type: (type && type.trim()) || "Jobs Platform",
+      message: message.trim(),
+      status: "pending",
+    };
 
-    if (error) throw error;
+    // Insert into public.feedback table so admin dashboard can immediately view and action it
+    const { data, error } = await supabaseAdmin
+      .from("feedback")
+      .insert(feedbackPayload)
+      .select()
+      .single();
 
-    return NextResponse.json({ success: true });
+    if (error) {
+      console.error("Failed to insert feedback:", error);
+      throw error;
+    }
+
+    return NextResponse.json({ success: true, feedback: data });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || "Failed to submit feedback" }, { status: 500 });
+    console.error("Feedback submission error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to submit feedback" },
+      { status: 500 }
+    );
   }
 }

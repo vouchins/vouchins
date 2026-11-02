@@ -11,13 +11,21 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner"; // Assuming you use sonner or similar for toasts
 import { isCorporateEmail, extractDomainFromEmail, deriveCompanyNameFromDomain, LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
 import posthog from "posthog-js";
+import { sanitizeReturnTo } from "@/lib/auth/return-to";
 
 function OnboardingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
-  const safeReturnTo =
-    returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
+  const safeReturnTo = sanitizeReturnTo(returnTo);
+
+  const navigateToDestination = (destination: string) => {
+    if (destination.startsWith("http://") || destination.startsWith("https://")) {
+      window.location.href = destination;
+    } else {
+      router.push(destination);
+    }
+  };
 
   const [agreed, setAgreed] = useState(false);
 
@@ -88,7 +96,7 @@ function OnboardingContent() {
         .single();
 
       if (userData?.onboarded) {
-        router.push(safeReturnTo || "/feed");
+        navigateToDestination(safeReturnTo || "/feed");
         return;
       }
 
@@ -279,7 +287,7 @@ function OnboardingContent() {
         .eq("id", authUser?.id);
 
       if (updateError) throw updateError;
-      router.push(safeReturnTo || "/feed");
+      navigateToDestination(safeReturnTo || "/feed");
     } catch (err: any) {
       setError(err.message);
       setSubmitting(false);

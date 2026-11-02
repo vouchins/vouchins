@@ -20,8 +20,7 @@ export default async function FeedPage({ searchParams }: FeedPageProps) {
   if (!auth.user) redirect("/login");
 
   const user = await getFeedUser(supabase, auth.user.id);
-  if (!user) redirect("/login");
-  if (!user.onboarded) redirect("/onboarding");
+  if (!user || !user.onboarded) redirect("/onboarding");
 
   const tab: FeedTab = stringParam(params, "tab", "city") === "company" ? "company" : "city";
   const category = stringParam(params, "category", "all");

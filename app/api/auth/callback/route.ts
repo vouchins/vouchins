@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { sanitizeReturnTo } from "@/lib/auth/return-to";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -83,10 +84,7 @@ export async function GET(request: Request) {
   const paramReturnTo = url.searchParams.get("returnTo");
   const cookieReturnTo = cookieStore.get("vouchins_return_to")?.value;
   const rawReturnTo = paramReturnTo || cookieReturnTo || null;
-  const safeReturnTo =
-    rawReturnTo && rawReturnTo.startsWith("/") && !rawReturnTo.startsWith("//")
-      ? rawReturnTo
-      : null;
+  const safeReturnTo = sanitizeReturnTo(rawReturnTo);
 
   if (cookieReturnTo) {
     try {
@@ -101,5 +99,9 @@ export async function GET(request: Request) {
     destination = `/onboarding?returnTo=${encodeURIComponent(safeReturnTo)}`;
   }
 
-  return NextResponse.redirect(`${origin}${destination}`);
+  if (destination.startsWith("http://") || destination.startsWith("https://")) {
+    return NextResponse.redirect(destination);
+  }
+
+  return NextResponse.redirect(new URL(destination, origin));
 }

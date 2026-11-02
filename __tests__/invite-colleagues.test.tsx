@@ -11,7 +11,7 @@ jest.mock('@/lib/supabase/browser', () => ({
   },
 }));
 
-import { getHighestBadge } from '@/app/users/[id]/page';
+import { getHighestBadge } from '@/lib/badges';
 import { InviteDialog } from '@/components/invite-dialog';
 
 // Mock Sonner Toast

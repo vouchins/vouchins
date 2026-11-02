@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { AlertCircle, Eye, EyeOff, ShieldCheck, MessageCircle, Lock, Loader2, Building2, MapPin } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, ShieldCheck, MessageCircle, Lock, Loader2, Building2, MapPin, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,13 +15,20 @@ import {
 import posthog from "posthog-js";
 import Image from "next/image";
 import { HomepageNavbar } from "@/components/homepage-navbar";
+import { sanitizeReturnTo } from "@/lib/auth/return-to";
 
 function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
-  const safeReturnTo =
-    returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
+  const planParam = searchParams.get("plan");
+  const safeReturnTo = sanitizeReturnTo(returnTo);
+
+  const planLabels: Record<string, { name: string; badge: string }> = {
+    free: { name: "Job Pass Member", badge: "Free" },
+    pro: { name: "Job Pass Pro", badge: "Priority Pass" },
+    elite: { name: "Job Pass Elite", badge: "Max Velocity" },
+  };
 
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -274,6 +281,27 @@ function SignupContent() {
           <div className="w-full max-w-[420px] mx-auto py-10 px-8 sm:px-10 bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-200/60 relative">
             <div className="absolute top-0 right-1/2 translate-x-1/2 w-[80%] h-1 bg-gradient-to-r from-transparent via-[#4FD1C5] to-transparent opacity-50"></div>
 
+            {planParam && planLabels[planParam] && (
+              <div className="mb-5 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/15 p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-xl bg-[#0A1B5C] text-[#4FD1C5]">
+                    <Zap className="h-3.5 w-3.5" />
+                  </span>
+                  <div>
+                    <span className="text-[11px] font-bold text-neutral-900 block leading-tight">
+                      Selected Plan: {planLabels[planParam].name}
+                    </span>
+                    <span className="text-[10px] text-neutral-500">
+                      Priority pass activated on registration
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#4FD1C5]/20 text-[#0A1B5C]">
+                  {planLabels[planParam].badge}
+                </span>
+              </div>
+            )}
+
             {error && (
               <Alert variant="destructive" className="mb-6 rounded-2xl border-none bg-red-50 text-red-800 flex items-center gap-3">
                 <AlertCircle className="h-4 w-4 shrink-0" />
@@ -477,7 +505,13 @@ function SignupContent() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-primary">
+          <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
       <SignupContent />
     </Suspense>
   );

@@ -12,12 +12,13 @@ import Image from "next/image";
 import { HomepageNavbar } from "@/components/homepage-navbar";
 import posthog from "posthog-js";
 
+import { sanitizeReturnTo } from "@/lib/auth/return-to";
+
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
-  const safeReturnTo =
-    returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : null;
+  const safeReturnTo = sanitizeReturnTo(returnTo);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -83,7 +84,8 @@ function LoginContent() {
       }
 
       posthog.capture("Login", { method: "email" });
-      router.replace(safeReturnTo || "/feed");
+      const destination = safeReturnTo || "/feed";
+      window.location.href = destination;
     } catch (err: any) {
       setError(err.message || "Login failed");
     } finally {
@@ -391,7 +393,13 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-primary">
+          <div className="w-8 h-8 border-3 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

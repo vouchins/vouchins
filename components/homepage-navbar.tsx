@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, Fingerprint, ShieldCheck } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 export function HomepageNavbar() {
   return (
@@ -47,26 +47,37 @@ export function HomepageNavbar() {
                 <DropdownMenuContent
                   align="center"
                   sideOffset={24}
-                  className="w-[340px] rounded-2xl border border-neutral-200/60 bg-white/95 p-3 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] backdrop-blur-xl"
+                  className="w-[390px] rounded-2xl border border-neutral-200/60 bg-white/95 p-3 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] backdrop-blur-xl"
                 >
                   <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item">
                     <Link href="/login" className="flex items-start gap-4 px-4 py-3">
-                      <span className="mt-0.5 rounded-xl bg-gradient-to-br from-[#0A1B5C]/10 to-[#0A1B5C]/5 p-2.5 text-[#0A1B5C] shadow-sm ring-1 ring-inset ring-[#0A1B5C]/10 group-hover/item:scale-105 transition-transform">
-                        <Image
-                          src="/favicon.png"
-                          alt="Vouchins"
-                          width={20}
-                          height={20}
-                          className="object-contain"
-                          priority
-                        />
-                      </span>
                       <span>
                         <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#0A1B5C] transition-colors">
                           Vouchins Verified Community
                         </span>
                         <span className="mt-1 block text-[13px] text-neutral-500 font-medium leading-snug">
                           Trusted community for verified professionals
+                        </span>
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item mt-1">
+                    <Link href="/jobs" className="flex items-start gap-4 px-4 py-3">
+                      <span className="flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#0A1B5C] transition-colors">
+                            Vouchins Jobs
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-[#0A1B5C] text-[#4FD1C5]">
+                            PRO
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block text-xs font-semibold text-[#0A1B5C]">
+                          AI-powered job recommendations and career tools
+                        </span>
+                        <span className="mt-1 block text-[12px] text-neutral-500 font-medium leading-snug">
+                          Curated roles, resume studio, upskilling, referrals and mock interviews
                         </span>
                       </span>
                     </Link>
