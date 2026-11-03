@@ -43,7 +43,6 @@ export function ResumeStudioClient() {
   const [loading, setLoading] = useState(true);
   const [activeResume, setActiveResume] = useState<SavedResumeItem | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionInfo | undefined>(undefined);
-  const [userInitials, setUserInitials] = useState<string>('ME');
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [showSubscriptionGate, setShowSubscriptionGate] = useState(false);
 
@@ -60,35 +59,6 @@ export function ResumeStudioClient() {
     }
     return {};
   }
-
-  // Load User Initials from profile
-  useEffect(() => {
-    async function loadUser() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('name')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          const nameToUse = profile?.name || user.user_metadata?.full_name || user.email || 'Candidate';
-          const parts = nameToUse.trim().split(/\s+/);
-          if (parts.length >= 2) {
-            setUserInitials(`${parts[0][0]}${parts[1][0]}`.toUpperCase());
-          } else {
-            setUserInitials(nameToUse.slice(0, 2).toUpperCase());
-          }
-        }
-      } catch {
-        // Keep default initials
-      }
-    }
-    loadUser();
-  }, []);
 
   // Fetch Resumes & Subscription data
   const loadStudioData = useCallback(async () => {
@@ -315,7 +285,6 @@ export function ResumeStudioClient() {
         }}
         isReanalyzing={isReanalyzing}
         onBack={() => router.push('/jobs/resume')}
-        userInitials={userInitials}
       />
 
       <SubscriptionGate

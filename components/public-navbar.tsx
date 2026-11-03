@@ -22,10 +22,17 @@ export function PublicNavbar() {
           </div>
           <div className="flex items-center space-x-3">
             <Link href="/login">
-              <Button variant="ghost">Log in</Button>
+              <Button
+                variant="ghost"
+                className="text-[#0A1B5C] font-bold hover:text-[#0A1B5C] hover:bg-neutral-100/80 rounded-xl px-4 transition-colors"
+              >
+                Log in
+              </Button>
             </Link>
             <Link href="/signup">
-              <Button>Sign up</Button>
+              <Button className="bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white font-bold rounded-xl px-5">
+                Sign up
+              </Button>
             </Link>
           </div>
         </div>

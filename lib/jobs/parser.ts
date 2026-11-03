@@ -1,3 +1,4 @@
+import 'pdf-parse/worker';
 import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 
@@ -10,8 +11,57 @@ export interface ExtractionResult {
 }
 
 /**
+ * Fallback parser to extract text strings from PDF streams if pdf-parse fails in restricted serverless runtimes.
+ */
+function extractPdfStreamText(buffer: Buffer): string {
+  try {
+    const content = buffer.toString('latin1');
+    const chunks: string[] = [];
+    
+    // Match text blocks inside BT (Begin Text) and ET (End Text)
+    const btEtRegex = /BT[\s\S]*?ET/g;
+    let match: RegExpExecArray | null;
+    
+    while ((match = btEtRegex.exec(content)) !== null) {
+      const block = match[0];
+      
+      // Match text strings inside parentheses followed by Tj, TJ, ', or "
+      const tjRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|'|")/g;
+      let tjMatch: RegExpExecArray | null;
+      while ((tjMatch = tjRegex.exec(block)) !== null) {
+        const clean = tjMatch[1]
+          .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+          .replace(/\\(.)/g, '$1')
+          .trim();
+        if (clean) chunks.push(clean);
+      }
+      
+      // Match text arrays in TJ operators: [(str) 20 (str)] TJ
+      const arrayRegex = /\[([\s\S]*?)\]\s*TJ/g;
+      let arrMatch: RegExpExecArray | null;
+      while ((arrMatch = arrayRegex.exec(block)) !== null) {
+        const innerStr = arrMatch[1];
+        const innerRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)/g;
+        let sMatch: RegExpExecArray | null;
+        while ((sMatch = innerRegex.exec(innerStr)) !== null) {
+          const clean = sMatch[1]
+            .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+            .replace(/\\(.)/g, '$1')
+            .trim();
+          if (clean) chunks.push(clean);
+        }
+      }
+    }
+    
+    return chunks.join(' ');
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Extracts normalized text content from an uploaded resume buffer.
- * Supports PDF and DOCX binaries.
+ * Supports PDF, DOCX, and plain text binaries.
  */
 export async function extractResumeText(
   buffer: Buffer,
@@ -23,11 +73,19 @@ export async function extractResumeText(
     mimeType.includes('document') ||
     fileName.toLowerCase().endsWith('.docx');
 
+  const isPlainText =
+    mimeType.includes('text/plain') ||
+    fileName.toLowerCase().endsWith('.txt') ||
+    fileName.toLowerCase().endsWith('.md');
+
   let rawText = '';
   let pageCount: number | undefined;
   let detectedFormat: 'pdf' | 'docx' | 'text' = 'text';
 
-  if (isDocx) {
+  if (isPlainText) {
+    detectedFormat = 'text';
+    rawText = buffer.toString('utf-8');
+  } else if (isDocx) {
     detectedFormat = 'docx';
     const result = await mammoth.extractRawText({ buffer });
     rawText = result.value || '';
@@ -36,25 +94,34 @@ export async function extractResumeText(
     detectedFormat = 'pdf';
     let parser: any;
     try {
-      parser = new PDFParse({ data: buffer });
+      const uint8Data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+      parser = new PDFParse({ data: uint8Data });
       const data = await parser.getText();
       rawText = data.text || '';
       pageCount = data.total;
     } catch (pdfErr: any) {
-      console.error('[PDF Extraction Error Details]:', pdfErr);
-      // If pdf-parse failed on a docx without mime type match, try mammoth fallback
-      try {
-        const docxResult = await mammoth.extractRawText({ buffer });
-        if (docxResult.value && docxResult.value.trim().length > 50) {
-          rawText = docxResult.value;
-          detectedFormat = 'docx';
-        } else {
-          throw pdfErr;
+      console.warn('[PDF Extraction Warning]: PDFParse failed, trying fallbacks...', pdfErr?.message);
+      
+      // Try fallback stream text extraction
+      const fallbackText = extractPdfStreamText(buffer);
+      if (fallbackText && fallbackText.trim().length >= 50) {
+        rawText = fallbackText;
+      } else {
+        // If file might be a mislabeled docx, try mammoth
+        try {
+          const docxResult = await mammoth.extractRawText({ buffer });
+          if (docxResult.value && docxResult.value.trim().length > 50) {
+            rawText = docxResult.value;
+            detectedFormat = 'docx';
+          } else {
+            throw pdfErr;
+          }
+        } catch {
+          // If still no text, throw friendly message
+          throw new Error(
+            'Failed to extract text from PDF document. Please ensure the file contains selectable text and is not an image-only scan or password-protected.'
+          );
         }
-      } catch {
-        throw new Error(
-          'Failed to extract text from PDF document. Please ensure the file is not password-protected or corrupted.'
-        );
       }
     } finally {
       if (parser && typeof parser.destroy === 'function') {

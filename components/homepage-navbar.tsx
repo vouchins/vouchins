@@ -121,13 +121,13 @@ export function HomepageNavbar() {
               <Link href="/login">
                 <Button
                   variant="ghost"
-                  className="text-primary font-bold hover:bg-primary/5 rounded-xl px-5"
+                  className="text-[#0A1B5C] font-bold hover:text-[#0A1B5C] hover:bg-neutral-100/80 rounded-xl px-5 transition-colors"
                 >
                   Log in
                 </Button>
               </Link>
               <Link href="/signup">
-                <Button className="bg-primary hover:bg-primary/90 text-white font-bold rounded-xl px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all active:scale-95">
+                <Button className="bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white font-bold rounded-xl px-6 shadow-lg shadow-[#0A1B5C]/20 hover:shadow-[#0A1B5C]/30 transition-all active:scale-95">
                   Request Access
                 </Button>
               </Link>

@@ -30,6 +30,7 @@ import { UploadZone } from './upload-zone';
 import { Workspace } from './workspace';
 import { supabase } from '@/lib/supabase/browser';
 import { useUser } from '@/components/user-provider';
+import { NavbarUserAvatar } from '@/components/navbar-user-avatar';
 import {
   ResumeDocument,
   ResumeEvaluation,
@@ -90,18 +91,6 @@ export function ResumePageClient() {
     status: 'free',
   });
   const [showSubscriptionGate, setShowSubscriptionGate] = useState(false);
-
-  // Dynamic user initials from authenticated user or fallback
-  const userInitials = user?.full_name
-    ? user.full_name
-        .split(' ')
-        .map((n: string) => n[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : 'U';
 
   // Resumes list starts empty and populates from database
   const [resumes, setResumes] = useState<SavedResumeItem[]>([]);
@@ -469,11 +458,11 @@ export function ResumePageClient() {
             {/* Right: User Profile Avatar */}
             <div className="flex items-center gap-4">
               <Link
-                href="/profile"
-                className="w-9 h-9 rounded-full bg-[#0A1B5C] text-white font-black text-xs flex items-center justify-center ring-2 ring-white shadow-xs hover:scale-105 transition-transform"
-                title="View Profile"
+                href={user ? `/users/${user.id}` : "/profile"}
+                className="hover:scale-105 transition-transform shrink-0"
+                title={user?.full_name ? `View ${user.full_name}'s Profile` : "View Profile"}
               >
-                {userInitials}
+                <NavbarUserAvatar user={user} size="md" />
               </Link>
             </div>
           </header>
@@ -773,7 +762,6 @@ export function ResumePageClient() {
               }}
               isReanalyzing={isReanalyzing}
               onBack={() => setActiveView('list')}
-              userInitials={userInitials}
             />
           </div>
         )}

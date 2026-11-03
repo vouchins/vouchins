@@ -39,6 +39,7 @@ import { useUser } from "@/components/user-provider";
 import { InviteDialog, triggerNativeShare } from "@/components/invite-dialog";
 import { HomepageNavbar } from "@/components/homepage-navbar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NavbarUserAvatar } from "@/components/navbar-user-avatar";
 
 interface NavigationUser {
   id: string;
@@ -320,11 +321,16 @@ function NavigationContent() {
                     size="sm"
                     type="button"
                     onClick={() => setIsMobileSearchOpen((open) => !open)}
-                    className="relative h-10 w-10 rounded-lg p-0 text-neutral-700 md:hidden"
+                    className={cn(
+                      "relative h-9 w-9 rounded-xl p-0 transition-all duration-150 md:hidden",
+                      isMobileSearchOpen
+                        ? "bg-[#0A1B5C] text-white shadow-xs hover:bg-[#0A1B5C]/90 hover:text-white"
+                        : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70"
+                    )}
                     aria-label={isMobileSearchOpen ? "Close search" : "Open search"}
                     aria-expanded={isMobileSearchOpen}
                   >
-                    <Search className="h-5 w-5" />
+                    <Search className={cn("h-4 w-4 transition-colors", isMobileSearchOpen ? "text-white" : "text-[#0A1B5C]")} />
                   </Button>
                 )}
 
@@ -334,14 +340,19 @@ function NavigationContent() {
                   size="sm"
                   onClick={() => router.push("/jobs/dashboard")}
                   className={cn(
-                    "h-9 rounded-lg px-2 md:px-3 relative group",
-                    (pathname?.startsWith("/jobs") || pathname?.startsWith("/jobs/dashboard") || pathname?.startsWith("/jobs/resume"))
-                      ? "text-primary bg-primary/5"
-                      : "text-neutral-700 hover:text-neutral-900",
+                    "h-9 rounded-xl px-2.5 md:px-3 relative group transition-all duration-150",
+                    pathname?.startsWith("/jobs")
+                      ? "bg-[#0A1B5C] text-white hover:bg-[#0A1B5C]/90 hover:text-white font-bold shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70",
                   )}
                 >
-                  <Briefcase className="h-4 w-4 sm:mr-1.5 text-[#0A1B5C] group-hover:text-[#4FD1C5] transition-colors" />
-                  <span className="hidden sm:inline font-bold text-[13px] text-neutral-900">
+                  <Briefcase className={cn(
+                    "h-4 w-4 sm:mr-1.5 transition-colors",
+                    pathname?.startsWith("/jobs")
+                      ? "text-white"
+                      : "text-[#0A1B5C] group-hover:text-neutral-950"
+                  )} />
+                  <span className="hidden sm:inline font-bold text-[13px]">
                     Jobs
                   </span>
                 </Button>
@@ -352,14 +363,19 @@ function NavigationContent() {
                   size="sm"
                   onClick={() => router.push("/saved")}
                   className={cn(
-                    "h-9 rounded-lg px-2 md:px-3",
+                    "h-9 rounded-xl px-2.5 md:px-3 relative group transition-all duration-150",
                     pathname === "/feed" && "hidden md:inline-flex",
                     pathname === "/saved"
-                      ? "text-primary bg-primary/5"
-                      : "text-neutral-600",
+                      ? "bg-[#0A1B5C] text-white hover:bg-[#0A1B5C]/90 hover:text-white font-bold shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70",
                   )}
                 >
-                  <Bookmark className="h-4 w-4 sm:mr-2" />
+                  <Bookmark className={cn(
+                    "h-4 w-4 sm:mr-1.5 transition-colors",
+                    pathname === "/saved"
+                      ? "text-white"
+                      : "text-[#0A1B5C] group-hover:text-neutral-950"
+                  )} />
                   <span className="hidden sm:inline font-bold text-[13px]">
                     Saved
                   </span>
@@ -371,19 +387,29 @@ function NavigationContent() {
                   size="sm"
                   onClick={() => router.push("/messages")}
                   className={cn(
-                    "relative h-9 rounded-lg px-2 md:px-3",
+                    "h-9 rounded-xl px-2.5 md:px-3 relative group transition-all duration-150",
                     pathname === "/feed" && "hidden md:inline-flex",
                     pathname === "/messages"
-                      ? "text-primary bg-primary/5"
-                      : "text-neutral-600",
+                      ? "bg-[#0A1B5C] text-white hover:bg-[#0A1B5C]/90 hover:text-white font-bold shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70",
                   )}
                 >
-                  <MessageCircle className="h-4 w-4 sm:mr-2" />
+                  <MessageCircle className={cn(
+                    "h-4 w-4 sm:mr-1.5 transition-colors",
+                    pathname === "/messages"
+                      ? "text-white"
+                      : "text-[#0A1B5C] group-hover:text-neutral-950"
+                  )} />
                   <span className="hidden sm:inline font-bold text-[13px]">
                     Messages
                   </span>
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white px-1">
+                    <span className={cn(
+                      "absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center border-2 px-1 shadow-xs",
+                      pathname === "/messages"
+                        ? "bg-white text-[#0A1B5C] border-[#0A1B5C]"
+                        : "bg-red-500 text-white border-white"
+                    )}>
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   )}
@@ -395,13 +421,25 @@ function NavigationContent() {
                   size="sm"
                   onClick={() => router.push("/notifications")}
                   className={cn(
-                    "relative h-9 px-2 rounded-lg text-neutral-600 md:hidden",
-                    pathname === "/notifications" ? "text-primary bg-primary/5" : ""
+                    "relative h-9 w-9 rounded-xl p-0 transition-all duration-150 md:hidden",
+                    pathname === "/notifications"
+                      ? "bg-[#0A1B5C] text-white hover:bg-[#0A1B5C]/90 hover:text-white font-bold shadow-xs"
+                      : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70",
                   )}
                 >
-                  <Bell className="h-4 w-4" />
+                  <Bell className={cn(
+                    "h-4 w-4 transition-colors",
+                    pathname === "/notifications"
+                      ? "text-white"
+                      : "text-[#0A1B5C] group-hover:text-neutral-950"
+                  )} />
                   {unreadNotificationsCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white px-1">
+                    <span className={cn(
+                      "absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center border-2 px-1 shadow-xs",
+                      pathname === "/notifications"
+                        ? "bg-white text-[#0A1B5C] border-[#0A1B5C]"
+                        : "bg-indigo-600 text-white border-white"
+                    )}>
                       {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
                     </span>
                   )}
@@ -415,16 +453,28 @@ function NavigationContent() {
                         variant="ghost"
                         size="sm"
                         className={cn(
-                          "relative h-9 px-3 rounded-lg text-neutral-600",
-                          pathname === "/notifications" ? "text-primary bg-primary/5" : ""
+                          "h-9 rounded-xl px-2.5 md:px-3 relative group transition-all duration-150",
+                          pathname === "/notifications"
+                            ? "bg-[#0A1B5C] text-white hover:bg-[#0A1B5C]/90 hover:text-white font-bold shadow-xs"
+                            : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70 data-[state=open]:bg-neutral-200 data-[state=open]:text-neutral-950",
                         )}
                       >
-                        <Bell className="h-4 w-4 mr-2" />
+                        <Bell className={cn(
+                          "h-4 w-4 sm:mr-1.5 transition-colors",
+                          pathname === "/notifications"
+                            ? "text-white"
+                            : "text-[#0A1B5C] group-hover:text-neutral-950"
+                        )} />
                         <span className="font-bold text-[13px]">
                           Alerts
                         </span>
                         {unreadNotificationsCount > 0 && (
-                          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white px-1">
+                          <span className={cn(
+                            "absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full text-[10px] font-bold flex items-center justify-center border-2 px-1 shadow-xs",
+                            pathname === "/notifications"
+                              ? "bg-white text-[#0A1B5C] border-[#0A1B5C]"
+                              : "bg-indigo-600 text-white border-white"
+                          )}>
                             {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
                           </span>
                         )}
@@ -505,14 +555,19 @@ function NavigationContent() {
                     size="sm"
                     onClick={() => router.push("/admin")}
                     className={cn(
-                      "h-9 rounded-lg px-2 md:px-3",
+                      "h-9 rounded-xl px-2.5 md:px-3 relative group transition-all duration-150",
                       pathname === "/feed" && "hidden md:inline-flex",
                       pathname.startsWith("/admin")
-                        ? "text-primary bg-primary/5"
-                        : "text-neutral-600",
+                        ? "bg-[#0A1B5C] text-white hover:bg-[#0A1B5C]/90 hover:text-white font-bold shadow-xs"
+                        : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70",
                     )}
                   >
-                    <Shield className="h-4 w-4 sm:mr-2" />
+                    <Shield className={cn(
+                      "h-4 w-4 sm:mr-1.5 transition-colors",
+                      pathname.startsWith("/admin")
+                        ? "text-white"
+                        : "text-[#0A1B5C] group-hover:text-neutral-950"
+                    )} />
                     <span className="hidden sm:inline font-bold text-[13px]">
                       Admin
                     </span>
@@ -520,8 +575,26 @@ function NavigationContent() {
                 )}
 
                 {(user.is_marketing_manager || user.is_admin) && (
-                  <Button variant="ghost" size="sm" onClick={() => router.push("/marketing")} className={cn("h-9 rounded-lg px-2 md:px-3", pathname.startsWith("/marketing") ? "text-primary bg-primary/5" : "text-neutral-600")}>
-                    <Megaphone className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline font-bold text-[13px]">Marketing</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push("/marketing")}
+                    className={cn(
+                      "h-9 rounded-xl px-2.5 md:px-3 relative group transition-all duration-150",
+                      pathname.startsWith("/marketing")
+                        ? "bg-[#0A1B5C] text-white hover:bg-[#0A1B5C]/90 hover:text-white font-bold shadow-xs"
+                        : "text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70",
+                    )}
+                  >
+                    <Megaphone className={cn(
+                      "h-4 w-4 sm:mr-1.5 transition-colors",
+                      pathname.startsWith("/marketing")
+                        ? "text-white"
+                        : "text-[#0A1B5C] group-hover:text-neutral-950"
+                    )} />
+                    <span className="hidden sm:inline font-bold text-[13px]">
+                      Marketing
+                    </span>
                   </Button>
                 )}
 
@@ -530,7 +603,7 @@ function NavigationContent() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="h-10 px-2 flex items-center space-x-2 hover:bg-neutral-50 rounded-lg"
+                      className="h-10 px-2.5 flex items-center space-x-2 rounded-xl text-neutral-700 hover:text-neutral-950 hover:bg-neutral-200/90 active:bg-neutral-300/70 data-[state=open]:bg-neutral-200 data-[state=open]:text-neutral-950 transition-all duration-150"
                     >
                       <div className="flex flex-col items-end text-right hidden xs:flex">
                         <div className="flex items-center gap-1.5">
@@ -548,20 +621,7 @@ function NavigationContent() {
                           {user.company?.name || user.city}
                         </span>
                       </div>
-                      <div className="relative">
-                        <div className="h-8 w-8 rounded-full bg-white flex items-center justify-center text-neutral-400 overflow-hidden shadow-sm border border-neutral-100">
-                          {user.avatar_url ? (
-                            <img src={user.avatar_url} alt={user.full_name} className="h-full w-full object-cover" />
-                          ) : user.company?.domain ? (
-                            <img src={`https://www.google.com/s2/favicons?domain=${user.company?.domain}&sz=64`} alt={user.company?.name || "Company Logo"} className="h-full w-full object-contain p-1" />
-                          ) : (
-                            <User className="h-4 w-4" />
-                          )}
-                        </div>
-                        {!user.is_profile_complete && (
-                          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-amber-500 border-2 border-white rounded-full shadow-sm" title="Profile Incomplete" />
-                        )}
-                      </div>
+                      <NavbarUserAvatar user={user} size="md" />
                     </Button>
                   </DropdownMenuTrigger>
 

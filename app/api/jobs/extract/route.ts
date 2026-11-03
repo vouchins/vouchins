@@ -49,9 +49,15 @@ export async function POST(request: Request) {
     });
   } catch (error: any) {
     console.error('Resume extraction error:', error);
+    const isClientError =
+      error.message?.includes('password-protected') ||
+      error.message?.includes('meaningful text') ||
+      error.message?.includes('image-only') ||
+      error.message?.includes('File size');
+
     return NextResponse.json(
       { error: error.message || 'Failed to extract text from resume file' },
-      { status: 500 }
+      { status: isClientError ? 422 : 500 }
     );
   }
 }

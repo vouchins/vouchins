@@ -32,6 +32,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/browser';
+import { useUser } from '@/components/user-provider';
+import { NavbarUserAvatar } from '@/components/navbar-user-avatar';
 import {
   SAMPLE_STAFF_RESUME,
   SAMPLE_STAFF_EVALUATION,
@@ -48,7 +50,6 @@ interface WorkspaceProps {
   onSave?: (savedResumeId: string, doc: ResumeDocument, evaluation: ResumeEvaluation) => void;
   isReanalyzing?: boolean;
   onBack?: () => void;
-  userInitials?: string;
 }
 
 export function Workspace({
@@ -62,8 +63,8 @@ export function Workspace({
   onSave,
   isReanalyzing = false,
   onBack,
-  userInitials,
 }: WorkspaceProps) {
+  const { user } = useUser();
   const [document, setDocument] = useState<ResumeDocument>(() => initialDocument || SAMPLE_STAFF_RESUME);
   const [evaluation, setEvaluation] = useState<ResumeEvaluation>(() => initialEvaluation || SAMPLE_STAFF_EVALUATION);
   const [currentResumeId, setCurrentResumeId] = useState<string | undefined>(resumeId);
@@ -474,18 +475,14 @@ export function Workspace({
           <PDFDownloadButton document={document} />
 
           {/* User Profile Avatar */}
-          {userInitials && (
-            <>
-              <span className="hidden sm:inline text-neutral-200 font-light select-none ml-1">|</span>
-              <Link
-                href="/profile"
-                className="w-8 h-8 rounded-full bg-[#0A1B5C] text-[#4FD1C5] font-black text-xs flex items-center justify-center ring-2 ring-white shadow-xs hover:scale-105 transition-transform shrink-0"
-                title="View Profile"
-              >
-                {userInitials}
-              </Link>
-            </>
-          )}
+          <span className="hidden sm:inline text-neutral-200 font-light select-none ml-1">|</span>
+          <Link
+            href={user ? `/users/${user.id}` : "/profile"}
+            className="hover:scale-105 transition-transform shrink-0"
+            title={user?.full_name ? `View ${user.full_name}'s Profile` : "View Profile"}
+          >
+            <NavbarUserAvatar user={user} size="md" />
+          </Link>
         </div>
       </header>
 

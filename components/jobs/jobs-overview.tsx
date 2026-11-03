@@ -51,7 +51,7 @@ export function JobsOverviewDashboard() {
   const [jobsList, setJobsList] = useState<any[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
 
-  const displayName = user?.full_name?.split(' ')[0] || 'Alex';
+  const firstName = user?.full_name?.trim().split(' ')[0] || '';
 
   useEffect(() => {
     let isMounted = true;
@@ -260,7 +260,7 @@ export function JobsOverviewDashboard() {
                   <span>AI Career Acceleration Engine</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
-                  Welcome back, {displayName}
+                  Welcome back{firstName ? `, ${firstName}` : ''}
                 </h1>
                 <p className="text-sm sm:text-base text-neutral-200 font-medium leading-relaxed">
                   {hasResume

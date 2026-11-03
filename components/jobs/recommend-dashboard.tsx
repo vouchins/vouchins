@@ -34,6 +34,9 @@ import {
   TrendingUp,
   AlertTriangle,
   Copy,
+  ChevronDown,
+  LogOut,
+  User as UserIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -43,6 +46,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { InviteDialog, triggerNativeShare } from '@/components/invite-dialog';
+import posthog from 'posthog-js';
+import { NavbarUserAvatar } from '@/components/navbar-user-avatar';
 import { JobsSidebar } from './jobs-sidebar';
 import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
@@ -584,27 +597,24 @@ export function JobRecommendationsDashboard() {
   const { user } = useUser();
 
   const [atsScore, setAtsScore] = useState<number | null>(null);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   // Dynamic user display name and initials
   const displayName = useMemo(() => {
     if (user?.full_name?.trim()) return user.full_name.trim();
     if (user?.email) return user.email.split('@')[0];
-    return 'Alex Vance';
+    return '';
   }, [user?.full_name, user?.email]);
 
-  const userInitials = useMemo(() => {
-    if (user?.full_name?.trim()) {
-      const parts = user.full_name.trim().split(/\s+/);
-      if (parts.length >= 2) {
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-      }
-      return parts[0].slice(0, 2).toUpperCase();
+  const handleLogout = async () => {
+    try {
+      posthog.capture("Logout");
+    } catch {
+      // safe fallback if posthog blocked
     }
-    if (user?.email) {
-      return user.email.slice(0, 2).toUpperCase();
-    }
-    return 'AV';
-  }, [user?.full_name, user?.email]);
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   // Fetch dynamic ATS readiness score for current candidate
   useEffect(() => {
@@ -936,45 +946,127 @@ export function JobRecommendationsDashboard() {
                 <span>Resume Studio</span>
               </Link> */}
 
-              <Link
-                href="/jobs/resume"
-                className="flex items-center gap-2 pl-2 border-l border-neutral-200 hover:opacity-90 transition-opacity group"
-                title="View Resume Studio & ATS Readiness"
-              >
-                <div className="h-8 w-8 rounded-full bg-[#0A1B5C] text-white flex items-center justify-center text-xs font-black shadow-xs overflow-hidden shrink-0">
-                  {user?.avatar_url ? (
-                    <Image
-                      src={user.avatar_url}
-                      alt={displayName}
-                      width={32}
-                      height={32}
-                      className="h-full w-full object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <span>{userInitials}</span>
-                  )}
-                </div>
-                <div className="hidden sm:block text-left">
-                  <span className="text-xs font-bold text-neutral-900 block leading-tight group-hover:text-[#0A1B5C] transition-colors">
-                    {displayName}
-                  </span>
-                  <span
-                    className={`text-[10px] font-extrabold flex items-center gap-1 ${
-                      atsScore != null
-                        ? atsScore >= 80
-                          ? 'text-emerald-600'
-                          : atsScore >= 60
-                          ? 'text-amber-600'
-                          : 'text-rose-600'
-                        : 'text-emerald-600'
-                    }`}
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 pl-2 border-l border-neutral-200 hover:opacity-90 transition-opacity group outline-none focus-visible:ring-2 focus-visible:ring-[#0A1B5C] rounded-lg py-1 pr-1.5"
+                      aria-label="User profile menu"
+                    >
+                      <NavbarUserAvatar user={user} size="md" />
+
+                      <div className="hidden sm:block text-left">
+                        <span className="text-xs font-bold text-neutral-900 block leading-tight group-hover:text-[#0A1B5C] transition-colors max-w-[130px] truncate">
+                          {displayName || user.email}
+                        </span>
+                        {atsScore != null ? (
+                          <span
+                            className={`text-[10px] font-extrabold flex items-center gap-1 ${
+                              atsScore >= 80
+                                ? 'text-emerald-600'
+                                : atsScore >= 60
+                                ? 'text-amber-600'
+                                : 'text-rose-600'
+                            }`}
+                          >
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            {atsScore}% ATS Ready
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium text-neutral-500 block leading-tight truncate max-w-[130px]">
+                            {user.company?.name || user.city || 'Verified Member'}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronDown className="h-3 w-3 text-neutral-400 group-hover:text-neutral-600 hidden sm:block shrink-0" />
+                    </button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-56 mt-2 rounded-xl shadow-xl border-neutral-200"
                   >
-                    <CheckCircle2 className="h-2.5 w-2.5" />{' '}
-                    {atsScore != null ? `${atsScore}% ATS Ready` : '94% ATS Ready'}
-                  </span>
-                </div>
-              </Link>
+                    <Link href={user.id ? `/users/${user.id}` : '/profile'}>
+                      <div className="px-3 py-3 hover:bg-neutral-50 rounded-t-xl transition-colors cursor-pointer">
+                        <p className="text-sm font-bold text-neutral-900 truncate">
+                          {user.full_name || displayName}
+                        </p>
+                        <p className="text-xs text-neutral-500 truncate mb-1">
+                          {user.email}
+                        </p>
+                        {!user.is_profile_complete && (
+                          <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-1 rounded-md mt-1 border border-amber-100">
+                            <AlertTriangle className="h-3 w-3 shrink-0" />
+                            <span className="text-[10px] font-bold uppercase tracking-tight">
+                              {user.profile_completion_percentage}% Complete
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </Link>
+
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuItem
+                      asChild
+                      className="cursor-pointer py-2 font-medium text-sm text-neutral-700"
+                    >
+                      <Link href={user.id ? `/users/${user.id}` : '/profile'} className="flex items-center w-full">
+                        <UserIcon className="h-4 w-4 mr-2 text-neutral-500" />
+                        View Profile
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      asChild
+                      className="cursor-pointer py-2 font-medium text-sm text-neutral-700"
+                    >
+                      <Link href="/jobs/resume" className="flex items-center w-full justify-between">
+                        <div className="flex items-center">
+                          <FileText className="h-4 w-4 mr-2 text-neutral-500" />
+                          Resume Studio
+                        </div>
+                        {atsScore != null && (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                            {atsScore}%
+                          </span>
+                        )}
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      onClick={async () => {
+                        const shared = await triggerNativeShare(user.id);
+                        if (!shared) {
+                          setIsInviteOpen(true);
+                        }
+                      }}
+                      className="cursor-pointer py-2.5 font-bold text-sm text-neutral-700"
+                    >
+                      <Share2 className="h-4 w-4 mr-2 text-neutral-500" />
+                      Invite Colleagues
+                    </DropdownMenuItem>
+
+                    <DropdownMenuSeparator />
+
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="text-red-600 focus:text-red-600 cursor-pointer py-2.5 font-bold text-sm"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link
+                  href="/login"
+                  className="text-xs font-bold text-[#0A1B5C] hover:bg-neutral-100 px-3 py-1.5 rounded-lg border border-neutral-200 transition-colors"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
 
@@ -1845,6 +1937,14 @@ export function JobRecommendationsDashboard() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {isInviteOpen && user && (
+          <InviteDialog
+            isOpen={isInviteOpen}
+            onClose={() => setIsInviteOpen(false)}
+            userId={user.id}
+          />
+        )}
       </div>
     </div>
   );
