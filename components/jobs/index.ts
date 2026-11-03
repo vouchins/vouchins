@@ -1,3 +1,4 @@
+export { JobsNavbar } from './jobs-navbar';
 export { JobRecommendationsDashboard } from './recommend-dashboard';
 export {
   JobsSidebar,

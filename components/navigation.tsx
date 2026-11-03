@@ -238,9 +238,13 @@ function NavigationContent() {
   };
 
   const handleLogout = async () => {
-    posthog.capture("Logout");
+    try {
+      posthog.capture("Logout");
+    } catch {
+      // safe fallback if posthog blocked
+    }
     await supabase.auth.signOut();
-    router.push("/login");
+    window.location.href = "/login";
   };
 
   if (loading) {

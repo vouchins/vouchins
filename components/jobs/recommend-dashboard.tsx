@@ -9,7 +9,6 @@ import {
   Briefcase,
   MapPin,
   Clock,
-  Building2,
   DollarSign,
   Sparkles,
   ShieldCheck,
@@ -39,6 +38,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { EnterpriseBuildingIcon } from '@/components/icons/enterprise-building-icon';
 import {
   Dialog,
   DialogContent,
@@ -57,6 +57,7 @@ import { InviteDialog, triggerNativeShare } from '@/components/invite-dialog';
 import posthog from 'posthog-js';
 import { NavbarUserAvatar } from '@/components/navbar-user-avatar';
 import { JobsSidebar } from './jobs-sidebar';
+import { JobsNavbar } from './jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
 
@@ -887,189 +888,11 @@ export function JobRecommendationsDashboard() {
       {/* 2. Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Application Header Bar */}
-        <header className="sticky top-0 z-40 bg-white border-b border-neutral-200/80 shadow-xs px-4 sm:px-6 py-3">
-          <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-4">
-            {/* Left: Brand & Copilot Title */}
-            <div className="flex items-center gap-4">
-              <Link href="/jobs" className="flex items-center gap-2 group">
-                <Image
-                  src="/images/logo.png"
-                  alt="Vouchins Jobs"
-                  width={110}
-                  height={32}
-                  className="w-[105px] object-contain transition-opacity group-hover:opacity-90"
-                  priority
-                />
-              </Link>
-
-              {/* <span className="text-neutral-300 font-light select-none">|</span>
-
-            <div className="hidden md:flex items-center gap-2 text-xs font-bold text-neutral-600">
-              <span className="px-2.5 py-1 rounded-full bg-[#0A1B5C]/10 text-[#0A1B5C] font-extrabold flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                AI Recommendations
-              </span>
-              <span className="text-neutral-400">·</span>
-              <span className="text-neutral-500 font-medium">Ranked by Master Resume</span>
-            </div> */}
-            </div>
-
-            {/* Center: Search Bar */}
-            <div className="flex-1 max-w-xl mx-2 relative">
-              <div className="relative">
-                <Search className="h-4 w-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search job title, company, or skills (e.g. Kafka, ServiceNow, Go)..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 pl-10 pr-9 rounded-xl border border-neutral-200 bg-neutral-50/80 focus:bg-white text-xs font-semibold text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Right: Candidate Profile Context & Studio Shortcut */}
-            <div className="flex items-center gap-3 shrink-0">
-              {/* <Link
-                href="/jobs/resume"
-                className="hidden lg:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-200 bg-white hover:bg-neutral-50 text-xs font-bold text-neutral-800 transition-colors shadow-xs"
-              >
-                <FileText className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Resume Studio</span>
-              </Link> */}
-
-              {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 pl-2 border-l border-neutral-200 hover:opacity-90 transition-opacity group outline-none focus-visible:ring-2 focus-visible:ring-[#0A1B5C] rounded-lg py-1 pr-1.5"
-                      aria-label="User profile menu"
-                    >
-                      <NavbarUserAvatar user={user} size="md" />
-
-                      <div className="hidden sm:block text-left">
-                        <span className="text-xs font-bold text-neutral-900 block leading-tight group-hover:text-[#0A1B5C] transition-colors max-w-[130px] truncate">
-                          {displayName || user.email}
-                        </span>
-                        {atsScore != null ? (
-                          <span
-                            className={`text-[10px] font-extrabold flex items-center gap-1 ${
-                              atsScore >= 80
-                                ? 'text-emerald-600'
-                                : atsScore >= 60
-                                ? 'text-amber-600'
-                                : 'text-rose-600'
-                            }`}
-                          >
-                            <CheckCircle2 className="h-2.5 w-2.5" />
-                            {atsScore}% ATS Ready
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-medium text-neutral-500 block leading-tight truncate max-w-[130px]">
-                            {user.company?.name || user.city || 'Verified Member'}
-                          </span>
-                        )}
-                      </div>
-                      <ChevronDown className="h-3 w-3 text-neutral-400 group-hover:text-neutral-600 hidden sm:block shrink-0" />
-                    </button>
-                  </DropdownMenuTrigger>
-
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-56 mt-2 rounded-xl shadow-xl border-neutral-200"
-                  >
-                    <Link href={user.id ? `/users/${user.id}` : '/profile'}>
-                      <div className="px-3 py-3 hover:bg-neutral-50 rounded-t-xl transition-colors cursor-pointer">
-                        <p className="text-sm font-bold text-neutral-900 truncate">
-                          {user.full_name || displayName}
-                        </p>
-                        <p className="text-xs text-neutral-500 truncate mb-1">
-                          {user.email}
-                        </p>
-                        {!user.is_profile_complete && (
-                          <div className="flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2 py-1 rounded-md mt-1 border border-amber-100">
-                            <AlertTriangle className="h-3 w-3 shrink-0" />
-                            <span className="text-[10px] font-bold uppercase tracking-tight">
-                              {user.profile_completion_percentage}% Complete
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuItem
-                      asChild
-                      className="cursor-pointer py-2 font-medium text-sm text-neutral-700"
-                    >
-                      <Link href={user.id ? `/users/${user.id}` : '/profile'} className="flex items-center w-full">
-                        <UserIcon className="h-4 w-4 mr-2 text-neutral-500" />
-                        View Profile
-                      </Link>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      asChild
-                      className="cursor-pointer py-2 font-medium text-sm text-neutral-700"
-                    >
-                      <Link href="/jobs/resume" className="flex items-center w-full justify-between">
-                        <div className="flex items-center">
-                          <FileText className="h-4 w-4 mr-2 text-neutral-500" />
-                          Resume Studio
-                        </div>
-                        {atsScore != null && (
-                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            {atsScore}%
-                          </span>
-                        )}
-                      </Link>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      onClick={async () => {
-                        const shared = await triggerNativeShare(user.id);
-                        if (!shared) {
-                          setIsInviteOpen(true);
-                        }
-                      }}
-                      className="cursor-pointer py-2.5 font-bold text-sm text-neutral-700"
-                    >
-                      <Share2 className="h-4 w-4 mr-2 text-neutral-500" />
-                      Invite Colleagues
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator />
-
-                    <DropdownMenuItem
-                      onClick={handleLogout}
-                      className="text-red-600 focus:text-red-600 cursor-pointer py-2.5 font-bold text-sm"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Log out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <Link
-                  href="/login"
-                  className="text-xs font-bold text-[#0A1B5C] hover:bg-neutral-100 px-3 py-1.5 rounded-lg border border-neutral-200 transition-colors"
-                >
-                  Sign In
-                </Link>
-              )}
-            </div>
-          </div>
-
+        <JobsNavbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          atsScore={atsScore}
+        >
           {/* Quick Filter Chips (Jobright Style) */}
           <div className="max-w-[1720px] mx-auto mt-3 pt-2.5 border-t border-neutral-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
             <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
@@ -1080,7 +903,7 @@ export function JobRecommendationsDashboard() {
               { id: 'high_match', label: '🔥 90%+ Match', icon: Flame },
               { id: 'insiders', label: '🤝 Insiders Ready', icon: Users },
               { id: 'remote', label: '🏠 Remote Only', icon: MapPin },
-              { id: 'tier1', label: '🏢 Tier-1 Tech', icon: Building2 },
+              { id: 'tier1', label: '🏢 Tier-1 Tech', icon: EnterpriseBuildingIcon },
               { id: 'high_salary', label: '💰 $180k+ / Competitive', icon: DollarSign },
             ].map((chip) => {
               const isSelected = activeChip === chip.id;
@@ -1120,7 +943,7 @@ export function JobRecommendationsDashboard() {
               Found <span className="font-extrabold text-[#0A1B5C]">{filteredJobs.length}</span> verified roles ({allJobs.length} total)
             </div>
           </div>
-        </header>
+        </JobsNavbar>
 
         {/* Main Two-Pane Split Dashboard (Jobright Layout) */}
         <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-5 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
@@ -1320,7 +1143,7 @@ export function JobRecommendationsDashboard() {
                       {/* Verified Insider Callout (Jobright Secret Weapon) */}
                       <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px]">
                         <span className="text-[#0A1B5C] font-extrabold flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                          <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
                           {job.insiderCount} verified insiders ready to vouch
                         </span>
 
@@ -1372,7 +1195,7 @@ export function JobRecommendationsDashboard() {
                 <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0">
                   <div className="text-right">
                     <div className="text-2xl font-black text-[#0A1B5C] flex items-center gap-1">
-                      <Sparkles className="h-5 w-5 text-[#4FD1C5]" />
+                      <Sparkles className="h-5 w-5 text-amber-500" />
                       {selectedJob.matchScore}%
                     </div>
                     <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
@@ -1388,7 +1211,7 @@ export function JobRecommendationsDashboard() {
                   onClick={() => setTailorModalOpen(true)}
                   className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-extrabold shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95"
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                  <Sparkles className="h-3.5 w-3.5 text-white" />
                   <span>Tailor Resume for Role</span>
                 </button>
 
@@ -1729,8 +1552,8 @@ export function JobRecommendationsDashboard() {
                 <div className="space-y-5">
                   <div className="p-4 rounded-2xl bg-[#0A1B5C] text-white flex items-center justify-between">
                     <div>
-                      <h4 className="font-extrabold text-xs text-[#4FD1C5] uppercase tracking-wider flex items-center gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                      <h4 className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-400" />
                         Jobs AI Copilot
                       </h4>
                       <p className="text-xs text-neutral-300 mt-0.5">
@@ -1855,7 +1678,7 @@ export function JobRecommendationsDashboard() {
                 className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold flex items-center gap-1.5"
               >
                 <span>Apply to Master Resume</span>
-                <ArrowRight className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                <ArrowRight className="h-3.5 w-3.5 text-white" />
               </Link>
             </div>
           </DialogContent>
@@ -1930,7 +1753,7 @@ export function JobRecommendationsDashboard() {
                 ) : (
                   <>
                     <span>Send Referral Request</span>
-                    <Send className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                    <Send className="h-3.5 w-3.5 text-white" />
                   </>
                 )}
               </button>

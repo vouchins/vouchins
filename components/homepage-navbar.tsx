@@ -69,7 +69,7 @@ export function HomepageNavbar() {
                           <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#0A1B5C] transition-colors">
                             Vouchins Jobs
                           </span>
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-[#0A1B5C] text-[#4FD1C5]">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-[#0A1B5C] text-white">
                             PRO
                           </span>
                         </span>

@@ -16,6 +16,8 @@ import {
   ChevronDown,
   X,
   MapPin,
+  Sparkles,
+  Calendar,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
@@ -62,6 +64,16 @@ interface User {
   onboarded: boolean;
   created_at: string;
   company?: { id: string; name: string }; // joined relation (read-only)
+  is_pro?: boolean;
+  subscription?: {
+    id: string;
+    plan_type: string;
+    status: string;
+    current_period_end: string;
+    current_period_start?: string;
+    payment_provider?: string;
+    external_subscription_id?: string;
+  } | null;
 }
 
 // Separate type for what we send to the update API (write shape)
@@ -88,7 +100,7 @@ interface UsersTabProps {
 
 export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser, onRefresh, loading: parentLoading }: UsersTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterVerification, setFilterVerification] = useState<"all" | "verified" | "unverified" | "onboarded" | "not_onboarded">("all");
+  const [filterVerification, setFilterVerification] = useState<"all" | "verified" | "unverified" | "onboarded" | "not_onboarded" | "pro">("all");
   const [filterCompany, setFilterCompany] = useState<string>("all");
   const [companySearch, setCompanySearch] = useState("");
   const [isCompanyComboOpen, setIsCompanyComboOpen] = useState(false);
@@ -142,6 +154,80 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
   const [vouchReason, setVouchReason] = useState("");
   const [scoreSaving, setScoreSaving] = useState(false);
 
+  // Pro Management State
+  const [isProDialogOpen, setIsProDialogOpen] = useState(false);
+  const [selectedUserForPro, setSelectedUserForPro] = useState<User | null>(null);
+  const [proPlanType, setProPlanType] = useState<'jobs_pro' | 'premium_bundle'>('jobs_pro');
+  const [proDurationDays, setProDurationDays] = useState<number>(30);
+  const [proReason, setProReason] = useState<string>('Beta Tester');
+  const [isSubmittingPro, setIsSubmittingPro] = useState(false);
+  const [isRevokingPro, setIsRevokingPro] = useState(false);
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(false);
+
+  const handleOpenProDialog = (u: User) => {
+    setSelectedUserForPro(u);
+    if (u.subscription?.plan_type === 'premium_bundle') {
+      setProPlanType('premium_bundle');
+    } else {
+      setProPlanType('jobs_pro');
+    }
+    setProDurationDays(30);
+    setProReason('Beta Tester');
+    setShowRevokeConfirm(false);
+    setIsProDialogOpen(true);
+  };
+
+  const handleGrantPro = async () => {
+    if (!selectedUserForPro) return;
+    setIsSubmittingPro(true);
+    try {
+      const res = await fetch('/api/admin/subscriptions/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'grant',
+          userId: selectedUserForPro.id,
+          planType: proPlanType,
+          durationDays: proDurationDays,
+          reason: proReason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update Pro subscription');
+      toast.success(data.message || 'Pro access granted successfully');
+      setIsProDialogOpen(false);
+      if (onRefresh) await onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'Error updating subscription');
+    } finally {
+      setIsSubmittingPro(false);
+    }
+  };
+
+  const handleRevokePro = async () => {
+    if (!selectedUserForPro) return;
+    setIsRevokingPro(true);
+    try {
+      const res = await fetch('/api/admin/subscriptions/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'revoke',
+          userId: selectedUserForPro.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to revoke Pro subscription');
+      toast.success(data.message || 'Pro subscription revoked');
+      setIsProDialogOpen(false);
+      if (onRefresh) await onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || 'Error revoking subscription');
+    } finally {
+      setIsRevokingPro(false);
+    }
+  };
+
   useEffect(() => {
     const searchCompanies = async () => {
       if (company.trim().length < 2 || selectedCompanyId) {
@@ -186,7 +272,8 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
       (filterVerification === "verified" && u.is_verified) ||
       (filterVerification === "unverified" && !u.is_verified) ||
       (filterVerification === "onboarded" && u.onboarded) ||
-      (filterVerification === "not_onboarded" && !u.onboarded);
+      (filterVerification === "not_onboarded" && !u.onboarded) ||
+      (filterVerification === "pro" && (u.is_pro || u.is_admin || Boolean(u.subscription)));
 
     const matchesCompany =
       filterCompany === "all" ||
@@ -367,6 +454,7 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
           </SelectTrigger>
           <SelectContent className="bg-white border text-xs shadow-md">
             <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="pro">Pro Members Only</SelectItem>
             <SelectItem value="verified">Verified Only</SelectItem>
             <SelectItem value="unverified">Unverified Only</SelectItem>
             <SelectItem value="onboarded">Onboarded Only</SelectItem>
@@ -720,14 +808,27 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                   </td>
 
                   <td className="px-6 py-4">
-                    <div className="flex flex-col gap-2">
-                      <Badge
-                        variant={u.is_active ? "secondary" : "destructive"}
-                        className="w-fit text-[10px]"
-                      >
-                        {u.is_active ? "Active" : "Suspended"}
-                      </Badge>
-                      <div className="flex gap-2">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge
+                          variant={u.is_active ? "secondary" : "destructive"}
+                          className="w-fit text-[10px]"
+                        >
+                          {u.is_active ? "Active" : "Suspended"}
+                        </Badge>
+
+                        {u.is_admin ? (
+                          <Badge className="bg-[#0A1B5C] text-white text-[10px] hover:bg-[#0c2277]">
+                            Admin (Pro)
+                          </Badge>
+                        ) : u.subscription ? (
+                          <Badge className="bg-indigo-600 text-white text-[10px] hover:bg-indigo-700">
+                            {u.subscription.plan_type === 'premium_bundle' ? 'Elite' : 'Pro'}
+                          </Badge>
+                        ) : null}
+                      </div>
+
+                      <div className="flex items-center gap-2">
                         {u.is_verified && (
                           <span title="Verified Member">
                             <CheckCircle className="h-4 w-4 text-green-500" />
@@ -736,6 +837,11 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                         {u.onboarded && (
                           <span title="Onboarding Complete">
                             <UserPlus className="h-4 w-4 text-blue-500" />
+                          </span>
+                        )}
+                        {u.subscription?.current_period_end && !u.is_admin && (
+                          <span className="text-[10px] text-neutral-400 font-medium">
+                            until {new Date(u.subscription.current_period_end).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                           </span>
                         )}
                       </div>
@@ -762,14 +868,26 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                   </td>
 
                   <td className="px-6 py-4 text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditClick(u)}
-                      className="rounded-full"
-                    >
-                      <Settings2 className="h-4 w-4 text-neutral-500" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenProDialog(u)}
+                        className="h-8 px-2.5 rounded-lg border-neutral-200 text-xs font-bold text-[#0A1B5C] hover:bg-neutral-50 flex items-center gap-1 shadow-2xs"
+                        title="Manage Pro Membership"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                        <span>Pro</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditClick(u)}
+                        className="rounded-full h-8 w-8"
+                      >
+                        <Settings2 className="h-4 w-4 text-neutral-500" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               )))}
@@ -805,6 +923,41 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                   </AlertDescription>
                 </Alert>
               )}
+
+              {/* Membership Status banner */}
+              <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-400 block">
+                    Membership Status
+                  </span>
+                  <span className="text-xs font-bold text-neutral-900">
+                    {selectedUser.is_admin
+                      ? 'Platform Admin (Pro Privileges)'
+                      : selectedUser.subscription
+                      ? selectedUser.subscription.plan_type === 'premium_bundle'
+                        ? 'Elite / Mentor Access'
+                        : 'Pro / Career Plus'
+                      : 'Free Community Tier'}
+                  </span>
+                  {selectedUser.subscription?.current_period_end && !selectedUser.is_admin && (
+                    <span className="text-[10px] text-neutral-500 block mt-0.5">
+                      Valid until {new Date(selectedUser.subscription.current_period_end).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    handleOpenProDialog(selectedUser);
+                  }}
+                  className="h-8 text-xs font-bold text-[#0A1B5C] border-neutral-300 hover:bg-white"
+                >
+                  <Sparkles className="h-3 w-3 mr-1 text-[#0A1B5C]" />
+                  Manage Pro
+                </Button>
+              </div>
               {/* Basic Info */}
               <div className="grid gap-2">
                 <Label htmlFor="name" className="text-neutral-600">
@@ -1202,6 +1355,214 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
               {loading ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Pro Membership Dialog */}
+      <Dialog
+        open={isProDialogOpen}
+        onOpenChange={(open) => {
+          setIsProDialogOpen(open);
+          if (!open) {
+            setSelectedUserForPro(null);
+            setShowRevokeConfirm(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-3xl border border-neutral-200 bg-white">
+          <div className="bg-[#0A1B5C] px-6 py-5 text-white">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-white text-[10px] font-extrabold uppercase tracking-wider mb-2">
+              <Sparkles className="h-3 w-3" />
+              <span>Admin Subscription Control</span>
+            </div>
+            <DialogTitle className="text-xl font-black tracking-tight text-white">
+              Manage Pro Membership
+            </DialogTitle>
+            <p className="text-xs text-neutral-300 mt-1">
+              Grant, extend, or revoke Jobs Pro access for{' '}
+              <strong className="text-white">{selectedUserForPro?.full_name || selectedUserForPro?.email}</strong>
+            </p>
+          </div>
+
+          <div className="p-6 space-y-5">
+            {/* Current Status Overview */}
+            <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-neutral-500 uppercase text-[10px] tracking-wider">Current Tier</span>
+                <span className="font-black text-neutral-900">
+                  {selectedUserForPro?.is_admin
+                    ? 'Platform Admin (Unlimited Access)'
+                    : selectedUserForPro?.subscription
+                    ? selectedUserForPro.subscription.plan_type === 'premium_bundle'
+                      ? 'Elite / Mentor Access (Active)'
+                      : 'Pro / Career Plus (Active)'
+                    : 'Free Community Tier'}
+                </span>
+              </div>
+              {selectedUserForPro?.subscription?.current_period_end && (
+                <div className="flex items-center justify-between text-neutral-600">
+                  <span>Valid Until:</span>
+                  <span className="font-bold text-[#0A1B5C]">
+                    {new Date(selectedUserForPro.subscription.current_period_end).toLocaleDateString(undefined, {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Plan Tier Selection */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-neutral-700">Plan Tier</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setProPlanType('jobs_pro')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    proPlanType === 'jobs_pro'
+                      ? 'border-[#0A1B5C] bg-[#0A1B5C]/5 ring-1 ring-[#0A1B5C]'
+                      : 'border-neutral-200 bg-white hover:border-neutral-300'
+                  }`}
+                >
+                  <span className="block text-xs font-black text-neutral-900">Pro / Career Plus</span>
+                  <span className="block text-[10px] text-neutral-500 mt-0.5">₹499/mo value - ATS & Match</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProPlanType('premium_bundle')}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    proPlanType === 'premium_bundle'
+                      ? 'border-[#0A1B5C] bg-[#0A1B5C]/5 ring-1 ring-[#0A1B5C]'
+                      : 'border-neutral-200 bg-white hover:border-neutral-300'
+                  }`}
+                >
+                  <span className="block text-xs font-black text-neutral-900">Elite / Mentor</span>
+                  <span className="block text-[10px] text-neutral-500 mt-0.5">₹999/mo value - Mock credits</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Duration Presets */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-neutral-700">Duration (Days)</Label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { label: '1 Month', days: 30 },
+                  { label: '3 Months', days: 90 },
+                  { label: '6 Months', days: 180 },
+                  { label: '1 Year', days: 365 },
+                ].map((preset) => (
+                  <button
+                    key={preset.days}
+                    type="button"
+                    onClick={() => setProDurationDays(preset.days)}
+                    className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all text-center ${
+                      proDurationDays === preset.days
+                        ? 'border-[#0A1B5C] bg-[#0A1B5C] text-white shadow-xs'
+                        : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reason / Notes */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-neutral-700">Audit Reason / Notes</Label>
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {[
+                  'Beta Tester',
+                  'Offline Invoice / Bank Transfer',
+                  'Support Resolution',
+                  'VIP / Ambassador',
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setProReason(chip)}
+                    className={`text-[10px] font-bold px-2 py-1 rounded-md transition-all ${
+                      proReason === chip
+                        ? 'bg-[#0A1B5C] text-white'
+                        : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    }`}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+              <Input
+                placeholder="Optional custom reason..."
+                value={proReason}
+                onChange={(e) => setProReason(e.target.value)}
+                className="text-xs h-9"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-3 border-t border-neutral-100 flex items-center justify-between gap-3">
+              {selectedUserForPro?.subscription ? (
+                showRevokeConfirm ? (
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={isRevokingPro}
+                      onClick={handleRevokePro}
+                      className="text-xs h-9 px-3"
+                    >
+                      {isRevokingPro ? 'Revoking...' : 'Confirm Revoke'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setShowRevokeConfirm(false)}
+                      className="text-xs h-9 px-2"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowRevokeConfirm(true)}
+                    className="text-xs text-rose-600 border-rose-200 hover:bg-rose-50 h-9"
+                  >
+                    Revoke Access
+                  </Button>
+                )
+              ) : (
+                <div />
+              )}
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsProDialogOpen(false)}
+                  className="text-xs text-neutral-600 h-9"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={isSubmittingPro}
+                  onClick={handleGrantPro}
+                  className="bg-[#0A1B5C] hover:bg-[#0c2277] text-white font-bold text-xs h-9 px-4 shadow-xs"
+                >
+                  {isSubmittingPro
+                    ? 'Saving...'
+                    : selectedUserForPro?.subscription
+                    ? 'Extend Access'
+                    : 'Grant Pro'}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

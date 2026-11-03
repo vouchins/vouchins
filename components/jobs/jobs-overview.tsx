@@ -34,7 +34,7 @@ import {
   UploadCloud,
 } from 'lucide-react';
 import { JobsSidebar } from '@/components/jobs/jobs-sidebar';
-import { Navigation } from '@/components/navigation';
+import { JobsNavbar } from '@/components/jobs/jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { fetchCachedResumes, fetchCachedJobs } from '@/lib/jobs/client-cache';
 
@@ -237,14 +237,13 @@ export function JobsOverviewDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-neutral-900 font-sans selection:bg-[#0A1B5C]/20 selection:text-[#0A1B5C] flex flex-col">
-      {/* 1. Global Feed Page Navbar */}
-      <Navigation />
+    <div className="flex min-h-screen bg-[#F8FAFC] text-neutral-900 font-sans selection:bg-[#0A1B5C]/20 selection:text-[#0A1B5C]">
+      {/* 1. Left Hand Panel / Sidebar */}
+      <JobsSidebar activeTab="dashboard" />
 
-      {/* 2. Main Content Area with Sidebar */}
-      <div className="flex flex-1 min-w-0">
-        {/* Left Hand Panel / Sidebar */}
-        <JobsSidebar activeTab="dashboard" hideLogo />
+      {/* 2. Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <JobsNavbar atsScore={latestScore} />
 
         {/* Dashboard Body */}
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1720px] w-full mx-auto space-y-6">
@@ -623,7 +622,7 @@ export function JobsOverviewDashboard() {
               </div>
 
               <Link
-                href="/mock-interviews"
+                href="/jobs/mock-interviews"
                 className="mt-4 pt-3 border-t border-neutral-100 text-xs font-bold text-[#0A1B5C] hover:text-[#0c2277] flex items-center justify-between group"
               >
                 <span>Practice Technical Loops</span>
@@ -838,7 +837,7 @@ export function JobsOverviewDashboard() {
                   </div>
 
                   <Link
-                    href="/agent"
+                    href="/jobs/agent"
                     className="inline-flex items-center justify-between w-full pt-3 border-t border-neutral-100 text-xs font-black text-[#0A1B5C] hover:text-[#0c2277] group"
                   >
                     <span>Configure AI Agent</span>
@@ -870,7 +869,7 @@ export function JobsOverviewDashboard() {
                   </div>
 
                   <Link
-                    href="/mock-interviews"
+                    href="/jobs/mock-interviews"
                     className="inline-flex items-center justify-between w-full pt-3 border-t border-neutral-100 text-xs font-black text-[#0A1B5C] hover:text-[#0c2277] group"
                   >
                     <span>Launch Interview Coach</span>

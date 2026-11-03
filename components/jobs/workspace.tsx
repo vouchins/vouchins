@@ -477,7 +477,7 @@ export function Workspace({
           {/* User Profile Avatar */}
           <span className="hidden sm:inline text-neutral-200 font-light select-none ml-1">|</span>
           <Link
-            href={user ? `/users/${user.id}` : "/profile"}
+            href={user ? `/users/${user.id}` : "/jobs/profile"}
             className="hover:scale-105 transition-transform shrink-0"
             title={user?.full_name ? `View ${user.full_name}'s Profile` : "View Profile"}
           >

@@ -26,6 +26,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { JobsSidebar } from '@/components/jobs/jobs-sidebar';
+import { JobsNavbar } from './jobs-navbar';
 import { UploadZone } from './upload-zone';
 import { Workspace } from './workspace';
 import { supabase } from '@/lib/supabase/browser';
@@ -447,25 +448,7 @@ export function ResumePageClient() {
       <main className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar (Shown only on List view; Editor view has its own unified header) */}
         {activeView === 'list' && (
-          <header className="h-16 px-6 sm:px-8 border-b border-neutral-200/80 bg-white flex items-center justify-between sticky top-0 z-20 shadow-xs">
-            {/* Title */}
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight uppercase">
-                RESUME
-              </h1>
-            </div>
-
-            {/* Right: User Profile Avatar */}
-            <div className="flex items-center gap-4">
-              <Link
-                href={user ? `/users/${user.id}` : "/profile"}
-                className="hover:scale-105 transition-transform shrink-0"
-                title={user?.full_name ? `View ${user.full_name}'s Profile` : "View Profile"}
-              >
-                <NavbarUserAvatar user={user} size="md" />
-              </Link>
-            </div>
-          </header>
+          <JobsNavbar />
         )}
 
         {/* View 1: Resumes List */}

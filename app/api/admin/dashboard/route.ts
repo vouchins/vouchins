@@ -11,9 +11,15 @@ const usersQuery = () =>
 async function enrichUsersWithScores(users: any[]) {
   if (!users || !users.length) return [];
   try {
-    const [vouchesRes, adjustmentsRes] = await Promise.all([
+    const [vouchesRes, adjustmentsRes, subscriptionsRes] = await Promise.all([
       supabaseAdmin.from("vouches").select("target_user_id"),
       supabaseAdmin.from("vouch_score_adjustments").select("user_id, delta"),
+      supabaseAdmin
+        .from("subscriptions")
+        .select("id, user_id, plan_type, status, current_period_end, current_period_start, payment_provider, external_subscription_id")
+        .in("status", ["active", "trialing"])
+        .gt("current_period_end", new Date().toISOString())
+        .order("current_period_end", { ascending: false }),
     ]);
 
     const scoreMap = new Map<string, number>();
@@ -28,13 +34,22 @@ async function enrichUsersWithScores(users: any[]) {
       }
     });
 
+    const subscriptionMap = new Map<string, any>();
+    (subscriptionsRes.data || []).forEach((s: any) => {
+      if (s.user_id && !subscriptionMap.has(s.user_id)) {
+        subscriptionMap.set(s.user_id, s);
+      }
+    });
+
     return users.map((user) => ({
       ...user,
       vouch_score: scoreMap.get(user.id) || 0,
+      subscription: subscriptionMap.get(user.id) || null,
+      is_pro: Boolean(user.is_admin || subscriptionMap.has(user.id)),
     }));
   } catch (error) {
     console.warn("[Admin Dashboard] Batch score aggregation failed, defaulting to 0:", error);
-    return users.map((u) => ({ ...u, vouch_score: 0 }));
+    return users.map((u) => ({ ...u, vouch_score: 0, subscription: null, is_pro: Boolean(u.is_admin) }));
   }
 }
 

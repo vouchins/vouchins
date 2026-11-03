@@ -449,7 +449,17 @@ export default function UserProfilePage() {
       setLoading(false);
     };
 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        window.location.href = "/login";
+      }
+    });
+
     load();
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, [id, router]);
 
   const handleSaveProfile = async () => {

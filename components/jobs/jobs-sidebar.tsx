@@ -84,27 +84,27 @@ export function JobsSidebar({ activeTab, hideLogo = false }: JobsSidebarProps) {
     {
       id: 'profile' as const,
       label: 'Profile',
-      href: '/profile',
+      href: '/jobs/profile',
       icon: User,
     },
     {
       id: 'agent' as const,
       label: 'Agent',
-      href: '/agent',
+      href: '/jobs/agent',
       icon: Bot,
     },
     {
       id: 'coaching' as const,
       label: 'Coaching',
       tooltip: 'Skills development',
-      href: '/skills-development',
+      href: '/jobs/skills-development',
       icon: GraduationCap,
     },
     {
       id: 'interview' as const,
       label: 'Interview',
       tooltip: 'Mock Interviews',
-      href: '/mock-interviews',
+      href: '/jobs/mock-interviews',
       icon: Video,
       badge: 'NEW',
     },
@@ -203,7 +203,7 @@ export function JobsSidebar({ activeTab, hideLogo = false }: JobsSidebarProps) {
                   }}
                   title={item.tooltip || item.label}
                   className={`relative flex flex-col items-center justify-center w-full py-2.5 px-1 rounded-2xl transition-all group ${isActive
-                    ? 'bg-[#4FD1C5]/15 text-[#0A1B5C] font-black shadow-xs ring-1 ring-[#4FD1C5]/30'
+                    ? 'bg-[#0A1B5C]/10 text-[#0A1B5C] font-black shadow-xs ring-1 ring-[#0A1B5C]/20'
                     : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100/80'
                     }`}
                 >
