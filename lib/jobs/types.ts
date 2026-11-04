@@ -142,6 +142,38 @@ export interface SubscriptionInfo {
   planType?: SubscriptionPlanType;
   currentPeriodEnd?: string;
   isAdmin?: boolean;
+  isPro?: boolean;
+  isElite?: boolean;
+}
+
+/**
+ * Checks whether a user holds active Pro or Elite privileges.
+ * Recognizes platform admins, explicit Pro/Elite flags, active/trialing status,
+ * and Pro/Elite plan tiers (jobs_pro, premium_bundle, accelerator_pro, job_pass_pro, job_pass_elite).
+ */
+export function isUserProOrElite(sub?: SubscriptionInfo | null): boolean {
+  if (!sub) return false;
+  if (sub.isAdmin === true) return true;
+  if (sub.isPro === true) return true;
+  if (sub.isElite === true) return true;
+
+  const activeStatuses: SubscriptionStatus[] = ['active', 'trialing'];
+  if (sub.status && activeStatuses.includes(sub.status)) {
+    return true;
+  }
+
+  const proPlans: SubscriptionPlanType[] = [
+    'jobs_pro',
+    'accelerator_pro',
+    'premium_bundle',
+    'job_pass_pro',
+    'job_pass_elite',
+  ];
+  if (sub.planType && proPlans.includes(sub.planType)) {
+    return true;
+  }
+
+  return false;
 }
 
 export interface UserSubscriptionGuard {

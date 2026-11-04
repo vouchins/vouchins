@@ -36,6 +36,7 @@ import {
   ResumeDocument,
   ResumeEvaluation,
   SubscriptionInfo,
+  isUserProOrElite,
 } from '@/lib/jobs/types';
 import {
   fetchCachedSubscription,
@@ -119,11 +120,19 @@ export function ResumePageClient() {
         const authHeaders = await getAuthHeaders();
         const data = await fetchCachedSubscription(authHeaders);
         if (data && isMounted) {
+          const resolvedSub = data.subscription || data;
           setSubscription({
-            hasAccess: data.authenticated ? true : Boolean(data.hasAccess),
-            status: data.status || 'free',
-            planType: data.planType || 'fast_lane_free',
-            isAdmin: Boolean(data.isAdmin),
+            hasAccess: data.authenticated ? true : Boolean(resolvedSub.hasAccess),
+            status: resolvedSub.status || 'free',
+            planType: resolvedSub.planType || 'fast_lane_free',
+            isAdmin: Boolean(resolvedSub.isAdmin),
+            isPro: isUserProOrElite(resolvedSub),
+            isElite: Boolean(
+              resolvedSub.isElite ||
+              resolvedSub.planType === 'premium_bundle' ||
+              resolvedSub.planType === 'job_pass_elite'
+            ),
+            currentPeriodEnd: resolvedSub.currentPeriodEnd,
           });
         }
       } catch (err) {
@@ -379,10 +388,41 @@ export function ResumePageClient() {
   ): Promise<{ document?: ResumeDocument; evaluation?: ResumeEvaluation } | void> => {
     if (!activeResume) return;
 
-    const isPro = subscription?.isAdmin || subscription?.status === 'active';
+    // Authoritative check for Pro or Elite access
+    let isPro = isUserProOrElite(subscription);
+
+    // If local state doesn't show Pro yet, perform a live refresh check
+    if (!isPro) {
+      try {
+        const authHeaders = await getAuthHeaders();
+        const freshSub = await fetchCachedSubscription(authHeaders, true);
+        if (freshSub) {
+          const resolvedFresh: SubscriptionInfo = freshSub.subscription || freshSub;
+          if (isUserProOrElite(resolvedFresh)) {
+            isPro = true;
+            setSubscription({
+              hasAccess: freshSub.authenticated ? true : Boolean(resolvedFresh.hasAccess),
+              status: resolvedFresh.status || 'free',
+              planType: resolvedFresh.planType || 'fast_lane_free',
+              isAdmin: Boolean(resolvedFresh.isAdmin),
+              isPro: true,
+              isElite: Boolean(
+                resolvedFresh.isElite ||
+                resolvedFresh.planType === 'premium_bundle' ||
+                resolvedFresh.planType === 'job_pass_elite'
+              ),
+              currentPeriodEnd: resolvedFresh.currentPeriodEnd,
+            });
+          }
+        }
+      } catch {
+        // Fall through
+      }
+    }
+
     if (!isPro) {
       setShowSubscriptionGate(true);
-      toast.error('Re-analyzing your resume with AI is exclusive to Jobs Pro members. Upgrade to Jobs Pro for unlimited evaluations.');
+      toast.error('Re-analyzing your resume with AI is exclusive to Jobs Pro and Elite members. Upgrade to Jobs Pro for unlimited evaluations.');
       return;
     }
 
@@ -565,7 +605,7 @@ export function ResumePageClient() {
                     </span>
                     <span>
                       You have <strong className="text-neutral-900 font-extrabold">{resumes.length} {resumes.length === 1 ? 'resume' : 'resumes'}</strong> saved
-                      {subscription.isAdmin || subscription.status === 'active' ? (
+                      {isUserProOrElite(subscription) ? (
                         <> out of <strong className="text-neutral-900 font-extrabold">5 Pro slots</strong>.</>
                       ) : (
                         <> on the <strong className="text-neutral-900 font-extrabold">Free tier (1 slot)</strong>.</>
@@ -583,7 +623,7 @@ export function ResumePageClient() {
                   <button
                     type="button"
                     onClick={() => {
-                      const isPro = subscription.isAdmin || subscription.status === 'active';
+                      const isPro = isUserProOrElite(subscription);
                       if (!isPro && resumes.length >= 1) {
                         setShowSubscriptionGate(true);
                         return;

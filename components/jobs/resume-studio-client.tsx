@@ -18,6 +18,7 @@ import {
   ResumeDocument,
   ResumeEvaluation,
   SubscriptionInfo,
+  isUserProOrElite,
 } from '@/lib/jobs/types';
 import { toast } from 'sonner';
 
@@ -69,8 +70,21 @@ export function ResumeStudioClient() {
       // Subscription check
       try {
         const subData = await fetchCachedSubscription(authHeaders);
-        if (subData?.subscription) {
-          setSubscription(subData.subscription);
+        if (subData) {
+          const resolvedSub: SubscriptionInfo = subData.subscription || subData;
+          setSubscription({
+            hasAccess: resolvedSub.hasAccess ?? true,
+            status: resolvedSub.status || 'free',
+            planType: resolvedSub.planType || 'fast_lane_free',
+            isAdmin: Boolean(resolvedSub.isAdmin),
+            isPro: isUserProOrElite(resolvedSub),
+            isElite: Boolean(
+              resolvedSub.isElite ||
+              resolvedSub.planType === 'premium_bundle' ||
+              resolvedSub.planType === 'job_pass_elite'
+            ),
+            currentPeriodEnd: resolvedSub.currentPeriodEnd,
+          });
         }
       } catch (err) {
         console.warn('Subscription fetch skipped:', err);
@@ -164,10 +178,41 @@ export function ResumeStudioClient() {
   ): Promise<{ document?: ResumeDocument; evaluation?: ResumeEvaluation } | void> => {
     if (!activeResume) return;
 
-    const isPro = subscription?.isAdmin || subscription?.status === 'active';
+    // Authoritative check for Pro or Elite access
+    let isPro = isUserProOrElite(subscription);
+
+    // If local state doesn't reflect Pro or Elite access yet, verify freshly with server
+    if (!isPro) {
+      try {
+        const authHeaders = await getAuthHeaders();
+        const freshSub = await fetchCachedSubscription(authHeaders, true);
+        if (freshSub) {
+          const resolvedFresh: SubscriptionInfo = freshSub.subscription || freshSub;
+          if (isUserProOrElite(resolvedFresh)) {
+            isPro = true;
+            setSubscription({
+              hasAccess: resolvedFresh.hasAccess ?? true,
+              status: resolvedFresh.status || 'free',
+              planType: resolvedFresh.planType || 'fast_lane_free',
+              isAdmin: Boolean(resolvedFresh.isAdmin),
+              isPro: true,
+              isElite: Boolean(
+                resolvedFresh.isElite ||
+                resolvedFresh.planType === 'premium_bundle' ||
+                resolvedFresh.planType === 'job_pass_elite'
+              ),
+              currentPeriodEnd: resolvedFresh.currentPeriodEnd,
+            });
+          }
+        }
+      } catch {
+        // Fall through
+      }
+    }
+
     if (!isPro) {
       setShowSubscriptionGate(true);
-      toast.error('Re-analyzing your resume with AI is exclusive to Jobs Pro members. Upgrade to Jobs Pro for unlimited evaluations.');
+      toast.error('Re-analyzing your resume with AI is exclusive to Jobs Pro and Elite members. Upgrade to Jobs Pro for unlimited evaluations.');
       return;
     }
 

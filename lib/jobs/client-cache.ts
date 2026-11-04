@@ -14,9 +14,12 @@ let subscriptionCache: CacheEntry<any> | null = null;
 let resumesCache: CacheEntry<{ resumes: any[]; latestScore: number | null }> | null = null;
 let jobsCache: Record<string, CacheEntry<any[]>> = {};
 
-export async function fetchCachedSubscription(authHeaders: Record<string, string>): Promise<any> {
+export async function fetchCachedSubscription(
+  authHeaders: Record<string, string>,
+  forceRefresh = false
+): Promise<any> {
   const now = Date.now();
-  if (subscriptionCache && now - subscriptionCache.timestamp < CACHE_TTL_MS) {
+  if (!forceRefresh && subscriptionCache && now - subscriptionCache.timestamp < CACHE_TTL_MS) {
     return subscriptionCache.data;
   }
 

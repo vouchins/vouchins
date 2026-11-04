@@ -7,6 +7,7 @@ import {
   ResumeEvaluation,
   ResumeSuggestion,
   SubscriptionInfo,
+  isUserProOrElite,
 } from '@/lib/jobs/types';
 import { evaluateResumeHeuristically } from '@/lib/jobs/xyz-evaluator';
 import { invalidateResumesCache } from '@/lib/jobs/client-cache';
@@ -428,12 +429,12 @@ export function Workspace({
               variant="outline"
               size="sm"
               onClick={async () => {
-                const isPro = subscription?.isAdmin || subscription?.status === 'active';
-                if (!isPro) {
+                const isPro = isUserProOrElite(subscription);
+                if (!isPro && !onReanalyze) {
                   if (onRequireSubscription) {
                     onRequireSubscription();
                   }
-                  toast.error('Re-analyzing your resume with AI is exclusive to Jobs Pro members. Upgrade to Jobs Pro for unlimited evaluations.');
+                  toast.error('Re-analyzing your resume with AI is exclusive to Jobs Pro and Elite members. Upgrade to Jobs Pro for unlimited evaluations.');
                   return;
                 }
                 const result = await onReanalyze(document);

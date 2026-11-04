@@ -54,10 +54,14 @@ export async function verifyJobsAccess(request?: Request): Promise<UserSubscript
         console.warn('Dev fallback user lookup error:', err);
       }
 
+      const devUserId = devUser?.id || '00000000-0000-0000-0000-000000000001';
+      const isDevAdmin = Boolean(devUser?.is_admin ?? false);
+
       return {
         allowed: true,
-        userId: devUser?.id || '00000000-0000-0000-0000-000000000001',
-        isAdmin: Boolean(devUser?.is_admin ?? false),
+        userId: devUserId,
+        isAdmin: isDevAdmin,
+        isPro: isDevAdmin,
       };
     }
 
@@ -116,16 +120,32 @@ export async function checkIsUserPro(userId: string): Promise<boolean> {
 
     if (userRow?.is_admin) return true;
 
+    // Check active or trialing subscriptions
     const { data: sub } = await supabaseAdmin
       .from('subscriptions')
-      .select('id, status, current_period_end')
+      .select('id, status, plan_type, current_period_end')
       .eq('user_id', userId)
       .in('status', ['active', 'trialing'])
       .gt('current_period_end', new Date().toISOString())
+      .order('current_period_end', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    return Boolean(sub);
+    if (sub) return true;
+
+    // RPC check fallback if database function exists
+    if (typeof (supabaseAdmin as any).rpc === 'function') {
+      try {
+        const { data: rpcHasSub } = await supabaseAdmin.rpc('has_active_jobs_subscription', {
+          check_user_id: userId,
+        });
+        if (rpcHasSub === true) return true;
+      } catch {
+        // Fall through
+      }
+    }
+
+    return false;
   } catch (err) {
     console.warn('[Auth Guard] Error checking Pro subscription:', err);
     return false;
@@ -140,7 +160,7 @@ export const verifyAcceleratorAccess = verifyJobsAccess;
  */
 export async function getSubscriptionInfo(userId?: string): Promise<SubscriptionInfo> {
   if (!userId) {
-    return { hasAccess: false, status: 'none' };
+    return { hasAccess: false, status: 'none', isPro: false, isElite: false };
   }
 
   try {
@@ -157,9 +177,57 @@ export async function getSubscriptionInfo(userId?: string): Promise<Subscription
         status: 'active',
         planType: 'jobs_pro',
         isAdmin: true,
+        isPro: true,
+        isElite: true,
       };
     }
 
+    // 1. Check for active or trialing subscription first
+    const { data: activeSub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('status, plan_type, current_period_end')
+      .eq('user_id', userId)
+      .in('status', ['active', 'trialing'])
+      .gt('current_period_end', new Date().toISOString())
+      .order('current_period_end', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (activeSub) {
+      const isElite = activeSub.plan_type === 'premium_bundle' || activeSub.plan_type === 'job_pass_elite';
+      return {
+        hasAccess: true,
+        status: activeSub.status as any,
+        planType: activeSub.plan_type as any,
+        currentPeriodEnd: activeSub.current_period_end,
+        isAdmin: false,
+        isPro: true,
+        isElite,
+      };
+    }
+
+    // 2. Fallback: check RPC helper function
+    if (typeof (supabaseAdmin as any).rpc === 'function') {
+      try {
+        const { data: rpcHasSub } = await supabaseAdmin.rpc('has_active_jobs_subscription', {
+          check_user_id: userId,
+        });
+        if (rpcHasSub === true) {
+          return {
+            hasAccess: true,
+            status: 'active',
+            planType: 'jobs_pro',
+            isAdmin: false,
+            isPro: true,
+            isElite: false,
+          };
+        }
+      } catch {
+        // Fall through
+      }
+    }
+
+    // 3. Fallback: fetch latest subscription row (for expired or canceled members)
     const { data: sub } = await supabaseAdmin
       .from('subscriptions')
       .select('status, plan_type, current_period_end')
@@ -175,19 +243,25 @@ export async function getSubscriptionInfo(userId?: string): Promise<Subscription
         status: 'free',
         planType: 'fast_lane_free',
         isAdmin: false,
+        isPro: false,
+        isElite: false,
       };
     }
 
     const isActive =
       (sub.status === 'active' || sub.status === 'trialing') &&
-      new Date(sub.current_period_end) > new Date();
+      Boolean(sub.current_period_end && new Date(sub.current_period_end) > new Date());
+
+    const isElite = isActive && (sub.plan_type === 'premium_bundle' || sub.plan_type === 'job_pass_elite');
 
     return {
       hasAccess: true,
-      status: isActive ? (sub.status as any) : 'free',
+      status: isActive ? (sub.status as any) : (sub.status as any || 'free'),
       planType: isActive ? (sub.plan_type as any) : 'fast_lane_free',
       currentPeriodEnd: sub.current_period_end,
       isAdmin: false,
+      isPro: isActive,
+      isElite,
     };
   } catch (err) {
     console.error('getSubscriptionInfo error:', err);

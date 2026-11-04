@@ -56,23 +56,53 @@ export function UserProvider({ children, initialUser = null, skipInitialFetchOnF
   const [loading, setLoading] = useState(!initialUser && !shouldSkipFetch);
 
   const fetchAuxiliaryData = useCallback(async (userId: string) => {
-    const [messagesResult, vouchesResult, savedResult] = await Promise.all([
-      supabase.from("messages").select("id", { count: "exact", head: true }).eq("receiver_id", userId).eq("is_read", false),
-      supabase.from("vouches").select("post_id, comment_id").eq("vouching_user_id", userId),
-      supabase.from("saved_posts").select("post_id").eq("user_id", userId),
-    ]);
+    try {
+      // 1. Route through Next.js API Gateway (consolidates messages, vouches, and saved posts into 1 call)
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
 
-    setUnreadCount(messagesResult.count ?? 0);
-    if (vouchesResult.data) {
-      const state: Record<string, boolean> = {};
-      vouchesResult.data.forEach((v) => {
-        if (v.post_id) state[`post_${v.post_id}`] = true;
-        if (v.comment_id) state[`comment_${v.comment_id}`] = true;
+      const res = await fetch(`/api/user/auxiliary?userId=${userId}`, {
+        headers,
       });
-      setVouchedEntities(state);
+
+      if (res.ok) {
+        const data = await res.json();
+        setUnreadCount(data.unreadCount ?? 0);
+        setVouchedEntities(data.vouchedEntities ?? {});
+        setSavedPostIds(new Set(data.savedPostIds ?? []));
+        return;
+      }
+    } catch (err) {
+      console.warn("API Gateway auxiliary fetch failed, using fallback:", err);
     }
-    if (savedResult.data) {
-      setSavedPostIds(new Set(savedResult.data.map((post) => post.post_id)));
+
+    // Fallback: direct query if API Gateway is unreachable
+    try {
+      const [messagesResult, vouchesResult, savedResult] = await Promise.all([
+        supabase.from("messages").select("id", { count: "exact", head: true }).eq("receiver_id", userId).eq("is_read", false),
+        supabase.from("vouches").select("post_id, comment_id").eq("vouching_user_id", userId),
+        supabase.from("saved_posts").select("post_id").eq("user_id", userId),
+      ]);
+
+      setUnreadCount(messagesResult.count ?? 0);
+      if (vouchesResult.data) {
+        const state: Record<string, boolean> = {};
+        vouchesResult.data.forEach((v) => {
+          if (v.post_id) state[`post_${v.post_id}`] = true;
+          if (v.comment_id) state[`comment_${v.comment_id}`] = true;
+        });
+        setVouchedEntities(state);
+      }
+      if (savedResult.data) {
+        setSavedPostIds(new Set(savedResult.data.map((post) => post.post_id)));
+      }
+    } catch (fallbackErr) {
+      console.error("Auxiliary data fallback failed:", fallbackErr);
     }
   }, []);
 

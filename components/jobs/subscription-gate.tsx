@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, CheckCircle2, ShieldCheck, ArrowRight, X } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, ArrowRight, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -36,8 +36,7 @@ export function SubscriptionGate({
       <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-3xl border border-neutral-200 bg-white">
         {/* Top Header Banner */}
         <div className="bg-[#0A1B5C] px-6 py-8 text-white relative">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[#4FD1C5] text-xs font-semibold mb-3">
-            <Sparkles className="h-3.5 w-3.5" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-teal-200 text-xs font-semibold mb-3">
             Jobs Pro Feature
           </div>
 
@@ -74,7 +73,7 @@ export function SubscriptionGate({
             >
               <Link href="/premium">
                 Upgrade to Jobs Pro
-                <ArrowRight className="h-4 w-4 text-[#4FD1C5]" />
+                <ArrowRight className="h-4 w-4 text-white" />
               </Link>
             </Button>
 
