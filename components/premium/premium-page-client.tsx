@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   CheckCircle2,
-  Sparkles,
   ShieldCheck,
   ArrowRight,
   Users,
@@ -206,10 +205,6 @@ Requirements: ${enterpriseFormData.notes || 'None provided'}`,
 
           {/* Hero Header */}
           <div className="text-center max-w-3xl mx-auto space-y-4">
-            {/* <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0A1B5C]/5 border border-[#0A1B5C]/15 text-[#0A1B5C] text-xs font-bold shadow-2xs">
-              <Sparkles className="h-3.5 w-3.5 text-[#0A1B5C]" />
-              <span>Vouchins Membership & Enterprise Solutions</span>
-            </div> */}
 
             {/* <h1 className="text-3xl sm:text-5xl font-black text-neutral-900 tracking-tight leading-tight">
               Invest in your career. <br className="hidden sm:inline" />
@@ -370,7 +365,6 @@ Requirements: ${enterpriseFormData.notes || 'None provided'}`,
                 <div className="bg-white rounded-3xl border-2 border-[#0A1B5C] p-6 sm:p-8 flex flex-col justify-between shadow-xl relative overflow-hidden ring-4 ring-[#0A1B5C]/5">
                   {/* Popular Highlight Badge */}
                   <div className="absolute top-0 right-0 bg-[#0A1B5C] text-white text-[10px] font-black uppercase tracking-widest px-4 py-1.5 rounded-bl-2xl shadow-xs flex items-center gap-1">
-                    {/* <Sparkles className="h-3 w-3" /> */}
                     <span>Most Popular</span>
                   </div>
 
@@ -806,7 +800,7 @@ Requirements: ${enterpriseFormData.notes || 'None provided'}`,
         <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-3xl border border-neutral-200 bg-white">
           <div className="bg-[#0A1B5C] px-6 py-6 text-white relative">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white text-xs font-semibold mb-2">
-              <Sparkles className="h-3.5 w-3.5" />
+              <ShieldCheck className="h-3.5 w-3.5" />
               <span>Confirm Membership Upgrade</span>
             </div>
 

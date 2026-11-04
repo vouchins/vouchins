@@ -16,7 +16,6 @@ import {
   ChevronDown,
   X,
   MapPin,
-  Sparkles,
   Calendar,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
@@ -876,7 +875,7 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                         className="h-8 px-2.5 rounded-lg border-neutral-200 text-xs font-bold text-[#0A1B5C] hover:bg-neutral-50 flex items-center gap-1 shadow-2xs"
                         title="Manage Pro Membership"
                       >
-                        <Sparkles className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                        <ShieldCheck className="h-3.5 w-3.5 text-[#0A1B5C]" />
                         <span>Pro</span>
                       </Button>
                       <Button
@@ -954,7 +953,7 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
                   }}
                   className="h-8 text-xs font-bold text-[#0A1B5C] border-neutral-300 hover:bg-white"
                 >
-                  <Sparkles className="h-3 w-3 mr-1 text-[#0A1B5C]" />
+                  <ShieldCheck className="h-3 w-3 mr-1 text-[#0A1B5C]" />
                   Manage Pro
                 </Button>
               </div>
@@ -1372,7 +1371,7 @@ export function UsersTab({ users, onUpdateUser, onAdjustVouchScore, onDeleteUser
         <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-3xl border border-neutral-200 bg-white">
           <div className="bg-[#0A1B5C] px-6 py-5 text-white">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-white text-[10px] font-extrabold uppercase tracking-wider mb-2">
-              <Sparkles className="h-3 w-3" />
+              <ShieldCheck className="h-3 w-3" />
               <span>Admin Subscription Control</span>
             </div>
             <DialogTitle className="text-xl font-black tracking-tight text-white">

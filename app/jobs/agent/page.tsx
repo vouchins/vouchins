@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { JobsSidebar } from '@/components/jobs/jobs-sidebar';
 import { JobsNavbar } from '@/components/jobs/jobs-navbar';
-import { Bot, Sparkles, Zap, ShieldCheck } from 'lucide-react';
+import { Bot, Zap, ShieldCheck } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'AI Agent | Vouchins Jobs',
@@ -26,7 +26,7 @@ export default function JobsAgentPage() {
               Your autonomous agent scans real-time tech openings across ServiceNow, Google, Uber, and Stripe, tuning your Google XYZ Master Resume bullets for each job.
             </p>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+              <Zap className="h-3.5 w-3.5 text-emerald-600" />
               Agent Status: Actively indexing Tier-1 tech matches
             </div>
           </div>

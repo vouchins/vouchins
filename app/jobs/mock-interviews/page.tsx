@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { JobsSidebar } from '@/components/jobs/jobs-sidebar';
 import { JobsNavbar } from '@/components/jobs/jobs-navbar';
-import { Video, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Video, CheckCircle2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Mock Interviews | Vouchins Jobs',
@@ -26,7 +26,7 @@ export default function JobsMockInterviewsPage() {
               Practice real-time technical screening, system design deep-dives, and behavioral leadership questions tailored to the companies you match with.
             </p>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
-              <Sparkles className="h-3.5 w-3.5 text-rose-500" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-rose-500" />
               Interactive audio & code simulator releasing soon
             </div>
           </div>

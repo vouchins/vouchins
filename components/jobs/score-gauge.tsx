@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Award, Sparkles, TrendingUp } from 'lucide-react';
+import { Award, TrendingUp } from 'lucide-react';
 
 interface ScoreGaugeProps {
   score: number;
@@ -66,7 +66,7 @@ export function ScoreGauge({ score, seniority, size = 130 }: ScoreGaugeProps) {
       <div className="flex flex-col gap-1.5 text-center sm:text-left">
         <div className="flex items-center gap-2 justify-center sm:justify-start">
           <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${tierBadgeBg}`}>
-            <Sparkles className="h-3 w-3" />
+            <TrendingUp className="h-3 w-3" />
             {tierLabel}
           </span>
           {seniority && (

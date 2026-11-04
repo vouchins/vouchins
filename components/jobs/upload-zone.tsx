@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { UploadCloud, FileText, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
+import { UploadCloud, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface UploadZoneProps {

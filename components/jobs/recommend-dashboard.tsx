@@ -10,7 +10,6 @@ import {
   MapPin,
   Clock,
   DollarSign,
-  Sparkles,
   ShieldCheck,
   Users,
   CheckCircle2,
@@ -23,19 +22,16 @@ import {
   FileText,
   SlidersHorizontal,
   Flame,
-  Check,
   X,
   Send,
   MessageSquare,
-  Award,
-  Layers,
-  ArrowUpRight,
   TrendingUp,
   AlertTriangle,
   Copy,
-  ChevronDown,
-  LogOut,
-  User as UserIcon,
+  Target,
+  Zap,
+  Bot,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnterpriseBuildingIcon } from '@/components/icons/enterprise-building-icon';
@@ -981,7 +977,7 @@ export function JobRecommendationsDashboard() {
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <Target className="h-3.5 w-3.5" />
                 <span>Recommended ({recommendedJobs.length})</span>
                 {activeListTab === 'recommended' && (
                   <span className="text-[10px] ml-0.5 opacity-80" title="Click to unselect filter">✕</span>
@@ -1015,7 +1011,7 @@ export function JobRecommendationsDashboard() {
             {activeListTab === 'recommended' && (
               <div className="mb-2 px-3 py-1.5 rounded-xl bg-[#eefaf6] border border-emerald-200/80 flex items-center justify-between text-xs text-[#0A1B5C] shrink-0">
                 <div className="flex items-center gap-1.5 font-bold">
-                  <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                  <Target className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Showing top recommended matches ({recommendedJobs.length} roles)</span>
                 </div>
                 <button
@@ -1082,10 +1078,10 @@ export function JobRecommendationsDashboard() {
                           </div>
                         </div>
 
-                        {/* Jobright-Style Match Score Ring / Badge */}
+                        {/* Match Score Ring / Badge */}
                         <div className="flex items-center gap-2">
                           <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-black flex items-center gap-1 shadow-xs">
-                            <Sparkles className="h-3 w-3 text-emerald-600" />
+                            <Zap className="h-3 w-3 text-emerald-600" />
                             <span>{job.matchScore}% Match</span>
                           </div>
 
@@ -1195,7 +1191,7 @@ export function JobRecommendationsDashboard() {
                 <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0">
                   <div className="text-right">
                     <div className="text-2xl font-black text-[#0A1B5C] flex items-center gap-1">
-                      <Sparkles className="h-5 w-5 text-amber-500" />
+                      <Zap className="h-5 w-5 text-amber-500" />
                       {selectedJob.matchScore}%
                     </div>
                     <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
@@ -1211,7 +1207,7 @@ export function JobRecommendationsDashboard() {
                   onClick={() => setTailorModalOpen(true)}
                   className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-extrabold shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95"
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-white" />
+                  <SlidersHorizontal className="h-3.5 w-3.5 text-white" />
                   <span>Tailor Resume for Role</span>
                 </button>
 
@@ -1261,7 +1257,7 @@ export function JobRecommendationsDashboard() {
                   : 'border-transparent hover:text-neutral-900'
                   }`}
               >
-                <Sparkles className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                <TrendingUp className="h-3.5 w-3.5 text-[#0A1B5C]" />
                 <span>Match Insights</span>
               </button>
 
@@ -1308,7 +1304,7 @@ export function JobRecommendationsDashboard() {
                   <div className="rounded-2xl bg-[#eefaf6] border border-emerald-200/80 p-5 space-y-2.5">
                     <div className="flex items-center gap-2">
                       <span className="p-1 rounded-md bg-emerald-600 text-white">
-                        <Sparkles className="h-3.5 w-3.5" />
+                        <CheckCircle2 className="h-3.5 w-3.5" />
                       </span>
                       <h4 className="font-extrabold text-xs text-[#0A1B5C] uppercase tracking-wider">
                         Why Your Master Resume Matches This Position
@@ -1553,8 +1549,8 @@ export function JobRecommendationsDashboard() {
                   <div className="p-4 rounded-2xl bg-[#0A1B5C] text-white flex items-center justify-between">
                     <div>
                       <h4 className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                        Jobs AI Copilot
+                        <Bot className="h-3.5 w-3.5 text-amber-400" />
+                        Jobs Career Copilot
                       </h4>
                       <p className="text-xs text-neutral-300 mt-0.5">
                         Tailor application materials and simulate hiring manager questions for {selectedJob.title}.
@@ -1574,7 +1570,7 @@ export function JobRecommendationsDashboard() {
                         onClick={() => handleRunCopilotPrompt(prompt)}
                         className="px-3.5 py-2 rounded-xl border border-neutral-200 bg-white hover:border-[#0A1B5C] hover:bg-neutral-50 text-xs font-bold text-neutral-800 transition-all flex items-center gap-1.5"
                       >
-                        <Sparkles className="h-3 w-3 text-[#0A1B5C]" />
+                        <ArrowRight className="h-3 w-3 text-[#0A1B5C]" />
                         <span>{prompt}</span>
                       </button>
                     ))}
@@ -1583,7 +1579,7 @@ export function JobRecommendationsDashboard() {
                   {/* AI Output Response Box */}
                   {copilotLoading ? (
                     <div className="p-8 rounded-2xl bg-neutral-50 border border-neutral-200 text-center space-y-2">
-                      <Sparkles className="h-6 w-6 text-[#0A1B5C] animate-spin mx-auto" />
+                      <Loader2 className="h-6 w-6 text-[#0A1B5C] animate-spin mx-auto" />
                       <span className="text-xs font-bold text-neutral-600 block">
                         Synthesizing hiring insights for {selectedJob.companyName}...
                       </span>
@@ -1626,7 +1622,7 @@ export function JobRecommendationsDashboard() {
           <DialogContent className="max-w-2xl bg-white rounded-3xl p-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-black text-neutral-900 flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-[#0A1B5C]" />
+                <SlidersHorizontal className="h-5 w-5 text-[#0A1B5C]" />
                 Tailor Resume for {selectedJob.title}
               </DialogTitle>
               <DialogDescription className="text-xs text-neutral-500">

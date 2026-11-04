@@ -10,7 +10,6 @@ import {
   MessageCircle,
   Share2,
   ShieldCheck,
-  Sparkles,
   Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -262,7 +261,7 @@ export function RightSidebar({
         <section className="rounded-2xl border border-amber-200/80 bg-[linear-gradient(145deg,#fffdf7,#fff8e7)] p-4 shadow-[0_14px_38px_-28px_rgba(146,93,13,0.45)]">
           <div className="flex items-start gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-              <Sparkles className="h-4 w-4" />
+              <Star className="h-4 w-4" />
             </span>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-neutral-950">

@@ -21,10 +21,8 @@ import { ResumeCanvas } from './resume-canvas';
 import { PDFDownloadButton } from './pdf-download-button';
 import { Button } from '@/components/ui/button';
 import {
-  Sparkles,
   Save,
   Briefcase,
-  Share2,
   RefreshCw,
   Check,
   ChevronRight,
@@ -397,7 +395,7 @@ export function Workspace({
 
           {/* Readiness Score Badge */}
           <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-bold shrink-0">
-            <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
             Readiness: {evaluation?.overallScore ?? 0}/100
           </span>
         </div>

@@ -15,7 +15,7 @@ import {
   Copy,
   Check,
   Share2,
-  Sparkles,
+  Users,
   ShieldAlert,
 } from "lucide-react";
 
@@ -119,7 +119,7 @@ export function InviteDialog({ isOpen, onClose, userId }: InviteDialogProps) {
         <div className="flex-1 px-6 sm:px-8 pb-8 overflow-y-auto no-scrollbar space-y-6">
           <div className="text-center space-y-2.5 pt-1">
             <div className="h-14 w-14 bg-primary/5 rounded-[1.25rem] flex items-center justify-center mx-auto mb-1">
-              <Sparkles className="h-7 w-7 text-primary animate-pulse" />
+              <Users className="h-7 w-7 text-primary" />
             </div>
             <h3 className="text-xl sm:text-2xl font-black tracking-tight text-neutral-900">
               Grow the Network

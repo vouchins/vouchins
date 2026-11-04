@@ -15,7 +15,6 @@ import {
   Bell,
   HelpCircle,
   Settings,
-  Sparkles,
   Send,
   X,
   CheckCircle2,

@@ -12,7 +12,6 @@ import {
   Users,
   MapPin,
   MessageSquare,
-  Sparkles,
   XCircle,
   ThumbsUp,
   Briefcase,

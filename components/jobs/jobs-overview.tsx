@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import {
-  Sparkles,
   Briefcase,
   FileText,
   Video,
@@ -536,7 +534,7 @@ export function JobsOverviewDashboard() {
                     <Briefcase className="w-5 h-5" />
                   </div>
                   <span className="px-2.5 py-1 rounded-full bg-[#0A1B5C]/10 text-[#0A1B5C] text-[11px] font-black border border-[#0A1B5C]/20 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-[#0A1B5C]" />
+                    <TrendingUp className="w-3 h-3 text-[#0A1B5C]" />
                     6 new today
                   </span>
                 </div>
@@ -916,8 +914,8 @@ export function JobsOverviewDashboard() {
 
                 <div className="rounded-2xl bg-[#0A1B5C] text-white p-4 space-y-3">
                   <div className="flex items-center gap-2 text-xs font-black text-white/90">
-                    <Sparkles className="w-4 h-4" />
-                    <span>AI NEXT BEST ACTION</span>
+                    <Target className="w-4 h-4" />
+                    <span>RECOMMENDED NEXT ACTION</span>
                   </div>
                   <p className="text-xs text-neutral-200 leading-relaxed">
                     Quantify throughput metrics on your Kafka streaming bullet to unlock 6 additional Staff Distributed Systems positions.

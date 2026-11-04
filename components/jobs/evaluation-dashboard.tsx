@@ -9,7 +9,7 @@ import {
 import { ScoreGauge } from './score-gauge';
 import { PillarBreakdown } from './pillar-breakdown';
 import { SuggestionCard } from './suggestion-card';
-import { CheckCircle2, AlertTriangle, Sparkles, Filter } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Filter } from 'lucide-react';
 
 interface EvaluationDashboardProps {
   evaluation: ResumeEvaluation;

@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   Loader2,
   RotateCw,
-  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import posthog from "posthog-js";

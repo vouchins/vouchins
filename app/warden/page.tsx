@@ -17,7 +17,6 @@ import {
   Radar,
   ScrollText,
   ShieldCheck,
-  Sparkles,
   UserRoundCheck,
 } from "lucide-react";
 
@@ -90,7 +89,7 @@ export default function WardenPage() {
           <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-16 px-6 lg:grid-cols-2">
             <div className="text-center lg:text-left">
               <div className="inline-flex items-center gap-2 rounded-full border border-[#4FD1C5]/25 bg-[#4FD1C5]/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-[#8CE5DC] backdrop-blur-sm">
-                <Sparkles className="h-3.5 w-3.5" />
+                <ShieldCheck className="h-3.5 w-3.5" />
                 Private preview
               </div>
 

@@ -4,12 +4,9 @@ import React from 'react';
 import {
   ResumeDocument,
   WorkExperienceItem,
-  EducationItem,
-  SkillCategory,
-  ProjectItem,
 } from '@/lib/jobs/types';
 import { EditableBullet } from './editable-bullet';
-import { Plus, Trash2, Mail, Phone, MapPin, Globe, Linkedin, Github } from 'lucide-react';
+import { Plus, Trash2, Mail, Phone, MapPin, Linkedin, Github } from 'lucide-react';
 
 interface ResumeCanvasProps {
   document: ResumeDocument;

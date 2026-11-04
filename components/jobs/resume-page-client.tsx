@@ -1,26 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
-  Sparkles,
-  Zap,
   MoreHorizontal,
   FileText,
   Star,
-  CheckCircle2,
   Download,
   Trash2,
   Edit3,
-  ExternalLink,
-  ChevronRight,
   Info,
   Smile,
-  ShieldCheck,
-  AlertCircle,
   UploadCloud,
   FileCode2,
   Loader2,
@@ -30,8 +21,6 @@ import { JobsNavbar } from './jobs-navbar';
 import { UploadZone } from './upload-zone';
 import { Workspace } from './workspace';
 import { supabase } from '@/lib/supabase/browser';
-import { useUser } from '@/components/user-provider';
-import { NavbarUserAvatar } from '@/components/navbar-user-avatar';
 import {
   ResumeDocument,
   ResumeEvaluation,
@@ -79,7 +68,6 @@ interface SavedResumeItem {
 
 export function ResumePageClient() {
   const router = useRouter();
-  const { user } = useUser();
   const [activeView, setActiveView] = useState<'list' | 'editor'>('list');
   const [selectedResumeId, setSelectedResumeId] = useState<string>('');
   const [addResumeOpen, setAddResumeOpen] = useState(false);

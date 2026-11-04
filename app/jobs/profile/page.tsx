@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Mail,
   MapPin,
-  Sparkles,
   FileText,
   ExternalLink,
   ArrowRight,
@@ -252,7 +251,7 @@ export default function JobsProfilePage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <Sparkles className="h-5 w-5" />
+                        <FileText className="h-5 w-5" />
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-neutral-900 group-hover:text-emerald-700 transition-colors">
