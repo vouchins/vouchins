@@ -39,6 +39,7 @@ jest.mock('@/lib/supabase/admin', () => {
 });
 
 import {
+  ResumeDocument,
   ResumeDocumentSchema,
   ResumeEvaluationSchema,
   JobMatchVectorsSchema,
@@ -55,6 +56,7 @@ import {
   checkAICostGuard,
   resetAIRateLimit,
 } from '@/lib/jobs/cost-guard';
+import { evaluateResumeAI } from '@/lib/jobs/ai-client';
 import { matchJobsForProfile } from '@/lib/jobs/job-matcher';
 import {
   SAMPLE_STAFF_RESUME,
@@ -189,6 +191,77 @@ describe('Jobs: Resume Intelligence & Interactive Editor', () => {
       // Verify that impact score and overall readiness score increase
       expect(updatedEval.pillarScores.impact).toBeGreaterThan(initialEval.pillarScores.impact);
       expect(updatedEval.overallScore).toBeGreaterThanOrEqual(initialEval.overallScore);
+    });
+
+    it('should maintain or increase score when re-analyzing an already improved resume state', async () => {
+      const initialDoc: ResumeDocument = {
+        ...createDefaultResumeDocument(),
+        contact: {
+          fullName: 'Alex Rivera',
+          email: 'alex@example.com',
+          phone: '123',
+          location: 'NYC',
+          linkedinUrl: '',
+          githubUrl: '',
+          portfolioUrl: '',
+        },
+        summary: 'Software engineer building web apps with React and Node.js.',
+        skills: [
+          { category: 'Frontend', items: ['React', 'TypeScript', 'Next.js'] },
+          { category: 'Backend', items: ['Node.js', 'PostgreSQL', 'Redis'] },
+        ],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Acme Inc',
+            roleTitle: 'Software Engineer',
+            startDate: '2021',
+            endDate: 'Present',
+            isCurrent: true,
+            bullets: [
+              'Worked on customer dashboard to improve user experience.',
+              'Assisted with database query optimization.',
+              'Responsible for fixing bugs in the frontend application.',
+            ],
+          },
+        ],
+      };
+
+      const initialEval = evaluateResumeHeuristically(initialDoc);
+
+      // Apply first two suggestions
+      const improvedDoc: ResumeDocument = {
+        ...initialDoc,
+        experience: [
+          {
+            ...initialDoc.experience[0],
+            bullets: [
+              initialEval.suggestions[0].suggestedRewrite,
+              initialEval.suggestions[1].suggestedRewrite,
+              initialDoc.experience[0].bullets[2],
+            ],
+          },
+        ],
+      };
+
+      const improvedHeuristic = evaluateResumeHeuristically(improvedDoc);
+      expect(improvedHeuristic.overallScore).toBeGreaterThan(initialEval.overallScore);
+
+      // Re-analyze the improved resume
+      const reanalyzed = await evaluateResumeAI({
+        userId: 'test-user-reanalyze',
+        rawText: JSON.stringify(improvedDoc),
+        existingDoc: improvedDoc,
+        baselineScore: improvedHeuristic.overallScore,
+        previousSuggestions: initialEval.suggestions,
+        forceHeuristic: true,
+      });
+
+      // The re-analyzed score must not regress below the improved score
+      expect(reanalyzed.evaluation.overallScore).toBeGreaterThanOrEqual(improvedHeuristic.overallScore);
+      // Previously applied suggestions must remain marked as applied
+      const appliedCount = reanalyzed.evaluation.suggestions.filter((s) => s.applied).length;
+      expect(appliedCount).toBeGreaterThanOrEqual(2);
     });
 
     it('should parse raw plaintext resume into structured document schema', () => {

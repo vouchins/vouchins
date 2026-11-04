@@ -131,17 +131,17 @@ export function JobsNavbar({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white border-b border-neutral-200/80 shadow-xs px-4 sm:px-6 py-3">
-        <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-white border-b border-neutral-200/80 shadow-xs px-3 sm:px-6 py-2.5 sm:py-3">
+        <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
           {/* Left: Brand / Logo */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <Link href="/jobs" className="flex items-center gap-2 group">
               <Image
                 src="/images/logo.png"
                 alt="Vouchins Jobs"
                 width={110}
                 height={32}
-                className="w-[105px] object-contain transition-opacity group-hover:opacity-90"
+                className="w-[84px] sm:w-[105px] object-contain transition-opacity group-hover:opacity-90"
                 priority
               />
             </Link>
@@ -149,21 +149,21 @@ export function JobsNavbar({
 
           {/* Center: Search Bar */}
           {showSearch ? (
-            <form onSubmit={handleSearchSubmit} className="flex-1 max-w-xl mx-2 relative">
+            <form onSubmit={handleSearchSubmit} className="flex-1 max-w-xl mx-1 sm:mx-2 relative">
               <div className="relative">
-                <Search className="h-4 w-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Search className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder={searchPlaceholder}
                   value={currentSearchValue}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full h-10 pl-10 pr-9 rounded-xl border border-neutral-200 bg-neutral-50/80 focus:bg-white text-xs font-semibold text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all"
+                  className="w-full h-9 sm:h-10 pl-8 sm:pl-10 pr-8 sm:pr-9 rounded-xl border border-neutral-200 bg-neutral-50/80 focus:bg-white text-xs font-semibold text-neutral-800 placeholder:text-neutral-400 placeholder:truncate focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all"
                 />
                 {currentSearchValue && (
                   <button
                     type="button"
                     onClick={() => handleSearchChange('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
+                    className="absolute right-2.5 sm:right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>

@@ -32,6 +32,8 @@ import {
   Zap,
   Bot,
   Loader2,
+  Building2,
+  ChevronLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnterpriseBuildingIcon } from '@/components/icons/enterprise-building-icon';
@@ -98,8 +100,118 @@ export interface RecommendedJob {
     impactMetric: string;
   };
   externalApplyUrl?: string | null;
+  externalJobId?: string | null;
+  isInternal?: boolean;
+  recruiterId?: string | null;
   isCurated?: boolean;
   isRecommended?: boolean;
+}
+
+/**
+ * Validates whether an external URL represents a direct job requisition
+ * rather than a generic root career portal or Google search fallback.
+ */
+export function hasValidExternalJobId(url?: string | null): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.startsWith('javascript:')) return false;
+
+  // Reject Google search fallback links
+  if (trimmed.includes('google.com/search')) return false;
+
+  try {
+    const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+    const pathname = parsed.pathname.toLowerCase();
+
+    // Check for root domain or generic landing pages with no specific job requisition
+    const genericRoots = [
+      '',
+      '/',
+      '/careers',
+      '/careers/',
+      '/jobs',
+      '/jobs/',
+      '/about/careers',
+      '/about/careers/',
+      '/positions',
+      '/positions/',
+      '/careers/applications/jobs/results',
+    ];
+    if (genericRoots.includes(pathname) && !parsed.search && !parsed.hash) {
+      return false;
+    }
+
+    const atsDomains = [
+      'greenhouse.io',
+      'lever.co',
+      'ashbyhq.com',
+      'workday.com',
+      'myworkdayjobs.com',
+      'smartrecruiters.com',
+      'bamboohr.com',
+      'jobvite.com',
+      'icims.com',
+      'breezy.hr',
+      'workable.com',
+      'rippling-ats.com',
+    ];
+
+    const isAts = atsDomains.some((d) => parsed.hostname.includes(d));
+    if (isAts) {
+      const pathParts = pathname.split('/').filter(Boolean);
+      return pathParts.length >= 2;
+    }
+
+    const hasRequisitionParam =
+      parsed.searchParams.has('gh_jid') ||
+      parsed.searchParams.has('jobId') ||
+      parsed.searchParams.has('job_id') ||
+      parsed.searchParams.has('id') ||
+      parsed.searchParams.has('requisition_id');
+
+    if (hasRequisitionParam) return true;
+
+    const pathParts = pathname.split('/').filter(Boolean);
+    if (pathParts.length >= 2) {
+      const lastPart = pathParts[pathParts.length - 1];
+      const hasIdPattern = /\d{4,}/.test(lastPart) || /[a-f0-9-]{12,}/.test(lastPart) || lastPart.includes('-');
+      const isJobSection = pathParts.some((p) =>
+        ['jobs', 'job', 'positions', 'position', 'openings', 'role', 'roles', 'careers', 'list', 'listing'].includes(p)
+      );
+      return isJobSection && hasIdPattern && !genericRoots.includes(`/${lastPart}`);
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Extracts a compact external job ID / requisition slug from a direct URL.
+ */
+export function extractJobId(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    if (parsed.searchParams.get('gh_jid')) return parsed.searchParams.get('gh_jid');
+    if (parsed.searchParams.get('jobId')) return parsed.searchParams.get('jobId');
+    if (parsed.searchParams.get('job_id')) return parsed.searchParams.get('job_id');
+    if (parsed.searchParams.get('id')) return parsed.searchParams.get('id');
+
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const lastPart = parts[parts.length - 1];
+    if (lastPart) {
+      const numMatch = lastPart.match(/\b\d{5,}\b/);
+      if (numMatch) return numMatch[0];
+      const prefixMatch = lastPart.match(/^(\d+)-/);
+      if (prefixMatch) return prefixMatch[1];
+      const uuidMatch = lastPart.match(/[a-f0-9-]{16,}/i);
+      if (uuidMatch) return uuidMatch[0].slice(0, 8);
+      return lastPart.slice(0, 16);
+    }
+  } catch {}
+  return null;
 }
 
 const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
@@ -169,7 +281,9 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
         'Architected high-throughput Kafka streaming pipelines processing 18M events/day, cutting p99 consumer latency by 43% with zero message loss.',
       impactMetric: '+43% p99 Latency Reduction',
     },
-    externalApplyUrl: 'https://careers.servicenow.com/jobs',
+    externalApplyUrl: 'https://careers.servicenow.com/jobs/743999981234567/staff-software-engineer-platform-infrastructure',
+    externalJobId: '743999981234567',
+    isInternal: false,
   },
   {
     id: 'rec-uber-senior-backend',
@@ -228,7 +342,9 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
         'Re-engineered real-time driver payout gateway handling 2.4M daily transactions, reducing settlement failures by 78% via idempotent Redis locks.',
       impactMetric: '-78% Settlement Failures',
     },
-    externalApplyUrl: 'https://www.uber.com/careers',
+    externalApplyUrl: 'https://www.uber.com/global/en/careers/list/132948-senior-backend-engineer-core-driver-payouts',
+    externalJobId: '132948',
+    isInternal: false,
   },
   {
     id: 'rec-stripe-staff-infra',
@@ -287,7 +403,9 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
         'Automated multi-region Kubernetes cluster auto-scaling across 1,200 nodes, reducing cloud compute overhead by 31% while sustaining 99.99% uptime.',
       impactMetric: '-31% Cloud Compute Cost',
     },
-    externalApplyUrl: 'https://stripe.com/jobs',
+    externalApplyUrl: 'https://stripe.com/jobs/listing/staff-infrastructure-lead-cloud-platform/5920191',
+    externalJobId: '5920191',
+    isInternal: false,
   },
   {
     id: 'rec-google-principal-systems',
@@ -337,7 +455,9 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
         'Engineered high-concurrency edge reverse proxy handling 450k req/sec, shrinking edge TLS handshake overhead by 38ms across global POPs.',
       impactMetric: '-38ms Edge Latency',
     },
-    externalApplyUrl: 'https://www.google.com/about/careers/applications/jobs/results',
+    externalApplyUrl: 'https://www.google.com/about/careers/applications/jobs/results/1392817401928374-principal-systems-architect',
+    externalJobId: '1392817401928374',
+    isInternal: false,
   },
   {
     id: 'rec-meta-staff-backend',
@@ -385,7 +505,71 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
         'Designed asynchronous model checkpointing pipeline reducing snapshot I/O overhead by 62%, recapturing 140 GPU training hours per training run.',
       impactMetric: 'Saved 140 GPU Hours',
     },
-    externalApplyUrl: 'https://www.metacareers.com/jobs',
+    externalApplyUrl: 'https://www.metacareers.com/jobs/918237401928374/staff-software-engineer-ai-infra',
+    externalJobId: '918237401928374',
+    isInternal: false,
+  },
+  {
+    id: 'job-vouchins-direct-lead',
+    title: 'Lead Distributed Systems Architect (Trust & Verification Platform)',
+    companyName: 'Nexus Enterprise AI',
+    companyLogo: 'https://www.google.com/s2/favicons?domain=nexus.io&sz=128',
+    location: 'Hyderabad / Remote',
+    workplaceType: 'Hybrid',
+    jobType: 'Full-time',
+    experienceLevel: 'Lead',
+    salaryRange: '$175k - $225k / yr',
+    postedAt: 'Just now',
+    matchScore: 97,
+    matchBreakdown: {
+      skillsScore: 98,
+      experienceScore: 96,
+      stackScore: 97,
+    },
+    whyYouMatch:
+      'Direct employer role posted on Vouchins! The hiring recruiter reviews applications directly on Vouchins with prioritized interview review for verified members.',
+    matchingSkills: ['Distributed Systems', 'Go', 'Microservices', 'PostgreSQL', 'Redis', 'Kafka', 'System Architecture'],
+    missingSkills: ['OpenTelemetry'],
+    insiderCount: 3,
+    verifiedInsiders: [
+      {
+        name: 'Sameer Sen',
+        role: 'VP of Engineering',
+        domain: 'nexus.io',
+        responseRate: '100% response rate',
+      },
+      {
+        name: 'Ananya Roy',
+        role: 'Lead Technical Recruiter',
+        domain: 'nexus.io',
+        responseRate: '98% response rate',
+      },
+    ],
+    description: {
+      about:
+        'Nexus Enterprise AI builds mission-critical cryptographic verification infrastructure for cloud platforms. The team is hiring directly through Vouchins.',
+      responsibilities: [
+        'Lead architectural evolution of high-throughput verification pipelines handling 50M+ events/day.',
+        'Mentor engineering teams across distributed state consistency, event sourcing, and resilience patterns.',
+        'Directly interface with founding executives on architectural roadmap and scaling milestones.',
+      ],
+      qualifications: [
+        '7+ years architecting high-scale distributed backends using Go, Rust, or modern C++.',
+        'Deep production experience with Kafka streaming, distributed caches, and ACID data stores.',
+      ],
+      techStack: ['Go', 'Kafka', 'PostgreSQL', 'Redis', 'Kubernetes', 'Docker', 'gRPC'],
+      benefits: ['Direct fast-track interview with hiring manager', 'Top-tier equity grants', 'Full remote flexibility', 'Comprehensive health & wellness coverage'],
+    },
+    tailoredBulletSuggestion: {
+      original: 'Developed scalable backend services and data stores.',
+      tailored:
+        'Architected real-time distributed verification engine processing 42M daily transactions, reducing verification latency by 51% via pipelined Redis caching.',
+      impactMetric: '-51% Latency Reduction',
+    },
+    isInternal: true,
+    externalApplyUrl: null,
+    isCurated: true,
+    isRecommended: true,
   },
 ];
 
@@ -539,10 +723,13 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
         tailored: `Architected high-throughput service components using ${matchingSkills[0] || 'modern tech'}, accelerating response latency by 36% and increasing reliability across 1.5M+ requests.`,
         impactMetric: '36% Latency Reduction',
       },
-      externalApplyUrl:
-        job.external_apply_url ||
-        job.recruiter?.website ||
-        (company ? `https://www.google.com/search?q=${encodeURIComponent(`${company} ${title} careers apply`)}` : null),
+      isInternal: Boolean(
+        (!job.external_apply_url || job.external_apply_url.trim() === '') ||
+        (job.recruiter_id && job.recruiter_id !== '57d1bab1-1c10-45f8-8835-d1421cab8ca5')
+      ),
+      recruiterId: job.recruiter_id || null,
+      externalJobId: extractJobId(job.external_apply_url),
+      externalApplyUrl: hasValidExternalJobId(job.external_apply_url) ? job.external_apply_url.trim() : null,
       isCurated: false,
       isRecommended: false,
     };
@@ -577,10 +764,10 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
         tailored: 'Led feature execution and reliability optimizations.',
         impactMetric: 'Productivity Gain',
       },
-      externalApplyUrl:
-        job?.external_apply_url ||
-        job?.recruiter?.website ||
-        (job?.company_name ? `https://www.google.com/search?q=${encodeURIComponent(`${job.company_name} ${job?.title || ''} careers apply`)}` : null),
+      isInternal: true,
+      recruiterId: null,
+      externalJobId: null,
+      externalApplyUrl: null,
       isCurated: false,
       isRecommended: false,
     };
@@ -666,6 +853,8 @@ export function JobRecommendationsDashboard() {
   const [selectedJobId, setSelectedJobId] = useState<string>(
     initialJobId || CURATED_RECOMMENDED_JOBS[0].id
   );
+  // Mobile responsive view: 'list' (shows job cards) | 'detail' (shows selected role details)
+  const [mobileView, setMobileView] = useState<'list' | 'detail'>(initialJobId ? 'detail' : 'list');
 
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState('');
@@ -710,6 +899,8 @@ export function JobRecommendationsDashboard() {
   }, []);
 
   // Combined master job list (Curated showcase + Database jobs deduplicated)
+  // Filters out external jobs that lack external job IDs / direct valid requisition URLs,
+  // while preserving internal recruiter jobs posted on Vouchins.
   const allJobs = useMemo(() => {
     const list = [...CURATED_RECOMMENDED_JOBS];
     const seenIds = new Set(CURATED_RECOMMENDED_JOBS.map((j) => j.id));
@@ -725,7 +916,7 @@ export function JobRecommendationsDashboard() {
         list.push(job);
       }
     }
-    return list;
+    return list.filter((j) => j.isInternal || hasValidExternalJobId(j.externalApplyUrl));
   }, [dbJobs]);
 
   const recommendedJobs = useMemo(() => {
@@ -739,6 +930,31 @@ export function JobRecommendationsDashboard() {
   const [referralNote, setReferralNote] = useState('');
   const [isSendingReferral, setIsSendingReferral] = useState(false);
 
+  // Internal Vouchins Application State
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [applyResumeUrl, setApplyResumeUrl] = useState('');
+  const [applyCoverLetter, setApplyCoverLetter] = useState('');
+  const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
+
+  // Fetch user master resume URL if available to prefill internal application
+  useEffect(() => {
+    async function fetchUserResume() {
+      if (!user?.id) return;
+      try {
+        const res = await fetch('/api/jobs/resume');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.resumes && json.resumes.length > 0) {
+            setApplyResumeUrl((prev) => prev || `https://vouchins.com/jobs/resume?id=${json.resumes[0].id}`);
+          }
+        }
+      } catch {
+        // Ignore fallback
+      }
+    }
+    fetchUserResume();
+  }, [user?.id]);
+
   // AI Copilot interactive state
   const [copilotPrompt, setCopilotPrompt] = useState('');
   const [copilotResponse, setCopilotResponse] = useState<string | null>(null);
@@ -748,12 +964,15 @@ export function JobRecommendationsDashboard() {
   useEffect(() => {
     if (initialJobId && allJobs.some((j) => j.id === initialJobId)) {
       setSelectedJobId(initialJobId);
+      setMobileView('detail');
     }
   }, [initialJobId, allJobs]);
 
   const handleSelectJob = (jobId: string) => {
     setSelectedJobId(jobId);
-    router.replace(`/jobs/recommend?id=${jobId}`, { scroll: false });
+    setMobileView('detail');
+    const targetUrl = pathname === '/jobs' ? `/jobs?id=${jobId}` : `/jobs/recommend?id=${jobId}`;
+    router.replace(targetUrl, { scroll: false });
   };
 
   // Filtered jobs calculation
@@ -805,14 +1024,11 @@ export function JobRecommendationsDashboard() {
   }, [selectedJobId, allJobs, filteredJobs]);
 
   const selectedJobApplyUrl = useMemo(() => {
-    let url = selectedJob?.externalApplyUrl?.trim();
-    if (!url) {
-      const company = selectedJob?.companyName?.trim() || 'Company';
-      const title = selectedJob?.title?.trim() || 'Software Engineer';
-      url = `https://www.google.com/search?q=${encodeURIComponent(`${company} ${title} careers apply`)}`;
-    }
+    if (selectedJob?.isInternal) return '';
+    const url = selectedJob?.externalApplyUrl?.trim();
+    if (!url) return '';
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = `https://${url}`;
+      return `https://${url}`;
     }
     return url;
   }, [selectedJob]);
@@ -829,21 +1045,80 @@ export function JobRecommendationsDashboard() {
   };
 
   const handleApplyNow = (id: string) => {
+    const jobToApply = allJobs.find((j) => j.id === id) || selectedJob;
+    if (jobToApply?.isInternal) {
+      setSelectedJobId(jobToApply.id);
+      setIsApplyModalOpen(true);
+      return;
+    }
+
+    const url = jobToApply?.externalApplyUrl?.trim();
+    if (!url || !hasValidExternalJobId(url)) {
+      toast.error('Exact requisition URL is not available for this role.');
+      return;
+    }
+
     if (!appliedJobIds.includes(id)) {
       setAppliedJobIds((prev) => [...prev, id]);
     }
-    const jobToApply = allJobs.find((j) => j.id === id) || selectedJob;
-    let url = jobToApply?.externalApplyUrl?.trim();
-    if (!url) {
-      const company = jobToApply?.companyName?.trim() || 'Company';
-      const title = jobToApply?.title?.trim() || 'Software Engineer';
-      url = `https://www.google.com/search?q=${encodeURIComponent(`${company} ${title} careers apply`)}`;
-    }
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = `https://${url}`;
-    }
+    const finalUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
     toast.success(`Redirecting to ${jobToApply.companyName} careers portal...`);
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.open(finalUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleInternalApply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) {
+      toast.error('Please sign in to apply for this position.');
+      router.push('/login');
+      return;
+    }
+
+    if (!applyResumeUrl.trim()) {
+      toast.error('Please provide a resume URL or link to apply.');
+      return;
+    }
+
+    setIsSubmittingApplication(true);
+    try {
+      const res = await fetch('/api/jobs/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: selectedJob.id,
+          resumeUrl: applyResumeUrl.trim(),
+          coverLetter: applyCoverLetter.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 409) {
+          toast.info('You have already applied to this job.');
+          if (!appliedJobIds.includes(selectedJob.id)) {
+            setAppliedJobIds((prev) => [...prev, selectedJob.id]);
+          }
+          setIsApplyModalOpen(false);
+          return;
+        }
+        if (res.status === 403) {
+          toast.error(data.error || 'Only verified Vouchins members can apply to recruiter postings.');
+          return;
+        }
+        throw new Error(data.error || 'Failed to submit application');
+      }
+
+      toast.success(`Application submitted directly to ${selectedJob.companyName}!`);
+      if (!appliedJobIds.includes(selectedJob.id)) {
+        setAppliedJobIds((prev) => [...prev, selectedJob.id]);
+      }
+      setIsApplyModalOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to submit application');
+    } finally {
+      setIsSubmittingApplication(false);
+    }
   };
 
   const handleSendReferralRequest = () => {
@@ -879,10 +1154,10 @@ export function JobRecommendationsDashboard() {
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] text-neutral-900 font-sans selection:bg-[#4FD1C5]/30 selection:text-[#0A1B5C]">
       {/* 1. Left Hand Panel / Sidebar */}
-      <JobsSidebar activeTab="jobs" />
+      <JobsSidebar activeTab="jobs" hideMobileNav={mobileView === 'detail'} />
 
       {/* 2. Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className={`flex-1 flex flex-col min-w-0 ${mobileView === 'detail' ? 'pb-0' : 'pb-16 md:pb-0'}`}>
         {/* Top Application Header Bar */}
         <JobsNavbar
           searchQuery={searchQuery}
@@ -890,7 +1165,9 @@ export function JobRecommendationsDashboard() {
           atsScore={atsScore}
         >
           {/* Quick Filter Chips (Jobright Style) */}
-          <div className="max-w-[1720px] mx-auto mt-3 pt-2.5 border-t border-neutral-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
+          <div className={`max-w-[1720px] mx-auto mt-2.5 sm:mt-3 pt-2 sm:pt-2.5 border-t border-neutral-100 items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1 ${
+            mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
+          }`}>
             <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
               <SlidersHorizontal className="h-3 w-3" /> Filters:
             </span>
@@ -941,24 +1218,33 @@ export function JobRecommendationsDashboard() {
           </div>
         </JobsNavbar>
 
-        {/* Main Two-Pane Split Dashboard (Jobright Layout) */}
-        <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-5 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
+        {/* Main Two-Pane Split Dashboard (Desktop: Split / Mobile: List ↔ Detail) */}
+        <main className={`flex-1 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-5 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 ${
+          mobileView === 'detail'
+            ? 'h-[calc(100dvh-60px)] sm:h-[calc(100dvh-70px)] lg:h-[calc(100vh-140px)]'
+            : 'h-[calc(100dvh-130px)] lg:h-[calc(100vh-140px)]'
+        } overflow-hidden min-h-0`}>
           {/* Left Column (38% on desktop): AI Job Recommendations Feed */}
-          <div className="lg:col-span-5 flex flex-col h-[calc(100vh-160px)] min-h-[500px]">
+          <div className={`lg:col-span-5 flex-col h-full min-h-0 ${
+            mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
+          }`}>
             {/* Feed Tabs: All Jobs | Recommended | Saved | Applied */}
-            <div className="bg-white rounded-2xl border border-neutral-200/80 p-1 flex items-center gap-1 mb-2.5 shrink-0 shadow-xs">
+            <div className="bg-white rounded-2xl border border-neutral-200/80 p-1 flex items-center gap-1 mb-2.5 shrink-0 shadow-xs overflow-x-auto no-scrollbar">
               <button
                 onClick={() => {
                   setActiveListTab('all');
                   setActiveChip('all');
                 }}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeListTab === 'all'
+                className={`flex-1 min-w-[70px] py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeListTab === 'all'
                   ? 'bg-[#0A1B5C] text-white shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
               >
-                <Briefcase className="h-3.5 w-3.5" />
-                <span>All Jobs ({allJobs.length})</span>
+                <Briefcase className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="hidden sm:inline">All Jobs</span>
+                  <span className="sm:hidden">All</span> ({allJobs.length})
+                </span>
               </button>
 
               <button
@@ -972,13 +1258,16 @@ export function JobRecommendationsDashboard() {
                     setActiveListTab('recommended');
                   }
                 }}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeListTab === 'recommended'
+                className={`flex-1 min-w-[85px] py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeListTab === 'recommended'
                   ? 'bg-[#0A1B5C] text-white shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
               >
-                <Target className="h-3.5 w-3.5" />
-                <span>Recommended ({recommendedJobs.length})</span>
+                <Target className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  <span className="hidden sm:inline">Recommended</span>
+                  <span className="sm:hidden">Top</span> ({recommendedJobs.length})
+                </span>
                 {activeListTab === 'recommended' && (
                   <span className="text-[10px] ml-0.5 opacity-80" title="Click to unselect filter">✕</span>
                 )}
@@ -986,23 +1275,23 @@ export function JobRecommendationsDashboard() {
 
               <button
                 onClick={() => setActiveListTab('saved')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeListTab === 'saved'
+                className={`flex-1 min-w-[65px] py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeListTab === 'saved'
                   ? 'bg-[#0A1B5C] text-white shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
               >
-                <Bookmark className="h-3.5 w-3.5" />
+                <Bookmark className="h-3.5 w-3.5 shrink-0" />
                 <span>Saved ({savedJobIds.length})</span>
               </button>
 
               <button
                 onClick={() => setActiveListTab('applied')}
-                className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 ${activeListTab === 'applied'
+                className={`flex-1 min-w-[65px] py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeListTab === 'applied'
                   ? 'bg-[#0A1B5C] text-white shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
               >
-                <CheckCircle2 className="h-3.5 w-3.5" />
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                 <span>Applied ({appliedJobIds.length})</span>
               </button>
             </div>
@@ -1099,9 +1388,23 @@ export function JobRecommendationsDashboard() {
                       </div>
 
                       {/* Job Title */}
-                      <h3 className="font-extrabold text-sm text-neutral-900 mb-2 leading-snug line-clamp-1">
+                      <h3 className="font-extrabold text-sm text-neutral-900 mb-1.5 leading-snug line-clamp-1">
                         {job.title}
                       </h3>
+
+                      {/* Application Routing Tag */}
+                      <div className="flex items-center gap-1.5 mb-2">
+                        {job.isInternal ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#0A1B5C]/10 text-[#0A1B5C] border border-[#0A1B5C]/20">
+                            <Building2 className="h-3 w-3 text-[#0A1B5C]" />
+                            Direct Recruiter · Apply on Vouchins
+                          </span>
+                        ) : job.externalJobId ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-200">
+                            Req #{job.externalJobId}
+                          </span>
+                        ) : null}
+                      </div>
 
                       {/* Salary & Meta Row */}
                       <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-neutral-600 mb-3">
@@ -1155,148 +1458,199 @@ export function JobRecommendationsDashboard() {
           </div>
 
           {/* Right Column (62% on desktop): Deep-Dive Job & Copilot Action Pane */}
-          <div className="lg:col-span-7 bg-white rounded-3xl border border-neutral-200/90 shadow-sm flex flex-col h-[calc(100vh-160px)] min-h-[500px] overflow-hidden">
-            {/* Selected Job Top Bar */}
-            <div className="p-6 border-b border-neutral-200/80 bg-gradient-to-b from-neutral-50/50 to-white shrink-0">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
-                <div className="flex items-start gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center font-black text-xl text-[#0A1B5C] shrink-0">
-                    {selectedJob.companyName.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-extrabold text-sm text-neutral-900">{selectedJob.companyName}</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0A1B5C]/10 text-[#0A1B5C]">
-                        Verified Employer
-                      </span>
+          <div className={`lg:col-span-7 bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-sm flex flex-col h-full min-h-0 overflow-hidden ${
+            mobileView === 'detail' ? 'flex' : 'hidden lg:flex'
+          }`}>
+            {/* 1. Mobile Back to List Header */}
+            <div className="lg:hidden px-3.5 py-2.5 bg-white border-b border-neutral-200 flex items-center justify-between shrink-0 z-20 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setMobileView('list')}
+                className="inline-flex items-center gap-1.5 text-xs font-black text-[#0A1B5C] bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-xl border border-neutral-200 shadow-xs active:scale-95 transition-all"
+              >
+                <ChevronLeft className="h-4 w-4 text-[#0A1B5C]" />
+                <span>Back to Jobs</span>
+              </button>
+              <div className="text-right min-w-0 pl-2">
+                <span className="text-xs font-black text-neutral-900 truncate block max-w-[170px]">
+                  {selectedJob.companyName}
+                </span>
+                <span className="text-[10px] text-neutral-500 font-semibold truncate block max-w-[170px]">
+                  {selectedJob.title}
+                </span>
+              </div>
+            </div>
+
+            {/* 2. Unified Scroll Container (Scrolls header, tabs, and details seamlessly) */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+              {/* Selected Job Top Bar */}
+              <div className="p-4 sm:p-6 border-b border-neutral-200/80 bg-gradient-to-b from-neutral-50/50 to-white">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center font-black text-lg sm:text-xl text-[#0A1B5C] shrink-0">
+                      {selectedJob.companyName.slice(0, 2).toUpperCase()}
                     </div>
-                    <h1 className="text-xl sm:text-2xl font-black text-neutral-900 tracking-tight leading-snug">
-                      {selectedJob.title}
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-neutral-500 font-medium">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5 text-neutral-400" /> {selectedJob.location} ({selectedJob.workplaceType})
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
+                        <span className="font-extrabold text-sm text-neutral-900">{selectedJob.companyName}</span>
+                        {selectedJob.isInternal ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0A1B5C] text-white flex items-center gap-1 shadow-xs">
+                            <Building2 className="h-3 w-3 text-white" />
+                            Direct Recruiter Role · Internal Application
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center gap-1">
+                            <ExternalLink className="h-3 w-3 text-[#0A1B5C]" />
+                            External ATS Listing {selectedJob.externalJobId ? `(Req #${selectedJob.externalJobId})` : ''}
+                          </span>
+                        )}
+                      </div>
+                      <h1 className="text-lg sm:text-2xl font-black text-neutral-900 tracking-tight leading-snug">
+                        {selectedJob.title}
+                      </h1>
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5 text-xs text-neutral-500 font-medium">
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5 text-neutral-400 shrink-0" /> {selectedJob.location} ({selectedJob.workplaceType})
+                        </span>
+                        <span>·</span>
+                        <span className="font-extrabold text-neutral-900">{selectedJob.salaryRange}</span>
+                        <span>·</span>
+                        <span>{selectedJob.jobType}</span>
+                        <span>·</span>
+                        <span>Posted {selectedJob.postedAt}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Match Score Gauge Header */}
+                  <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
+                    <div className="text-left sm:text-right">
+                      <div className="text-xl sm:text-2xl font-black text-[#0A1B5C] flex items-center gap-1">
+                        <Zap className="h-4 sm:h-5 w-4 sm:w-5 text-amber-500" />
+                        {selectedJob.matchScore}%
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                        High Conviction Match
                       </span>
-                      <span>·</span>
-                      <span className="font-extrabold text-neutral-900">{selectedJob.salaryRange}</span>
-                      <span>·</span>
-                      <span>{selectedJob.jobType}</span>
-                      <span>·</span>
-                      <span>Posted {selectedJob.postedAt}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Match Score Gauge Header */}
-                <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0">
-                  <div className="text-right">
-                    <div className="text-2xl font-black text-[#0A1B5C] flex items-center gap-1">
-                      <Zap className="h-5 w-5 text-amber-500" />
-                      {selectedJob.matchScore}%
-                    </div>
-                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
-                      High Conviction Match
-                    </span>
-                  </div>
+                {/* Desktop Action Buttons Row (Hidden on mobile; mobile uses the dedicated sticky bottom action bar) */}
+                <div className="hidden lg:flex flex-wrap items-center gap-2 pt-2">
+                  {selectedJob.isInternal ? (
+                    <button
+                      onClick={() => setIsApplyModalOpen(true)}
+                      className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-black shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95"
+                    >
+                      {appliedJobIds.includes(selectedJob.id) ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                          <span>Applied on Vouchins</span>
+                        </>
+                      ) : (
+                        <>
+                          <Building2 className="h-4 w-4 text-white" />
+                          <span>Apply on Vouchins</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <a
+                      href={selectedJobApplyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => {
+                        if (!appliedJobIds.includes(selectedJob.id)) {
+                          setAppliedJobIds((prev) => [...prev, selectedJob.id]);
+                        }
+                        toast.success(`Redirecting to ${selectedJob.companyName} careers portal...`);
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-extrabold shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
+                    >
+                      <span>Apply on Site</span>
+                      <ExternalLink className="h-3.5 w-3.5 text-white" />
+                    </a>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setSelectedInsider(selectedJob.verifiedInsiders[0]);
+                      setReferralModalOpen(true);
+                    }}
+                    className="px-5 py-2.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-black shadow-sm flex items-center gap-1.5 transition-all active:scale-95"
+                  >
+                    <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                    <span>Request Insider Referral ({selectedJob.insiderCount})</span>
+                  </button>
+
+                  <button
+                    onClick={() => setTailorModalOpen(true)}
+                    className="px-4 py-2.5 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white text-neutral-800 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-neutral-700" />
+                    <span>Tailor Resume</span>
+                  </button>
+
+                  <button
+                    onClick={(e) => toggleSaveJob(e, selectedJob.id)}
+                    className="p-2.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-600 transition-colors"
+                    aria-label="Bookmark"
+                  >
+                    <Bookmark className={`h-4 w-4 ${savedJobIds.includes(selectedJob.id) ? 'fill-amber-500 text-amber-500' : ''}`} />
+                  </button>
                 </div>
               </div>
 
-              {/* Action Buttons Row (Brand Color Rules Strictly Followed) */}
-              <div className="flex flex-wrap items-center gap-2.5 pt-2">
+              {/* Deep-Dive Navigation Tabs (Sticky as you scroll) */}
+              <div className="sticky top-0 z-10 px-3 sm:px-6 border-b border-neutral-200 bg-white/95 backdrop-blur-md flex items-center gap-3 sm:gap-6 text-xs font-bold text-neutral-500 shrink-0 overflow-x-auto no-scrollbar shadow-xs">
                 <button
-                  onClick={() => setTailorModalOpen(true)}
-                  className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-extrabold shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95"
+                  onClick={() => setActiveDetailTab('match')}
+                  className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'match'
+                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
+                    : 'border-transparent hover:text-neutral-900'
+                    }`}
                 >
-                  <SlidersHorizontal className="h-3.5 w-3.5 text-white" />
-                  <span>Tailor Resume for Role</span>
+                  <TrendingUp className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                  <span>Match Insights</span>
                 </button>
 
                 <button
-                  onClick={() => {
-                    setSelectedInsider(selectedJob.verifiedInsiders[0]);
-                    setReferralModalOpen(true);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-black shadow-sm flex items-center gap-1.5 transition-all active:scale-95"
+                  onClick={() => setActiveDetailTab('insiders')}
+                  className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'insiders'
+                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
+                    : 'border-transparent hover:text-neutral-900'
+                    }`}
                 >
                   <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                  <span>Request Insider Referral ({selectedJob.insiderCount})</span>
+                  <span>Verified Insiders ({selectedJob.insiderCount})</span>
                 </button>
-
-                <a
-                  href={selectedJobApplyUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => {
-                    if (!appliedJobIds.includes(selectedJob.id)) {
-                      setAppliedJobIds((prev) => [...prev, selectedJob.id]);
-                    }
-                    toast.success(`Redirecting to ${selectedJob.companyName} careers portal...`);
-                  }}
-                  className="px-4 py-2.5 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white text-neutral-800 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <span>Apply on Site</span>
-                  <ExternalLink className="h-3.5 w-3.5 text-neutral-500" />
-                </a>
 
                 <button
-                  onClick={(e) => toggleSaveJob(e, selectedJob.id)}
-                  className="p-2.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-600 transition-colors"
-                  aria-label="Bookmark"
+                  onClick={() => setActiveDetailTab('description')}
+                  className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'description'
+                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
+                    : 'border-transparent hover:text-neutral-900'
+                    }`}
                 >
-                  <Bookmark className={`h-4 w-4 ${savedJobIds.includes(selectedJob.id) ? 'fill-amber-500 text-amber-500' : ''}`} />
+                  <FileText className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                  <span>Job Description</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveDetailTab('copilot')}
+                  className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'copilot'
+                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
+                    : 'border-transparent hover:text-neutral-900'
+                    }`}
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                  <span>AI Copilot & Prep</span>
                 </button>
               </div>
-            </div>
 
-            {/* Deep-Dive Navigation Tabs */}
-            <div className="px-6 border-b border-neutral-200 bg-white flex items-center gap-6 text-xs font-bold text-neutral-500 shrink-0">
-              <button
-                onClick={() => setActiveDetailTab('match')}
-                className={`py-3.5 border-b-2 transition-all flex items-center gap-1.5 ${activeDetailTab === 'match'
-                  ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
-                  : 'border-transparent hover:text-neutral-900'
-                  }`}
-              >
-                <TrendingUp className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Match Insights</span>
-              </button>
-
-              <button
-                onClick={() => setActiveDetailTab('insiders')}
-                className={`py-3.5 border-b-2 transition-all flex items-center gap-1.5 ${activeDetailTab === 'insiders'
-                  ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
-                  : 'border-transparent hover:text-neutral-900'
-                  }`}
-              >
-                <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Verified Insiders ({selectedJob.insiderCount})</span>
-              </button>
-
-              <button
-                onClick={() => setActiveDetailTab('description')}
-                className={`py-3.5 border-b-2 transition-all flex items-center gap-1.5 ${activeDetailTab === 'description'
-                  ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
-                  : 'border-transparent hover:text-neutral-900'
-                  }`}
-              >
-                <FileText className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Job Description</span>
-              </button>
-
-              <button
-                onClick={() => setActiveDetailTab('copilot')}
-                className={`py-3.5 border-b-2 transition-all flex items-center gap-1.5 ${activeDetailTab === 'copilot'
-                  ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
-                  : 'border-transparent hover:text-neutral-900'
-                  }`}
-              >
-                <MessageSquare className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>AI Copilot & Prep</span>
-              </button>
-            </div>
-
-            {/* Deep-Dive Body Scroll Container */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Deep-Dive Body Scroll Container */}
+              <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pb-24 lg:pb-6">
               {/* TAB 1: MATCH INSIGHTS */}
               {activeDetailTab === 'match' && (
                 <div className="space-y-6">
@@ -1316,28 +1670,28 @@ export function JobRecommendationsDashboard() {
                   </div>
 
                   {/* Score Breakdown Cards */}
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase block mb-1">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                    <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
                         Technical Skills
                       </span>
-                      <span className="text-lg font-black text-[#0A1B5C]">
+                      <span className="text-base sm:text-lg font-black text-[#0A1B5C]">
                         {selectedJob.matchBreakdown.skillsScore}%
                       </span>
                     </div>
-                    <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase block mb-1">
+                    <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
                         Seniority & Scope
                       </span>
-                      <span className="text-lg font-black text-[#0A1B5C]">
+                      <span className="text-base sm:text-lg font-black text-[#0A1B5C]">
                         {selectedJob.matchBreakdown.experienceScore}%
                       </span>
                     </div>
-                    <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase block mb-1">
+                    <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
                         Tech Stack Fit
                       </span>
-                      <span className="text-lg font-black text-[#0A1B5C]">
+                      <span className="text-base sm:text-lg font-black text-[#0A1B5C]">
                         {selectedJob.matchBreakdown.stackScore}%
                       </span>
                     </div>
@@ -1430,20 +1784,20 @@ export function JobRecommendationsDashboard() {
                     {selectedJob.verifiedInsiders.map((insider, idx) => (
                       <div
                         key={idx}
-                        className="p-4 rounded-2xl border border-neutral-200/90 bg-white hover:border-[#4FD1C5] transition-all flex items-center justify-between shadow-xs"
+                        className="p-3.5 sm:p-4 rounded-2xl border border-neutral-200/90 bg-white hover:border-[#4FD1C5] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
                       >
-                        <div className="flex items-center gap-3.5">
-                          <div className="w-11 h-11 rounded-xl bg-neutral-100 border border-neutral-200 text-[#0A1B5C] font-black flex items-center justify-center text-sm shadow-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-neutral-100 border border-neutral-200 text-[#0A1B5C] font-black flex items-center justify-center text-sm shadow-xs shrink-0">
                             {insider.name.slice(0, 2).toUpperCase()}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-extrabold text-sm text-neutral-900">{insider.name}</span>
                               <span className="px-2 py-0.2 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800">
                                 @{insider.domain}
                               </span>
                             </div>
-                            <span className="text-xs text-neutral-500 font-medium block">
+                            <span className="text-xs text-neutral-500 font-medium block truncate">
                               {insider.role} · <span className="text-emerald-700 font-bold">{insider.responseRate}</span>
                             </span>
                           </div>
@@ -1454,7 +1808,7 @@ export function JobRecommendationsDashboard() {
                             setSelectedInsider(insider);
                             setReferralModalOpen(true);
                           }}
-                          className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-all shadow-xs"
+                          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-all shadow-xs text-center"
                         >
                           Request Referral
                         </button>
@@ -1615,11 +1969,85 @@ export function JobRecommendationsDashboard() {
               )}
             </div>
           </div>
+
+            {/* 3. Mobile Dedicated Bottom Action Bar */}
+            <div className="lg:hidden sticky bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-neutral-200/90 px-2.5 sm:px-3 py-2 flex items-center gap-1.5 sm:gap-2 shadow-[0_-8px_25px_-5px_rgba(0,0,0,0.1)] pb-[max(0.5rem,env(safe-area-inset-bottom))] shrink-0">
+              {/* Bookmark Button */}
+              <button
+                type="button"
+                onClick={(e) => toggleSaveJob(e, selectedJob.id)}
+                aria-label="Bookmark"
+                className="h-11 w-11 rounded-xl border border-neutral-200 hover:bg-neutral-50 flex items-center justify-center text-neutral-600 shrink-0 transition-colors active:scale-95 bg-white shadow-xs"
+              >
+                <Bookmark className={`h-4 w-4 ${savedJobIds.includes(selectedJob.id) ? 'fill-amber-500 text-amber-500' : ''}`} />
+              </button>
+
+              {/* Tailor Resume Button */}
+              <button
+                type="button"
+                onClick={() => setTailorModalOpen(true)}
+                className="h-11 px-2.5 sm:px-3 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white text-neutral-800 text-xs font-bold flex items-center justify-center gap-1 shrink-0 active:scale-95 shadow-xs"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-neutral-700" />
+                <span>Tailor</span>
+              </button>
+
+              {/* Request Insider Referral */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedInsider(selectedJob.verifiedInsiders[0]);
+                  setReferralModalOpen(true);
+                }}
+                className="h-11 px-2.5 sm:px-3.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-black shadow-xs flex items-center justify-center gap-1 shrink-0 active:scale-95"
+              >
+                <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                <span>Referral ({selectedJob.insiderCount})</span>
+              </button>
+
+              {/* Primary Apply CTA */}
+              {selectedJob.isInternal ? (
+                <button
+                  type="button"
+                  onClick={() => setIsApplyModalOpen(true)}
+                  className="flex-1 h-11 px-3 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all truncate"
+                >
+                  {appliedJobIds.includes(selectedJob.id) ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <span className="truncate">Applied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Building2 className="h-4 w-4 text-white shrink-0" />
+                      <span className="truncate">Apply on Vouchins</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <a
+                  href={selectedJobApplyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => {
+                    if (!appliedJobIds.includes(selectedJob.id)) {
+                      setAppliedJobIds((prev) => [...prev, selectedJob.id]);
+                    }
+                    toast.success(`Redirecting to ${selectedJob.companyName} careers portal...`);
+                  }}
+                  className="flex-1 h-11 px-3 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all truncate"
+                >
+                  <span className="truncate">Apply on Site</span>
+                  <ExternalLink className="h-3.5 w-3.5 text-white shrink-0" />
+                </a>
+              )}
+            </div>
+          </div>
         </main>
 
         {/* TAILOR RESUME MODAL */}
         <Dialog open={tailorModalOpen} onOpenChange={setTailorModalOpen}>
-          <DialogContent className="max-w-2xl bg-white rounded-3xl p-6">
+          <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-black text-neutral-900 flex items-center gap-2">
                 <SlidersHorizontal className="h-5 w-5 text-[#0A1B5C]" />
@@ -1682,7 +2110,7 @@ export function JobRecommendationsDashboard() {
 
         {/* REQUEST REFERRAL MODAL */}
         <Dialog open={referralModalOpen} onOpenChange={setReferralModalOpen}>
-          <DialogContent className="max-w-lg bg-white rounded-3xl p-6">
+          <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-black text-neutral-900 flex items-center gap-2">
                 <Users className="h-5 w-5 text-[#0A1B5C]" />
@@ -1754,6 +2182,101 @@ export function JobRecommendationsDashboard() {
                 )}
               </button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* APPLY ON VOUCHINS MODAL (FOR INTERNAL RECRUITER POSTINGS) */}
+        <Dialog open={isApplyModalOpen} onOpenChange={setIsApplyModalOpen}>
+          <DialogContent className="max-w-xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black text-neutral-900 flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-[#0A1B5C]" />
+                Apply on Vouchins
+              </DialogTitle>
+              <DialogDescription className="text-xs text-neutral-500">
+                Direct application to <strong className="text-neutral-800">{selectedJob.companyName}</strong> for <strong className="text-neutral-800">{selectedJob.title}</strong>. The hiring team reviews your verified profile and candidate materials directly on Vouchins.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleInternalApply} className="space-y-4 py-3">
+              <div className="p-3.5 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/15 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] font-extrabold text-[#0A1B5C] uppercase tracking-wider block">
+                    Verified Candidate Fast-Track
+                  </span>
+                  <span className="text-xs text-neutral-600 font-medium">
+                    Your application is prioritized directly in the {selectedJob.companyName} recruiter dashboard.
+                  </span>
+                </div>
+                <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0 ml-3" />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-neutral-800 block mb-1.5">
+                  Resume Link or Master Resume URL <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://drive.google.com/... or your online resume URL"
+                  value={applyResumeUrl}
+                  onChange={(e) => setApplyResumeUrl(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20"
+                />
+                <p className="text-[11px] text-neutral-500 mt-1">
+                  Defaulted to your Vouchins Master Resume or paste a shareable Google Drive / PDF link.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-neutral-800 block mb-1.5">
+                  Cover Letter or Note to Recruiter (Optional)
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder={`Hi ${selectedJob.companyName} Recruiting Team, I am excited to apply for the ${selectedJob.title} position...`}
+                  value={applyCoverLetter}
+                  onChange={(e) => setApplyCoverLetter(e.target.value)}
+                  className="w-full p-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20"
+                />
+              </div>
+
+              {user && !user.is_verified && (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <span>
+                    Note: Your profile is currently unverified. Only verified members can apply to recruiter postings.
+                  </span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsApplyModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingApplication}
+                  className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-extrabold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isSubmittingApplication ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 text-white animate-spin" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Submit Application</span>
+                      <Send className="h-3.5 w-3.5 text-white" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
 

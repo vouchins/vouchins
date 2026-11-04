@@ -54,20 +54,37 @@ export async function GET(
     const doc = resume?.document_schema;
     if (doc) {
       const docBullets = new Set((doc?.experience || []).flatMap((e: any) => e.bullets || []));
+      const fresh = evaluateResumeHeuristically(doc, resume.raw_text);
+
       const hasMismatchedSuggestions = finalEvaluation?.suggestions?.some(
         (s: any) =>
           s.originalText?.includes('1.5M daily active requests') ||
           s.originalText?.includes('Spearheaded frontend migration to Next.js and TypeScript, reducing page load latency by 45%') ||
-          !docBullets.has(s.originalText)
+          (!docBullets.has(s.originalText) && !docBullets.has(s.suggestedRewrite))
       );
 
-      if (hasMismatchedSuggestions) {
-        finalEvaluation = evaluateResumeHeuristically(doc, resume.raw_text);
-        supabaseAdmin
-          .from('job_evaluations')
-          .delete()
-          .eq('resume_id', id)
-          .then(() => {});
+      if (hasMismatchedSuggestions || !finalEvaluation) {
+        finalEvaluation = fresh;
+      } else {
+        if (finalEvaluation.suggestions) {
+          finalEvaluation.suggestions = finalEvaluation.suggestions.map((s: any) => {
+            const isNowInDoc = docBullets.has(s.suggestedRewrite);
+            if (isNowInDoc) {
+              return { ...s, applied: true };
+            }
+            return s;
+          });
+        }
+        // Calibrate score with current state of document so applied suggestions maintain improved score
+        finalEvaluation.overallScore = Math.max(finalEvaluation.overallScore || 0, fresh.overallScore);
+        finalEvaluation.pillarScores = {
+          impact: Math.max(finalEvaluation.pillarScores?.impact || 0, fresh.pillarScores.impact),
+          relevance: Math.max(finalEvaluation.pillarScores?.relevance || 0, fresh.pillarScores.relevance),
+          brevity: Math.max(finalEvaluation.pillarScores?.brevity || 0, fresh.pillarScores.brevity),
+        };
+        if (!finalEvaluation.strengths || finalEvaluation.strengths.length === 0) {
+          finalEvaluation.strengths = fresh.strengths;
+        }
       }
     }
 

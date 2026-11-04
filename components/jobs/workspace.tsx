@@ -108,15 +108,27 @@ export function Workspace({
         const fresh = evaluateResumeHeuristically(initialDocument);
         setEvaluation(fresh);
       } else {
+        const fresh = evaluateResumeHeuristically(initialDocument);
         const syncedSuggestions = (initialEvaluation.suggestions || []).map((s) => {
           if (docBullets.has(s.suggestedRewrite)) {
             return { ...s, applied: true };
           }
           return s;
         });
+
+        const calibratedScore = Math.max(initialEvaluation.overallScore || 0, fresh.overallScore);
+        const calibratedPillars = {
+          impact: Math.max(initialEvaluation.pillarScores?.impact || 0, fresh.pillarScores.impact),
+          relevance: Math.max(initialEvaluation.pillarScores?.relevance || 0, fresh.pillarScores.relevance),
+          brevity: Math.max(initialEvaluation.pillarScores?.brevity || 0, fresh.pillarScores.brevity),
+        };
+
         setEvaluation({
           ...initialEvaluation,
+          overallScore: calibratedScore,
+          pillarScores: calibratedPillars,
           suggestions: syncedSuggestions,
+          strengths: initialEvaluation.strengths?.length ? initialEvaluation.strengths : fresh.strengths,
         });
       }
     } else if (initialEvaluation) {
@@ -436,11 +448,23 @@ export function Workspace({
                   return;
                 }
                 const result = await onReanalyze(document);
+                const targetDoc = result?.document || document;
                 if (result?.document) {
                   setDocument(result.document);
                 }
                 if (result?.evaluation) {
-                  setEvaluation(result.evaluation);
+                  const fresh = evaluateResumeHeuristically(targetDoc);
+                  const calibratedScore = Math.max(result.evaluation.overallScore || 0, fresh.overallScore);
+                  const calibratedPillars = {
+                    impact: Math.max(result.evaluation.pillarScores?.impact || 0, fresh.pillarScores.impact),
+                    relevance: Math.max(result.evaluation.pillarScores?.relevance || 0, fresh.pillarScores.relevance),
+                    brevity: Math.max(result.evaluation.pillarScores?.brevity || 0, fresh.pillarScores.brevity),
+                  };
+                  setEvaluation({
+                    ...result.evaluation,
+                    overallScore: calibratedScore,
+                    pillarScores: calibratedPillars,
+                  });
                 }
               }}
               disabled={isReanalyzing}
@@ -614,7 +638,7 @@ export function Workspace({
                         className="h-7 px-3 text-xs font-semibold bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white rounded-lg"
                       >
                         Apply with Resume
-                        <ChevronRight className="h-3 w-3 text-[#4FD1C5]" />
+                        <ChevronRight className="h-3 w-3 text-white/80" />
                       </Button>
                     </div>
                   </div>

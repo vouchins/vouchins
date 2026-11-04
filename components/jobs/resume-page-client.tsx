@@ -451,7 +451,7 @@ export function ResumePageClient() {
           )
         );
         invalidateResumesCache();
-        toast.success('Readiness score updated with recent changes!', { id: toastId });
+        toast.success(`Readiness score updated: ${updatedEval?.overallScore ?? 85}/100!`, { id: toastId });
         return { document: updatedDoc, evaluation: updatedEval };
       } else {
         const data = await res.json();

@@ -48,11 +48,16 @@ export type JobPassNavTab = JobsNavTab;
 interface JobsSidebarProps {
   activeTab: JobsNavTab;
   hideLogo?: boolean;
+  hideMobileNav?: boolean;
 }
 
 export type JobPassSidebarProps = JobsSidebarProps;
 
-export function JobsSidebar({ activeTab, hideLogo = false }: JobsSidebarProps) {
+export function JobsSidebar({
+  activeTab,
+  hideLogo = false,
+  hideMobileNav = false,
+}: JobsSidebarProps) {
   const { user } = useUser();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState('');
@@ -158,7 +163,7 @@ export function JobsSidebar({ activeTab, hideLogo = false }: JobsSidebarProps) {
     <>
       <aside
         className={cn(
-          "w-[74px] sm:w-[80px] shrink-0 bg-white border-r border-neutral-200/80 flex flex-col items-center py-4 select-none shadow-[1px_0_0_0_rgba(0,0,0,0.03)] overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+          "hidden md:flex w-[74px] sm:w-[80px] shrink-0 bg-white border-r border-neutral-200/80 flex-col items-center py-4 select-none shadow-[1px_0_0_0_rgba(0,0,0,0.03)] overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
           hideLogo ? "sticky top-16 h-[calc(100vh-4rem)] max-h-[calc(100vh-4rem)] z-30" : "sticky top-0 h-screen max-h-screen z-30"
         )}
       >
@@ -278,6 +283,66 @@ export function JobsSidebar({ activeTab, hideLogo = false }: JobsSidebarProps) {
           </Link>
         </div>
       </aside>
+
+      {/* Mobile Bottom Navigation Bar */}
+      {!hideMobileNav && (
+        <nav
+          aria-label="Jobs mobile navigation"
+          className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-neutral-200/90 py-1 px-1.5 flex items-center justify-around shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+        >
+          {[
+            mainNavItems[0], // Overview
+            mainNavItems[1], // Jobs
+            mainNavItems[2], // Resume
+            mainNavItems[3], // Profile
+            mainNavItems[4], // Agent
+            mainNavItems[6], // Interview
+          ].map((item) => {
+            const isActive = activeTab === item.id;
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                onClick={(e) => {
+                  if (isActive) {
+                    e.preventDefault();
+                  }
+                }}
+                className={cn(
+                  "relative flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all min-w-[50px]",
+                  isActive
+                    ? "text-[#0A1B5C] font-black"
+                    : "text-neutral-500 hover:text-neutral-900"
+                )}
+              >
+                <div className="relative flex items-center justify-center">
+                  <Icon
+                    className={cn(
+                      "w-5 h-5",
+                      isActive ? "text-[#0A1B5C]" : "text-neutral-500"
+                    )}
+                  />
+                  {item.badge && (
+                    <span className="absolute -top-1 -right-2 px-1 py-0.2 bg-rose-500 text-white text-[7px] font-black rounded uppercase tracking-wider leading-none">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    "text-[10px] tracking-tight mt-0.5 leading-none",
+                    isActive ? "text-[#0A1B5C] font-extrabold" : "text-neutral-500 font-medium"
+                  )}
+                >
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       {/* Interactive Feedback Dialog */}
       <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>

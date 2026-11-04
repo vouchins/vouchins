@@ -104,15 +104,28 @@ export async function GET(request: Request) {
         if (hasLegacyPlaceholder || !evaluation) {
           // Stale evaluation from legacy placeholder document or empty: generate fresh
           evaluation = evaluateResumeHeuristically(doc, r.raw_text);
-        } else if (evaluation?.suggestions) {
-          // Sync applied status with current doc: if doc has suggestedRewrite, mark applied=true
-          evaluation.suggestions = evaluation.suggestions.map((s: any) => {
-            const isNowInDoc = docBullets.has(s.suggestedRewrite);
-            if (isNowInDoc) {
-              return { ...s, applied: true };
-            }
-            return s;
-          });
+        } else if (evaluation) {
+          const fresh = evaluateResumeHeuristically(doc, r.raw_text);
+          if (evaluation.suggestions) {
+            // Sync applied status with current doc: if doc has suggestedRewrite, mark applied=true
+            evaluation.suggestions = evaluation.suggestions.map((s: any) => {
+              const isNowInDoc = docBullets.has(s.suggestedRewrite);
+              if (isNowInDoc) {
+                return { ...s, applied: true };
+              }
+              return s;
+            });
+          }
+          // Calibrate score with current state of document so applied suggestions maintain improved score
+          evaluation.overallScore = Math.max(evaluation.overallScore || 0, fresh.overallScore);
+          evaluation.pillarScores = {
+            impact: Math.max(evaluation.pillarScores?.impact || 0, fresh.pillarScores.impact),
+            relevance: Math.max(evaluation.pillarScores?.relevance || 0, fresh.pillarScores.relevance),
+            brevity: Math.max(evaluation.pillarScores?.brevity || 0, fresh.pillarScores.brevity),
+          };
+          if (!evaluation.strengths || evaluation.strengths.length === 0) {
+            evaluation.strengths = fresh.strengths;
+          }
         }
       }
 

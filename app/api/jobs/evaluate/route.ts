@@ -121,18 +121,42 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Execute AI evaluation (AI suggestions from AI alone)
-    const { doc, evaluation, provider } = await evaluateResumeAI({
-      userId,
-      rawText: textToAnalyze,
-      existingDoc,
-    });
-
-    // 4. Persist or update resume record in Supabase
+    // 3. Retrieve previous evaluation context if re-analyzing an existing resume
     const isUuid = (id?: string | null): boolean =>
       Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
 
     let targetResumeId = isUuid(resumeId) ? resumeId : null;
+    let previousSuggestions: any[] = [];
+    let previousScore = 0;
+
+    if (targetResumeId) {
+      const { data: prevEval } = await supabaseAdmin
+        .from('job_evaluations')
+        .select('suggestions, overall_score')
+        .eq('resume_id', targetResumeId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (prevEval) {
+        if (Array.isArray(prevEval.suggestions)) {
+          previousSuggestions = prevEval.suggestions;
+        }
+        previousScore = prevEval.overall_score || 0;
+      }
+    }
+
+    // 4. Execute AI evaluation calibrated against current document state
+    const { doc, evaluation, provider } = await evaluateResumeAI({
+      userId,
+      rawText: textToAnalyze,
+      existingDoc,
+      baselineScore: previousScore,
+      previousSuggestions,
+      forceHeuristic,
+    });
+
+    // 5. Persist or update resume record in Supabase
 
     if (!targetResumeId) {
       const { data: newResume, error: resumeErr } = await supabaseAdmin
