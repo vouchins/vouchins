@@ -208,3 +208,47 @@ export function createDefaultResumeDocument(partial?: Partial<ResumeDocument>): 
     certifications: partial?.certifications || [],
   };
 }
+
+// ============================================================================
+// 5. Resume Export Configuration (ATS Customization)
+// ============================================================================
+
+export type ResumeTemplateId = 'standard' | 'compact' | 'centered' | 'structured';
+export type ResumePageSize = 'LETTER' | 'A4';
+export type ResumeFontFamily = 'Helvetica' | 'Times-Roman' | 'Arial' | 'Courier';
+export type ResumeAccentScope = 'all' | 'titles' | 'name';
+export type ResumeDateFormat = 'short' | 'full' | 'numeric' | 'year';
+export type ResumeBulletStyle = '•' | '-' | '▪' | '▸';
+
+export interface ResumeExportConfig {
+  pageSize: ResumePageSize;
+  template: ResumeTemplateId;
+  accentColor: string;
+  accentScope: ResumeAccentScope;
+  fontFamily: ResumeFontFamily;
+  fontSizes: {
+    name: number;
+    sectionHeaders: number;
+    subHeaders: number;
+    bodyText: number;
+  };
+  dateFormat: ResumeDateFormat;
+  bulletStyle: ResumeBulletStyle;
+}
+
+export const DEFAULT_EXPORT_CONFIG: ResumeExportConfig = {
+  pageSize: 'LETTER',
+  template: 'standard',
+  accentColor: '#0A1B5C',
+  accentScope: 'all',
+  fontFamily: 'Helvetica',
+  fontSizes: {
+    name: 21,
+    sectionHeaders: 12,
+    subHeaders: 11,
+    bodyText: 10,
+  },
+  dateFormat: 'short',
+  bulletStyle: '•',
+};
+

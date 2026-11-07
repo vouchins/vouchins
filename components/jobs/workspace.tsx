@@ -495,7 +495,7 @@ export function Workspace({
             {isSaving ? 'Saving...' : 'Save'}
           </Button>
 
-          <PDFDownloadButton document={document} />
+          <PDFDownloadButton document={document} resumeName={resumeName} />
 
           {/* User Profile Avatar */}
           <span className="hidden sm:inline text-neutral-200 font-light select-none ml-1">|</span>

@@ -37,6 +37,7 @@ import {
   SAMPLE_STAFF_EVALUATION,
 } from './sample-resumes';
 import { SubscriptionGate } from './subscription-gate';
+import { ExportResumeDialog } from './export-resume-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +82,7 @@ export function ResumePageClient() {
     status: 'free',
   });
   const [showSubscriptionGate, setShowSubscriptionGate] = useState(false);
+  const [exportingResume, setExportingResume] = useState<SavedResumeItem | null>(null);
 
   // Resumes list starts empty and populates from database
   const [resumes, setResumes] = useState<SavedResumeItem[]>([]);
@@ -715,7 +717,7 @@ export function ResumePageClient() {
                                   )}
 
                                   <DropdownMenuItem
-                                    onClick={() => toast.success(`Exporting ${item.name}.pdf...`)}
+                                    onClick={() => setExportingResume(item)}
                                     className="flex items-center gap-2 cursor-pointer rounded-lg text-neutral-700 hover:bg-neutral-100"
                                   >
                                     <Download className="h-3.5 w-3.5 text-neutral-500" />
@@ -807,6 +809,16 @@ export function ResumePageClient() {
         isOpen={showSubscriptionGate}
         onClose={() => setShowSubscriptionGate(false)}
       />
+
+      {/* Export Resume Dialog (Jobright Style ATS Customizer) */}
+      {exportingResume && (
+        <ExportResumeDialog
+          isOpen={Boolean(exportingResume)}
+          onClose={() => setExportingResume(null)}
+          document={exportingResume.document || SAMPLE_STAFF_RESUME}
+          resumeName={exportingResume.name}
+        />
+      )}
     </div>
   );
 }
