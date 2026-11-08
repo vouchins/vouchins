@@ -308,12 +308,12 @@ export async function fetchFreehireJobs(
       url.searchParams.set('offset', String(params.offset));
     }
 
-    // Next.js Edge ISR Cache: Caches response for 1 hour without hitting rate limits
+    // Next.js ISR bypass: Use cache: 'no-store' to prevent >2MB fetch cache errors
     const res = await fetch(url.toString(), {
       headers: {
         Accept: 'application/json',
       },
-      next: { revalidate: 3600 },
+      cache: 'no-store',
       signal: AbortSignal.timeout(6000), // 6-second timeout (well within Vercel's 10s limit)
     });
 

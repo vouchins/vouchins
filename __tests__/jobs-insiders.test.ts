@@ -214,6 +214,54 @@ describe('Jobs: Verified Insiders & Verification Gated Connection', () => {
         avatarUrl: 'https://example.com/avatar.jpg',
       });
     });
+
+    it('should fallback to curated corporate directory for DE Shaw when DB has 0 registered users', async () => {
+      mockAuthUser = { id: 'viewer-admin', email: 'admin@vouchins.com' };
+      mockUserData = {
+        id: 'viewer-admin',
+        full_name: 'Admin User',
+        email: 'admin@vouchins.com',
+        is_verified: false,
+        is_admin: true,
+      };
+      mockCompaniesData = [];
+      mockUsersData = [];
+
+      const req = new Request('http://localhost:3000/api/jobs/insiders?company=DE%20Shaw');
+      const res = await getInsiders(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.totalCount).toBe(4);
+      expect(json.insiders.length).toBe(4);
+      expect(json.insiders[0].companyName).toBe('DE Shaw');
+      expect(json.insiders[0].name).toBe('Vikram Malhotra');
+      expect(json.insiders[0].isMasked).toBe(false);
+      expect(json.insiders[0].isVerified).toBe(true);
+      expect(json.insiders[1].name).toBe('Ananya Kulkarni');
+      expect(json.insiders[2].name).toBe('Rohan Singhania');
+      expect(json.insiders[3].name).toBe('Pooja Sharma');
+    });
+
+    it('should return masked curated insiders for unverified users looking at DE Shaw', async () => {
+      mockAuthUser = null;
+      mockUserData = null;
+      mockCompaniesData = [];
+      mockUsersData = [];
+
+      const req = new Request('http://localhost:3000/api/jobs/insiders?company=DE%20Shaw');
+      const res = await getInsiders(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.totalCount).toBe(4);
+      expect(json.insiders.length).toBe(4);
+      expect(json.insiders[0].name).toBe('V**** M****');
+      expect(json.insiders[0].isMasked).toBe(true);
+      expect(json.insiders[0].avatarUrl).toBeNull();
+    });
   });
 
   describe('POST /api/jobs/referrals - Verification Gate', () => {
@@ -297,6 +345,40 @@ describe('Jobs: Verified Insiders & Verification Gated Connection', () => {
         sender_id: 'verified-candidate-1',
         receiver_id: insiderUuid,
         text: expect.stringContaining('[Internal Referral Request · Oracle]'),
+      });
+    });
+
+    it('should permit platform admin users to request referrals even if is_verified is false', async () => {
+      mockAuthUser = { id: 'admin-candidate-1', email: 'admin@vouchins.com' };
+      mockUserData = {
+        id: 'admin-candidate-1',
+        full_name: 'Admin Candidate',
+        email: 'admin@vouchins.com',
+        is_verified: false,
+        is_admin: true,
+      };
+
+      const insiderUuid = '9a496a1b-61e4-4906-ae4a-88a603a2737a';
+      const req = new Request('http://localhost:3000/api/jobs/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          insiderId: insiderUuid,
+          companyName: 'DE Shaw',
+          jobId: 'curated-deshaw-member-technical-hyd',
+          note: 'Hello, looking forward to connecting.',
+        }),
+      });
+
+      const res = await postReferral(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(mockInsertedMessage).toEqual({
+        sender_id: 'admin-candidate-1',
+        receiver_id: insiderUuid,
+        text: expect.stringContaining('[Internal Referral Request · DE Shaw]'),
       });
     });
   });

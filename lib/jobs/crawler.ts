@@ -152,8 +152,12 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
   // 1. Crawl Greenhouse Boards
   for (const target of GREENHOUSE_TARGETS) {
     try {
-      const url = `https://boards-api.greenhouse.io/v1/boards/${target.boardToken}/jobs?content=true`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' }, next: { revalidate: 0 } });
+      const url = `https://boards-api.greenhouse.io/v1/boards/${target.boardToken}/jobs`;
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      });
       if (!res.ok) continue;
 
       const data = await res.json();
@@ -196,7 +200,11 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
   for (const target of LEVER_TARGETS) {
     try {
       const url = `https://api.lever.co/v0/postings/${target.siteToken}?mode=json`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' }, next: { revalidate: 0 } });
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      });
       if (!res.ok) continue;
 
       const rawJobs: any[] = await res.json();
@@ -242,7 +250,11 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
   for (const target of ASHBY_TARGETS) {
     try {
       const url = `https://api.ashbyhq.com/posting-api/job-board/${target.siteToken}?includeCompensation=true`;
-      const res = await fetch(url, { headers: { Accept: 'application/json' }, next: { revalidate: 0 } });
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
+      });
       if (!res.ok) continue;
 
       const data = await res.json();
@@ -292,6 +304,14 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
       sources: sourceStats,
       importedJobs: [],
     };
+  }
+
+  // Strictly prune stale jobs older than 3 months (90 days)
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    await supabaseAdmin.from('jobs').delete().lt('created_at', ninetyDaysAgo);
+  } catch (pruneErr) {
+    console.warn('Crawler stale jobs pruning error:', pruneErr);
   }
 
   // 3. Deduplicate against existing jobs by external_apply_url

@@ -146,6 +146,6 @@ describe('Jobs Auth & Subdomain Guard', () => {
 
     // /jobs is NOT in publicPrefixes (so /jobs/profile and /jobs/resume require authentication)
     expect(middlewareSource).not.toContain("const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad', '/jobs']");
-    expect(middlewareSource).toContain("const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad']");
+    expect(middlewareSource).toContain("const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad', '/resume/']");
   });
 });

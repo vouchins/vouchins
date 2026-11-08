@@ -12,19 +12,21 @@ import {
   NormalizedAtsJob,
 } from "@/lib/jobs/ats-client";
 import { crawlAndSyncTechJobs } from "@/lib/jobs/crawler";
+import { CURATED_TECH_JOBS } from "@/lib/jobs/curated-tech-jobs";
+import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Builds a safe PostgREST .or() filter string with properly double-quoted location terms
- * and regional/state aliases (e.g. New Jersey -> NJ, Jersey City, Newark, Remote).
+ * and regional/state aliases (e.g. Hyderabad -> Hyd, Telangana, Cyberabad, India).
  */
 function buildPostgrestLocationFilter(locationStr: string): string {
   const locLower = locationStr.toLowerCase().trim();
-  const searchTerms = new Set<string>([locLower, "remote"]);
+  const searchTerms = new Set<string>([locLower]);
   const aliases = LOCATION_ALIASES[locLower] || [];
   for (const alias of aliases) {
-    if (alias.length >= 2) searchTerms.add(alias);
+    if (alias.length >= 2 && alias !== "remote") searchTerms.add(alias);
   }
   const conditions = Array.from(searchTerms).map(
     (term) => `location.ilike."%${term.replace(/"/g, "")}%"`
@@ -40,6 +42,7 @@ export async function GET(request: Request) {
     const jobType = searchParams.get("job_type") || "all";
     const experienceLevel = searchParams.get("experience_level") || "all";
     const locationParam = searchParams.get("location") || "";
+    const workModeParam = (searchParams.get("work_mode") || searchParams.get("workMode") || "all").toLowerCase();
     const skillsParam = searchParams.get("skills") || "";
     const companiesParam = searchParams.get("companies") || "";
     const sortParam = searchParams.get("sort") || "relevance"; // "relevance" | "date"
@@ -122,18 +125,35 @@ export async function GET(request: Request) {
       candidateSkills = ["TypeScript", "React", "Node.js", "Python", "Go", "PostgreSQL", "Kafka"];
     }
 
-    // 2. Fetch active jobs from Supabase database
+    // 2. Fetch active jobs from Supabase database with strict 90-day (3 months) pruning
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    try {
+      // Strictly delete jobs older than 3 months (90 days)
+      await supabaseAdmin.from("jobs").delete().lt("created_at", ninetyDaysAgo);
+    } catch (pruneErr) {
+      console.warn("Stale jobs pruning warning:", pruneErr);
+    }
+
     let dbQuery = supabaseAdmin
       .from("jobs")
       .select(`
         *,
         recruiter:recruiters(company_name, company_logo, website)
       `)
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .gte("created_at", ninetyDaysAgo);
 
     if (category !== "all") dbQuery = dbQuery.eq("category", category);
     if (jobType !== "all") dbQuery = dbQuery.eq("job_type", jobType);
     if (experienceLevel !== "all") dbQuery = dbQuery.eq("experience_level", experienceLevel);
+
+    if (workModeParam === "remote") {
+      dbQuery = dbQuery.or("workplace_type.eq.Remote,location.ilike.%remote%,location.ilike.%anywhere%");
+    } else if (workModeParam === "hybrid") {
+      dbQuery = dbQuery.or("workplace_type.eq.Hybrid,location.ilike.%hybrid%");
+    } else if (workModeParam === "onsite") {
+      dbQuery = dbQuery.or("workplace_type.eq.Onsite,location.not.ilike.%remote%");
+    }
 
     if (locationParam && locationParam !== "all") {
       const locationOrFilter = buildPostgrestLocationFilter(locationParam);
@@ -172,7 +192,12 @@ export async function GET(request: Request) {
     // 3. Fetch live tech jobs in parallel:
     // Source A: Direct Public ATS Boards (Greenhouse, Lever, Ashby) with Next.js ISR Cache
     // Source B: Freehire open-source client
-    const atsWorkMode = locationParam.toLowerCase().includes("remote") ? "remote" : "all";
+    const atsWorkMode =
+      workModeParam !== "all"
+        ? workModeParam
+        : locationParam.toLowerCase().includes("remote")
+        ? "remote"
+        : "all";
 
     const [liveAtsJobs, freehireJobs] = await Promise.all([
       fetchLiveAtsJobs({
@@ -257,8 +282,14 @@ export async function GET(request: Request) {
       const lower = (compName || "").toLowerCase();
       for (const key of Object.keys(companyInsiderCountMap)) {
         if (lower.includes(key) || key.includes(lower)) {
-          return companyInsiderCountMap[key];
+          if (companyInsiderCountMap[key] > 0) {
+            return companyInsiderCountMap[key];
+          }
         }
+      }
+      const curated = getCuratedInsiders(compName);
+      if (curated && curated.length > 0) {
+        return curated.length;
       }
       return 0;
     };
@@ -368,8 +399,82 @@ export async function GET(request: Request) {
       addJobIfUnique(job);
     }
 
-    // 9. Sort by Date or Relevance (Match Score & Location Alignment descending)
-    combined.sort((a, b) => {
+    // Priority 4: Curated Premier Tech Hub Catalog (Oracle, ServiceNow, Microsoft, Uber, Amazon, DE Shaw, Salesforce, Qualcomm, Stripe, Google, Meta)
+    const nowIso = new Date().toISOString();
+    for (const cj of CURATED_TECH_JOBS) {
+      const matchEvaluation = evaluateJobMatch(
+        {
+          title: cj.title,
+          description: cj.description.about,
+          requirements: cj.description.qualifications.join("\n"),
+          experienceLevel: cj.experienceLevel,
+          workplaceType: cj.workplaceType,
+          location: cj.location,
+          companyName: cj.companyName,
+        },
+        candidateSkills,
+        detectedSeniority,
+        candidateLocation
+      );
+
+      const count = getInsiderCount(cj.companyName);
+
+      addJobIfUnique({
+        id: cj.id,
+        title: cj.title,
+        company_name: cj.companyName,
+        company_logo: cj.companyLogo,
+        location: cj.location,
+        workplace_type: cj.workplaceType,
+        job_type: cj.jobType,
+        experience_level: cj.experienceLevel,
+        category: cj.category,
+        salary_range: cj.salaryRange,
+        description: cj.description.about,
+        requirements: cj.description.qualifications.join("\n"),
+        external_apply_url: cj.externalApplyUrl,
+        is_internal: cj.isInternal,
+        match_score: matchEvaluation.matchScore,
+        match_breakdown: matchEvaluation.matchBreakdown,
+        why_you_match: matchEvaluation.whyYouMatch,
+        matching_skills: matchEvaluation.matchingSkills.length > 0 ? matchEvaluation.matchingSkills : cj.matchingSkills,
+        missing_skills: matchEvaluation.missingSkills.length > 0 ? matchEvaluation.missingSkills : cj.missingSkills,
+        tailored_bullet_suggestion: matchEvaluation.tailoredBulletSuggestion,
+        insider_count: count > 0 ? count : cj.insiderCount,
+        is_recommended: matchEvaluation.isRecommended,
+        created_at: nowIso,
+      });
+    }
+
+    // 9. Prune stale jobs (> 90 days) and apply workplace mode & location matching
+    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+
+    const freshCombined = combined.filter((job) => {
+      // Strict 3-month (90-day) pruning check
+      if (job.created_at) {
+        const jobTime = new Date(job.created_at).getTime();
+        if (!isNaN(jobTime) && nowMs - jobTime > ninetyDaysMs) {
+          return false;
+        }
+      }
+
+      // Workplace mode filter check
+      if (workModeParam !== "all") {
+        const matchesWorkMode = isLocationMatch(
+          job.location || "",
+          candidateLocation || "all",
+          job.workplace_type,
+          workModeParam as any
+        );
+        if (!matchesWorkMode) return false;
+      }
+
+      return true;
+    });
+
+    // 10. Sort by Date or Relevance (Match Score & Location Alignment descending)
+    freshCombined.sort((a, b) => {
       if (sortParam === "date") {
         const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
         const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -378,8 +483,8 @@ export async function GET(request: Request) {
       }
 
       if (candidateLocation && candidateLocation.toLowerCase() !== "all") {
-        const aMatches = isLocationMatch(a.location || "", candidateLocation, a.workplace_type);
-        const bMatches = isLocationMatch(b.location || "", candidateLocation, b.workplace_type);
+        const aMatches = isLocationMatch(a.location || "", candidateLocation, a.workplace_type, workModeParam as any);
+        const bMatches = isLocationMatch(b.location || "", candidateLocation, b.workplace_type, workModeParam as any);
 
         if (aMatches && !bMatches) return -1;
         if (!aMatches && bMatches) return 1;
@@ -401,7 +506,7 @@ export async function GET(request: Request) {
       return (b.match_score || 0) - (a.match_score || 0);
     });
 
-    let finalCombined = combined;
+    let finalCombined = freshCombined;
     if (selectedCompanies.length > 0) {
       const lowerComps = selectedCompanies.map((c) => c.toLowerCase());
       finalCombined = finalCombined.filter((j) => {

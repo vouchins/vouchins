@@ -108,12 +108,13 @@ export async function middleware(request: NextRequest) {
     '/trusted-recommendations',
     '/jobs',
     '/jobs/dashboard',
+    '/jobs-dashboard',
     '/jobs/recommend',
     '/robots.txt',
     '/sitemap.xml',
     '/llms.txt',
   ]
-  const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad']
+  const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad', '/resume/']
 
   const isPublicRoute =
     isAuthRoute ||
@@ -135,6 +136,7 @@ export async function middleware(request: NextRequest) {
     '/trusted-recommendations',
     '/jobs',
     '/jobs/dashboard',
+    '/jobs-dashboard',
     '/jobs/recommend',
   ]
   const isIndexableRoute =
@@ -142,6 +144,7 @@ export async function middleware(request: NextRequest) {
     url.pathname === '/blog' ||
     url.pathname.startsWith('/blog/') ||
     url.pathname.startsWith('/posts/') ||
+    url.pathname.startsWith('/resume/') ||
     url.pathname === '/flatmates-in-hyderabad' ||
     url.pathname.startsWith('/flatmates-in-hyderabad/')
   // If user is logged in and trying to access an auth route, redirect to the appropriate dashboard or returnTo

@@ -64,6 +64,7 @@ import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
 import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch } from '@/lib/jobs/ats-client';
 import { CompanyLogo } from './company-logo';
+import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
 
 export interface RecommendedJob {
   id: string;
@@ -250,440 +251,40 @@ export function extractJobId(url?: string | null): string | null {
   return null;
 }
 
-const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
-  {
-    id: 'rec-oracle-principal-architect',
-    title: 'Principal Cloud Systems Architect',
-    companyName: 'Oracle',
-    companyLogo: 'https://www.google.com/s2/favicons?domain=oracle.com&sz=128',
-    location: 'Hyderabad / Bangalore',
-    workplaceType: 'Hybrid',
-    jobType: 'Full-time',
-    experienceLevel: 'Principal',
-    salaryRange: '$190k - $245k / yr',
-    postedAt: '1 hour ago',
-    matchScore: 98,
-    matchBreakdown: {
-      skillsScore: 98,
-      experienceScore: 97,
-      stackScore: 98,
-    },
-    whyYouMatch:
-      'Exceptional alignment with Oracle Cloud Infrastructure (OCI) distributed storage and high-throughput microservices. High density of verified Vouchins insiders ready to connect.',
-    matchingSkills: ['Distributed Systems', 'Cloud Infra', 'Java', 'Go', 'Kubernetes', 'High Concurrency'],
-    missingSkills: ['OCI SDK', 'Terraform'],
-    insiderCount: 15,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'Oracle Cloud Infrastructure (OCI) is a deep-tech next-generation cloud designed to run mission-critical enterprise workloads with unmatched performance and security.',
-      responsibilities: [
-        'Architect planetary-scale cloud services delivering low-latency distributed storage and compute.',
-        'Partner with verified engineering staff in Hyderabad and Bangalore to design resilient multi-region architectures.',
-        'Mentor principal and senior engineers across high-concurrency systems design and failure domain isolation.',
-      ],
-      qualifications: [
-        '8+ years building enterprise-grade distributed infrastructure with high availability.',
-        'Deep production mastery of distributed consensus, ACID storage, and low-latency network primitives.',
-      ],
-      techStack: ['Java', 'Go', 'Kubernetes', 'OCI', 'Microservices', 'Distributed Systems'],
-      benefits: ['Top-tier Oracle RSUs', 'Full medical and comprehensive health coverage', 'Flexible hybrid schedule'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Led backend infrastructure design and database reliability.',
-      tailored:
-        'Architected fault-tolerant distributed cloud control plane supporting 12M+ daily operations, reducing cross-region replication lag by 48%.',
-      impactMetric: '-48% Replication Lag',
-    },
-    externalApplyUrl: 'https://careers.oracle.com/jobs/results/24001928374-principal-cloud-architect',
-    externalJobId: '24001928374',
-    isInternal: false,
+const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = CURATED_TECH_JOBS.map((cj) => ({
+  id: cj.id,
+  title: cj.title,
+  companyName: cj.companyName,
+  companyLogo: cj.companyLogo,
+  location: cj.location,
+  workplaceType: cj.workplaceType,
+  jobType: cj.jobType,
+  experienceLevel: cj.experienceLevel as any,
+  salaryRange: cj.salaryRange,
+  postedAt: cj.postedAt,
+  matchScore: 95,
+  matchBreakdown: {
+    skillsScore: 96,
+    experienceScore: 94,
+    stackScore: 95,
   },
-  {
-    id: 'rec-servicenow-staff',
-    title: 'Staff Software Engineer (Platform Infrastructure)',
-    companyName: 'ServiceNow',
-    companyLogo: 'https://media.licdn.com/dms/image/v2/C560BAQG56fJ6s7t8_Q/company-logo_100_100/company-logo_100_100/0/1630652741617/servicenow_logo?e=2147483647&v=beta&t=example',
-    location: 'Hyderabad / Remote',
-    workplaceType: 'Hybrid',
-    jobType: 'Full-time',
-    experienceLevel: 'Staff',
-    salaryRange: '$180k - $230k / yr',
-    postedAt: '2 hours ago',
-    matchScore: 96,
-    matchBreakdown: {
-      skillsScore: 98,
-      experienceScore: 95,
-      stackScore: 95,
-    },
-    whyYouMatch:
-      'Your 6+ years architecting Kafka streaming clusters and low-latency Go microservices directly satisfies ServiceNow\'s platform tier requirements. Your quantified p99 latency optimization exceeds their hiring bar.',
-    matchingSkills: ['Kafka', 'Distributed Systems', 'Go', 'Microservices', 'High Concurrency', 'Redis'],
-    missingSkills: ['OpenTelemetry / Datadog', 'Kubernetes Operator SDK'],
-    insiderCount: 1,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'ServiceNow makes work work better for everyone. Our platform infrastructure teams build the planetary-scale event backbone powering thousands of Fortune 500 enterprises with five-nines availability.',
-      responsibilities: [
-        'Architect and scale real-time distributed streaming infrastructure handling 100M+ events per minute.',
-        'Design fault-tolerant failover patterns and automated shard balancing across multi-region cloud clusters.',
-        'Lead architectural bar-raising design reviews and mentor senior engineering staff on system resilience.',
-        'Partner closely with platform SRE teams to drive p99 API latencies under 40 milliseconds.',
-      ],
-      qualifications: [
-        '7+ years experience designing mission-critical distributed systems and event-driven architectures.',
-        'Deep production expertise with Apache Kafka, Go, or high-throughput Java/C++ services.',
-        'Proven track record solving complex concurrency, idempotency, and data replication bottlenecks.',
-        'B.Tech/M.S. in Computer Science or equivalent practical industry experience.',
-      ],
-      techStack: ['Go', 'Kafka', 'Kubernetes', 'Docker', 'Redis', 'AWS', 'gRPC'],
-      benefits: ['Top-of-market equity (RSUs)', 'Comprehensive medical & dental coverage', 'Annual learning stipend ($3,000)', 'Flexible remote working setup'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Maintained event streaming pipelines and fixed latency bugs.',
-      tailored:
-        'Architected high-throughput Kafka streaming pipelines processing 18M events/day, cutting p99 consumer latency by 43% with zero message loss.',
-      impactMetric: '+43% p99 Latency Reduction',
-    },
-    externalApplyUrl: 'https://careers.servicenow.com/jobs/743999981234567/staff-software-engineer-platform-infrastructure',
-    externalJobId: '743999981234567',
-    isInternal: false,
+  whyYouMatch: `Strong alignment with your technical background and ${cj.companyName}'s engineering standards.`,
+  matchingSkills: cj.matchingSkills,
+  missingSkills: cj.missingSkills,
+  insiderCount: cj.insiderCount,
+  verifiedInsiders: [],
+  description: cj.description,
+  tailoredBulletSuggestion: {
+    original: `Developed backend services and database optimizations for ${cj.companyName}.`,
+    tailored: `Architected high-throughput service components using ${cj.matchingSkills.slice(0, 2).join(' and ')}, reducing p99 latency by 38% across production environments.`,
+    impactMetric: '-38% Latency',
   },
-  {
-    id: 'rec-uber-senior-backend',
-    title: 'Senior Backend Engineer (Core Driver Payouts)',
-    companyName: 'Uber',
-    companyLogo: 'https://media.licdn.com/dms/image/v2/C4D0BAQFiYnR1Mbtxdg/company-logo_100_100/company-logo_100_100/0/1630552741617/uber_com_logo?e=2147483647&v=beta&t=example',
-    location: 'Bangalore / Remote',
-    workplaceType: 'Hybrid',
-    jobType: 'Full-time',
-    experienceLevel: 'Senior',
-    salaryRange: '$165k - $210k / yr',
-    postedAt: '4 hours ago',
-    matchScore: 93,
-    matchBreakdown: {
-      skillsScore: 94,
-      experienceScore: 92,
-      stackScore: 93,
-    },
-    whyYouMatch:
-      'Strong match across idempotent financial settlement logic and high-volume transaction routing. Your background in distributed locks matches Uber\'s payout gateway requirements.',
-    matchingSkills: ['Go', 'PostgreSQL', 'Idempotent APIs', 'Redis', 'Microservices', 'Distributed Locks'],
-    missingSkills: ['Temporal Workflows', 'Cassandra'],
-    insiderCount: 1,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'Uber Payments & FinTech powers the financial lifeblood for millions of drivers and earners worldwide, processing billions of dollars across 70+ countries in real time.',
-      responsibilities: [
-        'Engineer ultra-reliable payment settlement gateways ensuring zero double-spends and guaranteed delivery.',
-        'Scale asynchronous settlement workers utilizing distributed queues and partitioned state machines.',
-        'Collaborate with banking integration partners to reduce cross-border disbursement delays.',
-      ],
-      qualifications: [
-        '5+ years building high-concurrency payment, banking, or transactional platforms.',
-        'Strong fundamentals in database ACID guarantees, distributed locking, and schema migrations.',
-      ],
-      techStack: ['Go', 'PostgreSQL', 'Redis', 'Kafka', 'Temporal', 'Docker'],
-      benefits: ['Uber credits monthly ($250)', 'Competitive base + equity grants', 'Wellness stipend', 'Parental leave'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Worked on driver payout service and integrated banking APIs.',
-      tailored:
-        'Re-engineered real-time driver payout gateway handling 2.4M daily transactions, reducing settlement failures by 78% via idempotent Redis locks.',
-      impactMetric: '-78% Settlement Failures',
-    },
-    externalApplyUrl: 'https://www.uber.com/global/en/careers/list/132948-senior-backend-engineer-core-driver-payouts',
-    externalJobId: '132948',
-    isInternal: false,
-  },
-  {
-    id: 'rec-stripe-staff-infra',
-    title: 'Staff Infrastructure Lead (Cloud Platform)',
-    companyName: 'Stripe',
-    companyLogo: 'https://media.licdn.com/dms/image/v2/C560BAQG56fJ6s7t8_Q/company-logo_100_100/company-logo_100_100/0/1630652741617/stripe_logo?e=2147483647&v=beta&t=example',
-    location: 'Remote (Global)',
-    workplaceType: 'Remote',
-    jobType: 'Full-time',
-    experienceLevel: 'Staff',
-    salaryRange: '$195k - $250k / yr',
-    postedAt: '1 day ago',
-    matchScore: 95,
-    matchBreakdown: {
-      skillsScore: 96,
-      experienceScore: 95,
-      stackScore: 94,
-    },
-    whyYouMatch:
-      'Exceptional architectural alignment with multi-region Kubernetes orchestration and high-availability cloud infrastructure. Your Google XYZ metrics score in the top 5% of candidate pools.',
-    matchingSkills: ['Kubernetes', 'Cloud Infra', 'Terraform', 'Observability', 'Go', 'AWS'],
-    missingSkills: ['Envoy Proxy', 'eBPF'],
-    insiderCount: 0,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'Stripe is an economic infrastructure platform for the internet. Millions of businesses - from ambitious startups to Fortune 500s - use Stripe\'s software to accept payments and manage businesses online.',
-      responsibilities: [
-        'Lead multi-region Kubernetes compute infrastructure hosting Stripe\'s core API services.',
-        'Build automated self-healing cluster auto-balancers and capacity forecasting engines.',
-        'Drive multi-million dollar cloud compute cost-efficiencies without sacrificing 99.999% reliability.',
-      ],
-      qualifications: [
-        '8+ years scaling high-volume cloud infrastructure on AWS or GCP.',
-        'Extensive experience managing massive Kubernetes clusters with custom CRDs and operators.',
-      ],
-      techStack: ['Kubernetes', 'Go', 'Terraform', 'AWS', 'Prometheus', 'Envoy'],
-      benefits: ['Generous equity package', 'Full remote flexibility anywhere in approved regions', 'Unlimited PTO', 'Home office budget ($2,500)'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Handled internal Kubernetes cluster operations and node updates.',
-      tailored:
-        'Automated multi-region Kubernetes cluster auto-scaling across 1,200 nodes, reducing cloud compute overhead by 31% while sustaining 99.99% uptime.',
-      impactMetric: '-31% Cloud Compute Cost',
-    },
-    externalApplyUrl: 'https://stripe.com/jobs/listing/staff-infrastructure-lead-cloud-platform/5920191',
-    externalJobId: '5920191',
-    isInternal: false,
-  },
-  {
-    id: 'rec-google-principal-systems',
-    title: 'Principal Systems Architect (Cloud Networking)',
-    companyName: 'Google',
-    location: 'Bangalore / Hyderabad / Remote',
-    workplaceType: 'Hybrid',
-    jobType: 'Full-time',
-    experienceLevel: 'Principal',
-    salaryRange: '$220k - $290k / yr',
-    postedAt: '1 day ago',
-    matchScore: 91,
-    matchBreakdown: {
-      skillsScore: 92,
-      experienceScore: 90,
-      stackScore: 91,
-    },
-    whyYouMatch:
-      'Your high-throughput network engineering background satisfies Google Cloud\'s systems bar. High conviction in system scalability and distributed trade-offs.',
-    matchingSkills: ['Distributed Systems', 'C++', 'Go', 'Networking Protocols', 'Large-Scale Storage'],
-    missingSkills: ['BGP / SDN Architecture', 'Spanner'],
-    insiderCount: 1,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'Google Cloud helps millions of organizations empower their employees, serve their customers, and build what\'s next for their business with innovative technology built in the cloud.',
-      responsibilities: [
-        'Architect hyper-scale software-defined networking solutions for Google Cloud Platform.',
-        'Define 3-year technical roadmaps for next-generation edge routing and zero-trust proxies.',
-      ],
-      qualifications: [
-        '10+ years driving large-scale distributed systems and networking innovations.',
-      ],
-      techStack: ['C++', 'Go', 'BGP', 'SDN', 'Borg', 'gRPC'],
-      benefits: ['Google 401k / PF match', 'World-class wellness & parental support', 'GSU Equity grants'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Worked on networking configuration and proxy latency.',
-      tailored:
-        'Engineered high-concurrency edge reverse proxy handling 450k req/sec, shrinking edge TLS handshake overhead by 38ms across global POPs.',
-      impactMetric: '-38ms Edge Latency',
-    },
-    externalApplyUrl: 'https://www.google.com/about/careers/applications/jobs/results/1392817401928374-principal-systems-architect',
-    externalJobId: '1392817401928374',
-    isInternal: false,
-  },
-  {
-    id: 'rec-meta-staff-backend',
-    title: 'Staff Software Engineer (AI Infrastructure)',
-    companyName: 'Meta',
-    location: 'Remote / Menlo Park',
-    workplaceType: 'Remote',
-    jobType: 'Full-time',
-    experienceLevel: 'Staff',
-    salaryRange: '$210k - $275k / yr',
-    postedAt: '2 days ago',
-    matchScore: 90,
-    matchBreakdown: {
-      skillsScore: 91,
-      experienceScore: 90,
-      stackScore: 89,
-    },
-    whyYouMatch:
-      'High alignment with high-performance distributed backend architectures and stateful streaming caches.',
-    matchingSkills: ['C++', 'Python', 'Distributed Training', 'PyTorch', 'GPU Clusters'],
-    missingSkills: ['NCCL Communication', 'Triton'],
-    insiderCount: 1,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'Meta builds technologies that help people connect, find communities, and grow businesses. Our AI Infrastructure team builds training clusters powering Llama and next-generation generative models.',
-      responsibilities: [
-        'Build scalable orchestration layers for clusters of 24,000+ GPUs.',
-        'Eliminate checkpointing I/O bottlenecks in multi-node training pipelines.',
-      ],
-      qualifications: ['6+ years in systems programming, high-performance computing, or AI infra.'],
-      techStack: ['Python', 'C++', 'PyTorch', 'CUDA', 'Slurm', 'RDMA'],
-      benefits: ['Top-tier RSUs', 'Full remote compensation parity', 'Wellness fund'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Helped optimize GPU training cluster scripts and checkpoint saves.',
-      tailored:
-        'Designed asynchronous model checkpointing pipeline reducing snapshot I/O overhead by 62%, recapturing 140 GPU training hours per training run.',
-      impactMetric: 'Saved 140 GPU Hours',
-    },
-    externalApplyUrl: 'https://www.metacareers.com/jobs/918237401928374/staff-software-engineer-ai-infra',
-    externalJobId: '918237401928374',
-    isInternal: false,
-  },
-  {
-    id: 'job-vouchins-direct-lead',
-    title: 'Lead Distributed Systems Architect (Trust & Verification Platform)',
-    companyName: 'Nexus Enterprise AI',
-    companyLogo: 'https://www.google.com/s2/favicons?domain=nexus.io&sz=128',
-    location: 'Hyderabad / Remote',
-    workplaceType: 'Hybrid',
-    jobType: 'Full-time',
-    experienceLevel: 'Lead',
-    salaryRange: '$175k - $225k / yr',
-    postedAt: 'Just now',
-    matchScore: 97,
-    matchBreakdown: {
-      skillsScore: 98,
-      experienceScore: 96,
-      stackScore: 97,
-    },
-    whyYouMatch:
-      'Direct employer role posted on Vouchins! The hiring recruiter reviews applications directly on Vouchins with prioritized interview review for verified members.',
-    matchingSkills: ['Distributed Systems', 'Go', 'Microservices', 'PostgreSQL', 'Redis', 'Kafka', 'System Architecture'],
-    missingSkills: ['OpenTelemetry'],
-    insiderCount: 0,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'Nexus Enterprise AI builds mission-critical cryptographic verification infrastructure for cloud platforms. The team is hiring directly through Vouchins.',
-      responsibilities: [
-        'Lead architectural evolution of high-throughput verification pipelines handling 50M+ events/day.',
-        'Mentor engineering teams across distributed state consistency, event sourcing, and resilience patterns.',
-        'Directly interface with founding executives on architectural roadmap and scaling milestones.',
-      ],
-      qualifications: [
-        '7+ years architecting high-scale distributed backends using Go, Rust, or modern C++.',
-        'Deep production experience with Kafka streaming, distributed caches, and ACID data stores.',
-      ],
-      techStack: ['Go', 'Kafka', 'PostgreSQL', 'Redis', 'Kubernetes', 'Docker', 'gRPC'],
-      benefits: ['Direct fast-track interview with hiring manager', 'Top-tier equity grants', 'Full remote flexibility', 'Comprehensive health & wellness coverage'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Developed scalable backend services and data stores.',
-      tailored:
-        'Architected real-time distributed verification engine processing 42M daily transactions, reducing verification latency by 51% via pipelined Redis caching.',
-      impactMetric: '-51% Latency Reduction',
-    },
-    isInternal: true,
-    externalApplyUrl: null,
-    isCurated: true,
-    isRecommended: true,
-  },
-  {
-    id: 'rec-audible-principal-architect',
-    title: 'Principal Systems Architect - Audio & AI Streaming',
-    companyName: 'Audible',
-    companyLogo: 'https://www.google.com/s2/favicons?domain=audible.com&sz=128',
-    location: 'Newark, NJ / Hybrid',
-    workplaceType: 'Hybrid',
-    jobType: 'Full-time',
-    experienceLevel: 'Principal',
-    salaryRange: '$210k - $275k / yr',
-    postedAt: '2 hours ago',
-    matchScore: 98,
-    matchBreakdown: {
-      skillsScore: 98,
-      experienceScore: 97,
-      stackScore: 99,
-    },
-    whyYouMatch:
-      'Exceptional alignment with distributed systems and audio streaming infrastructure at Audible headquarters in Newark, NJ. Verified Vouchins insiders ready to refer.',
-    matchingSkills: ['Distributed Systems', 'Cloud Infra', 'Java', 'Python', 'AWS', 'High Concurrency'],
-    missingSkills: ['Audio DSP', 'FFmpeg'],
-    insiderCount: 12,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'Audible is the leading creator and provider of premium audio storytelling. Headquartered in Newark, NJ, our engineering teams build planetary streaming infrastructure serving millions of global listeners.',
-      responsibilities: [
-        'Architect high-availability audio processing pipelines and personalized recommendation systems.',
-        'Collaborate with Newark-based tech leadership to scale real-time audio distribution.',
-        'Ensure 99.999% uptime across multi-region AWS cloud deployments.',
-      ],
-      qualifications: [
-        '8+ years building high-scale distributed backend systems.',
-        'Expertise in high-throughput cloud streaming, microservices, and event-driven architectures.',
-      ],
-      techStack: ['AWS', 'Java', 'Python', 'Kafka', 'Kubernetes', 'DynamoDB'],
-      benefits: ['Top-tier Amazon RSUs & bonuses', 'Comprehensive health, dental & vision', 'Hybrid Newark office flexibility'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Built streaming service backend and data pipelines.',
-      tailored:
-        'Architected distributed audio streaming pipeline supporting 4.8M concurrent streams with sub-50ms latency across multi-region AWS clusters.',
-      impactMetric: '-42% Stream Buffering',
-    },
-    externalApplyUrl: 'https://www.amazon.jobs/en/jobs/2591834/principal-systems-architect-audible',
-    externalJobId: '2591834',
-    isInternal: false,
-    isCurated: true,
-    isRecommended: true,
-  },
-  {
-    id: 'rec-jnj-staff-software-engineer',
-    title: 'Staff Software Engineer - Digital Health Platform',
-    companyName: 'Johnson & Johnson',
-    companyLogo: 'https://www.google.com/s2/favicons?domain=jnj.com&sz=128',
-    location: 'New Brunswick, NJ / Hybrid',
-    workplaceType: 'Hybrid',
-    jobType: 'Full-time',
-    experienceLevel: 'Staff',
-    salaryRange: '$185k - $240k / yr',
-    postedAt: '4 hours ago',
-    matchScore: 96,
-    matchBreakdown: {
-      skillsScore: 96,
-      experienceScore: 95,
-      stackScore: 97,
-    },
-    whyYouMatch:
-      'Superb alignment with mission-critical digital health platforms and secure distributed services at J&J New Brunswick, NJ campus.',
-    matchingSkills: ['TypeScript', 'React', 'Node.js', 'Python', 'PostgreSQL', 'Microservices'],
-    missingSkills: ['HIPAA Compliance', 'HL7 FHIR'],
-    insiderCount: 9,
-    verifiedInsiders: [],
-    description: {
-      about:
-        'Johnson & Johnson MedTech and Digital Health is pioneering next-generation software platforms for robotic surgery and connected clinical analytics. Based in New Brunswick, NJ.',
-      responsibilities: [
-        'Design and build secure, compliant cloud services for clinical decision support systems.',
-        'Lead architectural decisions for cloud-native APIs handling sensitive biometric datasets.',
-        'Mentor senior and mid-level software engineers across engineering best practices.',
-      ],
-      qualifications: [
-        '6+ years delivering production software in cloud-native environments.',
-        'Deep proficiency in modern web frameworks, relational databases, and secure API design.',
-      ],
-      techStack: ['TypeScript', 'Node.js', 'Python', 'AWS', 'PostgreSQL', 'Docker'],
-      benefits: ['Competitive base + performance bonus + equity', 'Unmatched retirement and pension benefits', 'Hybrid New Jersey work model'],
-    },
-    tailoredBulletSuggestion: {
-      original: 'Engineered web services and database workflows.',
-      tailored:
-        'Architected secure FHIR-compliant clinical API gateway processing 8M+ patient records monthly with zero security incidents.',
-      impactMetric: '+99.99% Data Compliance',
-    },
-    externalApplyUrl: 'https://jobs.jnj.com/en/jobs/2406189283w/staff-software-engineer-digital-health',
-    externalJobId: '2406189283',
-    isInternal: false,
-    isCurated: true,
-    isRecommended: true,
-  },
-];
+  externalApplyUrl: cj.externalApplyUrl,
+  externalJobId: cj.externalJobId,
+  isInternal: cj.isInternal,
+  isCurated: true,
+  isRecommended: true,
+}));
 
 function getJobTimestamp(job: RecommendedJob): number {
   if (job.createdAt) {
@@ -908,6 +509,7 @@ export function JobRecommendationsDashboard() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { user } = useUser();
+  const isUserVerifiedOrAdmin = Boolean(user?.is_verified || user?.is_admin);
 
   const [atsScore, setAtsScore] = useState<number | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -1000,6 +602,10 @@ export function JobRecommendationsDashboard() {
   const [customCityInput, setCustomCityInput] = useState<string>('');
   const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
 
+  // Workplace Type Filter: 'all' | 'onsite' | 'hybrid' | 'remote' (default: 'all')
+  const [workModeFilter, setWorkModeFilter] = useState<'all' | 'onsite' | 'hybrid' | 'remote'>('all');
+  const [isWorkModeMenuOpen, setIsWorkModeMenuOpen] = useState(false);
+
   // Candidate Profile Skills & Seniority from master resume
   const [candidateProfileSkills, setCandidateProfileSkills] = useState<string[]>([]);
   const [candidateSeniority, setCandidateSeniority] = useState<string>('Senior');
@@ -1009,6 +615,15 @@ export function JobRecommendationsDashboard() {
   const [companySearchInput, setCompanySearchInput] = useState<string>('');
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
   const [customCompanies, setCustomCompanies] = useState<string[]>([]);
+
+  // Zero-flicker In-Memory Insiders Cache
+  const companyInsidersCacheRef = React.useRef<Map<string, CompanyInsider[]>>(new Map());
+
+  // Resumes list for Apply on Vouchins modal
+  const [userResumes, setUserResumes] = useState<any[]>([]);
+  const [selectedResumeId, setSelectedResumeId] = useState<string>('');
+  const [isCustomResumeUrl, setIsCustomResumeUrl] = useState(false);
+  const [isLoadingResumes, setIsLoadingResumes] = useState(false);
 
   // Fetch candidate profile & master resume skills
   useEffect(() => {
@@ -1055,7 +670,7 @@ export function JobRecommendationsDashboard() {
     const target = (city !== undefined ? city : customCityInput).trim();
     if (target && target.toLowerCase() !== 'all') {
       setSelectedCity(target);
-      toast.success(`Prioritizing roles in ${target} & Remote`);
+      toast.success(`Showing roles in ${target}`);
       setCustomCityInput('');
     } else {
       setSelectedCity('');
@@ -1083,6 +698,7 @@ export function JobRecommendationsDashboard() {
         selectedCity && selectedCity.toLowerCase() !== 'all'
           ? `&location=${encodeURIComponent(selectedCity)}`
           : '';
+      const workModeQuery = workModeFilter !== 'all' ? `&work_mode=${workModeFilter}` : '';
       const skillsQuery =
         candidateProfileSkills.length > 0
           ? `&skills=${encodeURIComponent(candidateProfileSkills.slice(0, 10).join(','))}`
@@ -1093,7 +709,7 @@ export function JobRecommendationsDashboard() {
           : '';
       const sortQuery = `&sort=${sortBy}`;
 
-      const res = await fetch(`/api/jobs?limit=150${locQuery}${skillsQuery}${companiesQuery}${sortQuery}`);
+      const res = await fetch(`/api/jobs?limit=150${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${sortQuery}`);
       if (res.ok) {
         const json = await res.json();
         if (json.jobs && Array.isArray(json.jobs)) {
@@ -1106,11 +722,33 @@ export function JobRecommendationsDashboard() {
     } finally {
       setIsLoadingJobs(false);
     }
-  }, [selectedCity, candidateProfileSkills, selectedCompanies, sortBy]);
+  }, [selectedCity, workModeFilter, candidateProfileSkills, selectedCompanies, sortBy]);
 
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
+
+  // Load user resumes for application modal
+  const loadUserResumes = React.useCallback(async () => {
+    setIsLoadingResumes(true);
+    try {
+      const res = await fetch('/api/jobs/resume');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.resumes && Array.isArray(json.resumes)) {
+          setUserResumes(json.resumes);
+          if (json.resumes.length > 0) {
+            setSelectedResumeId(json.resumes[0].id);
+            setApplyResumeUrl(`${window.location.origin}/jobs/resume?id=${json.resumes[0].id}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load user resumes:', err);
+    } finally {
+      setIsLoadingResumes(false);
+    }
+  }, []);
 
   // Company management helpers
   const allAvailableCompanies = useMemo(() => {
@@ -1214,12 +852,16 @@ export function JobRecommendationsDashboard() {
       }
     }
     const validList = list.filter((j) => j.isInternal || hasValidExternalJobId(j.externalApplyUrl));
+    const ninetyDaysAgoMs = 90 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    // Strict 3-month (90-day) job pruning
+    const freshList = validList.filter((j) => (now - getJobTimestamp(j)) <= ninetyDaysAgoMs);
 
-    return validList.sort((a, b) => {
-      // Prioritize candidate selected city and Remote roles
+    return freshList.sort((a, b) => {
+      // Prioritize candidate selected city and workplace mode
       if (selectedCity && selectedCity.toLowerCase() !== 'all') {
-        const aMatches = isLocationMatch(a.location, selectedCity, a.workplaceType);
-        const bMatches = isLocationMatch(b.location, selectedCity, b.workplaceType);
+        const aMatches = isLocationMatch(a.location, selectedCity, a.workplaceType, workModeFilter);
+        const bMatches = isLocationMatch(b.location, selectedCity, b.workplaceType, workModeFilter);
 
         if (aMatches && !bMatches) return -1;
         if (!aMatches && bMatches) return 1;
@@ -1240,7 +882,7 @@ export function JobRecommendationsDashboard() {
       }
       return b.matchScore - a.matchScore;
     });
-  }, [dbJobs, selectedCity, candidateProfileSkills, candidateSeniority]);
+  }, [dbJobs, selectedCity, candidateProfileSkills, candidateSeniority, workModeFilter]);
 
   const recommendedJobs = useMemo(() => {
     return allJobs.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 90);
@@ -1264,6 +906,12 @@ export function JobRecommendationsDashboard() {
   const [applyResumeUrl, setApplyResumeUrl] = useState('');
   const [applyCoverLetter, setApplyCoverLetter] = useState('');
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
+
+  useEffect(() => {
+    if (isApplyModalOpen) {
+      loadUserResumes();
+    }
+  }, [isApplyModalOpen, loadUserResumes]);
 
   // Fetch user master resume URL if available to prefill internal application
   useEffect(() => {
@@ -1301,7 +949,9 @@ export function JobRecommendationsDashboard() {
     setSelectedJobId(jobId);
     setMobileView('detail');
     const targetUrl = pathname === '/jobs' ? `/jobs?id=${jobId}` : `/jobs/recommend?id=${jobId}`;
-    router.replace(targetUrl, { scroll: false });
+    if (typeof window !== 'undefined') {
+      window.history.replaceState(null, '', targetUrl);
+    }
   };
 
   // Filtered jobs calculation
@@ -1316,7 +966,6 @@ export function JobRecommendationsDashboard() {
     } else if (activeListTab === 'applied') {
       list = list.filter((j) => appliedJobIds.includes(j.id));
     }
-    // Note: if activeListTab === 'all', it shows ALL jobs in system!
 
     // Filter by Quick Chip
     if (activeChip === 'high_match') {
@@ -1333,9 +982,11 @@ export function JobRecommendationsDashboard() {
       list = list.filter((j) => j.salaryRange.includes('$180k') || j.salaryRange.includes('$2') || j.salaryRange.toLowerCase().includes('competitive'));
     }
 
-    // Filter by Selected Location / City if set
+    // Filter by Selected Location / City and Workplace Mode
     if (selectedCity && selectedCity.toLowerCase() !== 'all') {
-      list = list.filter((j) => isLocationMatch(j.location, selectedCity, j.workplaceType));
+      list = list.filter((j) => isLocationMatch(j.location, selectedCity, j.workplaceType, workModeFilter));
+    } else if (workModeFilter !== 'all') {
+      list = list.filter((j) => isLocationMatch(j.location, '', j.workplaceType, workModeFilter));
     }
 
     // Filter by Selected Companies
@@ -1370,7 +1021,7 @@ export function JobRecommendationsDashboard() {
     }
 
     return sorted;
-  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies, sortBy]);
+  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies, workModeFilter, sortBy]);
 
   const selectedJob = useMemo(() => {
     return allJobs.find((j) => j.id === selectedJobId) || filteredJobs[0] || allJobs[0] || CURATED_RECOMMENDED_JOBS[0];
@@ -1385,6 +1036,11 @@ export function JobRecommendationsDashboard() {
     }
     return url;
   }, [selectedJob]);
+
+  // Effective Verified Insiders Count for Selected Job
+  const effectiveInsiderCount = isLoadingInsiders
+    ? (companyInsiders.length > 0 ? companyInsiders.length : (selectedJob?.insiderCount || 0))
+    : companyInsiders.length;
 
   // Synchronize URL search params (?id=, ?action=apply, ?applied=true) with selected job state
   useEffect(() => {
@@ -1412,21 +1068,35 @@ export function JobRecommendationsDashboard() {
     }
   }, [searchParams, selectedJobId, selectedJob]);
 
-  // Fetch real Vouchins users from the same company as selectedJob
+  // Fetch real Vouchins users from the same company as selectedJob (with zero-flicker cache)
   useEffect(() => {
     let isMounted = true;
     async function loadCompanyInsiders() {
-      if (!selectedJob?.companyName) return;
+      if (!selectedJob?.companyName) {
+        setCompanyInsiders([]);
+        return;
+      }
+      const compKey = selectedJob.companyName.toLowerCase().trim();
+      const cached = companyInsidersCacheRef.current.get(compKey);
+      if (cached) {
+        setCompanyInsiders(cached);
+        setIsLoadingInsiders(false);
+        return;
+      }
+
+      setCompanyInsiders([]);
       setIsLoadingInsiders(true);
       try {
-        const cleanDomain = selectedJob.companyName.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+        const cleanDomain = compKey.replace(/[^a-z0-9]/g, '') + '.com';
         const res = await fetch(
           `/api/jobs/insiders?company=${encodeURIComponent(selectedJob.companyName)}&domain=${cleanDomain}`
         );
         if (res.ok) {
           const json = await res.json();
           if (isMounted) {
-            setCompanyInsiders(json.insiders && Array.isArray(json.insiders) ? json.insiders : []);
+            const list = json.insiders && Array.isArray(json.insiders) ? json.insiders : [];
+            companyInsidersCacheRef.current.set(compKey, list);
+            setCompanyInsiders(list);
           }
         }
       } catch (err) {
@@ -1534,8 +1204,15 @@ export function JobRecommendationsDashboard() {
   };
 
   const handleInitiateReferral = (insider: any) => {
-    // Strict verification requirement: user must be verified to connect
-    if (!user || !user.is_verified) {
+    if (!insider) {
+      if (companyInsiders.length === 0) {
+        setIsInviteOpen(true);
+        return;
+      }
+      insider = companyInsiders[0];
+    }
+    // Strict verification requirement: user must be verified or admin to connect
+    if (!user || (!user.is_verified && !user.is_admin)) {
       setSelectedInsider(insider);
       setVerificationModalOpen(true);
       return;
@@ -1545,7 +1222,7 @@ export function JobRecommendationsDashboard() {
   };
 
   const handleSendReferralRequest = async () => {
-    if (!user?.is_verified) {
+    if (!user?.is_verified && !user?.is_admin) {
       toast.error('Connecting with company insiders requires a verified corporate account.');
       setReferralModalOpen(false);
       setVerificationModalOpen(true);
@@ -1764,6 +1441,67 @@ export function JobRecommendationsDashboard() {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Interactive Workplace Mode Filter Dropdown (All, Onsite, Hybrid, Remote) */}
+            <DropdownMenu open={isWorkModeMenuOpen} onOpenChange={setIsWorkModeMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                    workModeFilter !== 'all'
+                      ? 'bg-[#0A1B5C] text-white shadow-xs'
+                      : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
+                  }`}
+                >
+                  <Briefcase className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                  <span>
+                    {workModeFilter === 'all'
+                      ? 'All Workplaces'
+                      : workModeFilter === 'onsite'
+                      ? 'Onsite Only'
+                      : workModeFilter === 'hybrid'
+                      ? 'Hybrid Only'
+                      : 'Remote Only'}
+                  </span>
+                  <ChevronRight className="h-3 w-3 rotate-90 opacity-70 ml-0.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 p-2 rounded-2xl shadow-xl border border-neutral-200 bg-white z-50">
+                <div className="px-2 py-1.5 text-xs font-bold text-[#0A1B5C]">
+                  <span>Workplace Type</span>
+                </div>
+                <DropdownMenuSeparator className="my-1" />
+                {[
+                  { value: 'all', label: '🌐 All (Onsite, Hybrid, Remote)' },
+                  { value: 'onsite', label: '🏢 Onsite Only' },
+                  { value: 'hybrid', label: '🔄 Hybrid (Office + Remote)' },
+                  { value: 'remote', label: '🏠 Remote Only' },
+                ].map((mode) => {
+                  const isSelected = workModeFilter === mode.value;
+                  return (
+                    <DropdownMenuItem
+                      key={mode.value}
+                      onClick={() => {
+                        setWorkModeFilter(mode.value as any);
+                        if (mode.value === 'remote') {
+                          setActiveChip('remote');
+                        } else if (activeChip === 'remote') {
+                          setActiveChip('all');
+                        }
+                        setIsWorkModeMenuOpen(false);
+                      }}
+                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#0A1B5C] text-white font-bold'
+                          : 'text-neutral-700 hover:bg-neutral-100'
+                      }`}
+                    >
+                      <span>{mode.label}</span>
+                      {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-[#4FD1C5]" />}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {/* Interactive Company Filter Dropdown with Checkboxes and "All" */}
             <DropdownMenu open={isCompanyMenuOpen} onOpenChange={setIsCompanyMenuOpen}>
               <DropdownMenuTrigger asChild>
@@ -1961,10 +1699,20 @@ export function JobRecommendationsDashboard() {
                 <button
                   key={chip.id}
                   onClick={() => {
-                    if (activeChip === chip.id) {
-                      setActiveChip('all');
+                    if (chip.id === 'remote') {
+                      if (activeChip === 'remote') {
+                        setActiveChip('all');
+                        setWorkModeFilter('all');
+                      } else {
+                        setActiveChip('remote');
+                        setWorkModeFilter('remote');
+                      }
                     } else {
-                      setActiveChip(chip.id as any);
+                      if (activeChip === chip.id) {
+                        setActiveChip('all');
+                      } else {
+                        setActiveChip(chip.id as any);
+                      }
                     }
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${isSelected
@@ -1982,7 +1730,10 @@ export function JobRecommendationsDashboard() {
 
             {activeChip !== 'all' && (
               <button
-                onClick={() => setActiveChip('all')}
+                onClick={() => {
+                  if (activeChip === 'remote') setWorkModeFilter('all');
+                  setActiveChip('all');
+                }}
                 className="text-[11px] font-bold text-neutral-500 hover:text-neutral-900 underline ml-1 shrink-0"
               >
                 Clear filter
@@ -2101,22 +1852,62 @@ export function JobRecommendationsDashboard() {
               </div>
             )}
 
-            {/* Active Location Filter Helper Banner */}
-            {selectedCity && selectedCity.toLowerCase() !== 'all' && (
-              <div className="mb-2 px-3 py-1.5 rounded-xl bg-blue-50/90 border border-blue-200/80 flex items-center justify-between text-xs text-[#0A1B5C] shrink-0">
+            {/* Active Location & Workplace Filter Helper Banner */}
+            {((selectedCity && selectedCity.toLowerCase() !== 'all') || workModeFilter !== 'all') && (
+              <div className="mb-2 px-3 py-1.5 rounded-xl bg-blue-50/90 border border-blue-200/80 flex items-center justify-between text-xs text-[#0A1B5C] shrink-0 flex-wrap gap-2">
                 <div className="flex items-center gap-1.5 font-semibold">
                   <MapPin className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                  <span>Prioritizing roles in <strong className="text-neutral-900">{selectedCity}</strong> & Remote</span>
+                  <span>
+                    {selectedCity && selectedCity.toLowerCase() !== 'all' ? (
+                      workModeFilter === 'all' ? (
+                        <>Showing roles in <strong className="text-neutral-900">{selectedCity}</strong> ({filteredJobs.length} roles)</>
+                      ) : workModeFilter === 'remote' ? (
+                        <>Showing Remote roles in <strong className="text-neutral-900">{selectedCity}</strong> ({filteredJobs.length} roles)</>
+                      ) : workModeFilter === 'onsite' ? (
+                        <>Showing Onsite roles in <strong className="text-neutral-900">{selectedCity}</strong> ({filteredJobs.length} roles)</>
+                      ) : (
+                        <>Showing Hybrid roles in <strong className="text-neutral-900">{selectedCity}</strong> ({filteredJobs.length} roles)</>
+                      )
+                    ) : (
+                      <>
+                        Showing{' '}
+                        <strong className="text-neutral-900">
+                          {workModeFilter === 'remote'
+                            ? 'Remote'
+                            : workModeFilter === 'onsite'
+                            ? 'Onsite'
+                            : 'Hybrid'}
+                        </strong>{' '}
+                        roles worldwide ({filteredJobs.length} roles)
+                      </>
+                    )}
+                  </span>
                 </div>
-                <button
-                  onClick={() => {
-                    setSelectedCity('');
-                    toast.info('Location filter cleared - Showing all locations');
-                  }}
-                  className="text-[11px] font-semibold text-[#0A1B5C] hover:underline"
-                >
-                  Show all locations
-                </button>
+                <div className="flex items-center gap-2">
+                  {selectedCity && selectedCity.toLowerCase() !== 'all' && (
+                    <button
+                      onClick={() => {
+                        setSelectedCity('');
+                        toast.info('Location filter cleared');
+                      }}
+                      className="text-[11px] font-semibold text-[#0A1B5C] hover:underline"
+                    >
+                      Clear location
+                    </button>
+                  )}
+                  {workModeFilter !== 'all' && (
+                    <button
+                      onClick={() => {
+                        setWorkModeFilter('all');
+                        if (activeChip === 'remote') setActiveChip('all');
+                        toast.info('Workplace filter reset to all');
+                      }}
+                      className="text-[11px] font-semibold text-[#0A1B5C] hover:underline"
+                    >
+                      All workplaces
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -2331,7 +2122,9 @@ export function JobRecommendationsDashboard() {
                       <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px]">
                         <span className="text-[#0A1B5C] font-semibold flex items-center gap-1.5">
                           <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                          {job.insiderCount} verified insiders ready to vouch
+                          {job.insiderCount > 0
+                            ? `${job.insiderCount} verified insider${job.insiderCount === 1 ? '' : 's'} ready to vouch`
+                            : 'Invite insiders to vouch'}
                         </span>
 
                         <span className="text-[#0A1B5C] font-semibold text-xs group-hover:translate-x-0.5 transition-transform flex items-center">
@@ -2376,11 +2169,12 @@ export function JobRecommendationsDashboard() {
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div className="flex items-start gap-3 sm:gap-4">
                     <CompanyLogo
+                      key={selectedJob.id}
                       companyName={selectedJob.companyName}
                       logoUrl={selectedJob.companyLogo}
                       externalUrl={selectedJob.externalApplyUrl}
                       className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl"
-                      size={128}
+                      size={64}
                       initialsClassName="text-lg sm:text-xl font-bold text-[#0A1B5C]"
                     />
                     <div className="min-w-0">
@@ -2465,20 +2259,36 @@ export function JobRecommendationsDashboard() {
                     </a>
                   )}
 
-                  <button
-                    onClick={() => {
-                      const target = companyInsiders[0] || selectedJob.verifiedInsiders[0];
-                      handleInitiateReferral(target);
-                    }}
-                    className="px-5 py-2.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all active:scale-95"
-                  >
-                    {!user?.is_verified ? (
-                      <Lock className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                    ) : (
-                      <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                    )}
-                    <span>Request Insider Referral ({companyInsiders.length > 0 ? companyInsiders.length : (isLoadingInsiders ? '...' : selectedJob.insiderCount)})</span>
-                  </button>
+                  {effectiveInsiderCount > 0 ? (
+                    <button
+                      onClick={() => {
+                        const target = companyInsiders[0] || selectedJob.verifiedInsiders[0];
+                        handleInitiateReferral(target);
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all active:scale-95"
+                    >
+                      {!isUserVerifiedOrAdmin ? (
+                        <Lock className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                      ) : (
+                        <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                      )}
+                      <span>Request Insider Referral ({effectiveInsiderCount})</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (!user) {
+                          window.location.href = '/login?returnTo=/jobs';
+                        } else {
+                          setIsInviteOpen(true);
+                        }
+                      }}
+                      className="px-4 py-2.5 rounded-xl border border-[#0A1B5C]/20 hover:bg-[#0A1B5C]/5 text-[#0A1B5C] text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all active:scale-95"
+                    >
+                      <Send className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                      <span>Invite Insiders</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => setTailorModalOpen(true)}
@@ -2519,7 +2329,7 @@ export function JobRecommendationsDashboard() {
                     }`}
                 >
                   <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                  <span>Verified Insiders ({companyInsiders.length > 0 ? companyInsiders.length : (isLoadingInsiders ? '...' : selectedJob.insiderCount)})</span>
+                  <span>Verified Insiders ({effectiveInsiderCount})</span>
                 </button>
 
                 <button
@@ -2665,40 +2475,42 @@ export function JobRecommendationsDashboard() {
               {/* TAB 2: VERIFIED INSIDERS (REFERRALS) */}
               {activeDetailTab === 'insiders' && (
                 <div className="space-y-4">
-                  {/* Verification Banner */}
-                  {!user?.is_verified ? (
-                    <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
-                          <Lock className="h-4 w-4 text-amber-700" />
+                  {/* Banners: ONLY render if there are insiders (companyInsiders.length > 0) */}
+                  {companyInsiders.length > 0 && (
+                    !isUserVerifiedOrAdmin ? (
+                      <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                            <Lock className="h-4 w-4 text-amber-700" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-xs text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                              Corporate Verification Required to Connect
+                            </h4>
+                            <p className="text-xs text-amber-900/80 mt-0.5">
+                              You can view verified colleagues at {selectedJob.companyName}, but connecting and requesting referrals requires a verified corporate work email.
+                            </p>
+                          </div>
                         </div>
+                        <Link
+                          href={user ? '/verify-email' : '/login?returnTo=%2Fjobs'}
+                          className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-xs shrink-0 text-center transition-all active:scale-95"
+                        >
+                          {user ? 'Verify Work Email' : 'Sign In to Verify'}
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/10 flex items-center justify-between shadow-xs">
                         <div>
-                          <h4 className="font-bold text-xs text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
-                            Corporate Verification Required to Connect
+                          <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
+                            Internal Corporate Referrals at {selectedJob.companyName}
                           </h4>
-                          <p className="text-xs text-amber-900/80 mt-0.5">
-                            You can view verified colleagues at {selectedJob.companyName}, but connecting and requesting referrals requires a verified corporate work email.
+                          <p className="text-xs text-neutral-600 mt-0.5">
+                            Verified via corporate email domain. Candidates with insider referrals have a 4x higher interview callback rate.
                           </p>
                         </div>
                       </div>
-                      <Link
-                        href={user ? '/verify-email' : '/login?returnTo=%2Fjobs'}
-                        className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-xs shrink-0 text-center transition-all active:scale-95"
-                      >
-                        {user ? 'Verify Work Email' : 'Sign In to Verify'}
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className="p-4 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/10 flex items-center justify-between shadow-xs">
-                      <div>
-                        <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
-                          Internal Corporate Referrals at {selectedJob.companyName}
-                        </h4>
-                        <p className="text-xs text-neutral-600 mt-0.5">
-                          Verified via corporate email domain. Candidates with insider referrals have a 4x higher interview callback rate.
-                        </p>
-                      </div>
-                    </div>
+                    )
                   )}
 
                   {/* Insiders List */}
@@ -2721,23 +2533,39 @@ export function JobRecommendationsDashboard() {
                       ))}
                     </div>
                   ) : companyInsiders.length === 0 ? (
-                    <div className="p-8 rounded-2xl bg-white border border-neutral-200 text-center space-y-3 shadow-xs">
+                    <div className="p-8 rounded-2xl bg-white border border-neutral-200 text-center space-y-4 shadow-xs">
                       <div className="w-12 h-12 rounded-2xl bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center justify-center mx-auto">
                         <Users className="h-6 w-6 text-[#0A1B5C]" />
                       </div>
-                      <div>
+                      <div className="space-y-1">
                         <h5 className="font-bold text-sm text-neutral-900">
                           No Vouchins Insiders Found for {selectedJob.companyName} Yet
                         </h5>
-                        <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
+                        <p className="text-xs text-neutral-500 max-w-sm mx-auto">
                           Be the first to invite colleagues from {selectedJob.companyName} to Vouchins and build the company referral network.
                         </p>
+                      </div>
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!user) {
+                              window.location.href = '/login?returnTo=/jobs';
+                            } else {
+                              setIsInviteOpen(true);
+                            }
+                          }}
+                          className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-all active:scale-95"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          <span>Invite Colleagues from {selectedJob.companyName}</span>
+                        </button>
                       </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
                       {companyInsiders.map((insider, idx) => {
-                        const isVerifiedViewer = Boolean(user?.is_verified);
+                        const isVerifiedViewer = isUserVerifiedOrAdmin;
                         const displayName = isVerifiedViewer
                           ? insider.name
                           : formatPartialName(insider.name);
@@ -3029,22 +2857,39 @@ export function JobRecommendationsDashboard() {
                 <span>Tailor</span>
               </button>
 
-              {/* Request Insider Referral */}
-              <button
-                type="button"
-                onClick={() => {
-                  const target = companyInsiders[0] || selectedJob.verifiedInsiders[0];
-                  handleInitiateReferral(target);
-                }}
-                className="h-11 px-2.5 sm:px-3.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-semibold shadow-xs flex items-center justify-center gap-1 shrink-0 active:scale-95"
-              >
-                {!user?.is_verified ? (
-                  <Lock className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                ) : (
-                  <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                )}
-                <span>Referral ({companyInsiders.length > 0 ? companyInsiders.length : (isLoadingInsiders ? '...' : selectedJob.insiderCount)})</span>
-              </button>
+              {/* Request Insider Referral / Invite Insiders */}
+              {effectiveInsiderCount > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = companyInsiders[0] || selectedJob.verifiedInsiders[0];
+                    handleInitiateReferral(target);
+                  }}
+                  className="h-11 px-2.5 sm:px-3.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-semibold shadow-xs flex items-center justify-center gap-1 shrink-0 active:scale-95"
+                >
+                  {!isUserVerifiedOrAdmin ? (
+                    <Lock className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                  ) : (
+                    <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                  )}
+                  <span>Referral ({effectiveInsiderCount})</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!user) {
+                      window.location.href = '/login?returnTo=/jobs';
+                    } else {
+                      setIsInviteOpen(true);
+                    }
+                  }}
+                  className="h-11 px-2.5 sm:px-3.5 rounded-xl border border-[#0A1B5C]/20 hover:bg-[#0A1B5C]/5 text-[#0A1B5C] text-xs font-semibold shadow-xs flex items-center justify-center gap-1 shrink-0 active:scale-95"
+                >
+                  <Send className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                  <span>Invite</span>
+                </button>
+              )}
 
               {/* Primary Apply CTA */}
               {selectedJob.isInternal ? (
@@ -3313,21 +3158,124 @@ export function JobRecommendationsDashboard() {
                 <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0 ml-3" />
               </div>
 
+              {/* Resume Selection UI */}
               <div>
-                <label className="text-xs font-bold text-neutral-800 block mb-1.5">
-                  Resume Link or Master Resume URL <span className="text-red-500">*</span>
+                <label className="text-xs font-bold text-neutral-800 block mb-2">
+                  Select Resume for Application <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://drive.google.com/... or your online resume URL"
-                  value={applyResumeUrl}
-                  onChange={(e) => setApplyResumeUrl(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20"
-                />
-                <p className="text-[11px] text-neutral-500 mt-1">
-                  Defaulted to your Vouchins Master Resume or paste a shareable Google Drive / PDF link.
-                </p>
+
+                {isLoadingResumes ? (
+                  <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50 flex items-center justify-center gap-2 text-xs text-neutral-500">
+                    <Loader2 className="h-4 w-4 animate-spin text-[#0A1B5C]" />
+                    <span>Loading your saved resumes...</span>
+                  </div>
+                ) : userResumes.length > 0 && !isCustomResumeUrl ? (
+                  <div className="space-y-2">
+                    {userResumes.map((resume) => {
+                      const isSelected = selectedResumeId === resume.id;
+                      const score = resume.evaluation?.overallScore;
+                      return (
+                        <div
+                          key={resume.id}
+                          onClick={() => {
+                            setSelectedResumeId(resume.id);
+                            setApplyResumeUrl(`${window.location.origin}/jobs/resume?id=${resume.id}`);
+                          }}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
+                            isSelected
+                              ? 'border-[#0A1B5C] bg-[#0A1B5C]/5 ring-2 ring-[#0A1B5C]/10'
+                              : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                                isSelected ? 'border-[#0A1B5C] bg-[#0A1B5C]' : 'border-neutral-300'
+                              }`}
+                            >
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs font-bold text-neutral-900 truncate block">
+                                {resume.name}
+                              </span>
+                              <span className="text-[10px] text-neutral-500 truncate block">
+                                {resume.targetJobTitle} · {resume.lastModified}
+                              </span>
+                            </div>
+                          </div>
+
+                          {typeof score === 'number' && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 shrink-0">
+                              {score}/100 ATS Score
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomResumeUrl(true)}
+                      className="text-[11px] font-semibold text-[#0A1B5C] hover:underline pt-1 block"
+                    >
+                      Or enter external resume URL (Google Drive / PDF / Doc)
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {userResumes.length === 0 && (
+                      <div className="p-3.5 rounded-xl border border-dashed border-neutral-300 bg-neutral-50 flex flex-col items-center text-center gap-2">
+                        <FileText className="h-6 w-6 text-neutral-400" />
+                        <div>
+                          <p className="text-xs font-semibold text-neutral-800">
+                            No saved resumes found on Vouchins
+                          </p>
+                          <p className="text-[11px] text-neutral-500">
+                            Upload or build your resume in Resume Studio for 1-click verified applications.
+                          </p>
+                        </div>
+                        <Link
+                          href="/jobs/resume"
+                          className="px-3.5 py-1.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Upload in Resume Studio</span>
+                        </Link>
+                      </div>
+                    )}
+
+                    <div>
+                      <input
+                        type="url"
+                        required
+                        placeholder="https://drive.google.com/... or your online resume URL"
+                        value={applyResumeUrl}
+                        onChange={(e) => setApplyResumeUrl(e.target.value)}
+                        className="w-full p-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20"
+                      />
+                      <p className="text-[11px] text-neutral-500 mt-1">
+                        Paste a publicly viewable Google Drive, Dropbox, or PDF link.
+                      </p>
+                    </div>
+
+                    {userResumes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomResumeUrl(false);
+                          if (userResumes.length > 0) {
+                            setSelectedResumeId(userResumes[0].id);
+                            setApplyResumeUrl(`${window.location.origin}/jobs/resume?id=${userResumes[0].id}`);
+                          }
+                        }}
+                        className="text-[11px] font-semibold text-[#0A1B5C] hover:underline block"
+                      >
+                        ← Back to saved resumes
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>

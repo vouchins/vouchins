@@ -44,14 +44,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Strict verification check: only verified users can connect with insiders
+    // 2. Strict verification check: only verified or admin users can connect with insiders
     const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, full_name, email, is_verified, company:companies(name)")
+      .select("id, full_name, email, is_verified, is_admin, company:companies(name)")
       .eq("id", user.id)
       .single();
 
-    if (userError || !userData?.is_verified) {
+    if (userError || (!userData?.is_verified && !userData?.is_admin)) {
       return NextResponse.json(
         {
           error: "Connecting with company insiders requires a verified corporate account. Please verify your work email to continue.",

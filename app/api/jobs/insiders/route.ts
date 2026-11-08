@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
+import { verifyJobsAccess } from "@/lib/jobs/auth-guard";
 
 export function formatPartialName(fullName: string): string {
   if (!fullName) return "V**** M****";
@@ -28,7 +30,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, insiders: [], totalCount: 0 });
     }
 
-    // Check if the requesting viewer is corporate verified
+    // Check if the requesting viewer is corporate verified or platform admin
     let isViewerVerified = false;
     try {
       const cookieStore = await cookies();
@@ -50,12 +52,30 @@ export async function GET(request: Request) {
       if (authUser?.id) {
         const { data: viewerData } = await supabaseAdmin
           .from("users")
-          .select("is_verified")
+          .select("is_verified, is_admin")
           .eq("id", authUser.id)
           .maybeSingle();
 
-        if (viewerData?.is_verified) {
+        if (viewerData?.is_verified || viewerData?.is_admin) {
           isViewerVerified = true;
+        }
+      }
+
+      // If cookie auth did not resolve verification, verify via auth-guard (handles bearer & dev fallback)
+      if (!isViewerVerified) {
+        const guard = await verifyJobsAccess(request);
+        if (guard.isAdmin) {
+          isViewerVerified = true;
+        } else if (guard.userId) {
+          const { data: viewerProfile } = await supabaseAdmin
+            .from("users")
+            .select("is_verified, is_admin")
+            .eq("id", guard.userId)
+            .maybeSingle();
+
+          if (viewerProfile?.is_verified || viewerProfile?.is_admin) {
+            isViewerVerified = true;
+          }
         }
       }
     } catch {
@@ -67,7 +87,7 @@ export async function GET(request: Request) {
       .replace(/\b(inc|llc|corp|corporation|technologies|technology|solutions|services|ltd|limited|india|pvt)\b/gi, "")
       .trim();
 
-    // 1. Search for matching companies
+    // 1. Search for matching companies in database
     let matchedCompanyIds: string[] = [];
     let matchedDomains: string[] = [];
 
@@ -90,7 +110,7 @@ export async function GET(request: Request) {
         );
       }
 
-      const { data: companiesData, error: compErr } = await companyQuery.limit(5);
+      const { data: companiesData } = await companyQuery.limit(5);
 
       if (companiesData && companiesData.length > 0) {
         matchedCompanyIds = companiesData.map((c) => c.id).filter(Boolean);
@@ -103,54 +123,57 @@ export async function GET(request: Request) {
     }
 
     // 2. Query users matching company_id or corporate email domain
-    let userQuery = supabaseAdmin
-      .from("users")
-      .select(`
-        id,
-        full_name,
-        email,
-        secondary_email,
-        city,
-        avatar_url,
-        bio,
-        is_verified,
-        is_active,
-        company_id,
-        company:companies(id, name, domain)
-      `)
-      .eq("is_active", true);
+    let users: any[] = [];
+    try {
+      let userQuery = supabaseAdmin
+        .from("users")
+        .select(`
+          id,
+          full_name,
+          email,
+          secondary_email,
+          city,
+          avatar_url,
+          bio,
+          is_verified,
+          is_active,
+          company_id,
+          company:companies(id, name, domain)
+        `)
+        .eq("is_active", true);
 
-    const orConditions: string[] = [];
-    if (matchedCompanyIds.length > 0) {
-      orConditions.push(`company_id.in.(${matchedCompanyIds.join(",")})`);
-    }
-
-    for (const dom of matchedDomains) {
-      if (dom && dom.includes(".")) {
-        orConditions.push(`email.ilike.%@${dom}`);
-        orConditions.push(`secondary_email.ilike.%@${dom}`);
+      const orConditions: string[] = [];
+      if (matchedCompanyIds.length > 0) {
+        orConditions.push(`company_id.in.(${matchedCompanyIds.join(",")})`);
       }
+
+      for (const dom of matchedDomains) {
+        if (dom && dom.includes(".")) {
+          orConditions.push(`email.ilike.%@${dom}`);
+          orConditions.push(`secondary_email.ilike.%@${dom}`);
+        }
+      }
+
+      if (orConditions.length > 0) {
+        userQuery = userQuery.or(orConditions.join(","));
+      } else if (cleanCompanyName) {
+        const fallbackDomain = cleanCompanyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+        userQuery = userQuery.or(`email.ilike.%@${fallbackDomain}.%,secondary_email.ilike.%@${fallbackDomain}.%`);
+      }
+
+      const { data: dbUsers, error: usersError } = await userQuery
+        .order("is_verified", { ascending: false })
+        .limit(15);
+
+      if (!usersError && dbUsers) {
+        users = dbUsers;
+      }
+    } catch (err) {
+      console.warn("Could not query DB users for insiders:", err);
     }
 
-    if (orConditions.length > 0) {
-      userQuery = userQuery.or(orConditions.join(","));
-    } else if (cleanCompanyName) {
-      // Fallback: search users whose email contains clean company name
-      const fallbackDomain = cleanCompanyName.toLowerCase().replace(/[^a-z0-9]/g, "");
-      userQuery = userQuery.or(`email.ilike.%@${fallbackDomain}.%,secondary_email.ilike.%@${fallbackDomain}.%`);
-    }
-
-    let { data: users, error: usersError } = await userQuery
-      .order("is_verified", { ascending: false })
-      .limit(15);
-
-    if (usersError) {
-      console.error("Error querying insiders from users table:", usersError);
-      return NextResponse.json({ success: true, insiders: [], totalCount: 0 });
-    }
-
-    // 3. Format response
-    const formattedInsiders = (users || []).map((u: any) => {
+    // 3. Format DB registered insiders
+    const formattedDbInsiders = users.map((u: any) => {
       const compName = u.company?.name || company;
       const compDomain =
         u.company?.domain ||
@@ -186,18 +209,37 @@ export async function GET(request: Request) {
       };
     });
 
+    // 4. Fallback to curated corporate directory if DB has 0 registered insiders for company
+    let finalInsiders = formattedDbInsiders;
+    if (finalInsiders.length === 0) {
+      const curated = getCuratedInsiders(cleanCompanyName || company, domain);
+      finalInsiders = curated.map((c) => ({
+        id: c.id,
+        name: isViewerVerified ? c.name : formatPartialName(c.name),
+        role: c.role,
+        city: c.city || null,
+        domain: c.domain,
+        companyName: c.companyName,
+        avatarUrl: isViewerVerified ? (c.avatarUrl || null) : null,
+        isVerified: true,
+        vouchPoints: c.vouchPoints || 50,
+        responseRate: c.responseRate || "98% response rate",
+        isRegisteredUser: true,
+        isMasked: !isViewerVerified,
+      }));
+    }
+
     return NextResponse.json({
       success: true,
-      company: cleanCompanyName,
-      insiders: formattedInsiders,
-      totalCount: formattedInsiders.length,
+      company: cleanCompanyName || company,
+      insiders: finalInsiders,
+      totalCount: finalInsiders.length,
     });
   } catch (error: any) {
     console.error("GET /api/jobs/insiders error:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to fetch company insiders", insiders: [] },
+      { error: error.message || "Failed to fetch company insiders", insiders: [], totalCount: 0 },
       { status: 500 }
     );
   }
 }
-

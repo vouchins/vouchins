@@ -486,7 +486,7 @@ Castletown high school
     });
   });
 
-  describe('Downstream Job Matching Hook', () => {
+  describe('Downstream Job Matching Hook & Workplace/Location Filtering', () => {
     it('should return matched jobs based on candidate profile vectors', async () => {
       const vectors = SAMPLE_STAFF_EVALUATION.jobMatchVectors;
       const parsed = JobMatchVectorsSchema.safeParse(vectors);
@@ -498,6 +498,53 @@ Castletown high school
       expect(matched[0].companyName).toBeDefined();
       expect(matched[0].id).toBeDefined();
       expect(typeof matched[0].isInternal).toBe('boolean');
+    });
+
+    it('should never return "Vouchins" as the hiring company name in matched jobs', async () => {
+      const vectors = SAMPLE_STAFF_EVALUATION.jobMatchVectors;
+      const matched = await matchJobsForProfile(vectors);
+      for (const job of matched) {
+        expect(job.companyName.toLowerCase()).not.toBe('vouchins');
+      }
+    });
+
+    it('should prioritize Hyderabad remote jobs when location is Hyderabad and filter is remote', () => {
+      const { isLocationMatch } = require('@/lib/jobs/ats-client');
+
+      // Matching local remote roles in Hyderabad / India
+      expect(isLocationMatch('Hyderabad / Remote', 'Hyderabad', 'Remote', 'remote')).toBe(true);
+      expect(isLocationMatch('Remote - India', 'Hyderabad', 'Remote', 'remote')).toBe(true);
+      expect(isLocationMatch('Hitec City, Hyderabad (Remote)', 'Hyderabad', 'Remote', 'remote')).toBe(true);
+
+      // Must reject US remote and California remote when candidate is Hyderabad
+      expect(isLocationMatch('San Francisco, CA (Remote)', 'Hyderabad', 'Remote', 'remote')).toBe(false);
+      expect(isLocationMatch('Austin, TX (Remote)', 'Hyderabad', 'Remote', 'remote')).toBe(false);
+      expect(isLocationMatch('Remote - US Only', 'Hyderabad', 'Remote', 'remote')).toBe(false);
+
+      // Must reject onsite jobs when workMode filter is remote
+      expect(isLocationMatch('Hyderabad, India', 'Hyderabad', 'Onsite', 'remote')).toBe(false);
+    });
+
+    it('should prioritize US remote jobs when candidate location is New Jersey', () => {
+      const { isLocationMatch } = require('@/lib/jobs/ats-client');
+
+      expect(isLocationMatch('New Jersey (Remote)', 'New Jersey', 'Remote', 'remote')).toBe(true);
+      expect(isLocationMatch('Remote - US', 'New Jersey', 'Remote', 'remote')).toBe(true);
+
+      // Must reject India remote jobs when candidate is New Jersey
+      expect(isLocationMatch('Remote - India', 'New Jersey', 'Remote', 'remote')).toBe(false);
+      expect(isLocationMatch('Hyderabad / Remote', 'New Jersey', 'Remote', 'remote')).toBe(false);
+    });
+
+    it('should safely clamp Google Favicon size to 64 to avoid upstream image errors', () => {
+      const { getGoogleFaviconUrl } = require('@/components/jobs/company-logo');
+
+      const url64 = getGoogleFaviconUrl('oracle.com', 64);
+      expect(url64).toContain('&size=64');
+
+      const url128 = getGoogleFaviconUrl('oracle.com', 128);
+      // Even if 128 is requested, it must be capped at 64 to prevent 404s
+      expect(url128).toContain('&size=64');
     });
   });
 });

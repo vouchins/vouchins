@@ -13,13 +13,19 @@ import {
   GREENHOUSE_TARGETS,
   LEVER_TARGETS,
   ASHBY_TARGETS,
+  clearAtsBoardCache,
 } from '@/lib/jobs/ats-client';
 
 describe('Live ATS Aggregator & Match Engine', () => {
   const originalFetch = global.fetch;
 
+  beforeEach(() => {
+    clearAtsBoardCache();
+  });
+
   afterEach(() => {
     global.fetch = originalFetch;
+    clearAtsBoardCache();
   });
 
   describe('Classification & Cleaning Helpers', () => {

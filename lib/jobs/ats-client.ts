@@ -78,6 +78,11 @@ export const GREENHOUSE_TARGETS: AtsTarget[] = [
   { company: 'Reddit', boardToken: 'reddit', domain: 'reddit.com', platform: 'greenhouse' },
   { company: 'Instacart', boardToken: 'instacart', domain: 'instacart.com', platform: 'greenhouse' },
   { company: 'Snowflake', boardToken: 'snowflake', domain: 'snowflake.com', platform: 'greenhouse' },
+  { company: 'Postman', boardToken: 'postman', domain: 'postman.com', platform: 'greenhouse' },
+  { company: 'BrowserStack', boardToken: 'browserstack', domain: 'browserstack.com', platform: 'greenhouse' },
+  { company: 'InMobi', boardToken: 'inmobi', domain: 'inmobi.com', platform: 'greenhouse' },
+  { company: 'Thoughtworks', boardToken: 'thoughtworks', domain: 'thoughtworks.com', platform: 'greenhouse' },
+  { company: 'Branch', boardToken: 'branch', domain: 'branch.io', platform: 'greenhouse' },
 ];
 
 export const LEVER_TARGETS: AtsTarget[] = [
@@ -85,6 +90,7 @@ export const LEVER_TARGETS: AtsTarget[] = [
   { company: 'Netflix', boardToken: 'netflix', domain: 'netflix.com', platform: 'lever' },
   { company: 'Palantir', boardToken: 'palantir', domain: 'palantir.com', platform: 'lever' },
   { company: 'Atlassian', boardToken: 'atlassian', domain: 'atlassian.com', platform: 'lever' },
+  { company: 'CleverTap', boardToken: 'clevertap', domain: 'clevertap.com', platform: 'lever' },
 ];
 
 export const ASHBY_TARGETS: AtsTarget[] = [
@@ -208,7 +214,13 @@ export function detectExperienceLevel(
   return 'Mid';
 }
 
-export function detectWorkMode(locationStr: string): 'Remote' | 'Hybrid' | 'Onsite' {
+export function detectWorkMode(locationStr: string, explicitType?: string): 'Remote' | 'Hybrid' | 'Onsite' {
+  if (explicitType) {
+    const norm = explicitType.trim().toLowerCase();
+    if (norm === 'remote') return 'Remote';
+    if (norm === 'hybrid') return 'Hybrid';
+    if (norm === 'onsite') return 'Onsite';
+  }
   const lower = (locationStr || '').toLowerCase();
   if (lower.includes('remote') || lower.includes('anywhere') || lower.includes('virtual')) {
     return 'Remote';
@@ -220,65 +232,86 @@ export function detectWorkMode(locationStr: string): 'Remote' | 'Hybrid' | 'Onsi
 }
 
 export const LOCATION_ALIASES: Record<string, string[]> = {
-  'new jersey': ['nj', 'jersey', 'newark', 'princeton', 'jersey city', 'hoboken', 'new york metro', 'ny metro', 'remote - us', 'remote'],
-  'nj': ['new jersey', 'jersey', 'newark', 'princeton', 'jersey city', 'hoboken', 'new york metro', 'ny metro', 'remote - us', 'remote'],
-  'jersey': ['new jersey', 'nj', 'jersey city', 'newark', 'hoboken', 'remote'],
-  'jersey city': ['new jersey', 'nj', 'jersey', 'newark', 'hoboken', 'remote'],
-  'newark': ['new jersey', 'nj', 'jersey', 'jersey city', 'remote'],
-  'new york': ['ny', 'nyc', 'manhattan', 'brooklyn', 'new york city', 'remote - us', 'remote'],
-  'nyc': ['new york', 'ny', 'manhattan', 'brooklyn', 'new york city', 'remote - us', 'remote'],
-  'san francisco': ['sf', 'bay area', 'silicon valley', 'palo alto', 'mountain view', 'sunnyvale', 'san jose', 'oakland', 'remote'],
-  'sf': ['san francisco', 'bay area', 'silicon valley', 'palo alto', 'mountain view', 'sunnyvale', 'san jose', 'oakland', 'remote'],
-  'california': ['ca', 'san francisco', 'sf', 'bay area', 'los angeles', 'la', 'san diego', 'remote'],
-  'seattle': ['wa', 'washington', 'bellevue', 'redmond', 'remote'],
-  'washington': ['wa', 'seattle', 'bellevue', 'redmond', 'remote'],
-  'texas': ['tx', 'austin', 'dallas', 'houston', 'dfw', 'remote'],
-  'austin': ['tx', 'texas', 'remote'],
-  'dallas': ['tx', 'texas', 'dfw', 'plano', 'irving', 'remote'],
-  'chicago': ['il', 'illinois', 'remote'],
-  'boston': ['ma', 'massachusetts', 'cambridge', 'remote'],
-  'hyderabad': ['hyd', 'telangana', 'cyberabad', 'hitec city', 'india', 'remote'],
-  'bangalore': ['bengaluru', 'blr', 'karnataka', 'whitefield', 'electronic city', 'india', 'remote'],
-  'bengaluru': ['bangalore', 'blr', 'karnataka', 'india', 'remote'],
-  'pune': ['maharashtra', 'mumbai', 'india', 'remote'],
-  'mumbai': ['bombay', 'maharashtra', 'pune', 'india', 'remote'],
-  'delhi': ['ncr', 'gurgaon', 'gurugram', 'noida', 'india', 'remote'],
-  'gurgaon': ['gurugram', 'delhi', 'ncr', 'noida', 'india', 'remote'],
-  'noida': ['delhi', 'ncr', 'gurgaon', 'india', 'remote'],
-  'london': ['uk', 'united kingdom', 'england', 'remote'],
+  'new jersey': ['nj', 'jersey', 'newark', 'princeton', 'jersey city', 'hoboken', 'new york metro', 'ny metro'],
+  'nj': ['new jersey', 'jersey', 'newark', 'princeton', 'jersey city', 'hoboken', 'new york metro', 'ny metro'],
+  'jersey': ['new jersey', 'nj', 'jersey city', 'newark', 'hoboken'],
+  'jersey city': ['new jersey', 'nj', 'jersey', 'newark', 'hoboken'],
+  'newark': ['new jersey', 'nj', 'jersey', 'jersey city'],
+  'new york': ['ny', 'nyc', 'manhattan', 'brooklyn', 'new york city'],
+  'nyc': ['new york', 'ny', 'manhattan', 'brooklyn', 'new york city'],
+  'san francisco': ['sf', 'bay area', 'silicon valley', 'palo alto', 'mountain view', 'sunnyvale', 'san jose', 'oakland'],
+  'sf': ['san francisco', 'bay area', 'silicon valley', 'palo alto', 'mountain view', 'sunnyvale', 'san jose', 'oakland'],
+  'california': ['ca', 'san francisco', 'sf', 'bay area', 'los angeles', 'la', 'san diego'],
+  'seattle': ['wa', 'bellevue', 'redmond'],
+  'washington': ['wa', 'seattle', 'bellevue', 'redmond'],
+  'texas': ['tx', 'austin', 'dallas', 'houston', 'dfw'],
+  'austin': ['tx', 'texas'],
+  'dallas': ['tx', 'texas', 'dfw', 'plano', 'irving'],
+  'chicago': ['il', 'illinois'],
+  'boston': ['ma', 'massachusetts', 'cambridge'],
+  'hyderabad': ['hyd', 'telangana', 'cyberabad', 'hitec city', 'india'],
+  'bangalore': ['bengaluru', 'blr', 'karnataka', 'whitefield', 'electronic city', 'india'],
+  'bengaluru': ['bangalore', 'blr', 'karnataka', 'india'],
+  'pune': ['maharashtra', 'mumbai', 'india'],
+  'mumbai': ['bombay', 'maharashtra', 'pune', 'india'],
+  'delhi': ['ncr', 'gurgaon', 'gurugram', 'noida', 'india'],
+  'gurgaon': ['gurugram', 'delhi', 'ncr', 'noida', 'india'],
+  'noida': ['delhi', 'ncr', 'gurgaon', 'india'],
+  'london': ['uk', 'united kingdom', 'england'],
 };
 
 const LOCATION_STOP_WORDS = new Set([
   'new', 'san', 'los', 'de', 'la', 'el', 'city', 'area', 'metro', 'north', 'south', 'east', 'west', 'greater', 'st', 'saint'
 ]);
 
+// Regional groupings to avoid returning US-remote to India or India-remote to US
+const INDIA_REGIONS = new Set([
+  'hyderabad', 'hyd', 'telangana', 'cyberabad', 'hitec city',
+  'bangalore', 'bengaluru', 'blr', 'karnataka', 'whitefield', 'electronic city',
+  'pune', 'mumbai', 'bombay', 'maharashtra',
+  'delhi', 'gurgaon', 'gurugram', 'noida', 'ncr',
+  'india', 'chennai', 'kolkata'
+]);
+
+const US_REGIONS = new Set([
+  'new jersey', 'nj', 'jersey', 'jersey city', 'newark',
+  'new york', 'ny', 'nyc', 'manhattan', 'brooklyn',
+  'san francisco', 'sf', 'bay area', 'silicon valley', 'california', 'ca',
+  'seattle', 'wa', 'washington',
+  'texas', 'tx', 'austin', 'dallas', 'houston',
+  'chicago', 'il', 'illinois',
+  'boston', 'ma', 'massachusetts',
+  'us', 'usa', 'united states'
+]);
+
 export function isLocationMatch(
   jobLocation: string,
   candidateLocation: string,
-  workplaceType?: string
+  workplaceType?: string,
+  workModeFilter: 'all' | 'onsite' | 'hybrid' | 'remote' = 'all'
 ): boolean {
+  const detectedType = detectWorkMode(jobLocation, workplaceType);
+  const normalizedType = detectedType.toLowerCase();
+
+  // 1. Check Workplace Mode filter if explicitly set
+  if (workModeFilter && workModeFilter !== 'all') {
+    if (workModeFilter.toLowerCase() !== normalizedType) {
+      return false;
+    }
+  }
+
+  // 2. If no candidate location specified or set to 'all', match anything passing work mode
   if (!candidateLocation || candidateLocation.toLowerCase() === 'all') return true;
 
   const candLoc = candidateLocation.toLowerCase().trim();
   const jobLoc = (jobLocation || '').toLowerCase().trim();
-  const wpType = (workplaceType || '').toLowerCase();
 
-  // 1. Flexible remote positions always match candidate's location
-  if (
-    wpType === 'remote' ||
-    jobLoc.includes('remote') ||
-    jobLoc.includes('anywhere') ||
-    jobLoc.includes('virtual')
-  ) {
-    return true;
-  }
-
-  // 2. Direct substring match
+  // 3. Direct substring match (e.g. "Hyderabad" in "Hyderabad, India" or vice versa)
   if (jobLoc.includes(candLoc) || candLoc.includes(jobLoc)) {
     return true;
   }
 
-  // 3. Word token boundary check (excluding generic stop words like 'new', 'san', etc.)
+  // 4. Token boundary check
   const tokens = candLoc
     .split(/[\s,/-]+/)
     .map((t) => t.trim())
@@ -290,7 +323,7 @@ export function isLocationMatch(
     }
   }
 
-  // 4. State & Metro Area Aliases
+  // 5. State & Metro Area Aliases
   const aliases = LOCATION_ALIASES[candLoc] || [];
   for (const alias of aliases) {
     if (jobLoc.includes(alias)) {
@@ -299,6 +332,51 @@ export function isLocationMatch(
     const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     if (new RegExp(`\\b${escaped}\\b`, 'i').test(jobLoc)) {
       return true;
+    }
+  }
+
+  // 6. Remote Job Region Compatibility
+  // If the job is remote, verify it is geographically compatible with candidate's location
+  if (normalizedType === 'remote') {
+    const isCandidateIndia = INDIA_REGIONS.has(candLoc) ||
+      (aliases.some((al) => INDIA_REGIONS.has(al)));
+    const isCandidateUS = US_REGIONS.has(candLoc) ||
+      (aliases.some((al) => US_REGIONS.has(al)));
+
+    const jobHasUS = Array.from(US_REGIONS).some((term) => {
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(jobLoc);
+    });
+
+    const jobHasIndia = Array.from(INDIA_REGIONS).some((term) => {
+      const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return new RegExp(`\\b${escaped}\\b`, 'i').test(jobLoc);
+    });
+
+    if (isCandidateIndia) {
+      // If candidate is in India:
+      // - Match if job specifies India or candidate city (e.g. "Remote - India", "Hyderabad (Remote)")
+      // - Match generic "Remote" ONLY if it does not explicitly specify US / UK / EMEA
+      if (jobHasIndia) return true;
+      if (jobHasUS) return false;
+      if (jobLoc.includes('uk') || jobLoc.includes('london') || jobLoc.includes('emea') || jobLoc.includes('europe')) return false;
+      if (jobLoc === 'remote' || jobLoc === 'anywhere' || jobLoc.includes('worldwide') || jobLoc.includes('global')) {
+        return true;
+      }
+      return false;
+    }
+
+    if (isCandidateUS) {
+      // If candidate is in US:
+      // - Match if job specifies US or candidate state/city
+      // - Reject if job specifies India / APAC / EMEA
+      if (jobHasUS) return true;
+      if (jobHasIndia) return false;
+      if (jobLoc.includes('apac') || jobLoc.includes('emea') || jobLoc.includes('europe')) return false;
+      if (jobLoc === 'remote' || jobLoc === 'anywhere' || jobLoc.includes('worldwide') || jobLoc.includes('global')) {
+        return true;
+      }
+      return false;
     }
   }
 
@@ -479,6 +557,18 @@ export function isRoleRelevant(title: string, candidateSkills: string[] = []): b
   return false;
 }
 
+interface AtsBoardCacheEntry {
+  rawJobs: any[];
+  timestamp: number;
+}
+
+const ATS_BOARD_CACHE = new Map<string, AtsBoardCacheEntry>();
+const ATS_CACHE_TTL_MS = 20 * 60 * 1000; // 20 minutes
+
+export function clearAtsBoardCache(): void {
+  ATS_BOARD_CACHE.clear();
+}
+
 async function fetchGreenhouseBoard(
   target: AtsTarget,
   candidateSkills: string[],
@@ -487,22 +577,48 @@ async function fetchGreenhouseBoard(
   limit = 10
 ): Promise<NormalizedAtsJob[]> {
   try {
-    const url = `https://boards-api.greenhouse.io/v1/boards/${target.boardToken}/jobs?content=true`;
-    const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(4000),
-    });
+    const cacheKey = `gh-${target.boardToken}`;
+    const cached = ATS_BOARD_CACHE.get(cacheKey);
+    let rawJobs: any[] = [];
 
-    if (!res.ok) return [];
+    if (cached && Date.now() - cached.timestamp < ATS_CACHE_TTL_MS) {
+      rawJobs = cached.rawJobs;
+    } else {
+      // NOTE: We deliberately do NOT pass ?content=true.
+      // With ?content=true, responses exceed 11MB and Next.js throws
+      // "Failed to set fetch cache: items over 2MB can not be cached".
+      // Without ?content=true, the payload is ~200KB (50x lighter and instant).
+      const url = `https://boards-api.greenhouse.io/v1/boards/${target.boardToken}/jobs`;
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store', // Bypass Next.js 2MB disk fetch-cache; handled by ATS_BOARD_CACHE in RAM
+        signal: AbortSignal.timeout(8000),
+      });
 
-    const data = await res.json();
-    const rawJobs = Array.isArray(data.jobs) ? data.jobs : [];
+      if (!res.ok) return [];
+
+      const data = await res.json();
+      rawJobs = Array.isArray(data.jobs) ? data.jobs : [];
+      ATS_BOARD_CACHE.set(cacheKey, { rawJobs, timestamp: Date.now() });
+    }
+
     const nowIso = new Date().toISOString();
 
     const validJobs = rawJobs.filter((j: any) => Boolean(j.title && j.absolute_url));
     const techJobs = validJobs.filter((j: any) => isRoleRelevant(String(j.title), candidateSkills));
-    const targetPool = techJobs.length > 0 ? techJobs : validJobs;
+    let targetPool = techJobs.length > 0 ? techJobs : validJobs;
+
+    // Prioritize candidate location so regional/city jobs are never truncated out by slice
+    if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
+      const locMatches = targetPool.filter((j: any) => {
+        const loc = j.location?.name ? String(j.location.name) : (typeof j.location === 'string' ? j.location : '');
+        return isLocationMatch(loc, candidateLocation);
+      });
+      if (locMatches.length > 0) {
+        const others = targetPool.filter((j: any) => !locMatches.includes(j));
+        targetPool = [...locMatches, ...others];
+      }
+    }
 
     return targetPool
       .slice(0, Math.max(limit, 12))
@@ -511,7 +627,10 @@ async function fetchGreenhouseBoard(
         const location = j.location?.name ? String(j.location.name).trim() : 'Remote';
         const workplaceType = detectWorkMode(location);
         const expLevel = detectExperienceLevel(title);
-        const descText = cleanHtmlText(j.content || title).slice(0, 3500);
+        const descText = cleanHtmlText(
+          j.content ||
+          `${target.company} is seeking an exceptional ${title} based in ${location}. In this role, you will design, scale, and deliver robust software components across high-throughput production infrastructure.`
+        ).slice(0, 3500);
 
         const matchResult = evaluateJobMatch(
           {
@@ -567,23 +686,44 @@ async function fetchLeverBoard(
   limit = 10
 ): Promise<NormalizedAtsJob[]> {
   try {
-    const url = `https://api.lever.co/v0/postings/${target.boardToken}?mode=json`;
-    const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(4000),
-    });
+    const cacheKey = `lever-${target.boardToken}`;
+    const cached = ATS_BOARD_CACHE.get(cacheKey);
+    let rawJobs: any[] = [];
 
-    if (!res.ok) return [];
+    if (cached && Date.now() - cached.timestamp < ATS_CACHE_TTL_MS) {
+      rawJobs = cached.rawJobs;
+    } else {
+      const url = `https://api.lever.co/v0/postings/${target.boardToken}?mode=json`;
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store', // Prevents Next.js >2MB fetch cache errors
+        signal: AbortSignal.timeout(8000), // Increased from 4000ms to eliminate Palantir timeout
+      });
 
-    const rawJobs = await res.json();
-    if (!Array.isArray(rawJobs)) return [];
+      if (!res.ok) return [];
+
+      rawJobs = await res.json();
+      if (!Array.isArray(rawJobs)) return [];
+      ATS_BOARD_CACHE.set(cacheKey, { rawJobs, timestamp: Date.now() });
+    }
 
     const nowIso = new Date().toISOString();
 
     const validJobs = rawJobs.filter((j: any) => Boolean(j.text && j.hostedUrl));
     const techJobs = validJobs.filter((j: any) => isRoleRelevant(String(j.text), candidateSkills));
-    const targetPool = techJobs.length > 0 ? techJobs : validJobs;
+    let targetPool = techJobs.length > 0 ? techJobs : validJobs;
+
+    // Prioritize candidate location
+    if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
+      const locMatches = targetPool.filter((j: any) => {
+        const loc = j.categories?.location || '';
+        return isLocationMatch(loc, candidateLocation);
+      });
+      if (locMatches.length > 0) {
+        const others = targetPool.filter((j: any) => !locMatches.includes(j));
+        targetPool = [...locMatches, ...others];
+      }
+    }
 
     return targetPool
       .slice(0, Math.max(limit, 12))
@@ -649,22 +789,44 @@ async function fetchAshbyBoard(
   limit = 10
 ): Promise<NormalizedAtsJob[]> {
   try {
-    const url = `https://api.ashbyhq.com/posting-api/job-board/${target.boardToken}?includeCompensation=true`;
-    const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(4000),
-    });
+    const cacheKey = `ashby-${target.boardToken}`;
+    const cached = ATS_BOARD_CACHE.get(cacheKey);
+    let rawJobs: any[] = [];
 
-    if (!res.ok) return [];
+    if (cached && Date.now() - cached.timestamp < ATS_CACHE_TTL_MS) {
+      rawJobs = cached.rawJobs;
+    } else {
+      const url = `https://api.ashbyhq.com/posting-api/job-board/${target.boardToken}?includeCompensation=true`;
+      const res = await fetch(url, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store', // Prevents Next.js >2MB fetch cache errors (Notion 3.8MB, Ramp 4.0MB)
+        signal: AbortSignal.timeout(8000),
+      });
 
-    const data = await res.json();
-    const rawJobs = Array.isArray(data.jobs) ? data.jobs : [];
+      if (!res.ok) return [];
+
+      const data = await res.json();
+      rawJobs = Array.isArray(data.jobs) ? data.jobs : [];
+      ATS_BOARD_CACHE.set(cacheKey, { rawJobs, timestamp: Date.now() });
+    }
+
     const nowIso = new Date().toISOString();
 
     const validJobs = rawJobs.filter((j: any) => Boolean(j.title && (j.jobUrl || j.id)));
     const techJobs = validJobs.filter((j: any) => isRoleRelevant(String(j.title), candidateSkills));
-    const targetPool = techJobs.length > 0 ? techJobs : validJobs;
+    let targetPool = techJobs.length > 0 ? techJobs : validJobs;
+
+    // Prioritize candidate location
+    if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
+      const locMatches = targetPool.filter((j: any) => {
+        const loc = j.location || j.secondaryLocations?.[0]?.location || '';
+        return isLocationMatch(loc, candidateLocation);
+      });
+      if (locMatches.length > 0) {
+        const others = targetPool.filter((j: any) => !locMatches.includes(j));
+        targetPool = [...locMatches, ...others];
+      }
+    }
 
     return targetPool
       .slice(0, Math.max(limit, 12))

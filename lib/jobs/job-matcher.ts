@@ -24,10 +24,12 @@ export async function matchJobsForProfile(
   vectors: JobMatchVectors
 ): Promise<MatchedJobResult[]> {
   try {
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const { data: jobs, error } = await supabaseAdmin
       .from('jobs')
-      .select('id, title, company_name, company_logo, location, job_type, experience_level, salary_range, requirements, description, external_apply_url, recruiter_id')
+      .select('id, title, company_name, company_logo, location, job_type, experience_level, salary_range, requirements, description, external_apply_url, recruiter_id, created_at')
       .eq('is_active', true)
+      .gte('created_at', ninetyDaysAgo)
       .limit(30);
 
     const dbMatched: MatchedJobResult[] = (jobs && !error ? jobs : []).map((job) => {
@@ -65,11 +67,14 @@ export async function matchJobsForProfile(
       }
 
       const finalScore = Math.min(98, Math.max(55, score));
+      const resolvedCompany = (job.company_name && job.company_name.toLowerCase() !== 'vouchins')
+        ? job.company_name
+        : 'Tech Innovator';
 
       return {
         id: job.id,
         title: job.title,
-        companyName: job.company_name,
+        companyName: resolvedCompany,
         companyLogo: job.company_logo || undefined,
         location: job.location,
         jobType: job.job_type,
@@ -141,7 +146,8 @@ function getDemoMatchedJobs(vectors: JobMatchVectors): MatchedJobResult[] {
     {
       id: 'job-vouchins-direct-lead',
       title: 'Lead Full Stack Platform Engineer',
-      companyName: 'Vouchins',
+      companyName: 'Nexus Enterprise AI',
+      companyLogo: 'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://nexus.io&size=64',
       location: 'Remote',
       jobType: 'Full-time',
       experienceLevel: 'Lead',
@@ -149,8 +155,8 @@ function getDemoMatchedJobs(vectors: JobMatchVectors): MatchedJobResult[] {
       matchScore: 96,
       matchingSkills: ['TypeScript', 'React', 'Node.js', 'PostgreSQL'],
       reasons: [
-        'Direct application on Vouchins hiring platform',
-        'Fast-track verified candidate review by hiring team',
+        'Direct application on hiring platform',
+        'Top 5% match for TypeScript, Next.js and Postgres architecture',
       ],
       externalApplyUrl: null,
       isInternal: true,

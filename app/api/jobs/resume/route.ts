@@ -132,6 +132,7 @@ export async function GET(request: Request) {
       return {
         id: r.id,
         name: r.title || r.file_name || 'Master Resume',
+        customSlug: (r as any).custom_slug || (doc as any)?.customSlug || null,
         targetJobTitle: evaluation?.targetRole || evaluationsMap[r.id]?.targetRole || 'Software Engineer',
         lastModified: formatTimeAgo(r.updated_at),
         created: formatTimeAgo(r.created_at),

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const KNOWN_COMPANY_DOMAINS: Record<string, string> = {
+  spacex: 'spacex.com',
   oracle: 'oracle.com',
   servicenow: 'servicenow.com',
   uber: 'uber.com',
@@ -106,10 +107,12 @@ export function getCompanyDomain(companyName: string, externalUrl?: string | nul
 
 /**
  * Constructs Google Favicon service URL (type=FAVICON, client=SOCIAL).
+ * Safely clamps size between 16 and 64 to prevent upstream 404 image errors.
  */
 export function getGoogleFaviconUrl(domain: string, size = 64): string {
   if (!domain) return '';
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${domain}&size=${size}`;
+  const safeSize = Math.min(Math.max(size, 16), 64);
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${domain}&size=${safeSize}`;
 }
 
 interface CompanyLogoProps {
@@ -145,6 +148,11 @@ export function CompanyLogo({
       : domain
       ? getGoogleFaviconUrl(domain, size)
       : '';
+
+  // Reset error state whenever resolvedUrl changes so changing selected job re-attempts image render
+  useEffect(() => {
+    setHasError(false);
+  }, [resolvedUrl]);
 
   const words = (companyName || 'CO').trim().split(/\s+/).filter(Boolean);
   const initials =
