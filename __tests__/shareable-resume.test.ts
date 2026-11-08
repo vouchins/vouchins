@@ -171,6 +171,60 @@ describe('Shareable Resume Functionality', () => {
       expect(json.resume.document.contact.email).toBe('admin@vouchins.com');
       expect(json.resume.document.contact.location).toBe('Hyderabad');
     });
+
+    it('returns isVerified: true for verified candidate accounts', async () => {
+      mockResumeData = {
+        id: 'res-verified-user',
+        user_id: 'user-verified-1',
+        title: 'Verified Candidate Resume',
+        document_schema: {
+          contact: { fullName: 'Taher Shaik' },
+        },
+      };
+
+      mockUserData = {
+        id: 'user-verified-1',
+        full_name: 'Taher Shaik',
+        is_verified: true,
+        is_admin: false,
+      };
+
+      const req = new Request('http://localhost:3000/api/resume/share/res-verified-user');
+      const res = await getShareableResume(req, {
+        params: Promise.resolve({ id: 'res-verified-user' }),
+      });
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.resume.isVerified).toBe(true);
+    });
+
+    it('returns isVerified: false for unverified candidate accounts', async () => {
+      mockResumeData = {
+        id: 'res-unverified-user',
+        user_id: 'user-unverified-2',
+        title: 'Unverified Candidate Resume',
+        document_schema: {
+          contact: { fullName: 'Guest User' },
+        },
+      };
+
+      mockUserData = {
+        id: 'user-unverified-2',
+        full_name: 'Guest User',
+        is_verified: false,
+        is_admin: false,
+      };
+
+      const req = new Request('http://localhost:3000/api/resume/share/res-unverified-user');
+      const res = await getShareableResume(req, {
+        params: Promise.resolve({ id: 'res-unverified-user' }),
+      });
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.resume.isVerified).toBe(false);
+    });
   });
 });
 

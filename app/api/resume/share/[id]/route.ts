@@ -33,21 +33,26 @@ export async function GET(
       }
     }
 
-    // Enrich contact if fullName is missing and user profile is available
-    if (doc && !doc.contact?.fullName && resume.user_id) {
+    // Check candidate verification status and enrich contact if fullName is missing
+    let isVerifiedCandidate = false;
+    if (resume.user_id) {
       const { data: profile } = await supabaseAdmin
         .from('users')
-        .select('full_name, email, city')
+        .select('full_name, email, city, is_verified, is_admin')
         .eq('id', resume.user_id)
         .maybeSingle();
 
-      if (profile?.full_name) {
-        doc.contact = {
-          ...doc.contact,
-          fullName: profile.full_name,
-          email: doc.contact?.email || profile.email || '',
-          location: doc.contact?.location || profile.city || '',
-        };
+      if (profile) {
+        isVerifiedCandidate = Boolean(profile.is_verified || profile.is_admin);
+
+        if (doc && !doc.contact?.fullName && profile.full_name) {
+          doc.contact = {
+            ...doc.contact,
+            fullName: profile.full_name,
+            email: doc.contact?.email || profile.email || '',
+            location: doc.contact?.location || profile.city || '',
+          };
+        }
       }
     }
 
@@ -65,6 +70,7 @@ export async function GET(
         id: resume.id,
         title: resume.title || resume.file_name || 'Master Resume',
         customSlug: (resume as any).custom_slug || (doc as any)?.customSlug || null,
+        isVerified: isVerifiedCandidate,
         document: doc,
         rawText: resume.raw_text || null,
         updatedAt: resume.updated_at,

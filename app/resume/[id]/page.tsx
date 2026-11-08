@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { parseRawTextToDocument } from '@/lib/jobs/xyz-evaluator';
@@ -39,7 +41,19 @@ export default async function PublicResumePage({ params }: PageProps) {
 
   if (!resume) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4">
+        <div className="mb-6">
+          <Link href="/" className="hover:opacity-90 transition-opacity">
+            <Image
+              src="/images/logo.png"
+              alt="Vouchins"
+              width={140}
+              height={36}
+              className="h-8 w-auto object-contain"
+              priority
+            />
+          </Link>
+        </div>
         <div className="bg-white rounded-3xl border border-neutral-200/80 p-8 sm:p-10 max-w-md w-full text-center space-y-4 shadow-sm">
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto border border-amber-200/80">
             <span className="text-xl font-black">!</span>
@@ -96,21 +110,27 @@ export default async function PublicResumePage({ params }: PageProps) {
     };
   }
 
-  // Enrich candidate full name from user profile if missing in contact info
-  if (!doc.contact?.fullName && resume.user_id) {
+  // Check if candidate user is verified (or platform admin)
+  let isVerifiedCandidate = false;
+
+  if (resume.user_id) {
     const { data: profile } = await supabaseAdmin
       .from('users')
-      .select('full_name, email, city')
+      .select('full_name, email, city, is_verified, is_admin')
       .eq('id', resume.user_id)
       .maybeSingle();
 
-    if (profile?.full_name) {
-      doc.contact = {
-        ...doc.contact,
-        fullName: profile.full_name,
-        email: doc.contact?.email || profile.email || '',
-        location: doc.contact?.location || profile.city || '',
-      };
+    if (profile) {
+      isVerifiedCandidate = Boolean(profile.is_verified || profile.is_admin);
+
+      if (!doc.contact?.fullName && profile.full_name) {
+        doc.contact = {
+          ...doc.contact,
+          fullName: profile.full_name,
+          email: doc.contact?.email || profile.email || '',
+          location: doc.contact?.location || profile.city || '',
+        };
+      }
     }
   }
 
@@ -121,6 +141,7 @@ export default async function PublicResumePage({ params }: PageProps) {
       resumeId={customSlug || resume.id}
       title={resume.title || resume.file_name || 'Master Resume'}
       document={doc}
+      isVerifiedCandidate={isVerifiedCandidate}
     />
   );
 }

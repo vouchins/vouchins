@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Download,
   Printer,
@@ -30,12 +31,14 @@ interface PublicResumeViewerProps {
   resumeId: string;
   title: string;
   document: ResumeDocument;
+  isVerifiedCandidate?: boolean;
 }
 
 export function PublicResumeViewer({
   resumeId,
   title,
   document,
+  isVerifiedCandidate = false,
 }: PublicResumeViewerProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
@@ -91,22 +94,29 @@ export function PublicResumeViewer({
           <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
             <Link
               href="/"
-              className="flex items-center gap-2 group transition-transform active:scale-95"
+              className="flex items-center group transition-opacity hover:opacity-90 active:scale-95 shrink-0"
+              title="Vouchins"
             >
-              <div className="w-8 h-8 rounded-xl bg-[#0A1B5C] flex items-center justify-center text-white font-black text-sm tracking-tight shadow-xs">
-                V
-              </div>
-              <span className="font-black text-base tracking-tight text-[#0A1B5C]">
-                Vouchins
-              </span>
+              <Image
+                src="/images/logo.png"
+                alt="Vouchins"
+                width={125}
+                height={32}
+                className="h-7 sm:h-8 w-auto object-contain"
+                priority
+              />
             </Link>
 
-            <span className="h-4 w-px bg-neutral-200 hidden sm:block" />
+            {isVerifiedCandidate && (
+              <>
+                <span className="h-4 w-px bg-neutral-200 hidden sm:block" />
 
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Verified Candidate Resume</span>
-            </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-bold border border-emerald-200">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Verified Candidate Resume</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Action CTAs */}
@@ -445,8 +455,21 @@ export function PublicResumeViewer({
           )}
 
           {/* Footer watermark */}
-          <footer className="pt-6 border-t border-neutral-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-neutral-400">
-            <span>Verified on Vouchins - Corporate Referral & Career Acceleration Platform</span>
+          <footer className="pt-6 border-t border-neutral-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-neutral-400">
+            <div className="flex items-center gap-2">
+              <Image
+                src="/images/logo.png"
+                alt="Vouchins"
+                width={80}
+                height={20}
+                className="h-3.5 w-auto object-contain opacity-60 grayscale hover:grayscale-0 hover:opacity-100 transition-all"
+              />
+              <span>
+                {isVerifiedCandidate
+                  ? 'Verified Candidate Resume - Corporate Referral & Career Acceleration Platform'
+                  : 'Candidate Resume - Corporate Referral & Career Acceleration Platform'}
+              </span>
+            </div>
             <span>https://www.vouchins.com</span>
           </footer>
         </article>
