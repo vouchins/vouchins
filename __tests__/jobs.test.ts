@@ -302,7 +302,7 @@ Bachelor of Science in Computer Science
       const shaikResumeRaw = `
 SHAIK TAHER
 Project Lead
- 91 8801418257 shaikt30@gmail.com linkedin.com/in/shaik-taher Hyderabad, India
+ 91 8801418257 shaikt30@gmail.com linkedin.com/in/john-doe Hyderabad, India
 SUMMARY
 Senior Software Engineer with 8 years of experience building enterprise-grade web applications in Agile environments. Specialized in React, JavaScript, and Java for developing scalable UI frameworks, reusable components, and robust API integrations.
 EXPERIENCE

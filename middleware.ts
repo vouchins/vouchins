@@ -113,7 +113,7 @@ export async function middleware(request: NextRequest) {
     '/sitemap.xml',
     '/llms.txt',
   ]
-  const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad', '/jobs']
+  const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad']
 
   const isPublicRoute =
     isAuthRoute ||

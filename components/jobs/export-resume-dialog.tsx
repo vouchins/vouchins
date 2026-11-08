@@ -32,6 +32,8 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  X,
+  HelpCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -179,18 +181,26 @@ export function ExportResumeDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[1200px] w-[96vw] h-[92vh] max-h-[940px] p-0 overflow-hidden flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-neutral-200 shadow-2xl">
+      <DialogContent className="max-w-[1220px] w-[96vw] h-[92vh] max-h-[940px] p-0 overflow-hidden flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-neutral-200 shadow-2xl [&>button]:hidden">
         <DialogDescription className="sr-only">
           Export your ATS-friendly resume with customizable templates, fonts, and colors.
         </DialogDescription>
 
-        {/* Modal Top Header Bar */}
-        <div className="px-5 py-3.5 border-b border-neutral-200 bg-white flex items-center justify-between shrink-0">
+        {/* Modal Top Header Bar with Top-Left Close Button (Matches Jobright) */}
+        <div className="px-5 py-3 border-b border-neutral-200 bg-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <DialogTitle className="text-base sm:text-lg font-black text-neutral-900 tracking-tight">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="p-1 -ml-1 text-neutral-600 hover:text-neutral-950 hover:bg-neutral-100 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <DialogTitle className="text-base sm:text-lg font-bold text-neutral-900 tracking-tight">
               Export Resume
             </DialogTitle>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200/90 flex items-center gap-1">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1.5 shadow-2xs">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
               <span>ATS-friendly format</span>
             </span>
@@ -199,16 +209,21 @@ export function ExportResumeDialog({
 
         {/* Modal Main Body (2 Columns: Controls on Left, Live Preview on Right) */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-          {/* Left Column: Customization Controls */}
-          <div className="w-full md:w-[380px] lg:w-[420px] shrink-0 border-r border-neutral-200 flex flex-col h-full bg-[#FAFAFA] overflow-y-auto p-4 sm:p-5 space-y-5">
-            {/* 1. Page Size & Paper Format */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-black text-neutral-900 flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Paper Size</span>
+          {/* Left Column: Customization Controls (Matched to Jobright Screenshot) */}
+          <div className="w-full md:w-[380px] lg:w-[410px] shrink-0 border-r border-neutral-200 flex flex-col h-full bg-[#FAFAFA] overflow-y-auto p-5 space-y-4">
+            {/* 1. ATS-friendly Resume Template Header & Paper Size Dropdown */}
+            <div className="space-y-2.5">
+              <label className="text-xs font-bold text-neutral-900 block">
+                ATS-friendly Resume Template
               </label>
+
+              {/* Paper Format Dropdown (Directly below header) */}
               <div className="relative">
+                <label htmlFor="paper-size-select" className="sr-only">
+                  Paper Size
+                </label>
                 <select
+                  id="paper-size-select"
                   value={config.pageSize}
                   onChange={(e) =>
                     setConfig((prev) => ({
@@ -216,45 +231,36 @@ export function ExportResumeDialog({
                       pageSize: e.target.value as ResumePageSize,
                     }))
                   }
-                  className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-800 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] cursor-pointer"
+                  className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-800 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] cursor-pointer"
                 >
-                  <option value="LETTER">Letter (8.5&quot; x 11&quot;) - US Standard</option>
-                  <option value="A4">A4 (210 x 297 mm) - International Standard</option>
+                  <option value="LETTER">Letter (8.5&quot; x 11&quot;)</option>
+                  <option value="A4">A4 (210 x 297 mm)</option>
                 </select>
-                <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-3 pointer-events-none" />
+                <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
               </div>
-            </div>
 
-            {/* 2. ATS-friendly Resume Template Carousel */}
-            <div className="space-y-2">
-              <label className="text-xs font-black text-neutral-900 block">
-                ATS-friendly Resume Template
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {/* 4 Template Thumbnails */}
+              <div className="grid grid-cols-4 gap-2 pt-1">
                 {[
                   {
                     id: 'standard' as ResumeTemplateId,
                     name: 'Standard',
                     recommended: true,
-                    desc: 'Classic clean single column',
                   },
                   {
                     id: 'compact' as ResumeTemplateId,
                     name: 'Compact',
                     recommended: false,
-                    desc: 'Dense, 1-page optimized',
                   },
                   {
                     id: 'centered' as ResumeTemplateId,
                     name: 'Centered',
                     recommended: false,
-                    desc: 'Modern centered header',
                   },
                   {
                     id: 'structured' as ResumeTemplateId,
                     name: 'Structured',
                     recommended: false,
-                    desc: 'Two-column skills sidebar',
                   },
                 ].map((tmpl) => {
                   const isSelected = config.template === tmpl.id;
@@ -263,56 +269,56 @@ export function ExportResumeDialog({
                       key={tmpl.id}
                       type="button"
                       onClick={() => setConfig((prev) => ({ ...prev, template: tmpl.id }))}
-                      className={`relative flex flex-col items-center justify-between p-2.5 rounded-xl border text-center transition-all bg-white ${
+                      className={`relative flex flex-col items-center justify-between p-2 rounded-xl border text-center transition-all bg-white min-h-[96px] ${
                         isSelected
                           ? 'border-[#0A1B5C] ring-2 ring-[#0A1B5C]/20 shadow-xs'
                           : 'border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50'
                       }`}
                     >
-                      {/* Mini Template Visual Sketch */}
-                      <div className="w-full h-14 bg-neutral-50 rounded-lg border border-neutral-150 p-1.5 flex flex-col justify-between mb-1.5 overflow-hidden">
+                      {/* Mini Template Visual Wireframe */}
+                      <div className="w-full h-12 bg-neutral-50 rounded-lg border border-neutral-150 p-1 flex flex-col justify-between mb-1 overflow-hidden">
                         {tmpl.id === 'centered' ? (
                           <>
-                            <div className="w-8 h-1.5 bg-neutral-400 rounded-full mx-auto" />
-                            <div className="w-12 h-1 bg-neutral-300 rounded-full mx-auto" />
-                            <div className="w-full h-0.5 bg-neutral-200" />
-                            <div className="space-y-1">
-                              <div className="w-full h-1 bg-neutral-300 rounded-full" />
-                              <div className="w-4/5 h-1 bg-neutral-200 rounded-full" />
+                            <div className="w-6 h-1 bg-neutral-400 rounded-full mx-auto" />
+                            <div className="w-10 h-0.5 bg-neutral-300 rounded-full mx-auto" />
+                            <div className="w-full h-px bg-neutral-200" />
+                            <div className="space-y-0.5">
+                              <div className="w-full h-0.5 bg-neutral-300 rounded-full" />
+                              <div className="w-4/5 h-0.5 bg-neutral-200 rounded-full" />
                             </div>
                           </>
                         ) : tmpl.id === 'structured' ? (
                           <>
-                            <div className="w-10 h-1.5 bg-neutral-400 rounded-full" />
-                            <div className="w-full h-0.5 bg-neutral-200 my-0.5" />
+                            <div className="w-8 h-1 bg-neutral-400 rounded-full" />
+                            <div className="w-full h-px bg-neutral-200 my-0.5" />
                             <div className="flex gap-1 h-full">
-                              <div className="flex-1 space-y-1">
-                                <div className="w-full h-1 bg-neutral-300 rounded-full" />
-                                <div className="w-3/4 h-1 bg-neutral-200 rounded-full" />
+                              <div className="flex-1 space-y-0.5">
+                                <div className="w-full h-0.5 bg-neutral-300 rounded-full" />
+                                <div className="w-3/4 h-0.5 bg-neutral-200 rounded-full" />
                               </div>
-                              <div className="w-1/3 border-l border-neutral-200 pl-1 space-y-1">
-                                <div className="w-full h-1 bg-neutral-300 rounded-full" />
-                                <div className="w-full h-1 bg-neutral-200 rounded-full" />
+                              <div className="w-1/3 border-l border-neutral-200 pl-0.5 space-y-0.5">
+                                <div className="w-full h-0.5 bg-neutral-300 rounded-full" />
+                                <div className="w-full h-0.5 bg-neutral-200 rounded-full" />
                               </div>
                             </div>
                           </>
                         ) : tmpl.id === 'compact' ? (
                           <>
-                            <div className="w-10 h-1.5 bg-neutral-400 rounded-full" />
+                            <div className="w-8 h-1 bg-neutral-400 rounded-full" />
                             <div className="space-y-0.5 my-auto">
-                              <div className="w-full h-1 bg-neutral-300 rounded-full" />
-                              <div className="w-5/6 h-1 bg-neutral-200 rounded-full" />
-                              <div className="w-4/6 h-1 bg-neutral-200 rounded-full" />
+                              <div className="w-full h-0.5 bg-neutral-300 rounded-full" />
+                              <div className="w-5/6 h-0.5 bg-neutral-200 rounded-full" />
+                              <div className="w-4/6 h-0.5 bg-neutral-200 rounded-full" />
                             </div>
                           </>
                         ) : (
                           <>
-                            <div className="w-12 h-1.5 bg-neutral-400 rounded-full" />
-                            <div className="w-16 h-1 bg-neutral-300 rounded-full" />
-                            <div className="w-full h-0.5 bg-neutral-200" />
-                            <div className="space-y-1">
-                              <div className="w-full h-1 bg-neutral-300 rounded-full" />
-                              <div className="w-5/6 h-1 bg-neutral-200 rounded-full" />
+                            <div className="w-8 h-1 bg-neutral-400 rounded-full" />
+                            <div className="w-12 h-0.5 bg-neutral-300 rounded-full" />
+                            <div className="w-full h-px bg-neutral-200" />
+                            <div className="space-y-0.5">
+                              <div className="w-full h-0.5 bg-neutral-300 rounded-full" />
+                              <div className="w-5/6 h-0.5 bg-neutral-200 rounded-full" />
                             </div>
                           </>
                         )}
@@ -323,7 +329,7 @@ export function ExportResumeDialog({
                       </span>
 
                       {tmpl.recommended && (
-                        <span className="mt-1 px-1.5 py-0.2 bg-[#4FD1C5]/20 text-[#0A1B5C] text-[8px] font-black rounded uppercase tracking-wider leading-none">
+                        <span className="mt-1 px-1.5 py-0.5 bg-[#4FD1C5]/20 text-[#0A1B5C] text-[8px] font-black rounded uppercase tracking-wider leading-none">
                           Recommended
                         </span>
                       )}
@@ -333,198 +339,202 @@ export function ExportResumeDialog({
               </div>
             </div>
 
-            {/* 3. Accent Color Picker & Scope */}
-            <div className="space-y-2">
-              <label className="text-xs font-black text-neutral-900 flex items-center gap-1.5">
-                <Palette className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Accent Color</span>
+            {/* 2. Accent Color (Swatch + Hex on Left, Scope Dropdown on Right) */}
+            <div className="space-y-2 pt-1 border-t border-neutral-200">
+              <label className="text-xs font-bold text-neutral-900 block">
+                Accent Color
               </label>
 
               <div className="flex items-center gap-2">
-                {/* Color Swatches */}
-                <div className="flex items-center gap-1.5">
-                  {PRESET_COLORS.map((c) => (
-                    <button
-                      key={c.hex}
-                      type="button"
-                      title={c.name}
-                      onClick={() => setConfig((prev) => ({ ...prev, accentColor: c.hex }))}
-                      style={{ backgroundColor: c.hex }}
-                      className={`w-6 h-6 rounded-lg border transition-transform ${
-                        config.accentColor.toLowerCase() === c.hex.toLowerCase()
-                          ? 'border-neutral-900 scale-110 shadow-xs ring-2 ring-neutral-400'
-                          : 'border-black/10 hover:scale-105'
-                      }`}
-                    />
-                  ))}
-                </div>
-
-                {/* Custom Color Picker Input */}
-                <div className="relative flex items-center ml-auto">
+                {/* Color Swatch Button with Hex Code */}
+                <label
+                  title="Click to choose custom accent color"
+                  className="flex items-center gap-2 px-3 h-9 bg-white border border-neutral-300 rounded-xl cursor-pointer hover:border-neutral-400 shadow-2xs shrink-0"
+                >
+                  <span
+                    className="w-4 h-4 rounded-md border border-black/15 shrink-0"
+                    style={{ backgroundColor: config.accentColor }}
+                  />
+                  <span className="text-xs font-mono font-bold text-neutral-800 uppercase">
+                    {config.accentColor}
+                  </span>
                   <input
                     type="color"
                     value={config.accentColor}
                     onChange={(e) => setConfig((prev) => ({ ...prev, accentColor: e.target.value }))}
-                    className="w-7 h-7 rounded-lg border border-neutral-300 cursor-pointer p-0.5 bg-white"
+                    className="sr-only"
                   />
-                  <span className="ml-1.5 text-[11px] font-mono font-bold text-neutral-600 uppercase">
-                    {config.accentColor}
-                  </span>
-                </div>
-              </div>
+                </label>
 
-              {/* Accent Scope Selector */}
-              <div className="relative mt-1">
-                <select
-                  value={config.accentScope}
-                  onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      accentScope: e.target.value as ResumeAccentScope,
-                    }))
-                  }
-                  className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
-                >
-                  <option value="all">All Headings & Candidate Name</option>
-                  <option value="titles">Section Titles Only</option>
-                  <option value="name">Candidate Name Only</option>
-                </select>
-                <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* 4. Typography (Font Family & Granular Sizing) */}
-            <div className="space-y-2.5">
-              <label className="text-xs font-black text-neutral-900 flex items-center gap-1.5">
-                <Type className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Typography</span>
-              </label>
-
-              {/* Font Family Dropdown */}
-              <div className="relative">
-                <select
-                  value={config.fontFamily}
-                  onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      fontFamily: e.target.value as ResumeFontFamily,
-                    }))
-                  }
-                  className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-800 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
-                >
-                  <option value="Helvetica">Helvetica (Clean Sans-Serif - Standard ATS)</option>
-                  <option value="Times-Roman">Times-Roman (Classic Editorial Serif)</option>
-                  <option value="Courier">Courier (Tech Monospace)</option>
-                </select>
-                <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
-              </div>
-
-              {/* Font Sizes Grid (2x2) */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {/* Name Size */}
-                <div className="bg-white p-2 rounded-xl border border-neutral-200">
-                  <span className="text-[10px] font-bold text-neutral-500 block mb-1">
-                    Name Size
-                  </span>
+                {/* Scope Selector (All Headings / Section Titles Only / Candidate Name Only) */}
+                <div className="relative flex-1">
                   <select
-                    value={config.fontSizes.name}
+                    value={config.accentScope}
                     onChange={(e) =>
                       setConfig((prev) => ({
                         ...prev,
-                        fontSizes: { ...prev.fontSizes, name: Number(e.target.value) },
+                        accentScope: e.target.value as ResumeAccentScope,
                       }))
                     }
-                    className="w-full text-xs font-black text-neutral-900 bg-transparent focus:outline-none cursor-pointer"
+                    className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-800 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
                   >
-                    {[18, 19, 20, 21, 22, 24].map((sz) => (
-                      <option key={sz} value={sz}>
-                        {sz} pt
-                      </option>
-                    ))}
+                    <option value="all">All Headings</option>
+                    <option value="titles">Section Titles Only</option>
+                    <option value="name">Candidate Name Only</option>
                   </select>
+                  <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Font Section (Font Family & 2x2 Clean Size Grid) */}
+            <div className="space-y-2 pt-1 border-t border-neutral-200">
+              <label className="text-xs font-bold text-neutral-900 block">
+                Font
+              </label>
+
+              {/* Font Family */}
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-neutral-600 block">Font Family</span>
+                <div className="relative">
+                  <select
+                    value={config.fontFamily}
+                    onChange={(e) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        fontFamily: e.target.value as ResumeFontFamily,
+                      }))
+                    }
+                    className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-800 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
+                  >
+                    <option value="Helvetica">Helvetica</option>
+                    <option value="Times-Roman">Times-Roman</option>
+                    <option value="Courier">Courier</option>
+                  </select>
+                  <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Font Sizes Grid (2x2 matching Jobright) */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                {/* Name Size */}
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-neutral-600 block">
+                    Name
+                  </span>
+                  <div className="relative">
+                    <select
+                      value={config.fontSizes.name}
+                      onChange={(e) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          fontSizes: { ...prev.fontSizes, name: Number(e.target.value) },
+                        }))
+                      }
+                      className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
+                    >
+                      {[18, 19, 20, 21, 22, 24].map((sz) => (
+                        <option key={sz} value={sz}>
+                          {sz}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
+                  </div>
                 </div>
 
                 {/* Section Headers Size */}
-                <div className="bg-white p-2 rounded-xl border border-neutral-200">
-                  <span className="text-[10px] font-bold text-neutral-500 block mb-1">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-neutral-600 block">
                     Section Headers
                   </span>
-                  <select
-                    value={config.fontSizes.sectionHeaders}
-                    onChange={(e) =>
-                      setConfig((prev) => ({
-                        ...prev,
-                        fontSizes: { ...prev.fontSizes, sectionHeaders: Number(e.target.value) },
-                      }))
-                    }
-                    className="w-full text-xs font-black text-neutral-900 bg-transparent focus:outline-none cursor-pointer"
-                  >
-                    {[11, 12, 13, 14].map((sz) => (
-                      <option key={sz} value={sz}>
-                        {sz} pt
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={config.fontSizes.sectionHeaders}
+                      onChange={(e) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          fontSizes: { ...prev.fontSizes, sectionHeaders: Number(e.target.value) },
+                        }))
+                      }
+                      className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
+                    >
+                      {[11, 12, 13, 14].map((sz) => (
+                        <option key={sz} value={sz}>
+                          {sz}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
+                  </div>
                 </div>
 
                 {/* Sub-Headers Size */}
-                <div className="bg-white p-2 rounded-xl border border-neutral-200">
-                  <span className="text-[10px] font-bold text-neutral-500 block mb-1">
-                    Sub-Headers
-                  </span>
-                  <select
-                    value={config.fontSizes.subHeaders}
-                    onChange={(e) =>
-                      setConfig((prev) => ({
-                        ...prev,
-                        fontSizes: { ...prev.fontSizes, subHeaders: Number(e.target.value) },
-                      }))
-                    }
-                    className="w-full text-xs font-black text-neutral-900 bg-transparent focus:outline-none cursor-pointer"
-                  >
-                    {[10, 10.5, 11, 11.5, 12].map((sz) => (
-                      <option key={sz} value={sz}>
-                        {sz} pt
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] font-semibold text-neutral-600 block">
+                      Sub-Headers
+                    </span>
+                    <HelpCircle className="h-3 w-3 text-neutral-400" />
+                  </div>
+                  <div className="relative">
+                    <select
+                      value={config.fontSizes.subHeaders}
+                      onChange={(e) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          fontSizes: { ...prev.fontSizes, subHeaders: Number(e.target.value) },
+                        }))
+                      }
+                      className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
+                    >
+                      {[10, 10.5, 11, 11.5, 12].map((sz) => (
+                        <option key={sz} value={sz}>
+                          {sz}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
+                  </div>
                 </div>
 
                 {/* Body Text Size */}
-                <div className="bg-white p-2 rounded-xl border border-neutral-200">
-                  <span className="text-[10px] font-bold text-neutral-500 block mb-1">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-semibold text-neutral-600 block">
                     Body Text
                   </span>
-                  <select
-                    value={config.fontSizes.bodyText}
-                    onChange={(e) =>
-                      setConfig((prev) => ({
-                        ...prev,
-                        fontSizes: { ...prev.fontSizes, bodyText: Number(e.target.value) },
-                      }))
-                    }
-                    className="w-full text-xs font-black text-neutral-900 bg-transparent focus:outline-none cursor-pointer"
-                  >
-                    {[9, 9.5, 10, 10.5, 11].map((sz) => (
-                      <option key={sz} value={sz}>
-                        {sz} pt
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={config.fontSizes.bodyText}
+                      onChange={(e) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          fontSizes: { ...prev.fontSizes, bodyText: Number(e.target.value) },
+                        }))
+                      }
+                      className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
+                    >
+                      {[9, 9.5, 10, 10.5, 11].map((sz) => (
+                        <option key={sz} value={sz}>
+                          {sz}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* 5. Content Style (Date Format & Bullet Style) */}
-            <div className="space-y-2.5">
-              <label className="text-xs font-black text-neutral-900 flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Content Style</span>
+            {/* 4. Content Style Section (Date Format & Bullet Icon Dropdowns) */}
+            <div className="space-y-2 pt-1 border-t border-neutral-200">
+              <label className="text-xs font-bold text-neutral-900 block">
+                Content Style
               </label>
 
               {/* Date Format */}
               <div className="space-y-1">
-                <span className="text-[11px] font-bold text-neutral-600 block">Date Format</span>
+                <span className="text-[11px] font-semibold text-neutral-600 block">Date Format</span>
                 <div className="relative">
                   <select
                     value={config.dateFormat}
@@ -534,7 +544,7 @@ export function ExportResumeDialog({
                         dateFormat: e.target.value as ResumeDateFormat,
                       }))
                     }
-                    className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-700 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
+                    className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-800 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
                   >
                     <option value="short">Short month name (Jan YYYY)</option>
                     <option value="full">Full month name (January YYYY)</option>
@@ -545,29 +555,26 @@ export function ExportResumeDialog({
                 </div>
               </div>
 
-              {/* Bullet Icon */}
-              <div className="space-y-1 pt-1">
-                <span className="text-[11px] font-bold text-neutral-600 block">Bullet Icon</span>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {[
-                    { symbol: '•' as ResumeBulletStyle, label: 'Dot (•)' },
-                    { symbol: '-' as ResumeBulletStyle, label: 'Dash (-)' },
-                    { symbol: '▪' as ResumeBulletStyle, label: 'Square (▪)' },
-                    { symbol: '▸' as ResumeBulletStyle, label: 'Arrow (▸)' },
-                  ].map((b) => (
-                    <button
-                      key={b.symbol}
-                      type="button"
-                      onClick={() => setConfig((prev) => ({ ...prev, bulletStyle: b.symbol }))}
-                      className={`h-8 rounded-lg border text-xs font-bold transition-all flex items-center justify-center ${
-                        config.bulletStyle === b.symbol
-                          ? 'border-[#0A1B5C] bg-[#0A1B5C]/10 text-[#0A1B5C] font-black'
-                          : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
-                      }`}
-                    >
-                      {b.label}
-                    </button>
-                  ))}
+              {/* Bullet Icon Dropdown */}
+              <div className="space-y-1 pt-0.5">
+                <span className="text-[11px] font-semibold text-neutral-600 block">Bullet Icon</span>
+                <div className="relative">
+                  <select
+                    value={config.bulletStyle}
+                    onChange={(e) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        bulletStyle: e.target.value as ResumeBulletStyle,
+                      }))
+                    }
+                    className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-800 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
+                  >
+                    <option value="•">• (Dot)</option>
+                    <option value="-">- (Dash)</option>
+                    <option value="▪">▪ (Square)</option>
+                    <option value="▸">▸ (Arrow)</option>
+                  </select>
+                  <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
                 </div>
               </div>
             </div>
@@ -1060,40 +1067,26 @@ export function ExportResumeDialog({
               </div>
             </div>
 
-            {/* Bottom Floating Action Bar */}
-            <div className="px-5 py-3 border-t border-neutral-200/90 bg-white/95 backdrop-blur-md flex items-center justify-between shrink-0 shadow-lg z-20">
-              <div className="text-xs text-neutral-500 font-medium hidden sm:block">
-                Selectable text with standard ATS headings, margins, and tags.
-              </div>
-
-              <div className="flex items-center gap-2 ml-auto">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2.5 text-xs font-bold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={isExporting}
-                  className="h-10 px-6 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-black shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {isExporting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin text-[#4FD1C5]" />
-                      <span>Generating PDF...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4 text-[#4FD1C5]" />
-                      <span>Download Resume</span>
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Bottom Centered Action Bar (Matches Jobright Screenshot) */}
+            <div className="px-5 py-3 border-t border-neutral-200/90 bg-white/95 backdrop-blur-md flex items-center justify-center shrink-0 shadow-xs z-20">
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={isExporting}
+                className="h-10 px-8 rounded-full bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold shadow-md flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-[#4FD1C5]" />
+                    <span>Generating PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 text-[#4FD1C5]" />
+                    <span>Download Resume</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

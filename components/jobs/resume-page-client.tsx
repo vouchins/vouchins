@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { JobsSidebar } from '@/components/jobs/jobs-sidebar';
 import { JobsNavbar } from './jobs-navbar';
+import { useUser } from '@/components/user-provider';
 import { UploadZone } from './upload-zone';
 import { Workspace } from './workspace';
 import { supabase } from '@/lib/supabase/browser';
@@ -69,6 +70,15 @@ interface SavedResumeItem {
 
 export function ResumePageClient() {
   const router = useRouter();
+  const { user, loading: userLoading } = useUser();
+
+  // Redirect unauthenticated visitors to login
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push(`/login?returnTo=${encodeURIComponent('/jobs/resume')}`);
+    }
+  }, [user, userLoading, router]);
+
   const [activeView, setActiveView] = useState<'list' | 'editor'>('list');
   const [selectedResumeId, setSelectedResumeId] = useState<string>('');
   const [addResumeOpen, setAddResumeOpen] = useState(false);

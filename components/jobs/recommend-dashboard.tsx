@@ -34,6 +34,7 @@ import {
   Loader2,
   Building2,
   ChevronLeft,
+  Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnterpriseBuildingIcon } from '@/components/icons/enterprise-building-icon';
@@ -105,6 +106,35 @@ export interface RecommendedJob {
   recruiterId?: string | null;
   isCurated?: boolean;
   isRecommended?: boolean;
+}
+
+export interface CompanyInsider {
+  id: string;
+  name: string;
+  role: string;
+  city?: string | null;
+  domain: string;
+  companyName: string;
+  avatarUrl?: string | null;
+  isVerified: boolean;
+  vouchPoints: number;
+  responseRate: string;
+  isRegisteredUser?: boolean;
+}
+
+export function formatPartialName(fullName: string): string {
+  if (!fullName) return 'V**** M****';
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const first = parts[0][0].toUpperCase();
+    const second = parts[parts.length - 1][0].toUpperCase();
+    return `${first}**** ${second}****`;
+  }
+  if (parts.length === 1) {
+    const first = parts[0][0].toUpperCase();
+    return `${first}****`;
+  }
+  return 'V**** M****';
 }
 
 /**
@@ -216,6 +246,54 @@ export function extractJobId(url?: string | null): string | null {
 
 const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
   {
+    id: 'rec-oracle-principal-architect',
+    title: 'Principal Cloud Systems Architect',
+    companyName: 'Oracle',
+    companyLogo: 'https://www.google.com/s2/favicons?domain=oracle.com&sz=128',
+    location: 'Hyderabad / Bangalore',
+    workplaceType: 'Hybrid',
+    jobType: 'Full-time',
+    experienceLevel: 'Principal',
+    salaryRange: '$190k - $245k / yr',
+    postedAt: '1 hour ago',
+    matchScore: 98,
+    matchBreakdown: {
+      skillsScore: 98,
+      experienceScore: 97,
+      stackScore: 98,
+    },
+    whyYouMatch:
+      'Exceptional alignment with Oracle Cloud Infrastructure (OCI) distributed storage and high-throughput microservices. High density of verified Vouchins insiders ready to connect.',
+    matchingSkills: ['Distributed Systems', 'Cloud Infra', 'Java', 'Go', 'Kubernetes', 'High Concurrency'],
+    missingSkills: ['OCI SDK', 'Terraform'],
+    insiderCount: 15,
+    verifiedInsiders: [],
+    description: {
+      about:
+        'Oracle Cloud Infrastructure (OCI) is a deep-tech next-generation cloud designed to run mission-critical enterprise workloads with unmatched performance and security.',
+      responsibilities: [
+        'Architect planetary-scale cloud services delivering low-latency distributed storage and compute.',
+        'Partner with verified engineering staff in Hyderabad and Bangalore to design resilient multi-region architectures.',
+        'Mentor principal and senior engineers across high-concurrency systems design and failure domain isolation.',
+      ],
+      qualifications: [
+        '8+ years building enterprise-grade distributed infrastructure with high availability.',
+        'Deep production mastery of distributed consensus, ACID storage, and low-latency network primitives.',
+      ],
+      techStack: ['Java', 'Go', 'Kubernetes', 'OCI', 'Microservices', 'Distributed Systems'],
+      benefits: ['Top-tier Oracle RSUs', 'Full medical and comprehensive health coverage', 'Flexible hybrid schedule'],
+    },
+    tailoredBulletSuggestion: {
+      original: 'Led backend infrastructure design and database reliability.',
+      tailored:
+        'Architected fault-tolerant distributed cloud control plane supporting 12M+ daily operations, reducing cross-region replication lag by 48%.',
+      impactMetric: '-48% Replication Lag',
+    },
+    externalApplyUrl: 'https://careers.oracle.com/jobs/results/24001928374-principal-cloud-architect',
+    externalJobId: '24001928374',
+    isInternal: false,
+  },
+  {
     id: 'rec-servicenow-staff',
     title: 'Staff Software Engineer (Platform Infrastructure)',
     companyName: 'ServiceNow',
@@ -236,27 +314,8 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
       'Your 6+ years architecting Kafka streaming clusters and low-latency Go microservices directly satisfies ServiceNow\'s platform tier requirements. Your quantified p99 latency optimization exceeds their hiring bar.',
     matchingSkills: ['Kafka', 'Distributed Systems', 'Go', 'Microservices', 'High Concurrency', 'Redis'],
     missingSkills: ['OpenTelemetry / Datadog', 'Kubernetes Operator SDK'],
-    insiderCount: 3,
-    verifiedInsiders: [
-      {
-        name: 'Rohit Sharma',
-        role: 'Staff Infrastructure Lead',
-        domain: 'servicenow.com',
-        responseRate: '98% response rate',
-      },
-      {
-        name: 'Priya Patel',
-        role: 'Senior Engineering Manager',
-        domain: 'servicenow.com',
-        responseRate: '95% response rate',
-      },
-      {
-        name: 'Arjun Rao',
-        role: 'Principal Cloud Architect',
-        domain: 'servicenow.com',
-        responseRate: '92% response rate',
-      },
-    ],
+    insiderCount: 1,
+    verifiedInsiders: [],
     description: {
       about:
         'ServiceNow makes work work better for everyone. Our platform infrastructure teams build the planetary-scale event backbone powering thousands of Fortune 500 enterprises with five-nines availability.',
@@ -306,21 +365,8 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
       'Strong match across idempotent financial settlement logic and high-volume transaction routing. Your background in distributed locks matches Uber\'s payout gateway requirements.',
     matchingSkills: ['Go', 'PostgreSQL', 'Idempotent APIs', 'Redis', 'Microservices', 'Distributed Locks'],
     missingSkills: ['Temporal Workflows', 'Cassandra'],
-    insiderCount: 5,
-    verifiedInsiders: [
-      {
-        name: 'Kavita Menon',
-        role: 'Principal Systems Architect',
-        domain: 'uber.com',
-        responseRate: '100% response rate',
-      },
-      {
-        name: 'Devendra Joshi',
-        role: 'Senior Staff Engineer',
-        domain: 'uber.com',
-        responseRate: '94% response rate',
-      },
-    ],
+    insiderCount: 1,
+    verifiedInsiders: [],
     description: {
       about:
         'Uber Payments & FinTech powers the financial lifeblood for millions of drivers and earners worldwide, processing billions of dollars across 70+ countries in real time.',
@@ -367,21 +413,8 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
       'Exceptional architectural alignment with multi-region Kubernetes orchestration and high-availability cloud infrastructure. Your Google XYZ metrics score in the top 5% of candidate pools.',
     matchingSkills: ['Kubernetes', 'Cloud Infra', 'Terraform', 'Observability', 'Go', 'AWS'],
     missingSkills: ['Envoy Proxy', 'eBPF'],
-    insiderCount: 4,
-    verifiedInsiders: [
-      {
-        name: 'Siddharth V.',
-        role: 'Staff Infrastructure Lead',
-        domain: 'stripe.com',
-        responseRate: '96% response rate',
-      },
-      {
-        name: 'Elena Rostova',
-        role: 'Engineering Director',
-        domain: 'stripe.com',
-        responseRate: '91% response rate',
-      },
-    ],
+    insiderCount: 0,
+    verifiedInsiders: [],
     description: {
       about:
         'Stripe is an economic infrastructure platform for the internet. Millions of businesses - from ambitious startups to Fortune 500s - use Stripe\'s software to accept payments and manage businesses online.',
@@ -427,15 +460,8 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
       'Your high-throughput network engineering background satisfies Google Cloud\'s systems bar. High conviction in system scalability and distributed trade-offs.',
     matchingSkills: ['Distributed Systems', 'C++', 'Go', 'Networking Protocols', 'Large-Scale Storage'],
     missingSkills: ['BGP / SDN Architecture', 'Spanner'],
-    insiderCount: 6,
-    verifiedInsiders: [
-      {
-        name: 'Naveen K.',
-        role: 'Principal Engineer',
-        domain: 'google.com',
-        responseRate: '97% response rate',
-      },
-    ],
+    insiderCount: 1,
+    verifiedInsiders: [],
     description: {
       about:
         'Google Cloud helps millions of organizations empower their employees, serve their customers, and build what\'s next for their business with innovative technology built in the cloud.',
@@ -479,15 +505,8 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
       'High alignment with high-performance distributed backend architectures and stateful streaming caches.',
     matchingSkills: ['C++', 'Python', 'Distributed Training', 'PyTorch', 'GPU Clusters'],
     missingSkills: ['NCCL Communication', 'Triton'],
-    insiderCount: 4,
-    verifiedInsiders: [
-      {
-        name: 'Rohan Deshmukh',
-        role: 'Staff AI Systems Lead',
-        domain: 'meta.com',
-        responseRate: '94% response rate',
-      },
-    ],
+    insiderCount: 1,
+    verifiedInsiders: [],
     description: {
       about:
         'Meta builds technologies that help people connect, find communities, and grow businesses. Our AI Infrastructure team builds training clusters powering Llama and next-generation generative models.',
@@ -530,21 +549,8 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
       'Direct employer role posted on Vouchins! The hiring recruiter reviews applications directly on Vouchins with prioritized interview review for verified members.',
     matchingSkills: ['Distributed Systems', 'Go', 'Microservices', 'PostgreSQL', 'Redis', 'Kafka', 'System Architecture'],
     missingSkills: ['OpenTelemetry'],
-    insiderCount: 3,
-    verifiedInsiders: [
-      {
-        name: 'Sameer Sen',
-        role: 'VP of Engineering',
-        domain: 'nexus.io',
-        responseRate: '100% response rate',
-      },
-      {
-        name: 'Ananya Roy',
-        role: 'Lead Technical Recruiter',
-        domain: 'nexus.io',
-        responseRate: '98% response rate',
-      },
-    ],
+    insiderCount: 0,
+    verifiedInsiders: [],
     description: {
       about:
         'Nexus Enterprise AI builds mission-critical cryptographic verification infrastructure for cloud platforms. The team is hiring directly through Vouchins.',
@@ -681,37 +687,35 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       experienceLevel,
       salaryRange: job.salary_range || 'Competitive',
       postedAt,
-      matchScore,
-      matchBreakdown: {
-        skillsScore: Math.min(98, matchScore + 3),
-        experienceScore: Math.max(78, matchScore - 4),
-        stackScore: matchScore,
+      matchScore: job.match_score || matchScore,
+      matchBreakdown: job.match_breakdown || {
+        skillsScore: Math.min(98, (job.match_score || matchScore) + 3),
+        experienceScore: Math.max(78, (job.match_score || matchScore) - 4),
+        stackScore: job.match_score || matchScore,
       },
-      whyYouMatch: `Your background in modern software engineering aligns with ${company}'s hiring bar for ${title}. Your core competencies in ${matchingSkills.slice(0, 3).join(', ')} directly support their current initiatives.`,
-      matchingSkills: matchingSkills.slice(0, 6),
-      missingSkills: ['OpenTelemetry / Datadog', 'Distributed Tracing'],
-      insiderCount: 2,
-      verifiedInsiders: [
-        {
-          name: `Engineering Lead @ ${company}`,
-          role: `Staff Engineer`,
-          domain: cleanDomain,
-          responseRate: '96% response rate',
-        },
-        {
-          name: `Talent Partner @ ${company}`,
-          role: `Technical Recruiter`,
-          domain: cleanDomain,
-          responseRate: '98% response rate',
-        },
-      ],
+      whyYouMatch:
+        job.why_you_match ||
+        `Your background in modern software engineering aligns with ${company}'s hiring bar for ${title}. Your core competencies in ${matchingSkills.slice(0, 3).join(', ')} directly support their current initiatives.`,
+      matchingSkills:
+        job.matching_skills && job.matching_skills.length > 0
+          ? job.matching_skills
+          : matchingSkills.slice(0, 6),
+      missingSkills:
+        job.missing_skills && job.missing_skills.length > 0
+          ? job.missing_skills
+          : ['OpenTelemetry / Datadog', 'Distributed Tracing'],
+      insiderCount: typeof job.insider_count === 'number' ? job.insider_count : 0,
+      verifiedInsiders: [],
       description: {
         about:
-          job.description?.slice(0, 320) ||
+          job.description?.slice(0, 450) ||
           `${company} is looking for a driven ${title} to join our high-impact engineering organization.`,
         responsibilities,
         qualifications,
-        techStack: matchingSkills,
+        techStack:
+          job.matching_skills && job.matching_skills.length > 0
+            ? job.matching_skills
+            : matchingSkills,
         benefits: [
           'Comprehensive health, dental, and vision insurance',
           'Competitive equity and annual performance incentives',
@@ -720,7 +724,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       },
       tailoredBulletSuggestion: {
         original: `Contributed to ${title.toLowerCase()} systems and feature development.`,
-        tailored: `Architected high-throughput service components using ${matchingSkills[0] || 'modern tech'}, accelerating response latency by 36% and increasing reliability across 1.5M+ requests.`,
+        tailored: `Architected high-throughput service components using ${(job.matching_skills && job.matching_skills[0]) || matchingSkills[0] || 'modern tech'}, accelerating response latency by 36% and increasing reliability across 1.5M+ requests.`,
         impactMetric: '36% Latency Reduction',
       },
       isInternal: Boolean(
@@ -731,7 +735,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       externalJobId: extractJobId(job.external_apply_url),
       externalApplyUrl: hasValidExternalJobId(job.external_apply_url) ? job.external_apply_url.trim() : null,
       isCurated: false,
-      isRecommended: false,
+      isRecommended: (job.match_score || matchScore) >= 88,
     };
   } catch {
     return {
@@ -861,7 +865,7 @@ export function JobRecommendationsDashboard() {
   const initialTab = searchParams.get('tab') === 'recommended' || pathname === '/jobs/recommend' ? 'recommended' : 'all';
   const [activeChip, setActiveChip] = useState<'all' | 'high_match' | 'insiders' | 'remote' | 'tier1' | 'high_salary'>('all');
   const [activeListTab, setActiveListTab] = useState<'all' | 'recommended' | 'saved' | 'applied'>(initialTab);
-  const [savedJobIds, setSavedJobIds] = useState<string[]>(['rec-servicenow-staff']);
+  const [savedJobIds, setSavedJobIds] = useState<string[]>(['rec-oracle-principal-architect']);
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [activeDetailTab, setActiveDetailTab] = useState<'match' | 'insiders' | 'description' | 'copilot'>('match');
 
@@ -926,9 +930,15 @@ export function JobRecommendationsDashboard() {
   // Interactive Modals
   const [tailorModalOpen, setTailorModalOpen] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false);
   const [selectedInsider, setSelectedInsider] = useState<any>(null);
   const [referralNote, setReferralNote] = useState('');
   const [isSendingReferral, setIsSendingReferral] = useState(false);
+  const [sentReferralInsiderIds, setSentReferralInsiderIds] = useState<string[]>([]);
+
+  // Dynamic Company Insiders from Vouchins Platform
+  const [companyInsiders, setCompanyInsiders] = useState<CompanyInsider[]>([]);
+  const [isLoadingInsiders, setIsLoadingInsiders] = useState(false);
 
   // Internal Vouchins Application State
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
@@ -1033,6 +1043,39 @@ export function JobRecommendationsDashboard() {
     return url;
   }, [selectedJob]);
 
+  // Fetch real Vouchins users from the same company as selectedJob
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCompanyInsiders() {
+      if (!selectedJob?.companyName) return;
+      setIsLoadingInsiders(true);
+      try {
+        const cleanDomain = selectedJob.companyName.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+        const res = await fetch(
+          `/api/jobs/insiders?company=${encodeURIComponent(selectedJob.companyName)}&domain=${cleanDomain}`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          if (isMounted) {
+            setCompanyInsiders(json.insiders && Array.isArray(json.insiders) ? json.insiders : []);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load company insiders:', err);
+        if (isMounted) {
+          setCompanyInsiders([]);
+        }
+      } finally {
+        if (isMounted) setIsLoadingInsiders(false);
+      }
+    }
+
+    loadCompanyInsiders();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedJob?.companyName, selectedJob?.id]);
+
   const toggleSaveJob = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (savedJobIds.includes(id)) {
@@ -1121,13 +1164,62 @@ export function JobRecommendationsDashboard() {
     }
   };
 
-  const handleSendReferralRequest = () => {
-    setIsSendingReferral(true);
-    setTimeout(() => {
-      setIsSendingReferral(false);
+  const handleInitiateReferral = (insider: any) => {
+    // Strict verification requirement: user must be verified to connect
+    if (!user || !user.is_verified) {
+      setSelectedInsider(insider);
+      setVerificationModalOpen(true);
+      return;
+    }
+    setSelectedInsider(insider);
+    setReferralModalOpen(true);
+  };
+
+  const handleSendReferralRequest = async () => {
+    if (!user?.is_verified) {
+      toast.error('Connecting with company insiders requires a verified corporate account.');
       setReferralModalOpen(false);
-      toast.success(`Referral request dispatched to ${selectedInsider?.name}! They have been notified.`);
-    }, 900);
+      setVerificationModalOpen(true);
+      return;
+    }
+
+    setIsSendingReferral(true);
+    try {
+      const res = await fetch('/api/jobs/referrals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          insiderId: selectedInsider?.id,
+          jobId: selectedJob.id,
+          companyName: selectedJob.companyName,
+          note:
+            referralNote ||
+            `Hi ${selectedInsider?.name?.split(' ')[0] || 'there'}, I noticed your work at ${selectedJob.companyName}. My Master Resume matches the ${selectedJob.title} hiring bar with quantified achievements. Would you be open to an internal referral?`,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.code === 'VERIFICATION_REQUIRED') {
+          setReferralModalOpen(false);
+          setVerificationModalOpen(true);
+          toast.error(data.error);
+          return;
+        }
+        throw new Error(data.error || 'Failed to dispatch referral request');
+      }
+
+      toast.success(data.message || `Referral request dispatched to ${selectedInsider?.name}! They have been notified.`);
+      if (selectedInsider?.id) {
+        setSentReferralInsiderIds((prev) => [...prev, selectedInsider.id]);
+      }
+      setReferralModalOpen(false);
+      setReferralNote('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to dispatch referral request');
+    } finally {
+      setIsSendingReferral(false);
+    }
   };
 
   const handleRunCopilotPrompt = (promptText: string) => {
@@ -1152,12 +1244,12 @@ export function JobRecommendationsDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-neutral-900 font-sans selection:bg-[#4FD1C5]/30 selection:text-[#0A1B5C]">
+    <div className="flex min-h-screen lg:h-screen lg:overflow-hidden bg-[#F8FAFC] text-neutral-900 font-sans selection:bg-[#4FD1C5]/30 selection:text-[#0A1B5C]">
       {/* 1. Left Hand Panel / Sidebar */}
       <JobsSidebar activeTab="jobs" hideMobileNav={mobileView === 'detail'} />
 
       {/* 2. Main Content Area */}
-      <div className={`flex-1 flex flex-col min-w-0 ${mobileView === 'detail' ? 'pb-0' : 'pb-16 md:pb-0'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 lg:h-full lg:min-h-0 lg:overflow-hidden ${mobileView === 'detail' ? 'pb-0' : 'pb-16 md:pb-0'}`}>
         {/* Top Application Header Bar */}
         <JobsNavbar
           searchQuery={searchQuery}
@@ -1212,38 +1304,38 @@ export function JobRecommendationsDashboard() {
               </button>
             )}
 
-            <div className="ml-auto text-xs font-semibold text-neutral-500 shrink-0 hidden md:block">
-              Found <span className="font-extrabold text-[#0A1B5C]">{filteredJobs.length}</span> verified roles ({allJobs.length} total)
+            <div className="ml-auto text-xs font-medium text-neutral-500 shrink-0 hidden md:block">
+              Found <span className="font-bold text-[#0A1B5C]">{filteredJobs.length}</span> verified roles ({allJobs.length} total)
             </div>
           </div>
         </JobsNavbar>
 
         {/* Main Two-Pane Split Dashboard (Desktop: Split / Mobile: List ↔ Detail) */}
-        <main className={`flex-1 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-5 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 ${
+        <main className={`flex-1 min-h-0 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 overflow-hidden ${
           mobileView === 'detail'
-            ? 'h-[calc(100dvh-60px)] sm:h-[calc(100dvh-70px)] lg:h-[calc(100vh-140px)]'
-            : 'h-[calc(100dvh-130px)] lg:h-[calc(100vh-140px)]'
-        } overflow-hidden min-h-0`}>
+            ? 'h-[calc(100dvh-60px)] sm:h-[calc(100dvh-70px)] lg:h-full'
+            : 'h-[calc(100dvh-130px)] lg:h-full'
+        }`}>
           {/* Left Column (38% on desktop): AI Job Recommendations Feed */}
-          <div className={`lg:col-span-5 flex-col h-full min-h-0 ${
+          <div className={`lg:col-span-5 flex-col h-full min-h-0 overflow-hidden ${
             mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
           }`}>
             {/* Feed Tabs: All Jobs | Recommended | Saved | Applied */}
-            <div className="bg-white rounded-2xl border border-neutral-200/80 p-1 flex items-center gap-1 mb-2.5 shrink-0 shadow-xs overflow-x-auto no-scrollbar">
+            <div className="bg-white rounded-2xl border border-neutral-200/80 p-1 flex items-center gap-1.5 mb-2.5 shrink-0 shadow-xs overflow-x-auto no-scrollbar">
               <button
                 onClick={() => {
                   setActiveListTab('all');
                   setActiveChip('all');
                 }}
-                className={`flex-1 min-w-[70px] py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeListTab === 'all'
+                className={`flex-1 shrink-0 min-w-fit py-2 px-2.5 sm:px-3 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${activeListTab === 'all'
                   ? 'bg-[#0A1B5C] text-white shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
               >
                 <Briefcase className="h-3.5 w-3.5 shrink-0" />
                 <span>
-                  <span className="hidden sm:inline">All Jobs</span>
-                  <span className="sm:hidden">All</span> ({allJobs.length})
+                  <span className="hidden xl:inline">All Jobs</span>
+                  <span className="xl:hidden">All</span> ({allJobs.length})
                 </span>
               </button>
 
@@ -1258,15 +1350,15 @@ export function JobRecommendationsDashboard() {
                     setActiveListTab('recommended');
                   }
                 }}
-                className={`flex-1 min-w-[85px] py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeListTab === 'recommended'
+                className={`flex-1 shrink-0 min-w-fit py-2 px-2.5 sm:px-3 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${activeListTab === 'recommended'
                   ? 'bg-[#0A1B5C] text-white shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
               >
                 <Target className="h-3.5 w-3.5 shrink-0" />
                 <span>
-                  <span className="hidden sm:inline">Recommended</span>
-                  <span className="sm:hidden">Top</span> ({recommendedJobs.length})
+                  <span className="hidden xl:inline">Recommended</span>
+                  <span className="xl:hidden">Recs</span> ({recommendedJobs.length})
                 </span>
                 {activeListTab === 'recommended' && (
                   <span className="text-[10px] ml-0.5 opacity-80" title="Click to unselect filter">✕</span>
@@ -1275,7 +1367,7 @@ export function JobRecommendationsDashboard() {
 
               <button
                 onClick={() => setActiveListTab('saved')}
-                className={`flex-1 min-w-[65px] py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeListTab === 'saved'
+                className={`flex-1 shrink-0 min-w-fit py-2 px-2.5 sm:px-3 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${activeListTab === 'saved'
                   ? 'bg-[#0A1B5C] text-white shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
@@ -1286,7 +1378,7 @@ export function JobRecommendationsDashboard() {
 
               <button
                 onClick={() => setActiveListTab('applied')}
-                className={`flex-1 min-w-[65px] py-2 px-1 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 whitespace-nowrap ${activeListTab === 'applied'
+                className={`flex-1 shrink-0 min-w-fit py-2 px-2.5 sm:px-3 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap ${activeListTab === 'applied'
                   ? 'bg-[#0A1B5C] text-white shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                   }`}
@@ -1299,7 +1391,7 @@ export function JobRecommendationsDashboard() {
             {/* Active Filter Helper Banner when filtered by Recommended */}
             {activeListTab === 'recommended' && (
               <div className="mb-2 px-3 py-1.5 rounded-xl bg-[#eefaf6] border border-emerald-200/80 flex items-center justify-between text-xs text-[#0A1B5C] shrink-0">
-                <div className="flex items-center gap-1.5 font-bold">
+                <div className="flex items-center gap-1.5 font-semibold">
                   <Target className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Showing top recommended matches ({recommendedJobs.length} roles)</span>
                 </div>
@@ -1309,15 +1401,15 @@ export function JobRecommendationsDashboard() {
                     setActiveChip('all');
                     toast.info('Filter unselected - Showing all jobs');
                   }}
-                  className="text-[11px] font-black text-[#0A1B5C] hover:underline flex items-center gap-1"
+                  className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1"
                 >
                   Unselect filter (View all {allJobs.length} jobs)
                 </button>
               </div>
             )}
 
-            {/* Scrollable Job Cards List */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 rounded-2xl">
+            {/* Scrollable Job Cards List (Independently scrollable on left) */}
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 pr-1.5 rounded-2xl [scrollbar-width:thin]">
               {filteredJobs.length === 0 ? (
                 <div className="h-64 rounded-2xl bg-white border border-neutral-200 p-8 flex flex-col items-center justify-center text-center">
                   <Briefcase className="h-10 w-10 text-neutral-300 mb-3" />
@@ -1353,11 +1445,11 @@ export function JobRecommendationsDashboard() {
                       {/* Header Row: Company & Match Badge */}
                       <div className="flex items-start justify-between gap-3 mb-2.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center font-black text-sm text-[#0A1B5C] shrink-0 shadow-xs">
+                          <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center font-bold text-sm text-[#0A1B5C] shrink-0 shadow-xs">
                             {job.companyName.slice(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <span className="font-extrabold text-xs text-neutral-900 group-hover:text-[#0A1B5C] transition-colors flex items-center gap-1">
+                            <span className="font-semibold text-xs text-neutral-900 group-hover:text-[#0A1B5C] transition-colors flex items-center gap-1">
                               {job.companyName}
                               <ShieldCheck className="h-3 w-3 text-emerald-600" />
                             </span>
@@ -1369,7 +1461,7 @@ export function JobRecommendationsDashboard() {
 
                         {/* Match Score Ring / Badge */}
                         <div className="flex items-center gap-2">
-                          <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-black flex items-center gap-1 shadow-xs">
+                          <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shadow-xs">
                             <Zap className="h-3 w-3 text-emerald-600" />
                             <span>{job.matchScore}% Match</span>
                           </div>
@@ -1388,27 +1480,27 @@ export function JobRecommendationsDashboard() {
                       </div>
 
                       {/* Job Title */}
-                      <h3 className="font-extrabold text-sm text-neutral-900 mb-1.5 leading-snug line-clamp-1">
+                      <h3 className="font-semibold text-sm text-neutral-900 mb-1.5 leading-snug line-clamp-1">
                         {job.title}
                       </h3>
 
                       {/* Application Routing Tag */}
                       <div className="flex items-center gap-1.5 mb-2">
                         {job.isInternal ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-[#0A1B5C]/10 text-[#0A1B5C] border border-[#0A1B5C]/20">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C] border border-[#0A1B5C]/20">
                             <Building2 className="h-3 w-3 text-[#0A1B5C]" />
                             Direct Recruiter · Apply on Vouchins
                           </span>
                         ) : job.externalJobId ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">
                             Req #{job.externalJobId}
                           </span>
                         ) : null}
                       </div>
 
                       {/* Salary & Meta Row */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-neutral-600 mb-3">
-                        <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-bold text-[11px]">
+                      <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-neutral-600 mb-3">
+                        <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-semibold text-[11px]">
                           {job.salaryRange}
                         </span>
                         <span className="text-neutral-400">·</span>
@@ -1416,7 +1508,7 @@ export function JobRecommendationsDashboard() {
                           <Clock className="h-3 w-3 text-neutral-400" /> {job.postedAt}
                         </span>
                         {isApplied && (
-                          <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">
+                          <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800">
                             Applied
                           </span>
                         )}
@@ -1427,13 +1519,13 @@ export function JobRecommendationsDashboard() {
                         {job.matchingSkills.slice(0, 4).map((skill, sIdx) => (
                           <span
                             key={sIdx}
-                            className="px-2 py-0.5 rounded-md bg-[#eefaf6] text-[#0A1B5C] text-[10px] font-bold border border-emerald-100"
+                            className="px-2 py-0.5 rounded-md bg-[#eefaf6] text-[#0A1B5C] text-[10px] font-medium border border-emerald-100"
                           >
                             ✓ {skill}
                           </span>
                         ))}
                         {job.matchingSkills.length > 4 && (
-                          <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-500 text-[10px] font-bold">
+                          <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-500 text-[10px] font-medium">
                             +{job.matchingSkills.length - 4} more
                           </span>
                         )}
@@ -1441,12 +1533,12 @@ export function JobRecommendationsDashboard() {
 
                       {/* Verified Insider Callout (Jobright Secret Weapon) */}
                       <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px]">
-                        <span className="text-[#0A1B5C] font-extrabold flex items-center gap-1.5">
+                        <span className="text-[#0A1B5C] font-semibold flex items-center gap-1.5">
                           <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
                           {job.insiderCount} verified insiders ready to vouch
                         </span>
 
-                        <span className="text-[#0A1B5C] font-bold text-xs group-hover:translate-x-0.5 transition-transform flex items-center">
+                        <span className="text-[#0A1B5C] font-semibold text-xs group-hover:translate-x-0.5 transition-transform flex items-center">
                           View Details <ChevronRight className="h-3 w-3" />
                         </span>
                       </div>
@@ -1466,16 +1558,16 @@ export function JobRecommendationsDashboard() {
               <button
                 type="button"
                 onClick={() => setMobileView('list')}
-                className="inline-flex items-center gap-1.5 text-xs font-black text-[#0A1B5C] bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-xl border border-neutral-200 shadow-xs active:scale-95 transition-all"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0A1B5C] bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-xl border border-neutral-200 shadow-xs active:scale-95 transition-all"
               >
                 <ChevronLeft className="h-4 w-4 text-[#0A1B5C]" />
                 <span>Back to Jobs</span>
               </button>
               <div className="text-right min-w-0 pl-2">
-                <span className="text-xs font-black text-neutral-900 truncate block max-w-[170px]">
+                <span className="text-xs font-semibold text-neutral-900 truncate block max-w-[170px]">
                   {selectedJob.companyName}
                 </span>
-                <span className="text-[10px] text-neutral-500 font-semibold truncate block max-w-[170px]">
+                <span className="text-[10px] text-neutral-500 font-medium truncate block max-w-[170px]">
                   {selectedJob.title}
                 </span>
               </div>
@@ -1487,25 +1579,25 @@ export function JobRecommendationsDashboard() {
               <div className="p-4 sm:p-6 border-b border-neutral-200/80 bg-gradient-to-b from-neutral-50/50 to-white">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center font-black text-lg sm:text-xl text-[#0A1B5C] shrink-0">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center font-bold text-lg sm:text-xl text-[#0A1B5C] shrink-0">
                       {selectedJob.companyName.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
-                        <span className="font-extrabold text-sm text-neutral-900">{selectedJob.companyName}</span>
+                        <span className="font-semibold text-sm text-neutral-900">{selectedJob.companyName}</span>
                         {selectedJob.isInternal ? (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0A1B5C] text-white flex items-center gap-1 shadow-xs">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#0A1B5C] text-white flex items-center gap-1 shadow-xs">
                             <Building2 className="h-3 w-3 text-white" />
                             Direct Recruiter Role · Internal Application
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center gap-1">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center gap-1">
                             <ExternalLink className="h-3 w-3 text-[#0A1B5C]" />
                             External ATS Listing {selectedJob.externalJobId ? `(Req #${selectedJob.externalJobId})` : ''}
                           </span>
                         )}
                       </div>
-                      <h1 className="text-lg sm:text-2xl font-black text-neutral-900 tracking-tight leading-snug">
+                      <h1 className="text-lg sm:text-2xl font-bold text-neutral-900 leading-snug">
                         {selectedJob.title}
                       </h1>
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5 text-xs text-neutral-500 font-medium">
@@ -1513,7 +1605,7 @@ export function JobRecommendationsDashboard() {
                           <MapPin className="h-3.5 w-3.5 text-neutral-400 shrink-0" /> {selectedJob.location} ({selectedJob.workplaceType})
                         </span>
                         <span>·</span>
-                        <span className="font-extrabold text-neutral-900">{selectedJob.salaryRange}</span>
+                        <span className="font-semibold text-neutral-900">{selectedJob.salaryRange}</span>
                         <span>·</span>
                         <span>{selectedJob.jobType}</span>
                         <span>·</span>
@@ -1525,11 +1617,11 @@ export function JobRecommendationsDashboard() {
                   {/* Match Score Gauge Header */}
                   <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
                     <div className="text-left sm:text-right">
-                      <div className="text-xl sm:text-2xl font-black text-[#0A1B5C] flex items-center gap-1">
+                      <div className="text-xl sm:text-2xl font-bold text-[#0A1B5C] flex items-center gap-1">
                         <Zap className="h-4 sm:h-5 w-4 sm:w-5 text-amber-500" />
                         {selectedJob.matchScore}%
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                      <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider block">
                         High Conviction Match
                       </span>
                     </div>
@@ -1541,7 +1633,7 @@ export function JobRecommendationsDashboard() {
                   {selectedJob.isInternal ? (
                     <button
                       onClick={() => setIsApplyModalOpen(true)}
-                      className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-black shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95"
+                      className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95"
                     >
                       {appliedJobIds.includes(selectedJob.id) ? (
                         <>
@@ -1566,7 +1658,7 @@ export function JobRecommendationsDashboard() {
                         }
                         toast.success(`Redirecting to ${selectedJob.companyName} careers portal...`);
                       }}
-                      className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-extrabold shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all hover:scale-[1.01] active:scale-95 cursor-pointer"
                     >
                       <span>Apply on Site</span>
                       <ExternalLink className="h-3.5 w-3.5 text-white" />
@@ -1575,13 +1667,17 @@ export function JobRecommendationsDashboard() {
 
                   <button
                     onClick={() => {
-                      setSelectedInsider(selectedJob.verifiedInsiders[0]);
-                      setReferralModalOpen(true);
+                      const target = companyInsiders[0] || selectedJob.verifiedInsiders[0];
+                      handleInitiateReferral(target);
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-black shadow-sm flex items-center gap-1.5 transition-all active:scale-95"
+                    className="px-5 py-2.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all active:scale-95"
                   >
-                    <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                    <span>Request Insider Referral ({selectedJob.insiderCount})</span>
+                    {!user?.is_verified ? (
+                      <Lock className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                    ) : (
+                      <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                    )}
+                    <span>Request Insider Referral ({companyInsiders.length > 0 ? companyInsiders.length : (isLoadingInsiders ? '...' : selectedJob.insiderCount)})</span>
                   </button>
 
                   <button
@@ -1603,11 +1699,11 @@ export function JobRecommendationsDashboard() {
               </div>
 
               {/* Deep-Dive Navigation Tabs (Sticky as you scroll) */}
-              <div className="sticky top-0 z-10 px-3 sm:px-6 border-b border-neutral-200 bg-white/95 backdrop-blur-md flex items-center gap-3 sm:gap-6 text-xs font-bold text-neutral-500 shrink-0 overflow-x-auto no-scrollbar shadow-xs">
+              <div className="sticky top-0 z-10 px-3 sm:px-6 border-b border-neutral-200 bg-white/95 backdrop-blur-md flex items-center gap-3 sm:gap-6 text-xs font-semibold text-neutral-500 shrink-0 overflow-x-auto no-scrollbar shadow-xs">
                 <button
                   onClick={() => setActiveDetailTab('match')}
                   className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'match'
-                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
+                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-semibold'
                     : 'border-transparent hover:text-neutral-900'
                     }`}
                 >
@@ -1618,18 +1714,18 @@ export function JobRecommendationsDashboard() {
                 <button
                   onClick={() => setActiveDetailTab('insiders')}
                   className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'insiders'
-                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
+                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-semibold'
                     : 'border-transparent hover:text-neutral-900'
                     }`}
                 >
                   <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                  <span>Verified Insiders ({selectedJob.insiderCount})</span>
+                  <span>Verified Insiders ({companyInsiders.length > 0 ? companyInsiders.length : (isLoadingInsiders ? '...' : selectedJob.insiderCount)})</span>
                 </button>
 
                 <button
                   onClick={() => setActiveDetailTab('description')}
                   className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'description'
-                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
+                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-semibold'
                     : 'border-transparent hover:text-neutral-900'
                     }`}
                 >
@@ -1640,7 +1736,7 @@ export function JobRecommendationsDashboard() {
                 <button
                   onClick={() => setActiveDetailTab('copilot')}
                   className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'copilot'
-                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-extrabold'
+                    ? 'border-[#0A1B5C] text-[#0A1B5C] font-semibold'
                     : 'border-transparent hover:text-neutral-900'
                     }`}
                 >
@@ -1660,7 +1756,7 @@ export function JobRecommendationsDashboard() {
                       <span className="p-1 rounded-md bg-emerald-600 text-white">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                       </span>
-                      <h4 className="font-extrabold text-xs text-[#0A1B5C] uppercase tracking-wider">
+                      <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
                         Why Your Master Resume Matches This Position
                       </h4>
                     </div>
@@ -1672,26 +1768,26 @@ export function JobRecommendationsDashboard() {
                   {/* Score Breakdown Cards */}
                   <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
                     <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[9px] sm:text-[10px] font-bold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
                         Technical Skills
                       </span>
-                      <span className="text-base sm:text-lg font-black text-[#0A1B5C]">
+                      <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
                         {selectedJob.matchBreakdown.skillsScore}%
                       </span>
                     </div>
                     <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[9px] sm:text-[10px] font-bold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
                         Seniority & Scope
                       </span>
-                      <span className="text-base sm:text-lg font-black text-[#0A1B5C]">
+                      <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
                         {selectedJob.matchBreakdown.experienceScore}%
                       </span>
                     </div>
                     <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[9px] sm:text-[10px] font-bold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
                         Tech Stack Fit
                       </span>
-                      <span className="text-base sm:text-lg font-black text-[#0A1B5C]">
+                      <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
                         {selectedJob.matchBreakdown.stackScore}%
                       </span>
                     </div>
@@ -1701,7 +1797,7 @@ export function JobRecommendationsDashboard() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Matched Skills */}
                     <div className="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
-                      <span className="text-xs font-black text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
                         <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                         Matched Competencies ({selectedJob.matchingSkills.length})
                       </span>
@@ -1709,7 +1805,7 @@ export function JobRecommendationsDashboard() {
                         {selectedJob.matchingSkills.map((s, idx) => (
                           <span
                             key={idx}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-bold"
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
                           >
                             ✓ {s}
                           </span>
@@ -1719,7 +1815,7 @@ export function JobRecommendationsDashboard() {
 
                     {/* Missing Skills (Opportunities to Tailor) */}
                     <div className="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
-                      <span className="text-xs font-black text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
                         <AlertTriangle className="h-4 w-4 text-amber-500" />
                         Keywords Missing ({selectedJob.missingSkills.length})
                       </span>
@@ -1727,7 +1823,7 @@ export function JobRecommendationsDashboard() {
                         {selectedJob.missingSkills.map((s, idx) => (
                           <span
                             key={idx}
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-bold"
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-semibold"
                           >
                             + {s}
                           </span>
@@ -1735,7 +1831,7 @@ export function JobRecommendationsDashboard() {
                       </div>
                       <button
                         onClick={() => setTailorModalOpen(true)}
-                        className="text-[11px] font-extrabold text-[#0A1B5C] hover:underline flex items-center gap-1 pt-1"
+                        className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1 pt-1"
                       >
                         <span>1-Click add missing keywords via Tailor Studio</span>
                         <ArrowRight className="h-3 w-3" />
@@ -1769,52 +1865,193 @@ export function JobRecommendationsDashboard() {
               {/* TAB 2: VERIFIED INSIDERS (REFERRALS) */}
               {activeDetailTab === 'insiders' && (
                 <div className="space-y-4">
-                  <div className="p-4 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/10 flex items-center justify-between">
-                    <div>
-                      <h4 className="font-extrabold text-xs text-[#0A1B5C] uppercase tracking-wider">
-                        Internal Corporate Referrals at {selectedJob.companyName}
-                      </h4>
-                      <p className="text-xs text-neutral-600 mt-0.5">
-                        Verified via corporate email domain. Candidates with insider referrals have a 4x higher interview callback rate.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    {selectedJob.verifiedInsiders.map((insider, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3.5 sm:p-4 rounded-2xl border border-neutral-200/90 bg-white hover:border-[#4FD1C5] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-neutral-100 border border-neutral-200 text-[#0A1B5C] font-black flex items-center justify-center text-sm shadow-xs shrink-0">
-                            {insider.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-extrabold text-sm text-neutral-900">{insider.name}</span>
-                              <span className="px-2 py-0.2 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                                @{insider.domain}
-                              </span>
-                            </div>
-                            <span className="text-xs text-neutral-500 font-medium block truncate">
-                              {insider.role} · <span className="text-emerald-700 font-bold">{insider.responseRate}</span>
-                            </span>
-                          </div>
+                  {/* Verification Banner */}
+                  {!user?.is_verified ? (
+                    <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                          <Lock className="h-4 w-4 text-amber-700" />
                         </div>
-
-                        <button
-                          onClick={() => {
-                            setSelectedInsider(insider);
-                            setReferralModalOpen(true);
-                          }}
-                          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-all shadow-xs text-center"
-                        >
-                          Request Referral
-                        </button>
+                        <div>
+                          <h4 className="font-bold text-xs text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                            Corporate Verification Required to Connect
+                          </h4>
+                          <p className="text-xs text-amber-900/80 mt-0.5">
+                            You can view verified colleagues at {selectedJob.companyName}, but connecting and requesting referrals requires a verified corporate work email.
+                          </p>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                      <Link
+                        href={user ? '/verify-email' : '/login?returnTo=%2Fjobs'}
+                        className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-xs shrink-0 text-center transition-all active:scale-95"
+                      >
+                        {user ? 'Verify Work Email' : 'Sign In to Verify'}
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/10 flex items-center justify-between shadow-xs">
+                      <div>
+                        <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
+                          Internal Corporate Referrals at {selectedJob.companyName}
+                        </h4>
+                        <p className="text-xs text-neutral-600 mt-0.5">
+                          Verified via corporate email domain. Candidates with insider referrals have a 4x higher interview callback rate.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Insiders List */}
+                  {isLoadingInsiders ? (
+                    <div className="space-y-3">
+                      {[1, 2, 3].map((n) => (
+                        <div
+                          key={n}
+                          className="p-4 rounded-2xl border border-neutral-200 bg-white animate-pulse flex items-center justify-between gap-3 shadow-xs"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-11 h-11 rounded-xl bg-neutral-200 shrink-0" />
+                            <div className="space-y-2">
+                              <div className="h-4 w-32 bg-neutral-200 rounded" />
+                              <div className="h-3 w-48 bg-neutral-100 rounded" />
+                            </div>
+                          </div>
+                          <div className="h-8 w-28 bg-neutral-200 rounded-xl" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : companyInsiders.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-white border border-neutral-200 text-center space-y-3 shadow-xs">
+                      <div className="w-12 h-12 rounded-2xl bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center justify-center mx-auto">
+                        <Users className="h-6 w-6 text-[#0A1B5C]" />
+                      </div>
+                      <div>
+                        <h5 className="font-bold text-sm text-neutral-900">
+                          No Vouchins Insiders Found for {selectedJob.companyName} Yet
+                        </h5>
+                        <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
+                          Be the first to invite colleagues from {selectedJob.companyName} to Vouchins and build the company referral network.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {companyInsiders.map((insider, idx) => {
+                        const isVerifiedViewer = Boolean(user?.is_verified);
+                        const displayName = isVerifiedViewer
+                          ? insider.name
+                          : formatPartialName(insider.name);
+                        const isAlreadyRequested = sentReferralInsiderIds.includes(insider.id);
+
+                        const avatarInitials = displayName
+                          .split(' ')
+                          .map((p) => p[0])
+                          .filter(Boolean)
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase();
+
+                        return (
+                          <div
+                            key={insider.id || idx}
+                            className="p-3.5 sm:p-4 rounded-2xl border border-neutral-200/90 bg-white hover:border-[#4FD1C5] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+                          >
+                            <div className="flex items-center gap-3">
+                              {insider.avatarUrl && isVerifiedViewer ? (
+                                <Image
+                                  src={insider.avatarUrl}
+                                  alt={displayName}
+                                  width={44}
+                                  height={44}
+                                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-neutral-200 shadow-xs shrink-0"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-neutral-100 border border-neutral-200 text-[#0A1B5C] font-bold flex items-center justify-center text-sm shadow-xs shrink-0">
+                                  {avatarInitials}
+                                </div>
+                              )}
+
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {insider.isRegisteredUser && isVerifiedViewer ? (
+                                    <Link
+                                      href={`/users/${insider.id}`}
+                                      target="_blank"
+                                      className="font-semibold text-sm text-neutral-900 hover:text-[#0A1B5C] transition-colors hover:underline flex items-center gap-1"
+                                    >
+                                      <span>{displayName}</span>
+                                      <ExternalLink className="h-3 w-3 text-neutral-400" />
+                                    </Link>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-semibold text-sm text-neutral-900">{displayName}</span>
+                                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center gap-1">
+                                        <Lock className="h-2.5 w-2.5 text-amber-600" />
+                                        Partial info
+                                      </span>
+                                    </div>
+                                  )}
+
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                                    <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                                    @{insider.domain}
+                                  </span>
+
+                                  {insider.vouchPoints > 0 && (
+                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C]">
+                                      ★ {insider.vouchPoints} Vouch Points
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="text-xs text-neutral-500 font-medium flex items-center gap-2 mt-0.5 truncate">
+                                  <span>{insider.role}</span>
+                                  {insider.city && (
+                                    <>
+                                      <span>·</span>
+                                      <span className="flex items-center gap-0.5">
+                                        <MapPin className="h-3 w-3 text-neutral-400" /> {insider.city}
+                                      </span>
+                                    </>
+                                  )}
+                                  <span>·</span>
+                                  <span className="text-emerald-700 font-bold">{insider.responseRate}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="shrink-0 flex items-center gap-2">
+                              {isVerifiedViewer ? (
+                                isAlreadyRequested ? (
+                                  <span className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                    Referral Requested
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleInitiateReferral(insider)}
+                                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-all shadow-xs text-center active:scale-95"
+                                  >
+                                    Request Referral
+                                  </button>
+                                )
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleInitiateReferral(insider)}
+                                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold border border-neutral-300 transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
+                                >
+                                  <Lock className="h-3.5 w-3.5 text-neutral-500" />
+                                  <span>Connect (Verify to Unlock)</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1823,7 +2060,7 @@ export function JobRecommendationsDashboard() {
                 <div className="space-y-6 text-left">
                   {/* About Company */}
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400 mb-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
                       About {selectedJob.companyName}
                     </h4>
                     <p className="text-xs sm:text-sm text-neutral-700 leading-relaxed font-normal">
@@ -1833,7 +2070,7 @@ export function JobRecommendationsDashboard() {
 
                   {/* Responsibilities */}
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400 mb-2.5">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2.5">
                       What You&apos;ll Do
                     </h4>
                     <ul className="space-y-2">
@@ -1848,7 +2085,7 @@ export function JobRecommendationsDashboard() {
 
                   {/* Qualifications */}
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400 mb-2.5">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2.5">
                       Qualifications & Hiring Bar
                     </h4>
                     <ul className="space-y-2">
@@ -1863,14 +2100,14 @@ export function JobRecommendationsDashboard() {
 
                   {/* Tech Stack */}
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400 mb-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
                       Primary Tech Stack
                     </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {selectedJob.description.techStack.map((tech, idx) => (
                         <span
                           key={idx}
-                          className="px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-800 text-xs font-bold"
+                          className="px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-800 text-xs font-semibold"
                         >
                           {tech}
                         </span>
@@ -1880,14 +2117,14 @@ export function JobRecommendationsDashboard() {
 
                   {/* Compensation & Benefits */}
                   <div>
-                    <h4 className="text-xs font-black uppercase tracking-wider text-neutral-400 mb-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
                       Benefits & Perks
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {selectedJob.description.benefits.map((benefit, idx) => (
                         <div
                           key={idx}
-                          className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-700 font-semibold"
+                          className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-700 font-medium"
                         >
                           ✓ {benefit}
                         </div>
@@ -1902,7 +2139,7 @@ export function JobRecommendationsDashboard() {
                 <div className="space-y-5">
                   <div className="p-4 rounded-2xl bg-[#0A1B5C] text-white flex items-center justify-between">
                     <div>
-                      <h4 className="font-extrabold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <h4 className="font-semibold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
                         <Bot className="h-3.5 w-3.5 text-amber-400" />
                         Jobs Career Copilot
                       </h4>
@@ -1996,13 +2233,17 @@ export function JobRecommendationsDashboard() {
               <button
                 type="button"
                 onClick={() => {
-                  setSelectedInsider(selectedJob.verifiedInsiders[0]);
-                  setReferralModalOpen(true);
+                  const target = companyInsiders[0] || selectedJob.verifiedInsiders[0];
+                  handleInitiateReferral(target);
                 }}
-                className="h-11 px-2.5 sm:px-3.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-black shadow-xs flex items-center justify-center gap-1 shrink-0 active:scale-95"
+                className="h-11 px-2.5 sm:px-3.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-semibold shadow-xs flex items-center justify-center gap-1 shrink-0 active:scale-95"
               >
-                <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                <span>Referral ({selectedJob.insiderCount})</span>
+                {!user?.is_verified ? (
+                  <Lock className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                ) : (
+                  <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                )}
+                <span>Referral ({companyInsiders.length > 0 ? companyInsiders.length : (isLoadingInsiders ? '...' : selectedJob.insiderCount)})</span>
               </button>
 
               {/* Primary Apply CTA */}
@@ -2010,7 +2251,7 @@ export function JobRecommendationsDashboard() {
                 <button
                   type="button"
                   onClick={() => setIsApplyModalOpen(true)}
-                  className="flex-1 h-11 px-3 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all truncate"
+                  className="flex-1 h-11 px-3 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all truncate"
                 >
                   {appliedJobIds.includes(selectedJob.id) ? (
                     <>
@@ -2035,7 +2276,7 @@ export function JobRecommendationsDashboard() {
                     }
                     toast.success(`Redirecting to ${selectedJob.companyName} careers portal...`);
                   }}
-                  className="flex-1 h-11 px-3 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-black shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all truncate"
+                  className="flex-1 h-11 px-3 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-sm flex items-center justify-center gap-1.5 active:scale-95 transition-all truncate"
                 >
                   <span className="truncate">Apply on Site</span>
                   <ExternalLink className="h-3.5 w-3.5 text-white shrink-0" />
@@ -2049,7 +2290,7 @@ export function JobRecommendationsDashboard() {
         <Dialog open={tailorModalOpen} onOpenChange={setTailorModalOpen}>
           <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black text-neutral-900 flex items-center gap-2">
+              <DialogTitle className="text-xl font-bold text-neutral-900 flex items-center gap-2">
                 <SlidersHorizontal className="h-5 w-5 text-[#0A1B5C]" />
                 Tailor Resume for {selectedJob.title}
               </DialogTitle>
@@ -2060,15 +2301,15 @@ export function JobRecommendationsDashboard() {
 
             <div className="space-y-4 py-3">
               <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs space-y-1.5">
-                <span className="font-extrabold text-neutral-700 block">Target Role Keyword Ingestion</span>
+                <span className="font-semibold text-neutral-700 block">Target Role Keyword Ingestion</span>
                 <div className="flex flex-wrap gap-1.5">
                   {selectedJob.matchingSkills.map((s, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                    <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-medium">
                       ✓ {s}
                     </span>
                   ))}
                   {selectedJob.missingSkills.map((s, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold">
+                    <span key={idx} className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-medium">
                       + {s}
                     </span>
                   ))}
@@ -2076,7 +2317,7 @@ export function JobRecommendationsDashboard() {
               </div>
 
               <div className="space-y-2">
-                <span className="text-xs font-bold text-neutral-800 block">
+                <span className="text-xs font-semibold text-neutral-800 block">
                   Targeted Bullet Point Transformation:
                 </span>
                 <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 font-medium leading-relaxed">
@@ -2086,7 +2327,7 @@ export function JobRecommendationsDashboard() {
 
               <div className="p-3.5 rounded-xl bg-neutral-100 text-xs text-neutral-600 flex items-center justify-between">
                 <span>Predicted ATS Score Increase:</span>
-                <span className="font-black text-emerald-700 text-sm">94 ➔ 99 / 100</span>
+                <span className="font-bold text-emerald-700 text-sm">94 ➔ 99 / 100</span>
               </div>
             </div>
 
@@ -2112,7 +2353,7 @@ export function JobRecommendationsDashboard() {
         <Dialog open={referralModalOpen} onOpenChange={setReferralModalOpen}>
           <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black text-neutral-900 flex items-center gap-2">
+              <DialogTitle className="text-xl font-bold text-neutral-900 flex items-center gap-2">
                 <Users className="h-5 w-5 text-[#0A1B5C]" />
                 Request Corporate Referral
               </DialogTitle>
@@ -2124,13 +2365,13 @@ export function JobRecommendationsDashboard() {
             {selectedInsider && (
               <div className="space-y-4 py-2">
                 <div className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#0A1B5C] text-white font-black flex items-center justify-center text-sm">
+                  <div className="w-10 h-10 rounded-xl bg-[#0A1B5C] text-white font-bold flex items-center justify-center text-sm">
                     {selectedInsider.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <div className="font-bold text-xs text-neutral-900 flex items-center gap-1">
+                    <div className="font-semibold text-xs text-neutral-900 flex items-center gap-1">
                       {selectedInsider.name}
-                      <span className="text-[10px] text-emerald-700 font-extrabold bg-emerald-50 px-1.5 py-0.2 rounded-md">
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.2 rounded-md">
                         @{selectedInsider.domain}
                       </span>
                     </div>
@@ -2163,14 +2404,14 @@ export function JobRecommendationsDashboard() {
             <div className="flex items-center justify-end gap-3 pt-2">
               <button
                 onClick={() => setReferralModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700"
+                className="px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-semibold text-neutral-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSendReferralRequest}
                 disabled={isSendingReferral}
-                className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold flex items-center gap-1.5"
+                className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold flex items-center gap-1.5"
               >
                 {isSendingReferral ? (
                   <span>Sending...</span>
@@ -2185,11 +2426,72 @@ export function JobRecommendationsDashboard() {
           </DialogContent>
         </Dialog>
 
+        {/* CORPORATE VERIFICATION REQUIRED MODAL */}
+        <Dialog open={verificationModalOpen} onOpenChange={setVerificationModalOpen}>
+          <DialogContent className="max-w-md w-[95vw] sm:w-full bg-white rounded-3xl p-6 shadow-xl">
+            <DialogHeader className="text-center sm:text-left">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center mb-3">
+                <Lock className="h-6 w-6 text-amber-600" />
+              </div>
+              <DialogTitle className="text-xl font-bold text-neutral-900">
+                Corporate Verification Required
+              </DialogTitle>
+              <DialogDescription className="text-xs text-neutral-500 mt-1">
+                Connecting with verified insiders at <strong className="text-neutral-800">{selectedJob.companyName}</strong> requires an active verified corporate account.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-3 text-xs text-neutral-600">
+              <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-neutral-900 block">Protecting Insider Privacy</span>
+                  <span>Employees at {selectedJob.companyName} only receive outreach from verified professionals in the Vouchins network.</span>
+                </div>
+              </div>
+              <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200">
+                <Zap className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold text-neutral-900 block">4x Referral Callback Rate</span>
+                  <span>Verified employee referrals bypass external ATS filters and land directly in internal HR priority queues.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setVerificationModalOpen(false)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
+              >
+                Cancel
+              </button>
+              {user ? (
+                <Link
+                  href="/verify-email"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-sm text-center flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <span>Verify Work Email</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-white" />
+                </Link>
+              ) : (
+                <Link
+                  href="/login?returnTo=%2Fjobs"
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-sm text-center flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <span>Sign In to Verify</span>
+                  <ArrowRight className="h-3.5 w-3.5 text-white" />
+                </Link>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* APPLY ON VOUCHINS MODAL (FOR INTERNAL RECRUITER POSTINGS) */}
         <Dialog open={isApplyModalOpen} onOpenChange={setIsApplyModalOpen}>
           <DialogContent className="max-w-xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
-              <DialogTitle className="text-xl font-black text-neutral-900 flex items-center gap-2">
+              <DialogTitle className="text-xl font-bold text-neutral-900 flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-[#0A1B5C]" />
                 Apply on Vouchins
               </DialogTitle>
@@ -2201,7 +2503,7 @@ export function JobRecommendationsDashboard() {
             <form onSubmit={handleInternalApply} className="space-y-4 py-3">
               <div className="p-3.5 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/15 flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] font-extrabold text-[#0A1B5C] uppercase tracking-wider block">
+                  <span className="text-[11px] font-semibold text-[#0A1B5C] uppercase tracking-wider block">
                     Verified Candidate Fast-Track
                   </span>
                   <span className="text-xs text-neutral-600 font-medium">
@@ -2261,7 +2563,7 @@ export function JobRecommendationsDashboard() {
                 <button
                   type="submit"
                   disabled={isSubmittingApplication}
-                  className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-extrabold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {isSubmittingApplication ? (
                     <>

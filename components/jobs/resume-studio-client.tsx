@@ -21,6 +21,7 @@ import {
   isUserProOrElite,
 } from '@/lib/jobs/types';
 import { toast } from 'sonner';
+import { useUser } from '@/components/user-provider';
 
 interface SavedResumeItem {
   id: string;
@@ -37,6 +38,15 @@ interface SavedResumeItem {
 
 export function ResumeStudioClient() {
   const router = useRouter();
+  const { user, loading: userLoading } = useUser();
+
+  // Redirect unauthenticated visitors to login
+  useEffect(() => {
+    if (!userLoading && !user) {
+      router.push(`/login?returnTo=${encodeURIComponent('/jobs/resume')}`);
+    }
+  }, [user, userLoading, router]);
+
   const searchParams = useSearchParams();
   const requestedId = searchParams.get('id');
   const isSampleRequested = searchParams.get('sample') === 'true';

@@ -28,10 +28,35 @@ describe('Job Crawler Engine', () => {
       insert: jest.fn().mockResolvedValue({ data: null, error: null }),
     });
 
+    // Mock fetch for sandboxed environments
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('greenhouse.io')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            jobs: [
+              {
+                id: 12345,
+                title: 'Senior Software Engineer',
+                absolute_url: 'https://boards.greenhouse.io/figma/jobs/12345',
+                location: { name: 'San Francisco, CA' },
+                content: '<p>Engineering scalable systems.</p>',
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ jobs: [] }),
+      });
+    }) as any;
+
     const result = await crawlAndSyncTechJobs(2);
 
     expect(result.success).toBe(true);
     expect(result.crawled).toBeGreaterThanOrEqual(0);
     expect(result.sources.length).toBeGreaterThan(0);
-  }, 15000);
+  }, 30000);
 });

@@ -415,14 +415,15 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     { type: 'summary', regex: /^(professional summary|summary|about me|profile|overview|objective)$/i },
     { type: 'experience', regex: /^(work experience|professional experience|experience|employment history|work history)$/i },
     { type: 'achievements', regex: /^(key achievements|achievements|honors|awards|accomplishments)$/i },
-    { type: 'skills', regex: /^(technical skills|skills|technologies|core competencies|tools & technologies)$/i },
+    { type: 'skills', regex: /^(top skills|technical skills|skills|technologies|core competencies|tools & technologies)$/i },
     { type: 'languages', regex: /^(languages)$/i },
     { type: 'education', regex: /^(education|academic background|academics)$/i },
     { type: 'projects', regex: /^(key technical projects|technical projects|projects|personal projects)$/i },
     { type: 'certifications', regex: /^(certifications|licenses & certifications|certifications & licenses)$/i },
+    { type: 'contact', regex: /^(contact)$/i },
   ];
 
-  type SectionType = 'header' | 'summary' | 'experience' | 'achievements' | 'skills' | 'languages' | 'education' | 'projects' | 'certifications';
+  type SectionType = 'header' | 'summary' | 'experience' | 'achievements' | 'skills' | 'languages' | 'education' | 'projects' | 'certifications' | 'contact';
 
   const sectionBlocks: { type: SectionType; lines: string[] }[] = [];
   let currentSection: SectionType = 'header';
@@ -693,30 +694,42 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         }
       }
     } else {
-      let combinedSkillsText = skillsBlock.lines.join(' ');
-      const extractedSkills: string[] = [];
+      // In LinkedIn PDFs, each line under "Top Skills" is a distinct skill item
+      const directSkills = skillsBlock.lines
+        .map((l) => l.replace(/^[•\-*·]\s*/, '').trim())
+        .filter((l) => l.length >= 2 && l.length <= 40 && !l.includes('(') && !/^page\s+\d+/i.test(l));
 
-      for (const phrase of knownMultiWords) {
-        const pRegex = new RegExp(`\\b${phrase}\\b`, 'gi');
-        if (pRegex.test(combinedSkillsText)) {
-          const titleCase = phrase.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-          extractedSkills.push(titleCase);
-          combinedSkillsText = combinedSkillsText.replace(pRegex, ' ');
-        }
-      }
-
-      const singleTokens = combinedSkillsText.split(/[\s,|•·\n\r]+/).map((w) => w.trim()).filter(Boolean);
-      for (const token of singleTokens) {
-        if (token.length > 1 && token.length < 25 && !/^(proficient|advanced|intermediate|skills|languages)$/i.test(token)) {
-          extractedSkills.push(token);
-        }
-      }
-
-      if (extractedSkills.length > 0) {
+      if (directSkills.length > 0 && directSkills.length <= 25) {
         skills.push({
-          category: 'Technical Skills',
-          items: Array.from(new Set(extractedSkills)),
+          category: 'Top Skills',
+          items: Array.from(new Set(directSkills)),
         });
+      } else {
+        let combinedSkillsText = skillsBlock.lines.join(' ');
+        const extractedSkills: string[] = [];
+
+        for (const phrase of knownMultiWords) {
+          const pRegex = new RegExp(`\\b${phrase}\\b`, 'gi');
+          if (pRegex.test(combinedSkillsText)) {
+            const titleCase = phrase.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            extractedSkills.push(titleCase);
+            combinedSkillsText = combinedSkillsText.replace(pRegex, ' ');
+          }
+        }
+
+        const singleTokens = combinedSkillsText.split(/[\s,|•·\n\r]+/).map((w) => w.trim()).filter(Boolean);
+        for (const token of singleTokens) {
+          if (token.length > 1 && token.length < 25 && !/^(proficient|advanced|intermediate|skills|languages)$/i.test(token)) {
+            extractedSkills.push(token);
+          }
+        }
+
+        if (extractedSkills.length > 0) {
+          skills.push({
+            category: 'Technical Skills',
+            items: Array.from(new Set(extractedSkills)),
+          });
+        }
       }
     }
   }

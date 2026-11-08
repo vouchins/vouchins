@@ -130,4 +130,22 @@ describe('Jobs Auth & Subdomain Guard', () => {
     const body = await res.json();
     expect(body.error).toBe('No file provided');
   });
+
+  it('keeps /jobs public for SEO discovery but excludes /jobs/profile and /jobs/resume from publicPrefixes', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const middlewareSource = fs.readFileSync(
+      path.join(process.cwd(), 'middleware.ts'),
+      'utf8'
+    );
+
+    // /jobs is in publicPaths
+    expect(middlewareSource).toContain("'/jobs'");
+    expect(middlewareSource).toContain("'/jobs/dashboard'");
+    expect(middlewareSource).toContain("'/jobs/recommend'");
+
+    // /jobs is NOT in publicPrefixes (so /jobs/profile and /jobs/resume require authentication)
+    expect(middlewareSource).not.toContain("const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad', '/jobs']");
+    expect(middlewareSource).toContain("const publicPrefixes = ['/blog', '/posts/', '/flatmates-in-hyderabad']");
+  });
 });

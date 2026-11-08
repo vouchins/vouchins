@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyJobsAccess } from '@/lib/jobs/auth-guard';
 import { extractResumeText } from '@/lib/jobs/parser';
+import { parseRawTextToDocument } from '@/lib/jobs/xyz-evaluator';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,12 +41,14 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const extraction = await extractResumeText(buffer, file.type, file.name);
+    const document = parseRawTextToDocument(extraction.rawText);
 
     return NextResponse.json({
       success: true,
       fileName: file.name,
       fileSize: file.size,
       ...extraction,
+      document,
     });
   } catch (error: any) {
     console.error('Resume extraction error:', error);
