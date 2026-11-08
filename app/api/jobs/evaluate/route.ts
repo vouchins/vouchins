@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyJobsAccess } from '@/lib/jobs/auth-guard';
-import { checkAICostGuard, computeContentHash } from '@/lib/jobs/cost-guard';
+import { checkAICostGuard, computeContentHash, computeResumeContentHash } from '@/lib/jobs/cost-guard';
 import { evaluateResumeAI } from '@/lib/jobs/ai-client';
 import { parseRawTextToDocument, evaluateResumeHeuristically } from '@/lib/jobs/xyz-evaluator';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     const textToAnalyze = rawText || JSON.stringify(existingDoc);
-    const contentHash = computeContentHash(textToAnalyze);
+    const contentHash = computeResumeContentHash(existingDoc || textToAnalyze);
 
     // 1. Check AI Cost & Abuse Guard Rails (with Pro plan gating & 1-time rate limit)
     const guardCheck = await checkAICostGuard(userId, textToAnalyze, Boolean(existingDoc));
@@ -55,13 +55,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Return cached evaluation if available ($0 cost, instant response)
-    // Only use cache for rawText initial uploads; re-analyzing existingDoc evaluates freshly
-    if (!existingDoc && guardCheck.cachedEvaluation) {
+    // 2. Return cached evaluation if available ($0 cost, instant response, 0 score jitter)
+    // If resume content has not changed since last evaluation, return cached state directly
+    if (guardCheck.cachedEvaluation) {
       const cached = guardCheck.cachedEvaluation;
-      let doc = null;
+      let doc = existingDoc || null;
 
-      if (cached.resume_id) {
+      if (!doc && cached.resume_id) {
         const { data: resumeRow } = await supabaseAdmin
           .from('job_resumes')
           .select('document_schema')
@@ -111,12 +111,13 @@ export async function POST(request: Request) {
 
         return NextResponse.json({
           success: true,
+          unchanged: Boolean(existingDoc),
           fromCache: true,
           provider: 'cache',
           doc,
           document: doc,
           evaluation,
-          resumeId: cached.resume_id,
+          resumeId: cached.resume_id || resumeId,
         });
       }
     }
@@ -207,6 +208,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      unchanged: false,
       fromCache: false,
       provider,
       doc,

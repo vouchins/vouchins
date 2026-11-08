@@ -453,18 +453,7 @@ export function Workspace({
                   setDocument(result.document);
                 }
                 if (result?.evaluation) {
-                  const fresh = evaluateResumeHeuristically(targetDoc);
-                  const calibratedScore = Math.max(result.evaluation.overallScore || 0, fresh.overallScore);
-                  const calibratedPillars = {
-                    impact: Math.max(result.evaluation.pillarScores?.impact || 0, fresh.pillarScores.impact),
-                    relevance: Math.max(result.evaluation.pillarScores?.relevance || 0, fresh.pillarScores.relevance),
-                    brevity: Math.max(result.evaluation.pillarScores?.brevity || 0, fresh.pillarScores.brevity),
-                  };
-                  setEvaluation({
-                    ...result.evaluation,
-                    overallScore: calibratedScore,
-                    pillarScores: calibratedPillars,
-                  });
+                  setEvaluation(result.evaluation);
                 }
               }}
               disabled={isReanalyzing}

@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import crypto from 'crypto';
 import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 import { checkIsUserPro } from './auth-guard';
+import type { ResumeDocument } from './types';
 
 export interface CostGuardResult {
   allowed: boolean;
@@ -13,6 +14,65 @@ export interface CostGuardResult {
 export function computeContentHash(text: string): string {
   const normalized = text.replace(/\s+/g, ' ').trim().toLowerCase();
   return crypto.createHash('sha256').update(normalized).digest('hex');
+}
+
+/**
+ * Computes a deterministic SHA-256 hash for either raw text or a structured ResumeDocument.
+ * Normalizes bullets, skills, experience, and contact data so identical content always
+ * produces the exact same hash regardless of object key order or cosmetic formatting.
+ */
+export function computeResumeContentHash(docOrText: ResumeDocument | string): string {
+  if (typeof docOrText === 'string') {
+    return computeContentHash(docOrText);
+  }
+
+  const parts: string[] = [];
+  if (docOrText.contact) {
+    parts.push(
+      docOrText.contact.fullName || '',
+      docOrText.contact.email || '',
+      docOrText.contact.location || ''
+    );
+  }
+  if (docOrText.summary) {
+    parts.push(docOrText.summary.trim());
+  }
+  if (Array.isArray(docOrText.skills)) {
+    for (const cat of docOrText.skills) {
+      parts.push(cat.category || '', (cat.items || []).join(','));
+    }
+  }
+  if (Array.isArray(docOrText.experience)) {
+    for (const exp of docOrText.experience) {
+      parts.push(
+        exp.company || '',
+        exp.roleTitle || '',
+        (exp.bullets || []).map((b) => b.trim()).join(' ')
+      );
+    }
+  }
+  if (Array.isArray(docOrText.education)) {
+    for (const edu of docOrText.education) {
+      parts.push(
+        edu.institution || (edu as any).school || '',
+        edu.degree || '',
+        edu.fieldOfStudy || ''
+      );
+    }
+  }
+  if (Array.isArray(docOrText.projects)) {
+    for (const proj of docOrText.projects) {
+      parts.push(
+        proj.title || '',
+        (proj.bullets || []).map((b) => b.trim()).join(' ')
+      );
+    }
+  }
+  if (Array.isArray(docOrText.certifications)) {
+    parts.push(docOrText.certifications.join(','));
+  }
+
+  return computeContentHash(parts.join(':::'));
 }
 
 /**
@@ -113,7 +173,38 @@ export async function checkAICostGuard(
   const contentHash = computeContentHash(trimmed);
 
   try {
-    // 2. Pro Plan Check: Re-evaluating existing resumes is strictly exclusive to Jobs Pro members.
+    // 2. Cache Deduplication Check (Exact SHA-256 match = $0 cost)
+    // If the document content is unchanged, return the cached evaluation directly
+    // without triggering LLM costs, rate limits, or Pro gating.
+    const { data: cached } = await supabaseAdmin
+      .from('job_evaluations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('content_hash', contentHash)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (cached) {
+      const isPoisoned = cached.suggestions?.some(
+        (s: any) =>
+          s.originalText?.includes('1.5M daily active requests') ||
+          s.originalText?.includes('Spearheaded frontend migration to Next.js and TypeScript, reducing page load latency by 45%') ||
+          s.suggestedRewrite?.includes('scalable architectural workflows')
+      );
+
+      if (!isPoisoned) {
+        return {
+          allowed: true,
+          cachedEvaluation: cached,
+        };
+      }
+
+      // Automatically purge legacy poisoned evaluation cache
+      supabaseAdmin.from('job_evaluations').delete().eq('id', cached.id).then(() => {});
+    }
+
+    // 3. Pro Plan Check: Re-evaluating modified resumes with AI is exclusive to Jobs Pro members.
     const isPro = await checkIsUserPro(userId);
 
     if (isExistingDoc && !isPro) {
@@ -122,39 +213,6 @@ export async function checkAICostGuard(
         code: 'PRO_PLAN_REQUIRED',
         reason: 'Re-analyzing your resume with AI is exclusive to Jobs Pro members. Upgrade to Jobs Pro to get unlimited re-evaluations.',
       };
-    }
-
-    // 3. Cache Deduplication Check (Exact SHA-256 match = $0 cost)
-    // ONLY check cached evaluations for initial rawText uploads!
-    // When re-evaluating existingDoc, skip cache deduplication to evaluate the updated resume freshly.
-    if (!isExistingDoc) {
-      const { data: cached } = await supabaseAdmin
-        .from('job_evaluations')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('content_hash', contentHash)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (cached) {
-        const isPoisoned = cached.suggestions?.some(
-          (s: any) =>
-            s.originalText?.includes('1.5M daily active requests') ||
-            s.originalText?.includes('Spearheaded frontend migration to Next.js and TypeScript, reducing page load latency by 45%') ||
-            s.suggestedRewrite?.includes('scalable architectural workflows')
-        );
-
-        if (!isPoisoned) {
-          return {
-            allowed: true,
-            cachedEvaluation: cached,
-          };
-        }
-
-        // Automatically purge legacy poisoned evaluation cache
-        supabaseAdmin.from('job_evaluations').delete().eq('id', cached.id).then(() => {});
-      }
     }
 
     // 4. Free user 1-time AI suggestion evaluation limit (for initial uploads)

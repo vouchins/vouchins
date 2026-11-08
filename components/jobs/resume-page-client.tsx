@@ -463,7 +463,18 @@ export function ResumePageClient() {
           )
         );
         invalidateResumesCache();
-        toast.success(`Readiness score updated: ${updatedEval?.overallScore ?? 85}/100!`, { id: toastId });
+        if (data.unchanged) {
+          toast.success(
+            `Resume is up to date - no changes detected since last analysis (Score: ${updatedEval?.overallScore ?? 85}/100).`,
+            { id: toastId }
+          );
+        } else {
+          const score = updatedEval?.overallScore ?? 85;
+          const prevScore = activeResume.evaluation?.overallScore;
+          const scoreDiff = typeof prevScore === 'number' ? score - prevScore : 0;
+          const diffNotice = scoreDiff > 0 ? ` (+${scoreDiff} pts)` : scoreDiff < 0 ? ` (${scoreDiff} pts)` : '';
+          toast.success(`Readiness score updated: ${score}/100${diffNotice}!`, { id: toastId });
+        }
         return { document: updatedDoc, evaluation: updatedEval };
       } else {
         const data = await res.json();

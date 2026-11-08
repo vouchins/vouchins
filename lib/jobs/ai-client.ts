@@ -197,18 +197,16 @@ export async function evaluateResumeAI(options: AIEvaluationOptions): Promise<{
   const baselineScore = Math.max(options.baselineScore || 0, heuristic.overallScore);
   const docBullets = new Set((doc.experience || []).flatMap((e) => e.bullets || []));
 
-  // Helper to merge previously applied suggestions and calibrate score
+  // Helper to merge previously applied suggestions and anchor scores deterministically
   const finalizeEvaluation = (baseEval: ResumeEvaluation): ResumeEvaluation => {
-    const calibratedOverallScore = Math.max(
-      heuristic.overallScore,
-      baselineScore,
-      baseEval.overallScore
-    );
+    // The overall score and pillar scores are anchored strictly to the deterministic mathematical evaluation.
+    // This eliminates LLM temperature jitter and guarantees that identical resume text always produces the exact same score.
+    const calibratedOverallScore = heuristic.overallScore;
 
     const calibratedPillarScores = {
-      impact: Math.max(heuristic.pillarScores.impact, baseEval.pillarScores.impact),
-      relevance: Math.max(heuristic.pillarScores.relevance, baseEval.pillarScores.relevance),
-      brevity: Math.max(heuristic.pillarScores.brevity, baseEval.pillarScores.brevity),
+      impact: heuristic.pillarScores.impact,
+      relevance: heuristic.pillarScores.relevance,
+      brevity: heuristic.pillarScores.brevity,
     };
 
     // Preserve previously applied suggestions whose rewrites are present in the document
@@ -238,7 +236,11 @@ export async function evaluateResumeAI(options: AIEvaluationOptions): Promise<{
       overallScore: calibratedOverallScore,
       pillarScores: calibratedPillarScores,
       strengths: baseEval.strengths?.length ? baseEval.strengths : heuristic.strengths,
-      suggestions: mergedSuggestions.length > 0 ? mergedSuggestions : baseEval.suggestions,
+      suggestions: mergedSuggestions.length > 0 ? mergedSuggestions : heuristic.suggestions,
+      detectedSeniority: baseEval.detectedSeniority || heuristic.detectedSeniority,
+      targetRole: baseEval.targetRole || heuristic.targetRole,
+      missingKeywords: baseEval.missingKeywords?.length ? baseEval.missingKeywords : heuristic.missingKeywords,
+      jobMatchVectors: baseEval.jobMatchVectors || heuristic.jobMatchVectors,
     };
   };
 
