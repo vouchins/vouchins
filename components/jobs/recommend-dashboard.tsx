@@ -35,6 +35,9 @@ import {
   Building2,
   ChevronLeft,
   Lock,
+  RotateCw,
+  Check,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnterpriseBuildingIcon } from '@/components/icons/enterprise-building-icon';
@@ -59,6 +62,8 @@ import { JobsSidebar } from './jobs-sidebar';
 import { JobsNavbar } from './jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
+import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch } from '@/lib/jobs/ats-client';
+import { CompanyLogo } from './company-logo';
 
 export interface RecommendedJob {
   id: string;
@@ -577,6 +582,106 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
     isCurated: true,
     isRecommended: true,
   },
+  {
+    id: 'rec-audible-principal-architect',
+    title: 'Principal Systems Architect - Audio & AI Streaming',
+    companyName: 'Audible',
+    companyLogo: 'https://www.google.com/s2/favicons?domain=audible.com&sz=128',
+    location: 'Newark, NJ / Hybrid',
+    workplaceType: 'Hybrid',
+    jobType: 'Full-time',
+    experienceLevel: 'Principal',
+    salaryRange: '$210k - $275k / yr',
+    postedAt: '2 hours ago',
+    matchScore: 98,
+    matchBreakdown: {
+      skillsScore: 98,
+      experienceScore: 97,
+      stackScore: 99,
+    },
+    whyYouMatch:
+      'Exceptional alignment with distributed systems and audio streaming infrastructure at Audible headquarters in Newark, NJ. Verified Vouchins insiders ready to refer.',
+    matchingSkills: ['Distributed Systems', 'Cloud Infra', 'Java', 'Python', 'AWS', 'High Concurrency'],
+    missingSkills: ['Audio DSP', 'FFmpeg'],
+    insiderCount: 12,
+    verifiedInsiders: [],
+    description: {
+      about:
+        'Audible is the leading creator and provider of premium audio storytelling. Headquartered in Newark, NJ, our engineering teams build planetary streaming infrastructure serving millions of global listeners.',
+      responsibilities: [
+        'Architect high-availability audio processing pipelines and personalized recommendation systems.',
+        'Collaborate with Newark-based tech leadership to scale real-time audio distribution.',
+        'Ensure 99.999% uptime across multi-region AWS cloud deployments.',
+      ],
+      qualifications: [
+        '8+ years building high-scale distributed backend systems.',
+        'Expertise in high-throughput cloud streaming, microservices, and event-driven architectures.',
+      ],
+      techStack: ['AWS', 'Java', 'Python', 'Kafka', 'Kubernetes', 'DynamoDB'],
+      benefits: ['Top-tier Amazon RSUs & bonuses', 'Comprehensive health, dental & vision', 'Hybrid Newark office flexibility'],
+    },
+    tailoredBulletSuggestion: {
+      original: 'Built streaming service backend and data pipelines.',
+      tailored:
+        'Architected distributed audio streaming pipeline supporting 4.8M concurrent streams with sub-50ms latency across multi-region AWS clusters.',
+      impactMetric: '-42% Stream Buffering',
+    },
+    externalApplyUrl: 'https://www.amazon.jobs/en/jobs/2591834/principal-systems-architect-audible',
+    externalJobId: '2591834',
+    isInternal: false,
+    isCurated: true,
+    isRecommended: true,
+  },
+  {
+    id: 'rec-jnj-staff-software-engineer',
+    title: 'Staff Software Engineer - Digital Health Platform',
+    companyName: 'Johnson & Johnson',
+    companyLogo: 'https://www.google.com/s2/favicons?domain=jnj.com&sz=128',
+    location: 'New Brunswick, NJ / Hybrid',
+    workplaceType: 'Hybrid',
+    jobType: 'Full-time',
+    experienceLevel: 'Staff',
+    salaryRange: '$185k - $240k / yr',
+    postedAt: '4 hours ago',
+    matchScore: 96,
+    matchBreakdown: {
+      skillsScore: 96,
+      experienceScore: 95,
+      stackScore: 97,
+    },
+    whyYouMatch:
+      'Superb alignment with mission-critical digital health platforms and secure distributed services at J&J New Brunswick, NJ campus.',
+    matchingSkills: ['TypeScript', 'React', 'Node.js', 'Python', 'PostgreSQL', 'Microservices'],
+    missingSkills: ['HIPAA Compliance', 'HL7 FHIR'],
+    insiderCount: 9,
+    verifiedInsiders: [],
+    description: {
+      about:
+        'Johnson & Johnson MedTech and Digital Health is pioneering next-generation software platforms for robotic surgery and connected clinical analytics. Based in New Brunswick, NJ.',
+      responsibilities: [
+        'Design and build secure, compliant cloud services for clinical decision support systems.',
+        'Lead architectural decisions for cloud-native APIs handling sensitive biometric datasets.',
+        'Mentor senior and mid-level software engineers across engineering best practices.',
+      ],
+      qualifications: [
+        '6+ years delivering production software in cloud-native environments.',
+        'Deep proficiency in modern web frameworks, relational databases, and secure API design.',
+      ],
+      techStack: ['TypeScript', 'Node.js', 'Python', 'AWS', 'PostgreSQL', 'Docker'],
+      benefits: ['Competitive base + performance bonus + equity', 'Unmatched retirement and pension benefits', 'Hybrid New Jersey work model'],
+    },
+    tailoredBulletSuggestion: {
+      original: 'Engineered web services and database workflows.',
+      tailored:
+        'Architected secure FHIR-compliant clinical API gateway processing 8M+ patient records monthly with zero security incidents.',
+      impactMetric: '+99.99% Data Compliance',
+    },
+    externalApplyUrl: 'https://jobs.jnj.com/en/jobs/2406189283w/staff-software-engineer-digital-health',
+    externalJobId: '2406189283',
+    isInternal: false,
+    isCurated: true,
+    isRecommended: true,
+  },
 ];
 
 function transformDbJobToRecommendedJob(job: any): RecommendedJob {
@@ -869,47 +974,213 @@ export function JobRecommendationsDashboard() {
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [activeDetailTab, setActiveDetailTab] = useState<'match' | 'insiders' | 'description' | 'copilot'>('match');
 
-  // Real Database Jobs State
-  const [dbJobs, setDbJobs] = useState<RecommendedJob[]>([]);
-  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  // Location & City Filter State (Prioritizes user's home city)
+  const [selectedCity, setSelectedCity] = useState<string>(user?.city?.trim() || '');
+  const [customCityInput, setCustomCityInput] = useState<string>('');
+  const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
 
-  // Fetch real jobs from database via /api/jobs
+  // Candidate Profile Skills & Seniority from master resume
+  const [candidateProfileSkills, setCandidateProfileSkills] = useState<string[]>([]);
+  const [candidateSeniority, setCandidateSeniority] = useState<string>('Senior');
+
+  // Company Filter State (Supports multi-select checkboxes & custom added companies)
+  const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
+  const [companySearchInput, setCompanySearchInput] = useState<string>('');
+  const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
+  const [customCompanies, setCustomCompanies] = useState<string[]>([]);
+
+  // Fetch candidate profile & master resume skills
   useEffect(() => {
     let isMounted = true;
-    async function loadJobs() {
-      setIsLoadingJobs(true);
+    async function loadCandidateProfile() {
       try {
-        const res = await fetch('/api/jobs?limit=150');
+        const res = await fetch('/api/jobs/profile');
         if (res.ok) {
-          const json = await res.json();
-          if (json.jobs && Array.isArray(json.jobs)) {
-            const transformed = json.jobs.map(transformDbJobToRecommendedJob);
-            if (isMounted) {
-              setDbJobs(transformed);
+          const data = await res.json();
+          if (isMounted) {
+            if (data.document) {
+              const skills: string[] = [];
+              if (Array.isArray(data.document.skills)) {
+                data.document.skills.forEach((cat: any) => {
+                  if (Array.isArray(cat.items)) skills.push(...cat.items);
+                });
+              }
+              if (skills.length > 0) {
+                setCandidateProfileSkills(skills);
+              }
+              if (Array.isArray(data.document.experience) && data.document.experience[0]?.roleTitle) {
+                setCandidateSeniority(data.document.experience[0].roleTitle);
+              }
+              if (!selectedCity && data.document.contact?.location) {
+                setSelectedCity(data.document.contact.location.trim());
+              }
+            }
+            if (typeof data.latestScore === 'number') {
+              setAtsScore(data.latestScore);
             }
           }
         }
       } catch (err) {
-        console.error('Failed to load database jobs:', err);
-      } finally {
-        if (isMounted) setIsLoadingJobs(false);
+        console.warn('Candidate profile loading note:', err);
       }
     }
-
-    loadJobs();
+    loadCandidateProfile();
     return () => {
       isMounted = false;
     };
   }, []);
 
-  // Combined master job list (Curated showcase + Database jobs deduplicated)
+  const handleApplyLocation = (city?: string) => {
+    const target = (city !== undefined ? city : customCityInput).trim();
+    if (target && target.toLowerCase() !== 'all') {
+      setSelectedCity(target);
+      toast.success(`Prioritizing roles in ${target} & Remote`);
+      setCustomCityInput('');
+    } else {
+      setSelectedCity('');
+      toast.info('Location filter cleared - Showing all locations');
+      setCustomCityInput('');
+    }
+    setIsLocationMenuOpen(false);
+  };
+
+  useEffect(() => {
+    if (user?.city?.trim() && !selectedCity) {
+      setSelectedCity(user.city.trim());
+    }
+  }, [user?.city]);
+
+  // Real Database Jobs State
+  const [dbJobs, setDbJobs] = useState<RecommendedJob[]>([]);
+  const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+
+  // Fetch real jobs from database & live ATS sources via /api/jobs
+  const loadJobs = React.useCallback(async () => {
+    setIsLoadingJobs(true);
+    try {
+      const locQuery =
+        selectedCity && selectedCity.toLowerCase() !== 'all'
+          ? `&location=${encodeURIComponent(selectedCity)}`
+          : '';
+      const skillsQuery =
+        candidateProfileSkills.length > 0
+          ? `&skills=${encodeURIComponent(candidateProfileSkills.slice(0, 10).join(','))}`
+          : '';
+      const companiesQuery =
+        selectedCompanies.length > 0 && !selectedCompanies.includes('all')
+          ? `&companies=${encodeURIComponent(selectedCompanies.join(','))}`
+          : '';
+
+      const res = await fetch(`/api/jobs?limit=150${locQuery}${skillsQuery}${companiesQuery}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.jobs && Array.isArray(json.jobs)) {
+          const transformed = json.jobs.map(transformDbJobToRecommendedJob);
+          setDbJobs(transformed);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load live jobs:', err);
+    } finally {
+      setIsLoadingJobs(false);
+    }
+  }, [selectedCity, candidateProfileSkills, selectedCompanies]);
+
+  useEffect(() => {
+    loadJobs();
+  }, [loadJobs]);
+
+  // Company management helpers
+  const allAvailableCompanies = useMemo(() => {
+    const set = new Set<string>();
+    for (const j of CURATED_RECOMMENDED_JOBS) {
+      if (j.companyName?.trim()) set.add(j.companyName.trim());
+    }
+    for (const j of dbJobs) {
+      if (j.companyName?.trim()) set.add(j.companyName.trim());
+    }
+    for (const c of customCompanies) {
+      if (c.trim()) set.add(c.trim());
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [dbJobs, customCompanies]);
+
+  const filteredCompanyList = useMemo(() => {
+    if (!companySearchInput.trim()) return allAvailableCompanies;
+    const q = companySearchInput.toLowerCase().trim();
+    return allAvailableCompanies.filter((c) => c.toLowerCase().includes(q));
+  }, [allAvailableCompanies, companySearchInput]);
+
+  const handleAddCustomCompany = () => {
+    const trimmed = companySearchInput.trim();
+    if (!trimmed) return;
+    if (!customCompanies.includes(trimmed)) {
+      setCustomCompanies((prev) => [...prev, trimmed]);
+    }
+    setSelectedCompanies((prev) => {
+      const withoutAll = prev.filter((c) => c.toLowerCase() !== 'all');
+      return withoutAll.includes(trimmed) ? withoutAll : [...withoutAll, trimmed];
+    });
+    setCompanySearchInput('');
+    toast.success(`Filtering jobs by company: ${trimmed}`);
+  };
+
+  const toggleCompany = (companyName: string) => {
+    setSelectedCompanies((prev) => {
+      const withoutAll = prev.filter((c) => c.toLowerCase() !== 'all');
+      if (withoutAll.includes(companyName)) {
+        return withoutAll.filter((c) => c !== companyName);
+      } else {
+        return [...withoutAll, companyName];
+      }
+    });
+  };
+
+  const selectAllCompanies = () => {
+    setSelectedCompanies([]);
+    toast.info('Showing jobs from all companies');
+  };
+
+  // Combined master job list (Curated showcase + Database & Live ATS jobs deduplicated)
   // Filters out external jobs that lack external job IDs / direct valid requisition URLs,
   // while preserving internal recruiter jobs posted on Vouchins.
+  // Ranked by location alignment and candidate match score descending.
   const allJobs = useMemo(() => {
-    const list = [...CURATED_RECOMMENDED_JOBS];
-    const seenIds = new Set(CURATED_RECOMMENDED_JOBS.map((j) => j.id));
+    // Dynamically evaluate curated showcase jobs if candidate has profile skills
+    const list = CURATED_RECOMMENDED_JOBS.map((j) => {
+      if (candidateProfileSkills.length > 0) {
+        const evaluation = evaluateJobMatch(
+          {
+            title: j.title,
+            description: j.description?.about,
+            requirements: j.description?.qualifications?.join('\n'),
+            experienceLevel: j.experienceLevel,
+            workplaceType: j.workplaceType,
+            location: j.location,
+            companyName: j.companyName,
+          },
+          candidateProfileSkills,
+          candidateSeniority,
+          selectedCity
+        );
+        return {
+          ...j,
+          matchScore: evaluation.matchScore,
+          matchBreakdown: evaluation.matchBreakdown,
+          whyYouMatch: evaluation.whyYouMatch,
+          matchingSkills:
+            evaluation.matchingSkills.length > 0 ? evaluation.matchingSkills : j.matchingSkills,
+          missingSkills:
+            evaluation.missingSkills.length > 0 ? evaluation.missingSkills : j.missingSkills,
+          isRecommended: evaluation.isRecommended,
+        };
+      }
+      return j;
+    });
+
+    const seenIds = new Set(list.map((j) => j.id));
     const seenTitles = new Set(
-      CURATED_RECOMMENDED_JOBS.map((j) => `${j.companyName.toLowerCase()}-${j.title.toLowerCase()}`)
+      list.map((j) => `${j.companyName.toLowerCase()}-${j.title.toLowerCase()}`)
     );
 
     for (const job of dbJobs) {
@@ -920,8 +1191,34 @@ export function JobRecommendationsDashboard() {
         list.push(job);
       }
     }
-    return list.filter((j) => j.isInternal || hasValidExternalJobId(j.externalApplyUrl));
-  }, [dbJobs]);
+    const validList = list.filter((j) => j.isInternal || hasValidExternalJobId(j.externalApplyUrl));
+
+    return validList.sort((a, b) => {
+      // Prioritize candidate selected city and Remote roles
+      if (selectedCity && selectedCity.toLowerCase() !== 'all') {
+        const aMatches = isLocationMatch(a.location, selectedCity, a.workplaceType);
+        const bMatches = isLocationMatch(b.location, selectedCity, b.workplaceType);
+
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+
+        // If both match, prioritize direct home city over remote
+        const aLoc = (a.location || '').toLowerCase();
+        const bLoc = (b.location || '').toLowerCase();
+        const cLoc = selectedCity.toLowerCase();
+        const aSpecific =
+          aLoc.includes(cLoc) ||
+          (LOCATION_ALIASES[cLoc] || []).some((al) => !al.includes('remote') && aLoc.includes(al));
+        const bSpecific =
+          bLoc.includes(cLoc) ||
+          (LOCATION_ALIASES[cLoc] || []).some((al) => !al.includes('remote') && bLoc.includes(al));
+
+        if (aSpecific && !bSpecific) return -1;
+        if (!aSpecific && bSpecific) return 1;
+      }
+      return b.matchScore - a.matchScore;
+    });
+  }, [dbJobs, selectedCity, candidateProfileSkills, candidateSeniority]);
 
   const recommendedJobs = useMemo(() => {
     return allJobs.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 90);
@@ -1014,6 +1311,22 @@ export function JobRecommendationsDashboard() {
       list = list.filter((j) => j.salaryRange.includes('$180k') || j.salaryRange.includes('$2') || j.salaryRange.toLowerCase().includes('competitive'));
     }
 
+    // Filter by Selected Location / City if set
+    if (selectedCity && selectedCity.toLowerCase() !== 'all') {
+      list = list.filter((j) => isLocationMatch(j.location, selectedCity, j.workplaceType));
+    }
+
+    // Filter by Selected Companies
+    if (selectedCompanies.length > 0 && !selectedCompanies.includes('all')) {
+      list = list.filter((j) => {
+        const jobComp = (j.companyName || '').toLowerCase().trim();
+        return selectedCompanies.some((c) => {
+          const cLower = c.toLowerCase().trim();
+          return jobComp.includes(cLower) || cLower.includes(jobComp);
+        });
+      });
+    }
+
     // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -1027,7 +1340,7 @@ export function JobRecommendationsDashboard() {
     }
 
     return list;
-  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery]);
+  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies]);
 
   const selectedJob = useMemo(() => {
     return allJobs.find((j) => j.id === selectedJobId) || filteredJobs[0] || allJobs[0] || CURATED_RECOMMENDED_JOBS[0];
@@ -1264,6 +1577,322 @@ export function JobRecommendationsDashboard() {
               <SlidersHorizontal className="h-3 w-3" /> Filters:
             </span>
 
+            {/* Interactive Location / City Filter Dropdown */}
+            <DropdownMenu open={isLocationMenuOpen} onOpenChange={setIsLocationMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                    selectedCity && selectedCity.toLowerCase() !== 'all'
+                      ? 'bg-[#0A1B5C] text-white shadow-xs'
+                      : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
+                  }`}
+                >
+                  <MapPin className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                  <span>
+                    {selectedCity && selectedCity.toLowerCase() !== 'all'
+                      ? `${selectedCity}`
+                      : 'All Locations'}
+                  </span>
+                  <ChevronRight className="h-3 w-3 rotate-90 opacity-70 ml-0.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-72 p-2 rounded-2xl shadow-xl border border-neutral-200 bg-white z-50">
+                <div className="px-2 py-1.5 text-xs font-bold text-[#0A1B5C] flex items-center justify-between">
+                  <span>Filter by Location</span>
+                  {selectedCity && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleApplyLocation('');
+                      }}
+                      className="text-[10px] text-neutral-400 hover:text-neutral-700 underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Custom City Input Form */}
+                <div className="p-1 mb-1">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleApplyLocation();
+                    }}
+                    className="flex items-center gap-1.5 bg-neutral-50 rounded-xl px-2.5 py-1.5 border border-neutral-200 focus-within:border-[#0A1B5C] focus-within:bg-white transition-all"
+                  >
+                    <Search className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={customCityInput}
+                      onChange={(e) => setCustomCityInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleApplyLocation();
+                        }
+                      }}
+                      placeholder="Enter custom city (e.g. New Jersey)..."
+                      className="w-full text-xs bg-transparent outline-none placeholder:text-neutral-400 text-neutral-800"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleApplyLocation();
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-[#0A1B5C] text-white text-[10px] font-bold shrink-0 hover:bg-[#11287e] transition-colors"
+                    >
+                      Set
+                    </button>
+                  </form>
+                </div>
+
+                <DropdownMenuSeparator className="my-1" />
+
+                <div className="max-h-56 overflow-y-auto space-y-0.5">
+                  {user?.city && (
+                    <DropdownMenuItem
+                      onClick={() => handleApplyLocation(user.city!.trim())}
+                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
+                        selectedCity.toLowerCase() === user.city.toLowerCase()
+                          ? 'bg-[#0A1B5C]/10 text-[#0A1B5C]'
+                          : 'text-neutral-700 hover:bg-neutral-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                        <span>{user.city}</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                        Profile City
+                      </span>
+                    </DropdownMenuItem>
+                  )}
+
+                  {[
+                    { label: '🌐 All Locations (Worldwide)', value: '' },
+                    { label: '🏠 Remote (Global / Anywhere)', value: 'remote' },
+                    { label: 'New Jersey, US', value: 'New Jersey' },
+                    { label: 'New York, US', value: 'New York' },
+                    { label: 'Hyderabad, India', value: 'Hyderabad' },
+                    { label: 'Bangalore, India', value: 'Bangalore' },
+                    { label: 'Pune / Mumbai, India', value: 'Pune' },
+                    { label: 'Delhi NCR, India', value: 'Delhi' },
+                    { label: 'San Francisco Bay Area, US', value: 'San Francisco' },
+                    { label: 'London, UK', value: 'London' },
+                  ].map((loc) => {
+                    const isLocSelected =
+                      (!selectedCity && !loc.value) ||
+                      (selectedCity.toLowerCase() === loc.value.toLowerCase());
+                    return (
+                      <DropdownMenuItem
+                        key={loc.label}
+                        onClick={() => handleApplyLocation(loc.value)}
+                        className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer ${
+                          isLocSelected
+                            ? 'bg-[#0A1B5C] text-white font-bold'
+                            : 'text-neutral-700 hover:bg-neutral-100'
+                        }`}
+                      >
+                        <span>{loc.label}</span>
+                        {isLocSelected && <CheckCircle2 className="h-3.5 w-3.5 text-[#4FD1C5]" />}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Interactive Company Filter Dropdown with Checkboxes and "All" */}
+            <DropdownMenu open={isCompanyMenuOpen} onOpenChange={setIsCompanyMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
+                    selectedCompanies.length > 0 && !selectedCompanies.includes('all')
+                      ? 'bg-[#0A1B5C] text-white shadow-xs'
+                      : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
+                  }`}
+                >
+                  <Building2 className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                  <span>
+                    {selectedCompanies.length === 0 || selectedCompanies.includes('all')
+                      ? 'All Companies'
+                      : selectedCompanies.length === 1
+                      ? selectedCompanies[0]
+                      : `${selectedCompanies[0]} +${selectedCompanies.length - 1}`}
+                  </span>
+                  <ChevronRight className="h-3 w-3 rotate-90 opacity-70 ml-0.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-80 p-2 rounded-2xl shadow-xl border border-neutral-200 bg-white z-50">
+                <div className="px-2 py-1.5 text-xs font-bold text-[#0A1B5C] flex items-center justify-between">
+                  <span>Filter by Company</span>
+                  {selectedCompanies.length > 0 && !selectedCompanies.includes('all') && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        selectAllCompanies();
+                      }}
+                      className="text-[10px] text-neutral-400 hover:text-neutral-700 underline"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                {/* Search or Add Custom Company Form */}
+                <div className="p-1 mb-1">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleAddCustomCompany();
+                    }}
+                    className="flex items-center gap-1.5 bg-neutral-50 rounded-xl px-2.5 py-1.5 border border-neutral-200 focus-within:border-[#0A1B5C] focus-within:bg-white transition-all"
+                  >
+                    <Search className="h-3.5 w-3.5 text-neutral-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={companySearchInput}
+                      onChange={(e) => setCompanySearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        e.stopPropagation();
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCustomCompany();
+                        }
+                      }}
+                      placeholder="Search or add company..."
+                      className="w-full text-xs bg-transparent outline-none placeholder:text-neutral-400 text-neutral-800"
+                    />
+                    {companySearchInput.trim() && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleAddCustomCompany();
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-[#0A1B5C] text-white text-[10px] font-bold shrink-0 hover:bg-[#11287e] transition-colors"
+                      >
+                        Add
+                      </button>
+                    )}
+                  </form>
+                </div>
+
+                <DropdownMenuSeparator className="my-1" />
+
+                {/* Option 1: All Companies Checkbox */}
+                <div
+                  onClick={selectAllCompanies}
+                  className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
+                    selectedCompanies.length === 0 || selectedCompanies.includes('all')
+                      ? 'bg-[#0A1B5C] text-white'
+                      : 'text-neutral-700 hover:bg-neutral-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                        selectedCompanies.length === 0 || selectedCompanies.includes('all')
+                          ? 'bg-[#4FD1C5] border-[#4FD1C5] text-[#0A1B5C]'
+                          : 'border-neutral-300 bg-white'
+                      }`}
+                    >
+                      {(selectedCompanies.length === 0 || selectedCompanies.includes('all')) && (
+                        <Check className="h-3 w-3 stroke-[3]" />
+                      )}
+                    </div>
+                    <span>All Companies (Show All)</span>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      selectedCompanies.length === 0 || selectedCompanies.includes('all')
+                        ? 'bg-white/20 text-white'
+                        : 'bg-neutral-100 text-neutral-600'
+                    }`}
+                  >
+                    {allJobs.length} roles
+                  </span>
+                </div>
+
+                <DropdownMenuSeparator className="my-1" />
+
+                {/* Scrollable list of companies with checkboxes */}
+                <div className="max-h-60 overflow-y-auto space-y-0.5 [scrollbar-width:thin]">
+                  {filteredCompanyList.map((comp) => {
+                    const isChecked = selectedCompanies.includes(comp);
+                    const jobCount = allJobs.filter((j) => j.companyName?.toLowerCase() === comp.toLowerCase()).length;
+
+                    return (
+                      <div
+                        key={comp}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleCompany(comp);
+                        }}
+                        className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${
+                          isChecked
+                            ? 'bg-[#0A1B5C]/10 text-[#0A1B5C] font-semibold'
+                            : 'text-neutral-700 hover:bg-neutral-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                              isChecked
+                                ? 'bg-[#0A1B5C] border-[#0A1B5C] text-white'
+                                : 'border-neutral-300 bg-white'
+                            }`}
+                          >
+                            {isChecked && <Check className="h-3 w-3 stroke-[3]" />}
+                          </div>
+                          <CompanyLogo
+                            companyName={comp}
+                            size={32}
+                            className="w-5 h-5 rounded-md"
+                            initialsClassName="text-[9px] font-bold text-[#0A1B5C]"
+                          />
+                          <span className="truncate">{comp}</span>
+                        </div>
+                        {jobCount > 0 && (
+                          <span className="text-[10px] font-medium text-neutral-400 shrink-0 ml-2">
+                            {jobCount} {jobCount === 1 ? 'role' : 'roles'}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {filteredCompanyList.length === 0 && companySearchInput.trim() && (
+                    <div className="p-3 text-center">
+                      <p className="text-xs text-neutral-500 mb-2">
+                        Company &quot;{companySearchInput}&quot; not in list
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleAddCustomCompany();
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-[#0A1B5C] text-white text-xs font-bold hover:bg-[#11287e] transition-colors"
+                      >
+                        Add &quot;{companySearchInput}&quot; to filter
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {[
               { id: 'high_match', label: '🔥 90%+ Match', icon: Flame },
               { id: 'insiders', label: '🤝 Insiders Ready', icon: Users },
@@ -1304,8 +1933,16 @@ export function JobRecommendationsDashboard() {
               </button>
             )}
 
-            <div className="ml-auto text-xs font-medium text-neutral-500 shrink-0 hidden md:block">
-              Found <span className="font-bold text-[#0A1B5C]">{filteredJobs.length}</span> verified roles ({allJobs.length} total)
+            <div className="ml-auto text-xs font-medium text-neutral-500 shrink-0 hidden md:flex items-center gap-2">
+              <span>Found <span className="font-bold text-[#0A1B5C]">{filteredJobs.length}</span> verified roles ({allJobs.length} total)</span>
+              <button
+                onClick={() => loadJobs()}
+                disabled={isLoadingJobs}
+                title="Refresh live job requisitions"
+                className="p-1 rounded-lg text-neutral-400 hover:text-[#0A1B5C] hover:bg-neutral-100 transition-colors disabled:opacity-50"
+              >
+                <RotateCw className={`h-3.5 w-3.5 ${isLoadingJobs ? 'animate-spin text-[#0A1B5C]' : ''}`} />
+              </button>
             </div>
           </div>
         </JobsNavbar>
@@ -1408,21 +2045,86 @@ export function JobRecommendationsDashboard() {
               </div>
             )}
 
+            {/* Active Location Filter Helper Banner */}
+            {selectedCity && selectedCity.toLowerCase() !== 'all' && (
+              <div className="mb-2 px-3 py-1.5 rounded-xl bg-blue-50/90 border border-blue-200/80 flex items-center justify-between text-xs text-[#0A1B5C] shrink-0">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <MapPin className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                  <span>Prioritizing roles in <strong className="text-neutral-900">{selectedCity}</strong> & Remote</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedCity('');
+                    toast.info('Location filter cleared - Showing all locations');
+                  }}
+                  className="text-[11px] font-semibold text-[#0A1B5C] hover:underline"
+                >
+                  Show all locations
+                </button>
+              </div>
+            )}
+
+            {/* Active Company Filter Helper Banner */}
+            {selectedCompanies.length > 0 && !selectedCompanies.includes('all') && (
+              <div className="mb-2 px-3 py-1.5 rounded-xl bg-purple-50/90 border border-purple-200/80 flex items-center justify-between text-xs text-[#0A1B5C] shrink-0">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <Building2 className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                  <span>
+                    Filtered by company:{' '}
+                    <strong className="text-neutral-900">{selectedCompanies.join(', ')}</strong> ({filteredJobs.length} roles)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={selectAllCompanies}
+                  className="text-[11px] font-semibold text-[#0A1B5C] hover:underline"
+                >
+                  Show all companies
+                </button>
+              </div>
+            )}
+
             {/* Scrollable Job Cards List (Independently scrollable on left) */}
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 pr-1.5 rounded-2xl [scrollbar-width:thin]">
-              {filteredJobs.length === 0 ? (
+              {isLoadingJobs && dbJobs.length === 0 ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="p-4 rounded-2xl border border-neutral-200/80 bg-white animate-pulse">
+                      <div className="flex items-start justify-between gap-3 mb-2.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-neutral-100" />
+                          <div className="space-y-1.5">
+                            <div className="h-3.5 w-24 bg-neutral-200 rounded" />
+                            <div className="h-2.5 w-32 bg-neutral-100 rounded" />
+                          </div>
+                        </div>
+                        <div className="h-6 w-20 bg-emerald-50 rounded-full" />
+                      </div>
+                      <div className="h-4 w-3/4 bg-neutral-200 rounded mb-2" />
+                      <div className="h-3 w-1/2 bg-neutral-100 rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : filteredJobs.length === 0 ? (
                 <div className="h-64 rounded-2xl bg-white border border-neutral-200 p-8 flex flex-col items-center justify-center text-center">
                   <Briefcase className="h-10 w-10 text-neutral-300 mb-3" />
                   <h3 className="font-bold text-sm text-neutral-800">No matching roles found</h3>
                   <p className="text-xs text-neutral-500 mt-1 max-w-xs">
-                    Try clearing your search query or switching filter chips.
+                    {selectedCompanies.length > 0
+                      ? `No matching roles found for company "${selectedCompanies.join(', ')}". Try resetting your company filter.`
+                      : selectedCity
+                      ? `No matching roles found for "${selectedCity}". Try resetting your location or search filters.`
+                      : 'Try clearing your search query or switching filter chips.'}
                   </p>
                   <button
+                    type="button"
                     onClick={() => {
                       setSearchQuery('');
                       setActiveChip('all');
+                      setSelectedCity('');
+                      setSelectedCompanies([]);
                     }}
-                    className="mt-4 px-4 py-2 rounded-xl bg-[#0A1B5C] text-white text-xs font-bold"
+                    className="mt-4 px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-colors"
                   >
                     Reset Filters
                   </button>
@@ -1445,9 +2147,13 @@ export function JobRecommendationsDashboard() {
                       {/* Header Row: Company & Match Badge */}
                       <div className="flex items-start justify-between gap-3 mb-2.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-neutral-100 border border-neutral-200 flex items-center justify-center font-bold text-sm text-[#0A1B5C] shrink-0 shadow-xs">
-                            {job.companyName.slice(0, 2).toUpperCase()}
-                          </div>
+                          <CompanyLogo
+                            companyName={job.companyName}
+                            logoUrl={job.companyLogo}
+                            externalUrl={job.externalApplyUrl}
+                            className="w-10 h-10 rounded-xl"
+                            size={64}
+                          />
                           <div>
                             <span className="font-semibold text-xs text-neutral-900 group-hover:text-[#0A1B5C] transition-colors flex items-center gap-1">
                               {job.companyName}
@@ -1579,9 +2285,14 @@ export function JobRecommendationsDashboard() {
               <div className="p-4 sm:p-6 border-b border-neutral-200/80 bg-gradient-to-b from-neutral-50/50 to-white">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center font-bold text-lg sm:text-xl text-[#0A1B5C] shrink-0">
-                      {selectedJob.companyName.slice(0, 2).toUpperCase()}
-                    </div>
+                    <CompanyLogo
+                      companyName={selectedJob.companyName}
+                      logoUrl={selectedJob.companyLogo}
+                      externalUrl={selectedJob.externalApplyUrl}
+                      className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl"
+                      size={128}
+                      initialsClassName="text-lg sm:text-xl font-bold text-[#0A1B5C]"
+                    />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
                         <span className="font-semibold text-sm text-neutral-900">{selectedJob.companyName}</span>

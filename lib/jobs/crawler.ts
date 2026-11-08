@@ -41,6 +41,12 @@ interface LeverTarget {
   domain: string;
 }
 
+interface AshbyTarget {
+  company: string;
+  siteToken: string;
+  domain: string;
+}
+
 const GREENHOUSE_TARGETS: GreenhouseTarget[] = [
   { company: 'Figma', boardToken: 'figma', domain: 'figma.com' },
   { company: 'Stripe', boardToken: 'stripe', domain: 'stripe.com' },
@@ -50,6 +56,12 @@ const GREENHOUSE_TARGETS: GreenhouseTarget[] = [
 
 const LEVER_TARGETS: LeverTarget[] = [
   { company: 'Spotify', siteToken: 'spotify', domain: 'spotify.com' },
+];
+
+const ASHBY_TARGETS: AshbyTarget[] = [
+  { company: 'Linear', siteToken: 'linear', domain: 'linear.app' },
+  { company: 'Notion', siteToken: 'notion', domain: 'notion.so' },
+  { company: 'Ramp', siteToken: 'ramp', domain: 'ramp.com' },
 ];
 
 function detectCategory(title: string): string {
@@ -223,6 +235,51 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
       sourceStats.push({ company: target.company, platform: 'Lever', count: addedFromBoard });
     } catch (err) {
       console.warn(`Lever crawl error for ${target.company}:`, err);
+    }
+  }
+
+  // 3. Crawl Ashby Boards
+  for (const target of ASHBY_TARGETS) {
+    try {
+      const url = `https://api.ashbyhq.com/posting-api/job-board/${target.siteToken}?includeCompensation=true`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' }, next: { revalidate: 0 } });
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const rawJobs: any[] = Array.isArray(data?.jobs) ? data.jobs : [];
+      let addedFromBoard = 0;
+
+      for (const job of rawJobs.slice(0, perBoardLimit)) {
+        if (!job.title || (!job.jobUrl && !job.id)) continue;
+
+        const applyUrl = job.jobUrl || `https://jobs.ashbyhq.com/${target.siteToken}/${job.id}`;
+        const locationStr = job.location || job.secondaryLocations?.[0]?.location || 'Remote';
+        const salaryText = job.compensation?.compensationTierSummary || job.compensation?.summary || undefined;
+
+        crawledItems.push({
+          recruiter_id: activeRecruiterId,
+          title: String(job.title).trim(),
+          company_name: target.company,
+          company_logo: `https://www.google.com/s2/favicons?domain=${target.domain}&sz=128`,
+          location: locationStr,
+          description: `${target.company} is hiring for ${job.title}. Apply directly via their careers portal.`,
+          requirements: 'High technical craftsmanship, platform design, and production engineering.',
+          job_type: job.employmentType || 'Full-time',
+          experience_level: detectExperienceLevel(job.title),
+          category: detectCategory(job.title),
+          salary_range: salaryText,
+          external_apply_url: String(applyUrl).trim(),
+          is_active: true,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+
+        addedFromBoard++;
+      }
+
+      sourceStats.push({ company: target.company, platform: 'Ashby', count: addedFromBoard });
+    } catch (err) {
+      console.warn(`Ashby crawl error for ${target.company}:`, err);
     }
   }
 

@@ -271,7 +271,8 @@ export async function fetchFreehireJobs(
   candidateSkills: string[] = []
 ): Promise<NormalizedFreehireJob[]> {
   try {
-    const url = new URL('https://freehire.me/api/v1/jobs');
+    const baseUrl = process.env.FREEHIRE_API_URL || 'https://freehire.me/api/v1/jobs';
+    const url = new URL(baseUrl);
 
     if (params.skills && params.skills.length > 0) {
       const skillsParam = params.skills
