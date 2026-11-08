@@ -496,6 +496,8 @@ Castletown high school
       expect(matched.length).toBeGreaterThan(0);
       expect(matched[0].matchScore).toBeGreaterThanOrEqual(70);
       expect(matched[0].companyName).toBeDefined();
+      expect(matched[0].id).toBeDefined();
+      expect(typeof matched[0].isInternal).toBe('boolean');
     });
   });
 });

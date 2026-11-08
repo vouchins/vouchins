@@ -53,7 +53,7 @@ export function EditableBullet({
         rows={1}
         value={bullet}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] rounded px-1"
+        className="w-full resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] rounded px-1 [hyphens:none] break-words [word-break:normal]"
         placeholder="Describe your achievement using the Google XYZ formula..."
       />
 

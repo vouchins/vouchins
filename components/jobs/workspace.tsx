@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ResumeDocument,
   ResumeEvaluation,
@@ -28,11 +29,13 @@ import {
   ChevronRight,
   ShieldCheck,
   ArrowLeft,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/browser';
 import { useUser } from '@/components/user-provider';
 import { NavbarUserAvatar } from '@/components/navbar-user-avatar';
+import { CompanyLogo } from './company-logo';
 import {
   SAMPLE_STAFF_RESUME,
   SAMPLE_STAFF_EVALUATION,
@@ -64,6 +67,7 @@ export function Workspace({
   onBack,
 }: WorkspaceProps) {
   const { user } = useUser();
+  const router = useRouter();
   const [document, setDocument] = useState<ResumeDocument>(() => initialDocument || SAMPLE_STAFF_RESUME);
   const [evaluation, setEvaluation] = useState<ResumeEvaluation>(() => initialEvaluation || SAMPLE_STAFF_EVALUATION);
   const [currentResumeId, setCurrentResumeId] = useState<string | undefined>(resumeId);
@@ -79,6 +83,8 @@ export function Workspace({
   const [matchedJobsOpen, setMatchedJobsOpen] = useState(false);
   const [matchedJobs, setMatchedJobs] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
+  const [isApplyingJobId, setIsApplyingJobId] = useState<string | null>(null);
 
   async function getAuthHeaders(): Promise<Record<string, string>> {
     try {
@@ -368,6 +374,100 @@ export function Workspace({
     }
   };
 
+  // Seamlessly apply to or inspect matched job in the Vouchins Jobs portal
+  const handleApplyToJob = async (job: any) => {
+    // 1. External ATS Job (Greenhouse, Lever, Ashby, etc.): open direct career page
+    if (job.externalApplyUrl) {
+      window.open(job.externalApplyUrl, '_blank', 'noopener,noreferrer');
+      if (!appliedJobIds.includes(job.id)) {
+        setAppliedJobIds((prev) => [...prev, job.id]);
+      }
+      toast.success(
+        `Opening ${job.companyName} portal. You can also view company insiders on the Jobs page to ask for a referral!`,
+        {
+          action: {
+            label: 'View in Jobs',
+            onClick: () => {
+              setMatchedJobsOpen(false);
+              router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+            },
+          },
+          duration: 6000,
+        }
+      );
+      return;
+    }
+
+    // 2. Direct internal application on Vouchins
+    setIsApplyingJobId(job.id);
+    const toastId = toast.loading(`Submitting application to ${job.companyName}...`);
+
+    try {
+      const resumeUrl = window.location.origin + `/jobs/resume?id=${currentResumeId || 'master'}`;
+      const res = await fetch('/api/jobs/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: job.id,
+          resumeUrl,
+          coverLetter: `Hi ${job.companyName} Recruiting Team, I am applying for the ${job.title} role with my verified Vouchins Master Resume.`,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        if (!appliedJobIds.includes(job.id)) {
+          setAppliedJobIds((prev) => [...prev, job.id]);
+        }
+        toast.success(`Application submitted to ${job.companyName} for ${job.title}!`, {
+          id: toastId,
+          action: {
+            label: 'View in Jobs',
+            onClick: () => {
+              setMatchedJobsOpen(false);
+              router.push(`/jobs?id=${encodeURIComponent(job.id)}&applied=true`);
+            },
+          },
+          duration: 5000,
+        });
+      } else if (res.status === 409 || data.error?.includes('already applied')) {
+        if (!appliedJobIds.includes(job.id)) {
+          setAppliedJobIds((prev) => [...prev, job.id]);
+        }
+        toast.info(`You have already applied for this role.`, {
+          id: toastId,
+          action: {
+            label: 'View in Jobs',
+            onClick: () => {
+              setMatchedJobsOpen(false);
+              router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+            },
+          },
+        });
+      } else if (res.status === 403) {
+        toast.error(data.error || 'Only verified Vouchins users can apply directly.', {
+          id: toastId,
+          action: {
+            label: 'Go to Jobs',
+            onClick: () => {
+              setMatchedJobsOpen(false);
+              router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+            },
+          },
+        });
+      } else {
+        // Fallback: navigate to /jobs so candidate can review details and apply/request referral
+        setMatchedJobsOpen(false);
+        router.push(`/jobs?id=${encodeURIComponent(job.id)}&action=apply`);
+      }
+    } catch {
+      setMatchedJobsOpen(false);
+      router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+    } finally {
+      setIsApplyingJobId(null);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-white">
       {/* ================================================================== */}
@@ -589,50 +689,102 @@ export function Workspace({
                 matchedJobs.map((job) => (
                   <div
                     key={job.id}
-                    className="p-4 rounded-2xl border border-neutral-200 hover:border-[#0A1B5C]/30 bg-neutral-50/50 hover:bg-white transition-all flex flex-col gap-2"
+                    className="p-4 rounded-2xl border border-neutral-200 hover:border-[#0A1B5C]/30 bg-neutral-50/50 hover:bg-white transition-all flex flex-col gap-2.5"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="text-sm font-bold text-neutral-900">{job.title}</h4>
-                        <span className="text-xs font-semibold text-[#0A1B5C]">
-                          {job.companyName}
-                        </span>
-                        <span className="text-xs text-neutral-500"> • {job.location}</span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <CompanyLogo
+                          companyName={job.companyName}
+                          logoUrl={job.companyLogo}
+                          size={40}
+                          className="rounded-xl shrink-0 border border-neutral-200/80 mt-0.5"
+                        />
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-neutral-900 truncate">{job.title}</h4>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-semibold text-[#0A1B5C]">
+                              {job.companyName}
+                            </span>
+                            <span className="text-xs text-neutral-400">•</span>
+                            <span className="text-xs text-neutral-500 truncate">{job.location}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shrink-0">
                         {job.matchScore}% Match
                       </span>
                     </div>
 
-                    <div className="flex flex-col gap-1 text-[11px] text-neutral-600">
+                    <div className="flex flex-col gap-1 text-[11px] text-neutral-600 pl-1">
                       {job.reasons?.map((reason: string, rIdx: number) => (
                         <div key={rIdx} className="flex items-center gap-1.5">
                           <Check className="h-3 w-3 text-emerald-600 shrink-0" />
-                          <span>{reason}</span>
+                          <span className="truncate">{reason}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-neutral-200/60 mt-1">
-                      <span className="text-xs font-semibold text-neutral-700">
+                    <div className="flex items-center justify-between pt-2.5 border-t border-neutral-200/60 mt-0.5 gap-2">
+                      <span className="text-xs font-semibold text-neutral-700 truncate">
                         {job.salaryRange || 'Competitive compensation'}
                       </span>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          toast.success(`Application initiated for ${job.title} at ${job.companyName}`);
-                          setMatchedJobsOpen(false);
-                        }}
-                        className="h-7 px-3 text-xs font-semibold bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white rounded-lg"
-                      >
-                        Apply with Resume
-                        <ChevronRight className="h-3 w-3 text-white/80" />
-                      </Button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setMatchedJobsOpen(false);
+                            router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+                          }}
+                          className="h-8 px-2.5 text-xs font-semibold text-neutral-700 hover:text-neutral-900 border-neutral-200 rounded-xl gap-1"
+                        >
+                          <ExternalLink className="h-3 w-3 text-neutral-500" />
+                          View in Jobs
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          disabled={isApplyingJobId === job.id || appliedJobIds.includes(job.id)}
+                          onClick={() => handleApplyToJob(job)}
+                          className="h-8 px-3 text-xs font-semibold bg-[#0A1B5C] hover:bg-[#11287e] text-white rounded-xl gap-1 disabled:opacity-60"
+                        >
+                          {appliedJobIds.includes(job.id) ? (
+                            <>
+                              <Check className="h-3 w-3 text-emerald-400" />
+                              Applied
+                            </>
+                          ) : isApplyingJobId === job.id ? (
+                            <>
+                              <RefreshCw className="h-3 w-3 animate-spin text-white" />
+                              Applying...
+                            </>
+                          ) : (
+                            <>
+                              Apply with Resume
+                              <ChevronRight className="h-3 w-3 text-white/80" />
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))
               )}
+            </div>
+
+            <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
+              <span className="text-xs text-neutral-500">
+                Looking for more tech opportunities?
+              </span>
+              <Link
+                href="/jobs"
+                onClick={() => setMatchedJobsOpen(false)}
+                className="text-xs font-bold text-[#0A1B5C] hover:text-[#11287e] flex items-center gap-1.5 transition-colors"
+              >
+                <span>Explore All Jobs & Referrals</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </div>
         </div>

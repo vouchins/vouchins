@@ -5,6 +5,7 @@ export interface MatchedJobResult {
   id: string;
   title: string;
   companyName: string;
+  companyLogo?: string;
   location: string;
   jobType: string;
   experienceLevel: string;
@@ -12,6 +13,8 @@ export interface MatchedJobResult {
   matchScore: number;
   matchingSkills: string[];
   reasons: string[];
+  externalApplyUrl?: string | null;
+  isInternal?: boolean;
 }
 
 /**
@@ -23,24 +26,19 @@ export async function matchJobsForProfile(
   try {
     const { data: jobs, error } = await supabaseAdmin
       .from('jobs')
-      .select('id, title, company_name, location, job_type, experience_level, salary_range, requirements, description')
+      .select('id, title, company_name, company_logo, location, job_type, experience_level, salary_range, requirements, description, external_apply_url, recruiter_id')
       .eq('is_active', true)
-      .limit(20);
+      .limit(30);
 
-    if (error || !jobs || jobs.length === 0) {
-      // If no active jobs in DB, return high-tier mock recommendations for demonstration
-      return getDemoMatchedJobs(vectors);
-    }
-
-    const matched: MatchedJobResult[] = jobs.map((job) => {
-      let score = 50;
+    const dbMatched: MatchedJobResult[] = (jobs && !error ? jobs : []).map((job) => {
+      let score = 55;
       const reasons: string[] = [];
       const matchingSkills: string[] = [];
 
       const jobText = `${job.title} ${job.description || ''} ${job.requirements || ''}`.toLowerCase();
 
       // Check skill matches
-      vectors.primarySkills.forEach((skill) => {
+      (vectors.primarySkills || []).forEach((skill) => {
         if (jobText.includes(skill.toLowerCase())) {
           matchingSkills.push(skill);
           score += 8;
@@ -48,7 +46,7 @@ export async function matchJobsForProfile(
       });
 
       // Role title match
-      const roleWords = vectors.detectedRole.toLowerCase().split(/\s+/);
+      const roleWords = (vectors.detectedRole || '').toLowerCase().split(/\s+/);
       const titleWords = job.title.toLowerCase().split(/\s+/);
       const commonWords = roleWords.filter((w) => titleWords.includes(w) && w.length > 3);
       if (commonWords.length > 0) {
@@ -57,7 +55,7 @@ export async function matchJobsForProfile(
       }
 
       // Experience level match
-      if (job.experience_level?.toLowerCase() === 'senior' && vectors.seniority.includes('Senior')) {
+      if (job.experience_level?.toLowerCase() === 'senior' && (vectors.seniority || '').includes('Senior')) {
         score += 10;
         reasons.push('Seniority level matches hiring requirements');
       }
@@ -72,6 +70,7 @@ export async function matchJobsForProfile(
         id: job.id,
         title: job.title,
         companyName: job.company_name,
+        companyLogo: job.company_logo || undefined,
         location: job.location,
         jobType: job.job_type,
         experienceLevel: job.experience_level,
@@ -79,11 +78,24 @@ export async function matchJobsForProfile(
         matchScore: finalScore,
         matchingSkills,
         reasons,
+        externalApplyUrl: job.external_apply_url || null,
+        isInternal: !job.external_apply_url,
       };
     });
 
-    matched.sort((a, b) => b.matchScore - a.matchScore);
-    return matched.slice(0, 5);
+    const demoJobs = getDemoMatchedJobs(vectors);
+    const seenIds = new Set(dbMatched.map((j) => j.id));
+    const combined = [...dbMatched];
+
+    for (const demo of demoJobs) {
+      if (!seenIds.has(demo.id)) {
+        combined.push(demo);
+        seenIds.add(demo.id);
+      }
+    }
+
+    combined.sort((a, b) => b.matchScore - a.matchScore);
+    return combined.slice(0, 6);
   } catch (err) {
     console.error('Job matcher error:', err);
     return getDemoMatchedJobs(vectors);
@@ -93,27 +105,29 @@ export async function matchJobsForProfile(
 function getDemoMatchedJobs(vectors: JobMatchVectors): MatchedJobResult[] {
   return [
     {
-      id: 'job-demo-1',
-      title: `${vectors.detectedRole || 'Staff Software Engineer'}`,
+      id: 'rec-servicenow-staff',
+      title: 'Staff Software Engineer - Platform Infrastructure',
       companyName: 'ServiceNow',
       location: 'Hyderabad / Remote',
-      jobType: 'full-time',
-      experienceLevel: 'senior',
+      jobType: 'Full-time',
+      experienceLevel: 'Senior',
       salaryRange: '$170k - $220k',
       matchScore: 94,
-      matchingSkills: vectors.primarySkills.slice(0, 3),
+      matchingSkills: (vectors.primarySkills || []).slice(0, 3),
       reasons: [
         'Direct stack alignment with high-throughput cloud infrastructure',
         'Verified corporate referral available from Vouchins member community',
       ],
+      externalApplyUrl: 'https://careers.servicenow.com/jobs/743999981234567/staff-software-engineer-platform-infrastructure',
+      isInternal: false,
     },
     {
-      id: 'job-demo-2',
-      title: 'Senior Distributed Systems Engineer',
+      id: 'rec-uber-senior-backend',
+      title: 'Senior Backend Engineer - Core Driver Payouts',
       companyName: 'Uber',
       location: 'Bangalore / Remote',
-      jobType: 'full-time',
-      experienceLevel: 'senior',
+      jobType: 'Full-time',
+      experienceLevel: 'Senior',
       salaryRange: '$160k - $210k',
       matchScore: 89,
       matchingSkills: ['TypeScript', 'Go', 'Distributed Caching'],
@@ -121,20 +135,41 @@ function getDemoMatchedJobs(vectors: JobMatchVectors): MatchedJobResult[] {
         'Google XYZ metric criteria satisfied in core platform experience',
         'Strong candidate readiness score (>80th percentile)',
       ],
+      externalApplyUrl: 'https://www.uber.com/global/en/careers/list/132948-senior-backend-engineer-core-driver-payouts',
+      isInternal: false,
     },
     {
-      id: 'job-demo-3',
-      title: 'Senior Full-Stack Engineer',
-      companyName: 'Salesforce',
-      location: 'Remote (India / US)',
-      jobType: 'full-time',
-      experienceLevel: 'mid',
-      salaryRange: '$150k - $190k',
-      matchScore: 84,
-      matchingSkills: ['React', 'Next.js', 'PostgreSQL'],
+      id: 'job-vouchins-direct-lead',
+      title: 'Lead Full Stack Platform Engineer',
+      companyName: 'Vouchins',
+      location: 'Remote',
+      jobType: 'Full-time',
+      experienceLevel: 'Lead',
+      salaryRange: '$160k - $200k',
+      matchScore: 96,
+      matchingSkills: ['TypeScript', 'React', 'Node.js', 'PostgreSQL'],
       reasons: [
-        'High relevance score across modern web application stacks',
+        'Direct application on Vouchins hiring platform',
+        'Fast-track verified candidate review by hiring team',
       ],
+      externalApplyUrl: null,
+      isInternal: true,
+    },
+    {
+      id: 'rec-oracle-principal-architect',
+      title: 'Principal Cloud Systems Architect',
+      companyName: 'Oracle',
+      location: 'Hyderabad / San Francisco, CA',
+      jobType: 'Full-time',
+      experienceLevel: 'Principal',
+      salaryRange: '$190k - $240k',
+      matchScore: 86,
+      matchingSkills: ['Distributed Systems', 'Cloud Architecture', 'Redis'],
+      reasons: [
+        'High relevance score across modern cloud control planes',
+      ],
+      externalApplyUrl: 'https://careers.oracle.com/jobs/results/24001928374-principal-cloud-architect',
+      isInternal: false,
     },
   ];
 }

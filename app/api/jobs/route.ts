@@ -42,6 +42,7 @@ export async function GET(request: Request) {
     const locationParam = searchParams.get("location") || "";
     const skillsParam = searchParams.get("skills") || "";
     const companiesParam = searchParams.get("companies") || "";
+    const sortParam = searchParams.get("sort") || "relevance"; // "relevance" | "date"
     const limit = parseInt(searchParams.get("limit") || "100", 10);
 
     const selectedCompanies =
@@ -367,8 +368,15 @@ export async function GET(request: Request) {
       addJobIfUnique(job);
     }
 
-    // 9. Sort by Match Score & Location Alignment descending so candidate sees highest relevance local & remote roles first
+    // 9. Sort by Date or Relevance (Match Score & Location Alignment descending)
     combined.sort((a, b) => {
+      if (sortParam === "date") {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        if (timeB !== timeA) return timeB - timeA;
+        return (b.match_score || 0) - (a.match_score || 0);
+      }
+
       if (candidateLocation && candidateLocation.toLowerCase() !== "all") {
         const aMatches = isLocationMatch(a.location || "", candidateLocation, a.workplace_type);
         const bMatches = isLocationMatch(b.location || "", candidateLocation, b.workplace_type);

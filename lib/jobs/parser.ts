@@ -142,6 +142,19 @@ export async function extractResumeText(
     .replace(/(\d{1,2}\/\d{4})\s*[\x00\u0000]\s*(\d{1,2}\/\d{4}|present)/gi, '$1 - $2')
     .replace(/[\x00\u0000]/g, ' ')
     .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // remove non-printable control chars
+    .replace(/\u00AD/g, '') // remove soft hyphens inserted by PDF typesetting
+    // Re-join words broken across line wraps (e.g. "ori-\nented" -> "oriented", "distrib-\nuted" -> "distributed")
+    .replace(/(\b[a-zA-Z]{2,})-(?:[ \t]*\n[ \t]*|[ \t]+)([a-zA-Z]{2,}\b)/g, (match, prefix, suffix) => {
+      const lowerSuffix = suffix.toLowerCase();
+      const compoundSuffixes = new Set([
+        'time', 'stack', 'end', 'scale', 'driven', 'facing', 'level', 'party', 'first',
+        'native', 'based', 'centric', 'critical', 'tier', 'grade', 'wide', 'bound'
+      ]);
+      if (compoundSuffixes.has(lowerSuffix)) {
+        return `${prefix}-${suffix}`;
+      }
+      return `${prefix}${suffix}`;
+    })
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 

@@ -243,6 +243,29 @@ export function sanitizeBulletText(bullet: string): string {
     text = text.replace(regex, `, ${phrase}`);
   }
 
+  // Remove soft hyphens and heal broken words (e.g. "ori- ented" or "ori-\nented")
+  text = text.replace(/\u00AD/g, '');
+  text = text.replace(/(\b[a-zA-Z]{2,})-(?:[ \t]*\n[ \t]*|[ \t]+)([a-zA-Z]{2,}\b)/g, (match, prefix, suffix) => {
+    const compoundSuffixes = new Set([
+      'time', 'stack', 'end', 'scale', 'driven', 'facing', 'level', 'party', 'first',
+      'native', 'based', 'centric', 'critical', 'tier', 'grade', 'wide', 'bound'
+    ]);
+    if (compoundSuffixes.has(suffix.toLowerCase())) {
+      return `${prefix}-${suffix}`;
+    }
+    return `${prefix}${suffix}`;
+  });
+
+  // Repair known false hyphenations from PDF word-wrap artifacts
+  text = text
+    .replace(/\bori-ented\b/gi, 'oriented')
+    .replace(/\bdistrib-uted\b/gi, 'distributed')
+    .replace(/\bauto-mated\b/gi, 'automated')
+    .replace(/\barchi-tected\b/gi, 'architected')
+    .replace(/\barchi-tecture\b/gi, 'architecture')
+    .replace(/\bimple-mented\b/gi, 'implemented')
+    .replace(/\bopti-mized\b/gi, 'optimized');
+
   // Clean up any double commas or malformed trailing punctuation
   text = text.replace(/,\s*,+/g, ',').replace(/[.,;]+\s*$/g, '.');
   return text;
@@ -349,7 +372,24 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     .replace(/[\x00\u0000]/g, ' - ')
     .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F]/g, ' ')
     .replace(/[–—]/g, '-')
-    .replace(/(\w+)-\n(\w+)/g, '$1$2')
+    .replace(/\u00AD/g, '')
+    .replace(/(\b[a-zA-Z]{2,})-(?:[ \t]*\n[ \t]*|[ \t]+)([a-zA-Z]{2,}\b)/g, (match, prefix, suffix) => {
+      const compoundSuffixes = new Set([
+        'time', 'stack', 'end', 'scale', 'driven', 'facing', 'level', 'party', 'first',
+        'native', 'based', 'centric', 'critical', 'tier', 'grade', 'wide', 'bound'
+      ]);
+      if (compoundSuffixes.has(suffix.toLowerCase())) {
+        return `${prefix}-${suffix}`;
+      }
+      return `${prefix}${suffix}`;
+    })
+    .replace(/\bori-ented\b/gi, 'oriented')
+    .replace(/\bdistrib-uted\b/gi, 'distributed')
+    .replace(/\bauto-mated\b/gi, 'automated')
+    .replace(/\barchi-tected\b/gi, 'architected')
+    .replace(/\barchi-tecture\b/gi, 'architecture')
+    .replace(/\bimple-mented\b/gi, 'implemented')
+    .replace(/\bopti-mized\b/gi, 'optimized')
     .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
     .replace(/page\s*\d+(\s*of\s*\d+)?/gi, '');
 

@@ -76,6 +76,7 @@ export interface RecommendedJob {
   experienceLevel: 'Senior' | 'Staff' | 'Lead' | 'Principal' | 'Mid';
   salaryRange: string;
   postedAt: string;
+  createdAt?: string | number;
   matchScore: number;
   matchBreakdown: {
     skillsScore: number;
@@ -684,6 +685,24 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [
   },
 ];
 
+function getJobTimestamp(job: RecommendedJob): number {
+  if (job.createdAt) {
+    const t = new Date(job.createdAt).getTime();
+    if (!isNaN(t) && t > 0) return t;
+  }
+  const p = (job.postedAt || '').toLowerCase().trim();
+  const now = Date.now();
+  if (p.includes('just now')) return now;
+  if (p.includes('yesterday')) return now - 86400000;
+  const hMatch = p.match(/(\d+)\s*(?:hour|h)/);
+  if (hMatch) return now - parseInt(hMatch[1], 10) * 3600000;
+  const dMatch = p.match(/(\d+)\s*(?:day|d)/);
+  if (dMatch) return now - parseInt(dMatch[1], 10) * 86400000;
+  const wMatch = p.match(/(\d+)\s*(?:week|w)/);
+  if (wMatch) return now - parseInt(wMatch[1], 10) * 7 * 86400000;
+  return now - 3 * 86400000;
+}
+
 function transformDbJobToRecommendedJob(job: any): RecommendedJob {
   try {
     const company = job.company_name || 'Tech Innovator';
@@ -792,6 +811,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       experienceLevel,
       salaryRange: job.salary_range || 'Competitive',
       postedAt,
+      createdAt: job.created_at || undefined,
       matchScore: job.match_score || matchScore,
       matchBreakdown: job.match_breakdown || {
         skillsScore: Math.min(98, (job.match_score || matchScore) + 3),
@@ -973,6 +993,7 @@ export function JobRecommendationsDashboard() {
   const [savedJobIds, setSavedJobIds] = useState<string[]>(['rec-oracle-principal-architect']);
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [activeDetailTab, setActiveDetailTab] = useState<'match' | 'insiders' | 'description' | 'copilot'>('match');
+  const [sortBy, setSortBy] = useState<'relevance' | 'date'>('relevance');
 
   // Location & City Filter State (Prioritizes user's home city)
   const [selectedCity, setSelectedCity] = useState<string>(user?.city?.trim() || '');
@@ -1070,8 +1091,9 @@ export function JobRecommendationsDashboard() {
         selectedCompanies.length > 0 && !selectedCompanies.includes('all')
           ? `&companies=${encodeURIComponent(selectedCompanies.join(','))}`
           : '';
+      const sortQuery = `&sort=${sortBy}`;
 
-      const res = await fetch(`/api/jobs?limit=150${locQuery}${skillsQuery}${companiesQuery}`);
+      const res = await fetch(`/api/jobs?limit=150${locQuery}${skillsQuery}${companiesQuery}${sortQuery}`);
       if (res.ok) {
         const json = await res.json();
         if (json.jobs && Array.isArray(json.jobs)) {
@@ -1084,7 +1106,7 @@ export function JobRecommendationsDashboard() {
     } finally {
       setIsLoadingJobs(false);
     }
-  }, [selectedCity, candidateProfileSkills, selectedCompanies]);
+  }, [selectedCity, candidateProfileSkills, selectedCompanies, sortBy]);
 
   useEffect(() => {
     loadJobs();
@@ -1339,8 +1361,16 @@ export function JobRecommendationsDashboard() {
       );
     }
 
-    return list;
-  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies]);
+    // Sort according to selected sort option (Relevance vs Date Posted)
+    const sorted = [...list];
+    if (sortBy === 'date') {
+      sorted.sort((a, b) => getJobTimestamp(b) - getJobTimestamp(a));
+    } else {
+      sorted.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
+    }
+
+    return sorted;
+  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies, sortBy]);
 
   const selectedJob = useMemo(() => {
     return allJobs.find((j) => j.id === selectedJobId) || filteredJobs[0] || allJobs[0] || CURATED_RECOMMENDED_JOBS[0];
@@ -1355,6 +1385,32 @@ export function JobRecommendationsDashboard() {
     }
     return url;
   }, [selectedJob]);
+
+  // Synchronize URL search params (?id=, ?action=apply, ?applied=true) with selected job state
+  useEffect(() => {
+    const paramId = searchParams.get('id');
+    if (paramId && paramId !== selectedJobId) {
+      setSelectedJobId(paramId);
+      setMobileView('detail');
+    }
+
+    const applied = searchParams.get('applied');
+    if (applied === 'true' && paramId) {
+      setAppliedJobIds((prev) => (prev.includes(paramId) ? prev : [...prev, paramId]));
+    }
+
+    const action = searchParams.get('action');
+    if (action === 'apply' && selectedJob) {
+      if (selectedJob.isInternal) {
+        setIsApplyModalOpen(true);
+      } else if (selectedJob.externalApplyUrl) {
+        toast.info(
+          `Review role details and ask verified insiders for a referral below, or click "Apply on Site" to complete your application.`,
+          { duration: 5000 }
+        );
+      }
+    }
+  }, [searchParams, selectedJobId, selectedJob]);
 
   // Fetch real Vouchins users from the same company as selectedJob
   useEffect(() => {
@@ -2084,6 +2140,40 @@ export function JobRecommendationsDashboard() {
               </div>
             )}
 
+            {/* Sort & Count Header Bar */}
+            <div className="flex items-center justify-between mb-2 px-1 text-xs text-neutral-500 shrink-0">
+              <span className="font-medium text-neutral-600">
+                Found <strong className="text-neutral-900 font-bold">{filteredJobs.length}</strong> {filteredJobs.length === 1 ? 'role' : 'roles'}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-semibold text-neutral-500">Sort by:</span>
+                <div className="inline-flex rounded-xl border border-neutral-200/90 bg-white p-0.5 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setSortBy('relevance')}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                      sortBy === 'relevance'
+                        ? 'bg-[#0A1B5C] text-white shadow-xs'
+                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                    }`}
+                  >
+                    Relevance
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSortBy('date')}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                      sortBy === 'date'
+                        ? 'bg-[#0A1B5C] text-white shadow-xs'
+                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                    }`}
+                  >
+                    Date Posted
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Scrollable Job Cards List (Independently scrollable on left) */}
             <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 pr-1.5 rounded-2xl [scrollbar-width:thin]">
               {isLoadingJobs && dbJobs.length === 0 ? (
@@ -2168,7 +2258,7 @@ export function JobRecommendationsDashboard() {
                         {/* Match Score Ring / Badge */}
                         <div className="flex items-center gap-2">
                           <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shadow-xs">
-                            <Zap className="h-3 w-3 text-emerald-600" />
+                            {/* <Zap className="h-3 w-3 text-emerald-600" /> */}
                             <span>{job.matchScore}% Match</span>
                           </div>
 
@@ -2329,7 +2419,6 @@ export function JobRecommendationsDashboard() {
                   <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-100">
                     <div className="text-left sm:text-right">
                       <div className="text-xl sm:text-2xl font-bold text-[#0A1B5C] flex items-center gap-1">
-                        <Zap className="h-4 sm:h-5 w-4 sm:w-5 text-amber-500" />
                         {selectedJob.matchScore}%
                       </div>
                       <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider block">
@@ -3161,7 +3250,7 @@ export function JobRecommendationsDashboard() {
                 </div>
               </div>
               <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200">
-                <Zap className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                {/* <Zap className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" /> */}
                 <div>
                   <span className="font-semibold text-neutral-900 block">4x Referral Callback Rate</span>
                   <span>Verified employee referrals bypass external ATS filters and land directly in internal HR priority queues.</span>

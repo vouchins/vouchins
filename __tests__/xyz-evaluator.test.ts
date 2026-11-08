@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { evaluateResumeHeuristically } from '@/lib/jobs/xyz-evaluator';
+import { evaluateResumeHeuristically, sanitizeBulletText } from '@/lib/jobs/xyz-evaluator';
 import { SAMPLE_STAFF_RESUME } from '@/components/jobs/sample-resumes';
 import { computeResumeContentHash } from '@/lib/jobs/cost-guard';
 
@@ -47,5 +47,19 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
 
     const newHash = computeResumeContentHash(modifiedResume);
     expect(newHash).not.toBe(originalHash);
+  });
+
+  it('heals broken word hyphenation artifacts like ori-ented and distrib-uted', () => {
+    const rawWithBrokenWords = sanitizeBulletText('Architected results-ori-ented microservices with distrib- uted caching.');
+    expect(rawWithBrokenWords).toContain('results-oriented');
+    expect(rawWithBrokenWords).toContain('distributed');
+    expect(rawWithBrokenWords).not.toContain('ori-ented');
+    expect(rawWithBrokenWords).not.toContain('distrib- uted');
+  });
+
+  it('preserves legitimate compound words like real-time and full-stack', () => {
+    const text = sanitizeBulletText('Engineered real-time full-stack distributed systems.');
+    expect(text).toContain('real-time');
+    expect(text).toContain('full-stack');
   });
 });
