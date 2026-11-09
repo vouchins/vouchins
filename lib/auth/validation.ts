@@ -82,6 +82,134 @@ export function validateCity(city: string): boolean {
   return city.trim().length >= 2 && city.trim().length <= 100;
 }
 
+export const CORPORATE_INDICATORS = [
+  "inc", "corp", "corporation", "llc", "ltd", "limited", "pvt", "private", "co", "company",
+  "technologies", "technology", "tech", "labs", "lab", "solutions", "systems", "software",
+  "services", "consulting", "consultancy", "group", "enterprises", "enterprise", "holdings",
+  "ventures", "partners", "capital", "fund", "media", "studio", "studios", "agency", "bank",
+  "financial", "finance", "health", "healthcare", "pharma", "networks", "global", "industries",
+  "ai", "robotics", "digital", "security", "cloud", "infra", "data", "analytics", "aerospace",
+  "energy", "mobility", "logistics", "retail", "interactive", "works", "games"
+];
+
+/**
+ * Validates company name format, punctuation, length, and gibberish patterns.
+ */
+export function validateCompanyName(name: string): { isValid: boolean; error?: string } {
+  if (!name || typeof name !== "string") {
+    return { isValid: false, error: "Please enter your company name or work email." };
+  }
+
+  const trimmed = name.trim();
+
+  if (trimmed.length < 2) {
+    return { isValid: false, error: "Company name must be at least 2 characters long." };
+  }
+
+  if (trimmed.length > 60) {
+    return { isValid: false, error: "Company name cannot exceed 60 characters." };
+  }
+
+  // Check for allowed characters: letters, numbers, spaces, and &, ., -, ', ,
+  if (/[^a-zA-Z0-9\s&.\-',]/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: "Company name contains invalid characters. Use letters, numbers, spaces, or standard symbols (&, ., -, ', ,).",
+    };
+  }
+
+  // Must contain at least two letters
+  const letterCount = (trimmed.match(/[a-zA-Z]/g) || []).length;
+  if (letterCount < 2) {
+    return { isValid: false, error: "Company name must contain at least 2 letters." };
+  }
+
+  // Cannot contain consecutive dots or punctuation (e.g. '..', ',,')
+  if (/\.{2,}|-{2,}|_{2,}|'{2,}|,{2,}/.test(trimmed)) {
+    return {
+      isValid: false,
+      error: "Company name cannot contain consecutive dots or punctuation.",
+    };
+  }
+
+  // Cannot start or end with a symbol
+  if (/^[.\-',]|[-',]$/.test(trimmed)) {
+    return { isValid: false, error: "Company name cannot start or end with punctuation." };
+  }
+
+  // Disallow repeated identical characters (3 or more times like aaaa, xxxx)
+  if (/(.)\1{2,}/i.test(trimmed)) {
+    return { isValid: false, error: "Please enter a valid company name without repeated characters." };
+  }
+
+  // Disallow words with 5 or more consecutive consonants (gibberish like cfergerg, asdfgh)
+  const words = trimmed.split(/\s+/);
+  for (const word of words) {
+    const cleanWord = word.replace(/[^a-zA-Z]/g, "").toLowerCase();
+    if (/[bcdfghjklmnpqrstvwxyz]{5,}/.test(cleanWord)) {
+      return { isValid: false, error: "Please enter a valid, recognizable company name." };
+    }
+  }
+
+  // Check placeholder / troll words
+  const normalizedLower = trimmed.toLowerCase();
+  const blockedTerms = [
+    "test",
+    "testing",
+    "demo",
+    "sample",
+    "unknown",
+    "none",
+    "na",
+    "n/a",
+    "null",
+    "undefined",
+    "self",
+    "myself",
+    "freelancer",
+    "freelance",
+    "student",
+    "unemployed",
+    "celebrity",
+    "fake",
+    "fake company",
+    "asdf",
+    "qwerty",
+    "anonymous",
+    "nobody",
+    "anything",
+  ];
+  if (blockedTerms.includes(normalizedLower)) {
+    return { isValid: false, error: "Please enter your real employer or company name." };
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * Checks if the string contains a recognizable corporate suffix or indicator.
+ */
+export function hasCorporateIndicator(name: string): boolean {
+  const words = name.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
+  return words.some((w) => CORPORATE_INDICATORS.includes(w));
+}
+
+/**
+ * Detects if an unrecognized 2 or 3 word string looks like a personal name (e.g. "Tamanna Bhatia")
+ * rather than a company name.
+ */
+export function looksLikePersonName(name: string): boolean {
+  const clean = name.trim();
+  const words = clean.split(/\s+/);
+  if (words.length >= 2 && words.length <= 3) {
+    const allPureWords = words.every((w) => /^[a-zA-Z]+$/.test(w));
+    if (allPureWords && !hasCorporateIndicator(clean)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export const LINKEDIN_URL_PREFIX = "https://www.linkedin.com/";
 
 /**

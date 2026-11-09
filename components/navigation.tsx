@@ -361,8 +361,10 @@ function NavigationContent() {
                   </span>
                 </Button>
 
-                {/* Saved Posts */}
-                <Button
+                {pathname !== "/onboarding" && (
+                  <>
+                    {/* Saved Posts */}
+                    <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => router.push("/saved")}
@@ -601,6 +603,8 @@ function NavigationContent() {
                     </span>
                   </Button>
                 )}
+              </>
+            )}
 
                 {/* User Dropdown */}
                 <DropdownMenu>

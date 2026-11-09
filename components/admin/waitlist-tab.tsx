@@ -31,6 +31,7 @@ interface WaitlistEntry {
   notes?: string;
   company_name: string;
   email: string;
+  admin_notes?: string;
   user: {
     city: string;
     email: string;
@@ -220,7 +221,7 @@ export function WaitlistTab({ entries, onAction, onRefresh, loading }: WaitlistT
               {entry.status === "pending" ? (
                 <Input
                   placeholder="Enter review notes"
-                  value={notes[entry.id] || ""}
+                  value={entry.admin_notes ? `${entry.admin_notes} ${notes[entry.id] || ""}` : notes[entry.id] || ""}
                   onChange={(e) =>
                     setNotes({ ...notes, [entry.id]: e.target.value })
                   }
