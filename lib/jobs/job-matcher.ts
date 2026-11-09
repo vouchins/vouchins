@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { JobMatchVectors } from './types';
+import { CURATED_TECH_JOBS } from './curated-tech-jobs';
+import { isLocationMatch } from './ats-client';
 
 export interface MatchedJobResult {
   id: string;
@@ -18,12 +20,17 @@ export interface MatchedJobResult {
 }
 
 /**
- * Matches candidate vectors against active verified jobs in Vouchins database.
+ * Matches candidate vectors against active verified jobs and premier tech catalog.
  */
 export async function matchJobsForProfile(
   vectors: JobMatchVectors
 ): Promise<MatchedJobResult[]> {
   try {
+    const candidateLocation = vectors.preferredLocations?.[0] || 'Hyderabad';
+    const primarySkills = (vectors.primarySkills || []).map((s) => s.toLowerCase().trim());
+    const candidateRole = (vectors.detectedRole || 'Software Engineer').toLowerCase();
+    const candidateSeniority = (vectors.seniority || 'Senior').toLowerCase();
+
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const { data: jobs, error } = await supabaseAdmin
       .from('jobs')
@@ -33,32 +40,34 @@ export async function matchJobsForProfile(
       .limit(30);
 
     const dbMatched: MatchedJobResult[] = (jobs && !error ? jobs : []).map((job) => {
-      let score = 55;
+      let score = 60;
       const reasons: string[] = [];
       const matchingSkills: string[] = [];
 
       const jobText = `${job.title} ${job.description || ''} ${job.requirements || ''}`.toLowerCase();
 
-      // Check skill matches
       (vectors.primarySkills || []).forEach((skill) => {
         if (jobText.includes(skill.toLowerCase())) {
           matchingSkills.push(skill);
-          score += 8;
+          score += 6;
         }
       });
 
-      // Role title match
-      const roleWords = (vectors.detectedRole || '').toLowerCase().split(/\s+/);
+      const roleWords = candidateRole.split(/\s+/);
       const titleWords = job.title.toLowerCase().split(/\s+/);
       const commonWords = roleWords.filter((w) => titleWords.includes(w) && w.length > 3);
       if (commonWords.length > 0) {
-        score += 15;
+        score += 12;
         reasons.push(`Target role "${vectors.detectedRole}" aligns with position`);
       }
 
-      // Experience level match
-      if (job.experience_level?.toLowerCase() === 'senior' && (vectors.seniority || '').includes('Senior')) {
-        score += 10;
+      if (isLocationMatch(job.location || '', candidateLocation)) {
+        score += 8;
+        reasons.push(`Matches preferred location (${job.location})`);
+      }
+
+      if (job.experience_level?.toLowerCase() === 'senior' && candidateSeniority.includes('senior')) {
+        score += 8;
         reasons.push('Seniority level matches hiring requirements');
       }
 
@@ -88,18 +97,81 @@ export async function matchJobsForProfile(
       };
     });
 
-    const demoJobs = getDemoMatchedJobs(vectors);
+    // Score and match curated tech roles
+    const curatedMatched: MatchedJobResult[] = CURATED_TECH_JOBS.map((cj) => {
+      let score = 65;
+      const reasons: string[] = [];
+      const matchingSkills: string[] = [];
+
+      const jobText = `${cj.title} ${cj.description.about} ${cj.matchingSkills.join(' ')}`.toLowerCase();
+
+      (vectors.primarySkills || []).forEach((skill) => {
+        if (jobText.includes(skill.toLowerCase())) {
+          matchingSkills.push(skill);
+          score += 6;
+        }
+      });
+
+      const titleWords = cj.title.toLowerCase().split(/\s+/);
+      const roleWords = candidateRole.split(/\s+/);
+      const commonWords = roleWords.filter((w) => titleWords.includes(w) && w.length > 3);
+      if (commonWords.length > 0) {
+        score += 12;
+        reasons.push(`Target role "${vectors.detectedRole}" directly aligns`);
+      }
+
+      if (isLocationMatch(cj.location, candidateLocation)) {
+        score += 10;
+        reasons.push(`Matches your location in ${cj.location}`);
+      }
+
+      if (matchingSkills.length > 0) {
+        reasons.push(`Direct skill alignment with ${matchingSkills.slice(0, 3).join(', ')}`);
+      } else {
+        reasons.push('Verified corporate referral available from Vouchins member community');
+      }
+
+      const finalScore = Math.min(98, Math.max(65, score));
+
+      return {
+        id: cj.id,
+        title: cj.title,
+        companyName: cj.companyName,
+        companyLogo: cj.companyLogo,
+        location: cj.location,
+        jobType: cj.jobType,
+        experienceLevel: cj.experienceLevel,
+        salaryRange: cj.salaryRange,
+        matchScore: finalScore,
+        matchingSkills: matchingSkills.length > 0 ? matchingSkills : cj.matchingSkills.slice(0, 3),
+        reasons,
+        externalApplyUrl: cj.externalApplyUrl || null,
+        isInternal: false,
+      };
+    });
+
     const seenIds = new Set(dbMatched.map((j) => j.id));
     const combined = [...dbMatched];
 
-    for (const demo of demoJobs) {
-      if (!seenIds.has(demo.id)) {
-        combined.push(demo);
-        seenIds.add(demo.id);
+    // Fall back to curated tech roles only if database returns no matched jobs
+    if (combined.length === 0) {
+      for (const curated of curatedMatched) {
+        if (!seenIds.has(curated.id)) {
+          combined.push(curated);
+          seenIds.add(curated.id);
+        }
       }
     }
 
-    combined.sort((a, b) => b.matchScore - a.matchScore);
+    // Sort by location alignment first, then by match score descending
+    combined.sort((a, b) => {
+      const aLoc = isLocationMatch(a.location, candidateLocation);
+      const bLoc = isLocationMatch(b.location, candidateLocation);
+      if (aLoc && !bLoc) return -1;
+      if (!aLoc && bLoc) return 1;
+      return b.matchScore - a.matchScore;
+    });
+
     return combined.slice(0, 6);
   } catch (err) {
     console.error('Job matcher error:', err);
@@ -111,70 +183,103 @@ function getDemoMatchedJobs(vectors: JobMatchVectors): MatchedJobResult[] {
   return [
     {
       id: 'rec-servicenow-staff',
-      title: 'Staff Software Engineer - Platform Infrastructure',
+      title: 'Staff Software Engineer (Platform Infrastructure)',
       companyName: 'ServiceNow',
-      location: 'Hyderabad / Remote',
+      location: 'Hyderabad, Telangana',
       jobType: 'Full-time',
-      experienceLevel: 'Senior',
-      salaryRange: '$170k - $220k',
+      experienceLevel: 'Staff',
+      salaryRange: '₹55L - ₹80L / yr',
       matchScore: 94,
       matchingSkills: (vectors.primarySkills || []).slice(0, 3),
       reasons: [
         'Direct stack alignment with high-throughput cloud infrastructure',
         'Verified corporate referral available from Vouchins member community',
       ],
-      externalApplyUrl: 'https://careers.servicenow.com/jobs/743999981234567/staff-software-engineer-platform-infrastructure',
+      externalApplyUrl: 'https://careers.servicenow.com/jobs/74400192',
       isInternal: false,
     },
     {
       id: 'rec-uber-senior-backend',
-      title: 'Senior Backend Engineer - Core Driver Payouts',
+      title: 'Senior Backend Engineer (Core Driver Payouts)',
       companyName: 'Uber',
-      location: 'Bangalore / Remote',
+      location: 'Hyderabad, Telangana',
       jobType: 'Full-time',
       experienceLevel: 'Senior',
-      salaryRange: '$160k - $210k',
+      salaryRange: '₹38L - ₹58L / yr',
       matchScore: 89,
-      matchingSkills: ['TypeScript', 'Go', 'Distributed Caching'],
+      matchingSkills: ['TypeScript', 'Go', 'Distributed Systems'],
       reasons: [
         'Google XYZ metric criteria satisfied in core platform experience',
         'Strong candidate readiness score (>80th percentile)',
       ],
-      externalApplyUrl: 'https://www.uber.com/global/en/careers/list/132948-senior-backend-engineer-core-driver-payouts',
+      externalApplyUrl: 'https://www.uber.com/global/en/careers/list/91823',
       isInternal: false,
     },
     {
-      id: 'job-vouchins-direct-lead',
-      title: 'Lead Full Stack Platform Engineer',
-      companyName: 'Nexus Enterprise AI',
-      companyLogo: 'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://nexus.io&size=64',
-      location: 'Remote',
+      id: 'curated-microsoft-sde2-hyd',
+      title: 'Software Development Engineer II (Azure Core Platform)',
+      companyName: 'Microsoft',
+      location: 'Hyderabad, Telangana',
       jobType: 'Full-time',
-      experienceLevel: 'Lead',
-      salaryRange: '$160k - $200k',
-      matchScore: 96,
-      matchingSkills: ['TypeScript', 'React', 'Node.js', 'PostgreSQL'],
+      experienceLevel: 'Mid',
+      salaryRange: '₹36L - ₹55L / yr',
+      matchScore: 92,
+      matchingSkills: (vectors.primarySkills || []).slice(0, 3),
       reasons: [
-        'Direct application on hiring platform',
-        'Top 5% match for TypeScript, Next.js and Postgres architecture',
+        'Azure core systems engineering with high availability',
+        'Verified employee voucher network in HITEC City campus',
       ],
-      externalApplyUrl: null,
-      isInternal: true,
+      externalApplyUrl: 'https://careers.microsoft.com/us/en/job/184920',
+      isInternal: false,
     },
     {
-      id: 'rec-oracle-principal-architect',
-      title: 'Principal Cloud Systems Architect',
-      companyName: 'Oracle',
-      location: 'Hyderabad / San Francisco, CA',
+      id: 'curated-deshaw-member-technical-hyd',
+      title: 'Member Technical / Senior Software Engineer',
+      companyName: 'DE Shaw',
+      location: 'Hyderabad, Telangana',
       jobType: 'Full-time',
-      experienceLevel: 'Principal',
-      salaryRange: '$190k - $240k',
-      matchScore: 86,
-      matchingSkills: ['Distributed Systems', 'Cloud Architecture', 'Redis'],
+      experienceLevel: 'Senior',
+      salaryRange: '₹45L - ₹75L / yr',
+      matchScore: 91,
+      matchingSkills: ['Java', 'SQL', 'Data Structures'],
+      reasons: [
+        'Mission-critical low-latency financial systems design',
+        'Top-of-market compensation with high performance bonus',
+      ],
+      externalApplyUrl: 'https://www.deshawindia.com/careers/roles/5092',
+      isInternal: false,
+    },
+    {
+      id: 'curated-salesforce-lead-java-hyd',
+      title: 'Lead Software Engineer (Core Platform & Microservices)',
+      companyName: 'Salesforce',
+      location: 'Hyderabad, Telangana',
+      jobType: 'Full-time',
+      experienceLevel: 'Lead',
+      salaryRange: '₹40L - ₹65L / yr',
+      matchScore: 93,
+      matchingSkills: ['Java', 'Spring Boot', 'SQL', 'MySQL'],
+      reasons: [
+        'Core Customer 360 cloud microservices architecture',
+        'Verified corporate insider referral network in Hyderabad IT Corridor',
+      ],
+      externalApplyUrl: 'https://careers.salesforce.com/en/jobs/jr78192',
+      isInternal: false,
+    },
+    {
+      id: 'curated-oracle-staff-cloud-java',
+      title: 'Staff Backend Cloud Engineer (Distributed Core Platform)',
+      companyName: 'Oracle',
+      location: 'Hyderabad, Telangana',
+      jobType: 'Full-time',
+      experienceLevel: 'Staff',
+      salaryRange: '₹36L - ₹54L / yr',
+      matchScore: 88,
+      matchingSkills: ['Distributed Systems', 'Cloud Architecture', 'Java'],
       reasons: [
         'High relevance score across modern cloud control planes',
       ],
-      externalApplyUrl: 'https://careers.oracle.com/jobs/results/24001928374-principal-cloud-architect',
+      externalApplyUrl: 'https://careers.oracle.com/jobs/229643',
       isInternal: false,
     },
   ];

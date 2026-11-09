@@ -66,39 +66,59 @@ export interface AtsQueryOptions {
 // ============================================================================
 
 export const GREENHOUSE_TARGETS: AtsTarget[] = [
-  { company: 'Figma', boardToken: 'figma', domain: 'figma.com', platform: 'greenhouse' },
+  // Top Indian Tech Giants & Global R&D Hubs with Active Greenhouse Boards
+  { company: 'Groww', boardToken: 'groww', domain: 'groww.in', platform: 'greenhouse' },
+  { company: 'InMobi', boardToken: 'inmobi', domain: 'inmobi.com', platform: 'greenhouse' },
+  { company: 'Thoughtworks', boardToken: 'thoughtworks', domain: 'thoughtworks.com', platform: 'greenhouse' },
+  { company: 'Slice', boardToken: 'slice', domain: 'sliceit.com', platform: 'greenhouse' },
+  { company: 'HighRadius', boardToken: 'highradius', domain: 'highradius.com', platform: 'greenhouse' },
+  { company: 'Rubrik', boardToken: 'rubrik', domain: 'rubrik.com', platform: 'greenhouse' },
+  { company: 'Druva', boardToken: 'druva', domain: 'druva.com', platform: 'greenhouse' },
+  { company: 'Nutanix', boardToken: 'nutanix', domain: 'nutanix.com', platform: 'greenhouse' },
+  { company: 'Cohesity', boardToken: 'cohesity', domain: 'cohesity.com', platform: 'greenhouse' },
+  { company: 'Okta', boardToken: 'okta', domain: 'okta.com', platform: 'greenhouse' },
+  { company: 'MongoDB', boardToken: 'mongodb', domain: 'mongodb.com', platform: 'greenhouse' },
+  { company: 'Elastic', boardToken: 'elastic', domain: 'elastic.co', platform: 'greenhouse' },
+  { company: 'Twilio', boardToken: 'twilio', domain: 'twilio.com', platform: 'greenhouse' },
+  { company: 'Postman', boardToken: 'postman', domain: 'postman.com', platform: 'greenhouse' },
+  { company: 'BrowserStack', boardToken: 'browserstack', domain: 'browserstack.com', platform: 'greenhouse' },
+  { company: 'Branch', boardToken: 'branch', domain: 'branch.io', platform: 'greenhouse' },
+  // Premier Global Tech Leaders with Major India Presence
   { company: 'Stripe', boardToken: 'stripe', domain: 'stripe.com', platform: 'greenhouse' },
+  { company: 'Cloudflare', boardToken: 'cloudflare', domain: 'cloudflare.com', platform: 'greenhouse' },
+  { company: 'Datadog', boardToken: 'datadog', domain: 'datadoghq.com', platform: 'greenhouse' },
+  { company: 'GitLab', boardToken: 'gitlab', domain: 'gitlab.com', platform: 'greenhouse' },
+  { company: 'Snowflake', boardToken: 'snowflake', domain: 'snowflake.com', platform: 'greenhouse' },
+  { company: 'Figma', boardToken: 'figma', domain: 'figma.com', platform: 'greenhouse' },
   { company: 'Airbnb', boardToken: 'airbnb', domain: 'airbnb.com', platform: 'greenhouse' },
   { company: 'DoorDash', boardToken: 'doordash', domain: 'doordash.com', platform: 'greenhouse' },
   { company: 'Pinterest', boardToken: 'pinterest', domain: 'pinterest.com', platform: 'greenhouse' },
-  { company: 'Datadog', boardToken: 'datadog', domain: 'datadoghq.com', platform: 'greenhouse' },
-  { company: 'Cloudflare', boardToken: 'cloudflare', domain: 'cloudflare.com', platform: 'greenhouse' },
-  { company: 'GitLab', boardToken: 'gitlab', domain: 'gitlab.com', platform: 'greenhouse' },
   { company: 'Coinbase', boardToken: 'coinbase', domain: 'coinbase.com', platform: 'greenhouse' },
   { company: 'Reddit', boardToken: 'reddit', domain: 'reddit.com', platform: 'greenhouse' },
   { company: 'Instacart', boardToken: 'instacart', domain: 'instacart.com', platform: 'greenhouse' },
-  { company: 'Snowflake', boardToken: 'snowflake', domain: 'snowflake.com', platform: 'greenhouse' },
-  { company: 'Postman', boardToken: 'postman', domain: 'postman.com', platform: 'greenhouse' },
-  { company: 'BrowserStack', boardToken: 'browserstack', domain: 'browserstack.com', platform: 'greenhouse' },
-  { company: 'InMobi', boardToken: 'inmobi', domain: 'inmobi.com', platform: 'greenhouse' },
-  { company: 'Thoughtworks', boardToken: 'thoughtworks', domain: 'thoughtworks.com', platform: 'greenhouse' },
-  { company: 'Branch', boardToken: 'branch', domain: 'branch.io', platform: 'greenhouse' },
 ];
 
 export const LEVER_TARGETS: AtsTarget[] = [
+  // Top Indian Tech Unicorns & Product Leaders with Active Lever Boards
+  { company: 'Paytm', boardToken: 'paytm', domain: 'paytm.com', platform: 'lever' },
+  { company: 'Meesho', boardToken: 'meesho', domain: 'meesho.com', platform: 'lever' },
+  { company: 'CRED', boardToken: 'cred', domain: 'cred.club', platform: 'lever' },
+  { company: 'Zeta', boardToken: 'zeta', domain: 'zeta.tech', platform: 'lever' },
+  { company: 'Atlassian', boardToken: 'atlassian', domain: 'atlassian.com', platform: 'lever' },
   { company: 'Spotify', boardToken: 'spotify', domain: 'spotify.com', platform: 'lever' },
   { company: 'Netflix', boardToken: 'netflix', domain: 'netflix.com', platform: 'lever' },
   { company: 'Palantir', boardToken: 'palantir', domain: 'palantir.com', platform: 'lever' },
-  { company: 'Atlassian', boardToken: 'atlassian', domain: 'atlassian.com', platform: 'lever' },
-  { company: 'CleverTap', boardToken: 'clevertap', domain: 'clevertap.com', platform: 'lever' },
 ];
 
 export const ASHBY_TARGETS: AtsTarget[] = [
-  { company: 'Linear', boardToken: 'linear', domain: 'linear.app', platform: 'ashby' },
+  { company: 'Navi', boardToken: 'navi', domain: 'navi.com', platform: 'ashby' },
   { company: 'Notion', boardToken: 'notion', domain: 'notion.so', platform: 'ashby' },
+  { company: 'Linear', boardToken: 'linear', domain: 'linear.app', platform: 'ashby' },
   { company: 'Ramp', boardToken: 'ramp', domain: 'ramp.com', platform: 'ashby' },
   { company: 'Retool', boardToken: 'retool', domain: 'retool.com', platform: 'ashby' },
   { company: 'Supabase', boardToken: 'supabase', domain: 'supabase.com', platform: 'ashby' },
+  { company: 'OpenAI', boardToken: 'openai', domain: 'openai.com', platform: 'ashby' },
+  { company: 'Perplexity', boardToken: 'perplexity', domain: 'perplexity.ai', platform: 'ashby' },
 ];
 
 // ============================================================================
@@ -249,19 +269,22 @@ export const LOCATION_ALIASES: Record<string, string[]> = {
   'dallas': ['tx', 'texas', 'dfw', 'plano', 'irving'],
   'chicago': ['il', 'illinois'],
   'boston': ['ma', 'massachusetts', 'cambridge'],
-  'hyderabad': ['hyd', 'telangana', 'cyberabad', 'hitec city', 'india'],
-  'bangalore': ['bengaluru', 'blr', 'karnataka', 'whitefield', 'electronic city', 'india'],
-  'bengaluru': ['bangalore', 'blr', 'karnataka', 'india'],
-  'pune': ['maharashtra', 'mumbai', 'india'],
-  'mumbai': ['bombay', 'maharashtra', 'pune', 'india'],
-  'delhi': ['ncr', 'gurgaon', 'gurugram', 'noida', 'india'],
-  'gurgaon': ['gurugram', 'delhi', 'ncr', 'noida', 'india'],
-  'noida': ['delhi', 'ncr', 'gurgaon', 'india'],
+  'hyderabad': ['hyd', 'telangana', 'cyberabad', 'hitec city', 'secunderabad', 'gachibowli', 'madhapur'],
+  'bangalore': ['bengaluru', 'blr', 'karnataka', 'whitefield', 'electronic city', 'bellandur'],
+  'bengaluru': ['bangalore', 'blr', 'karnataka', 'whitefield', 'electronic city', 'bellandur'],
+  'pune': ['hinjewadi', 'magarpatta'],
+  'mumbai': ['bombay', 'navi mumbai', 'thane', 'bkc'],
+  'delhi': ['ncr', 'new delhi'],
+  'gurgaon': ['gurugram', 'dlf cyber city'],
+  'noida': ['greater noida'],
+  'chennai': ['madras', 'tamil nadu', 'omr'],
   'london': ['uk', 'united kingdom', 'england'],
+  'india': ['hyderabad', 'bangalore', 'bengaluru', 'pune', 'mumbai', 'delhi', 'gurgaon', 'noida', 'chennai', 'telangana', 'karnataka'],
 };
 
 const LOCATION_STOP_WORDS = new Set([
-  'new', 'san', 'los', 'de', 'la', 'el', 'city', 'area', 'metro', 'north', 'south', 'east', 'west', 'greater', 'st', 'saint'
+  'new', 'san', 'los', 'de', 'la', 'el', 'city', 'area', 'metro', 'north', 'south', 'east', 'west', 'greater', 'st', 'saint',
+  'india', 'us', 'usa', 'united', 'states', 'uk', 'kingdom', 'country', 'worldwide', 'global', 'remote'
 ]);
 
 // Regional groupings to avoid returning US-remote to India or India-remote to US
@@ -306,8 +329,25 @@ export function isLocationMatch(
   const candLoc = candidateLocation.toLowerCase().trim();
   const jobLoc = (jobLocation || '').toLowerCase().trim();
 
+  // Distinct city conflict prevention (e.g. Hyderabad vs Bengaluru/Pune/Mumbai)
+  const distinctCities = ['hyderabad', 'bangalore', 'bengaluru', 'pune', 'mumbai', 'delhi', 'gurgaon', 'noida', 'chennai'];
+  const candCity = distinctCities.find((c) => candLoc.includes(c));
+  if (candCity) {
+    const cityAliases = [candCity, ...(LOCATION_ALIASES[candCity] || [])];
+    const matchesCandCity = cityAliases.some((a) => jobLoc.includes(a));
+    if (matchesCandCity) return true;
+
+    // Check if the role is explicitly on-site / hybrid in a conflicting city
+    const conflictingCity = distinctCities.find(
+      (c) => c !== candCity && !cityAliases.includes(c) && jobLoc.includes(c)
+    );
+    if (conflictingCity) {
+      return false;
+    }
+  }
+
   // 3. Direct substring match (e.g. "Hyderabad" in "Hyderabad, India" or vice versa)
-  if (jobLoc.includes(candLoc) || candLoc.includes(jobLoc)) {
+  if (jobLoc.includes(candLoc) || (jobLoc.length > 3 && candLoc.includes(jobLoc))) {
     return true;
   }
 
@@ -417,16 +457,17 @@ export function evaluateJobMatch(
   // 1. Detect candidate matching skills
   candidateSkills.forEach((skill) => {
     const sLower = skill.toLowerCase().trim();
-    if (sLower && textCorpus.includes(sLower)) {
+    if (sLower && sLower.length >= 2 && textCorpus.includes(sLower)) {
       if (!matchingSkills.includes(skill)) {
         matchingSkills.push(skill);
       }
     }
   });
 
-  // If candidate had skills but none matched exactly, fallback to any detected taxonomy in text
+  const hasGenuineSkillMatch = matchingSkills.length > 0;
+
+  // If candidate had skills but none matched exactly, fallback to primary candidate skill as baseline
   if (matchingSkills.length === 0 && candidateSkills.length > 0) {
-    // Add primary candidate skill as baseline
     matchingSkills.push(candidateSkills[0]);
   }
 
@@ -446,8 +487,17 @@ export function evaluateJobMatch(
 
   // 3. Dynamic match score computation
   let baseScore = 76;
-  if (matchingSkills.length > 0) {
+  if (hasGenuineSkillMatch) {
     baseScore += Math.min(16, matchingSkills.length * 4);
+  }
+
+  // Bonus for candidate skills explicitly present in job title
+  const titleLower = jobInfo.title.toLowerCase();
+  const titleSkillMatches = candidateSkills.filter(
+    (s) => s.length >= 2 && titleLower.includes(s.toLowerCase().trim())
+  );
+  if (titleSkillMatches.length > 0) {
+    baseScore += 6;
   }
 
   // Location & workplace alignment
@@ -513,9 +563,12 @@ export function evaluateJobMatch(
     locationNote = ` Note: Position is on-site in ${jobInfo.location || 'office'}.`;
   }
 
-  const whyYouMatch = `Strong alignment with your background in ${firstSkill}${
-    matchingSkills[1] ? ` and ${secondSkill}` : ''
-  }. Role matches your target seniority (${jobExp}) at ${comp}.${locationNote}`;
+  const whyYouMatch =
+    matchingSkills.length > 0
+      ? `Strong alignment with your background in ${firstSkill}${
+          matchingSkills[1] ? ` and ${secondSkill}` : ''
+        }. Role matches your target seniority (${jobExp}) at ${comp}.${locationNote}`
+      : `Explore opportunities at ${comp} aligned with your general engineering background.${locationNote}`;
 
   const tailoredBulletSuggestion = {
     original: `Contributed to ${jobInfo.title.toLowerCase()} systems and feature development.`,
@@ -608,7 +661,30 @@ async function fetchGreenhouseBoard(
     const techJobs = validJobs.filter((j: any) => isRoleRelevant(String(j.title), candidateSkills));
     let targetPool = techJobs.length > 0 ? techJobs : validJobs;
 
-    // Prioritize candidate location so regional/city jobs are never truncated out by slice
+    // Prioritize jobs matching candidate skills and location before slicing
+    targetPool.sort((a: any, b: any) => {
+      const aTitle = String(a.title || '').toLowerCase();
+      const bTitle = String(b.title || '').toLowerCase();
+      const aLoc = a.location?.name ? String(a.location.name) : (typeof a.location === 'string' ? a.location : '');
+      const bLoc = b.location?.name ? String(b.location.name) : (typeof b.location === 'string' ? b.location : '');
+
+      if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
+        const aLocMatch = isLocationMatch(aLoc, candidateLocation);
+        const bLocMatch = isLocationMatch(bLoc, candidateLocation);
+        if (aLocMatch && !bLocMatch) return -1;
+        if (!aLocMatch && bLocMatch) return 1;
+      }
+
+      if (candidateSkills && candidateSkills.length > 0) {
+        const aHits = candidateSkills.filter((s) => s.length >= 2 && aTitle.includes(s.toLowerCase().trim())).length;
+        const bHits = candidateSkills.filter((s) => s.length >= 2 && bTitle.includes(s.toLowerCase().trim())).length;
+        if (aHits !== bHits) return bHits - aHits;
+      }
+
+      return 0;
+    });
+
+    // Ensure candidate location jobs are never truncated out by slice
     if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
       const locMatches = targetPool.filter((j: any) => {
         const loc = j.location?.name ? String(j.location.name) : (typeof j.location === 'string' ? j.location : '');
@@ -713,7 +789,30 @@ async function fetchLeverBoard(
     const techJobs = validJobs.filter((j: any) => isRoleRelevant(String(j.text), candidateSkills));
     let targetPool = techJobs.length > 0 ? techJobs : validJobs;
 
-    // Prioritize candidate location
+    // Prioritize jobs matching candidate skills and location before slicing
+    targetPool.sort((a: any, b: any) => {
+      const aTitle = String(a.text || '').toLowerCase();
+      const bTitle = String(b.text || '').toLowerCase();
+      const aLoc = a.categories?.location || '';
+      const bLoc = b.categories?.location || '';
+
+      if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
+        const aLocMatch = isLocationMatch(aLoc, candidateLocation);
+        const bLocMatch = isLocationMatch(bLoc, candidateLocation);
+        if (aLocMatch && !bLocMatch) return -1;
+        if (!aLocMatch && bLocMatch) return 1;
+      }
+
+      if (candidateSkills && candidateSkills.length > 0) {
+        const aHits = candidateSkills.filter((s) => s.length >= 2 && aTitle.includes(s.toLowerCase().trim())).length;
+        const bHits = candidateSkills.filter((s) => s.length >= 2 && bTitle.includes(s.toLowerCase().trim())).length;
+        if (aHits !== bHits) return bHits - aHits;
+      }
+
+      return 0;
+    });
+
+    // Ensure candidate location jobs are never truncated out by slice
     if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
       const locMatches = targetPool.filter((j: any) => {
         const loc = j.categories?.location || '';
@@ -816,7 +915,30 @@ async function fetchAshbyBoard(
     const techJobs = validJobs.filter((j: any) => isRoleRelevant(String(j.title), candidateSkills));
     let targetPool = techJobs.length > 0 ? techJobs : validJobs;
 
-    // Prioritize candidate location
+    // Prioritize jobs matching candidate skills and location before slicing
+    targetPool.sort((a: any, b: any) => {
+      const aTitle = String(a.title || '').toLowerCase();
+      const bTitle = String(b.title || '').toLowerCase();
+      const aLoc = a.location || a.secondaryLocations?.[0]?.location || '';
+      const bLoc = b.location || b.secondaryLocations?.[0]?.location || '';
+
+      if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
+        const aLocMatch = isLocationMatch(aLoc, candidateLocation);
+        const bLocMatch = isLocationMatch(bLoc, candidateLocation);
+        if (aLocMatch && !bLocMatch) return -1;
+        if (!aLocMatch && bLocMatch) return 1;
+      }
+
+      if (candidateSkills && candidateSkills.length > 0) {
+        const aHits = candidateSkills.filter((s) => s.length >= 2 && aTitle.includes(s.toLowerCase().trim())).length;
+        const bHits = candidateSkills.filter((s) => s.length >= 2 && bTitle.includes(s.toLowerCase().trim())).length;
+        if (aHits !== bHits) return bHits - aHits;
+      }
+
+      return 0;
+    });
+
+    // Ensure candidate location jobs are never truncated out by slice
     if (candidateLocation && candidateLocation.toLowerCase() !== 'all') {
       const locMatches = targetPool.filter((j: any) => {
         const loc = j.location || j.secondaryLocations?.[0]?.location || '';

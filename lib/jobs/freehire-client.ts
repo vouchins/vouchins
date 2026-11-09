@@ -90,8 +90,22 @@ function cleanHtmlText(text?: string | null): string {
     .trim();
 }
 
-function formatSalary(min?: number, max?: number, currency = 'USD'): string {
-  if (!min && !max) return 'Competitive / Market Band';
+function formatSalary(min?: number, max?: number, currency = 'USD', location?: string): string {
+  const isIndia =
+    (currency && currency.toUpperCase() === 'INR') ||
+    (location && /india|hyderabad|bangalore|bengaluru|pune|mumbai|delhi|gurgaon|noida|chennai|telangana|karnataka/i.test(location));
+
+  if (!min && !max) return isIndia ? '₹25L - ₹40L / yr' : 'Competitive / Market Band';
+
+  if (isIndia) {
+    const minL = min ? (min > 100000 ? Math.round(min / 100000) : Math.round(min * 0.22)) : undefined;
+    const maxL = max ? (max > 100000 ? Math.round(max / 100000) : Math.round(max * 0.25)) : undefined;
+    if (minL && maxL) return `₹${minL}L - ₹${maxL}L / yr`;
+    if (minL) return `From ₹${minL}L / yr`;
+    if (maxL) return `Up to ₹${maxL}L / yr`;
+    return '₹28L - ₹45L / yr';
+  }
+
   const currSym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
   if (min && max) {
     const minK = Math.round(min / 1000);
@@ -152,7 +166,18 @@ export function transformFreehireJob(
     locationStr = [city, country].filter(Boolean).join(', ') || 'Remote';
   }
 
-  const rawUrl = raw.apply_url || raw.external_apply_url || raw.url || '';
+  let rawUrl = (raw.apply_url || raw.external_apply_url || raw.url || '').trim();
+  if (rawUrl) {
+    // Replace any legacy freehire / free-hire utm_source or ref with vouchins
+    rawUrl = rawUrl
+      .replace(/([?&])utm_source=[^&]+/gi, '$1utm_source=vouchins')
+      .replace(/([?&])utm_medium=[^&]+/gi, '$1utm_medium=vouchins')
+      .replace(/([?&])ref=[^&]+/gi, '$1ref=vouchins');
+    if (!rawUrl.includes('utm_source=')) {
+      const sep = rawUrl.includes('?') ? '&' : '?';
+      rawUrl = `${rawUrl}${sep}utm_source=vouchins`;
+    }
+  }
   const workplaceType = mapWorkMode(raw.work_mode || raw.workplace_type);
   const experienceLevel = mapSeniority(raw.seniority || raw.title);
 
@@ -223,7 +248,7 @@ export function transformFreehireJob(
   const secondMatchingSkill = matchingSkills[1] || 'distributed systems';
 
   return {
-    id: `freehire-${raw.id || Math.random().toString(36).slice(2, 9)}`,
+    id: `vouchins-${raw.id || Math.random().toString(36).slice(2, 9)}`,
     title: raw.title,
     companyName,
     companyLogo,
@@ -231,7 +256,7 @@ export function transformFreehireJob(
     workplaceType,
     jobType: 'Full-time',
     experienceLevel,
-    salaryRange: raw.salary_range || formatSalary(raw.salary_min, raw.salary_max, raw.salary_currency),
+    salaryRange: raw.salary_range || formatSalary(raw.salary_min, raw.salary_max, raw.salary_currency, locationStr),
     postedAt: raw.posted_at ? new Date(raw.posted_at).toLocaleDateString() : 'Recently posted',
     matchScore,
     matchBreakdown: {

@@ -36,13 +36,13 @@ describe('Freehire API Client & Ingestion Transformer', () => {
       const candidateSkills = ['Go', 'Kafka', 'Distributed Systems', 'TypeScript', 'PostgreSQL'];
       const transformed = transformFreehireJob(rawJob, candidateSkills);
 
-      expect(transformed.id).toBe('freehire-job-123');
+      expect(transformed.id).toBe('vouchins-job-123');
       expect(transformed.title).toBe('Senior Distributed Systems Engineer');
       expect(transformed.companyName).toBe('Stripe');
       expect(transformed.workplaceType).toBe('Remote');
       expect(transformed.experienceLevel).toBe('Senior');
       expect(transformed.salaryRange).toBe('$195k - $245k / yr');
-      expect(transformed.externalApplyUrl).toBe('https://boards.greenhouse.io/stripe/jobs/123456');
+      expect(transformed.externalApplyUrl).toBe('https://boards.greenhouse.io/stripe/jobs/123456?utm_source=vouchins');
 
       // Check skill overlap detection
       expect(transformed.matchingSkills).toContain('Go');

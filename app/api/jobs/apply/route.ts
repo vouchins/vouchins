@@ -11,6 +11,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Job ID and Resume URL are required" }, { status: 400 });
     }
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!UUID_REGEX.test(jobId)) {
+      return NextResponse.json({
+        error: "This role is hosted on an external careers portal. Please apply directly through the official company careers page.",
+      }, { status: 400 });
+    }
+
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

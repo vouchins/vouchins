@@ -251,6 +251,72 @@ export function extractJobId(url?: string | null): string | null {
   return null;
 }
 
+/**
+ * Detects whether a location string represents an Indian city, state, or region.
+ */
+export function isIndianLocation(location?: string | null): boolean {
+  if (!location) return false;
+  const loc = location.toLowerCase();
+  const indianKeywords = [
+    'india',
+    'hyderabad',
+    'bangalore',
+    'bengaluru',
+    'pune',
+    'mumbai',
+    'delhi',
+    'ncr',
+    'gurgaon',
+    'gurugram',
+    'noida',
+    'chennai',
+    'telangana',
+    'karnataka',
+    'maharashtra',
+    'tamil nadu',
+    'haryana',
+    'kolkata',
+    'ahmedabad',
+  ];
+  return indianKeywords.some((k) => loc.includes(k));
+}
+
+/**
+ * Formats compensation in a location-aware manner.
+ * For Indian locations, formats or converts into INR Lakhs (e.g. ₹28L - ₹45L / yr).
+ */
+export function formatLocalizedSalary(salaryRange?: string | null, location?: string | null): string {
+  if (!salaryRange || salaryRange.trim() === '') {
+    return isIndianLocation(location) ? '₹25L - ₹40L / yr' : 'Competitive / Market Band';
+  }
+
+  const trimmed = salaryRange.trim();
+
+  // If already in INR, format nicely
+  if (trimmed.startsWith('₹') || trimmed.toLowerCase().includes('lpa') || trimmed.toLowerCase().includes('lakh')) {
+    return trimmed;
+  }
+
+  // If Indian location but raw salary contains USD ($), convert to realistic INR CTC band
+  if (isIndianLocation(location)) {
+    if (trimmed.includes('$')) {
+      const matches = trimmed.match(/\$(\d+)(?:k)?(?:\s*-\s*\$(\d+)(?:k)?)?/i);
+      if (matches) {
+        const minK = parseInt(matches[1], 10);
+        const maxK = matches[2] ? parseInt(matches[2], 10) : undefined;
+        const minLakhs = Math.max(18, Math.round(minK * 0.22));
+        const maxLakhs = maxK ? Math.max(minLakhs + 10, Math.round(maxK * 0.25)) : undefined;
+        return maxLakhs ? `₹${minLakhs}L - ₹${maxLakhs}L / yr` : `From ₹${minLakhs}L / yr`;
+      }
+    }
+    if (trimmed.toLowerCase().includes('competitive')) {
+      return '₹28L - ₹45L / yr';
+    }
+  }
+
+  return trimmed;
+}
+
 const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = CURATED_TECH_JOBS.map((cj) => ({
   id: cj.id,
   title: cj.title,
@@ -260,7 +326,7 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = CURATED_TECH_JOBS.map((cj) =>
   workplaceType: cj.workplaceType,
   jobType: cj.jobType,
   experienceLevel: cj.experienceLevel as any,
-  salaryRange: cj.salaryRange,
+  salaryRange: formatLocalizedSalary(cj.salaryRange, cj.location),
   postedAt: cj.postedAt,
   matchScore: 95,
   matchBreakdown: {
@@ -281,7 +347,7 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = CURATED_TECH_JOBS.map((cj) =>
   },
   externalApplyUrl: cj.externalApplyUrl,
   externalJobId: cj.externalJobId,
-  isInternal: cj.isInternal,
+  isInternal: false,
   isCurated: true,
   isRecommended: true,
 }));
@@ -410,7 +476,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       workplaceType,
       jobType,
       experienceLevel,
-      salaryRange: job.salary_range || 'Competitive',
+      salaryRange: formatLocalizedSalary(job.salary_range, location),
       postedAt,
       createdAt: job.created_at || undefined,
       matchScore: job.match_score || matchScore,
@@ -453,10 +519,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
         tailored: `Architected high-throughput service components using ${(job.matching_skills && job.matching_skills[0]) || matchingSkills[0] || 'modern tech'}, accelerating response latency by 36% and increasing reliability across 1.5M+ requests.`,
         impactMetric: '36% Latency Reduction',
       },
-      isInternal: Boolean(
-        (!job.external_apply_url || job.external_apply_url.trim() === '') ||
-        (job.recruiter_id && job.recruiter_id !== '57d1bab1-1c10-45f8-8835-d1421cab8ca5')
-      ),
+      isInternal: false,
       recruiterId: job.recruiter_id || null,
       externalJobId: extractJobId(job.external_apply_url),
       externalApplyUrl: hasValidExternalJobId(job.external_apply_url) ? job.external_apply_url.trim() : null,
@@ -473,7 +536,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       workplaceType: 'Remote',
       jobType: 'Full-time',
       experienceLevel: 'Senior',
-      salaryRange: job?.salary_range || 'Competitive',
+      salaryRange: formatLocalizedSalary(job?.salary_range, job?.location),
       postedAt: 'Recently',
       matchScore: 88,
       matchBreakdown: { skillsScore: 90, experienceScore: 85, stackScore: 88 },
@@ -494,7 +557,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
         tailored: 'Led feature execution and reliability optimizations.',
         impactMetric: 'Productivity Gain',
       },
-      isInternal: true,
+      isInternal: false,
       recruiterId: null,
       externalJobId: null,
       externalApplyUrl: null,
@@ -581,9 +644,7 @@ export function JobRecommendationsDashboard() {
 
   // Active Job Selection (Defaults to first or reads ?id=)
   const initialJobId = searchParams.get('id');
-  const [selectedJobId, setSelectedJobId] = useState<string>(
-    initialJobId || CURATED_RECOMMENDED_JOBS[0].id
-  );
+  const [selectedJobId, setSelectedJobId] = useState<string>(initialJobId || '');
   // Mobile responsive view: 'list' (shows job cards) | 'detail' (shows selected role details)
   const [mobileView, setMobileView] = useState<'list' | 'detail'>(initialJobId ? 'detail' : 'list');
 
@@ -592,7 +653,7 @@ export function JobRecommendationsDashboard() {
   const initialTab = searchParams.get('tab') === 'recommended' || pathname === '/jobs/recommend' ? 'recommended' : 'all';
   const [activeChip, setActiveChip] = useState<'all' | 'high_match' | 'insiders' | 'remote' | 'tier1' | 'high_salary'>('all');
   const [activeListTab, setActiveListTab] = useState<'all' | 'recommended' | 'saved' | 'applied'>(initialTab);
-  const [savedJobIds, setSavedJobIds] = useState<string[]>(['rec-oracle-principal-architect']);
+  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [activeDetailTab, setActiveDetailTab] = useState<'match' | 'insiders' | 'description' | 'copilot'>('match');
   const [sortBy, setSortBy] = useState<'relevance' | 'date'>('relevance');
@@ -753,10 +814,8 @@ export function JobRecommendationsDashboard() {
   // Company management helpers
   const allAvailableCompanies = useMemo(() => {
     const set = new Set<string>();
-    for (const j of CURATED_RECOMMENDED_JOBS) {
-      if (j.companyName?.trim()) set.add(j.companyName.trim());
-    }
-    for (const j of dbJobs) {
+    const sourceJobs = dbJobs.length > 0 ? dbJobs : CURATED_RECOMMENDED_JOBS;
+    for (const j of sourceJobs) {
       if (j.companyName?.trim()) set.add(j.companyName.trim());
     }
     for (const c of customCompanies) {
@@ -801,13 +860,15 @@ export function JobRecommendationsDashboard() {
     toast.info('Showing jobs from all companies');
   };
 
-  // Combined master job list (Curated showcase + Database & Live ATS jobs deduplicated)
+  // Combined master job list (Prioritizes live database and live ATS jobs exclusively when available)
+  // Falls back to curated showcase only if dbJobs is empty (e.g. offline/initial state).
   // Filters out external jobs that lack external job IDs / direct valid requisition URLs,
   // while preserving internal recruiter jobs posted on Vouchins.
   // Ranked by location alignment and candidate match score descending.
   const allJobs = useMemo(() => {
-    // Dynamically evaluate curated showcase jobs if candidate has profile skills
-    const list = CURATED_RECOMMENDED_JOBS.map((j) => {
+    const sourceJobs = dbJobs.length > 0 ? dbJobs : CURATED_RECOMMENDED_JOBS;
+
+    const list = sourceJobs.map((j) => {
       if (candidateProfileSkills.length > 0) {
         const evaluation = evaluateJobMatch(
           {
@@ -838,20 +899,19 @@ export function JobRecommendationsDashboard() {
       return j;
     });
 
-    const seenIds = new Set(list.map((j) => j.id));
-    const seenTitles = new Set(
-      list.map((j) => `${j.companyName.toLowerCase()}-${j.title.toLowerCase()}`)
-    );
+    const seenIds = new Set<string>();
+    const seenTitles = new Set<string>();
+    const deduplicatedList: RecommendedJob[] = [];
 
-    for (const job of dbJobs) {
+    for (const job of list) {
       const key = `${job.companyName.toLowerCase()}-${job.title.toLowerCase()}`;
       if (!seenIds.has(job.id) && !seenTitles.has(key)) {
         seenIds.add(job.id);
         seenTitles.add(key);
-        list.push(job);
+        deduplicatedList.push(job);
       }
     }
-    const validList = list.filter((j) => j.isInternal || hasValidExternalJobId(j.externalApplyUrl));
+    const validList = deduplicatedList.filter((j) => j.isInternal || j.isCurated || hasValidExternalJobId(j.externalApplyUrl));
     const ninetyDaysAgoMs = 90 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     // Strict 3-month (90-day) job pruning
@@ -979,7 +1039,14 @@ export function JobRecommendationsDashboard() {
         ['ServiceNow', 'Uber', 'Stripe', 'Google', 'Meta', 'Figma', 'DoorDash', 'Spotify', 'Airbnb'].includes(j.companyName)
       );
     } else if (activeChip === 'high_salary') {
-      list = list.filter((j) => j.salaryRange.includes('$180k') || j.salaryRange.includes('$2') || j.salaryRange.toLowerCase().includes('competitive'));
+      list = list.filter(
+        (j) =>
+          j.salaryRange.includes('$180k') ||
+          j.salaryRange.includes('$2') ||
+          j.salaryRange.includes('₹') ||
+          /\b[3-9]\d\s*L\b/i.test(j.salaryRange) ||
+          j.salaryRange.toLowerCase().includes('competitive')
+      );
     }
 
     // Filter by Selected Location / City and Workplace Mode
@@ -1024,7 +1091,12 @@ export function JobRecommendationsDashboard() {
   }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies, workModeFilter, sortBy]);
 
   const selectedJob = useMemo(() => {
-    return allJobs.find((j) => j.id === selectedJobId) || filteredJobs[0] || allJobs[0] || CURATED_RECOMMENDED_JOBS[0];
+    return (
+      (selectedJobId ? allJobs.find((j) => j.id === selectedJobId) : null) ||
+      filteredJobs[0] ||
+      allJobs[0] ||
+      (CURATED_RECOMMENDED_JOBS.length > 0 ? CURATED_RECOMMENDED_JOBS[0] : null)
+    );
   }, [selectedJobId, allJobs, filteredJobs]);
 
   const selectedJobApplyUrl = useMemo(() => {
@@ -2073,14 +2145,14 @@ export function JobRecommendationsDashboard() {
 
                       {/* Application Routing Tag */}
                       <div className="flex items-center gap-1.5 mb-2">
-                        {job.isInternal ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C] border border-[#0A1B5C]/20">
-                            <Building2 className="h-3 w-3 text-[#0A1B5C]" />
-                            Direct Recruiter · Apply on Vouchins
-                          </span>
-                        ) : job.externalJobId ? (
+                        {job.externalJobId ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">
                             Req #{job.externalJobId}
+                          </span>
+                        ) : job.isCurated ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C] border border-[#0A1B5C]/20">
+                            <Building2 className="h-3 w-3 text-[#0A1B5C]" />
+                            Verified Enterprise Role
                           </span>
                         ) : null}
                       </div>
@@ -2183,7 +2255,7 @@ export function JobRecommendationsDashboard() {
                         {selectedJob.isInternal ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#0A1B5C] text-white flex items-center gap-1 shadow-xs">
                             <Building2 className="h-3 w-3 text-white" />
-                            Direct Recruiter Role · Internal Application
+                            Verified Recruiter Role
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center gap-1">

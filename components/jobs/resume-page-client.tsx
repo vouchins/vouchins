@@ -150,14 +150,15 @@ export function ResumePageClient() {
               targetJobTitle: r.targetJobTitle || 'Software Engineer',
               lastModified: r.lastModified || 'Recently',
               created: r.created || 'Recently',
-              isPrimary: idx === 0,
+              isPrimary: Boolean(r.isPrimary ?? idx === 0),
               status: 'Analysis Complete',
               initialLetter: (r.name || r.title || 'R').charAt(0).toUpperCase(),
               document: r.document || SAMPLE_STAFF_RESUME,
               evaluation: r.evaluation || SAMPLE_STAFF_EVALUATION,
             }));
-            setResumes(formatted);
-            setSelectedResumeId(formatted[0].id);
+            const sorted = [...formatted].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+            setResumes(sorted);
+            setSelectedResumeId(sorted[0].id);
           } else {
             setResumes([]);
             setSelectedResumeId('');
@@ -189,12 +190,14 @@ export function ResumePageClient() {
 
   // Set resume as primary
   const handleSetPrimary = async (id: string) => {
-    setResumes((prev) =>
-      prev.map((r) => ({
+    setResumes((prev) => {
+      const updated = prev.map((r) => ({
         ...r,
         isPrimary: r.id === id,
-      }))
-    );
+      }));
+      return [...updated].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+    });
+    setSelectedResumeId(id);
     try {
       const authHeaders = await getAuthHeaders();
       const current = resumes.find((r) => r.id === id);
@@ -211,7 +214,7 @@ export function ResumePageClient() {
         invalidateResumesCache();
       }
     } catch {}
-    toast.success('Primary resume updated successfully.');
+    toast.success('Primary resume updated and moved to top of list.');
   };
 
   // Delete resume

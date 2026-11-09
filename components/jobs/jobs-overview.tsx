@@ -477,55 +477,59 @@ export function JobsOverviewDashboard() {
             </div>
           </section>
 
-          {/* Master Resume Card: Shows resume count if added, or asks to add resume if not */}
-          <section className="bg-white rounded-3xl border border-neutral-200/80 p-6 sm:p-8 shadow-xs">
-            {isLoadingResume ? (
+          {/* Master Resume & Shareable Resume Link Side by Side Cards */}
+          {isLoadingResume ? (
+            <section className="bg-white rounded-3xl border border-neutral-200/80 p-6 sm:p-8 shadow-xs">
               <div className="flex items-center justify-center py-8">
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-6 h-6 border-2 border-[#0A1B5C] border-t-transparent rounded-full animate-spin" />
                   <span className="text-xs font-bold text-neutral-400">Checking resume status...</span>
                 </div>
               </div>
-            ) : hasResume ? (
-              /* State A: User has already added resume */
-              <div className="space-y-6">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center justify-center shrink-0 mt-0.5">
-                    <FileText className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <h2 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight">
-                        1 Master Resume
-                      </h2>
-                      {additionalResumesCount > 0 && (
-                        <span className="px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-700 text-[11px] font-bold border border-neutral-200">
-                          +{additionalResumesCount} Additional {additionalResumesCount === 1 ? 'Resume' : 'Resumes'}
-                        </span>
-                      )}
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-black border border-emerald-200 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        Active for Job Matching
-                      </span>
+            </section>
+          ) : hasResume ? (
+            /* State A: User has already added resume - Side by Side Cards */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 items-stretch">
+              {/* Card 1: Master Resume Card */}
+              <section className="bg-white rounded-3xl border border-neutral-200/80 p-6 sm:p-7 shadow-xs flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center justify-center shrink-0 mt-0.5">
+                      <FileText className="w-6 h-6" />
                     </div>
-                    <p className="text-xs sm:text-sm text-neutral-500 font-medium leading-relaxed max-w-2xl">
-                      {additionalResumesCount > 0
-                        ? `Your primary Master Resume is active and calibrated for job matching, with ${additionalResumesCount} additional specialized ${additionalResumesCount === 1 ? 'resume' : 'resumes'} saved in your studio.`
-                        : 'Your primary Master Resume is analyzed and active. We continuously calibrate verified company openings against your quantified skills and achievements.'}
-                    </p>
-                    {latestScore !== null && (
-                      <div className="flex items-center gap-2 pt-1 text-xs font-bold text-neutral-700">
-                        <span>Master Resume ATS Score:</span>
-                        <span className="px-2 py-0.5 rounded-md bg-[#0A1B5C]/10 text-[#0A1B5C] font-extrabold">
-                          {latestScore} / 100
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight">
+                          1 Master Resume
+                        </h2>
+                        {additionalResumesCount > 0 && (
+                          <span className="px-2.5 py-0.5 rounded-full bg-neutral-100 text-neutral-700 text-[11px] font-bold border border-neutral-200">
+                            +{additionalResumesCount} Additional {additionalResumesCount === 1 ? 'Resume' : 'Resumes'}
+                          </span>
+                        )}
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-black border border-emerald-200 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Active for Job Matching
                         </span>
                       </div>
-                    )}
+                      <p className="text-xs sm:text-sm text-neutral-500 font-medium leading-relaxed">
+                        {additionalResumesCount > 0
+                          ? `Your primary Master Resume is active and calibrated for job matching, with ${additionalResumesCount} additional specialized ${additionalResumesCount === 1 ? 'resume' : 'resumes'} saved in your studio.`
+                          : 'Your primary Master Resume is analyzed and active. We continuously calibrate verified company openings against your quantified skills and achievements.'}
+                      </p>
+                      {latestScore !== null && (
+                        <div className="flex items-center gap-2 pt-1 text-xs font-bold text-neutral-700">
+                          <span>Master Resume ATS Score:</span>
+                          <span className="px-2 py-0.5 rounded-md bg-[#0A1B5C]/10 text-[#0A1B5C] font-extrabold">
+                            {latestScore} / 100
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto shrink-0">
+                <div className="flex flex-wrap items-center gap-3 pt-6 mt-6 border-t border-neutral-100">
                   <Link
                     href="/jobs/resume"
                     className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#0c2277] text-white text-xs font-bold shadow-xs transition-all active:scale-95"
@@ -542,153 +546,152 @@ export function JobsOverviewDashboard() {
                     <span>Add Another Resume</span>
                   </Link>
                 </div>
-              </div>
+              </section>
 
-              {/* Shareable Resume Link & Quick Download Bar */}
+              {/* Card 2: Shareable Resume Link Card */}
               {shareableUrl && (
-                <div className="mt-6 pt-6 border-t border-neutral-100 space-y-3.5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-xl bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center justify-center shrink-0">
-                        <Share2 className="w-3.5 h-3.5 text-[#0A1B5C]" />
+                <section className="bg-white rounded-3xl border border-neutral-200/80 p-6 sm:p-7 shadow-xs flex flex-col justify-between space-y-4">
+                  <div className="space-y-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center justify-center shrink-0">
+                          <Share2 className="w-4 h-4 text-[#0A1B5C]" />
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-black uppercase tracking-wider text-neutral-900">
+                            Shareable Resume Link
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
+                            Publicly Viewable
+                          </span>
+                        </div>
                       </div>
+
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-xs font-black uppercase tracking-wider text-neutral-900">
-                          Shareable Resume Link
-                        </h3>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] font-bold border border-emerald-200">
-                          Publicly Viewable
-                        </span>
-                      </div>
-                    </div>
+                        {/* Resume Selector if multiple resumes exist */}
+                        {resumes.length > 1 && (
+                          <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+                            <span className="font-semibold text-neutral-500">Resume:</span>
+                            <select
+                              value={activeResumeId}
+                              onChange={(e) => setSelectedResumeId(e.target.value)}
+                              className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-white text-xs font-bold text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+                            >
+                              {resumes.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name || 'Master Resume'} {r.isPrimary ? '(Primary)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {/* Resume Selector if multiple resumes exist */}
-                      {resumes.length > 1 && (
-                        <div className="flex items-center gap-1.5 text-xs text-neutral-600">
-                          <span className="font-semibold text-neutral-500">Resume:</span>
-                          <select
-                            value={activeResumeId}
-                            onChange={(e) => setSelectedResumeId(e.target.value)}
-                            className="px-2.5 py-1 rounded-lg border border-neutral-200 bg-white text-xs font-bold text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+                        {/* Customize Handle Button */}
+                        {activeResumeId && (
+                          <button
+                            type="button"
+                            onClick={handleOpenSlugEditor}
+                            className="px-2.5 py-1 rounded-lg border border-[#0A1B5C]/20 hover:bg-[#0A1B5C]/5 text-[#0A1B5C] text-xs font-bold flex items-center gap-1 transition-all active:scale-95 bg-white"
+                            title="Customize your resume link like a LinkedIn vanity handle"
                           >
-                            {resumes.map((r) => (
-                              <option key={r.id} value={r.id}>
-                                {r.name || 'Master Resume'} {r.isPrimary ? '(Primary)' : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Customize Handle Button */}
-                      {activeResumeId && (
-                        <button
-                          type="button"
-                          onClick={handleOpenSlugEditor}
-                          className="px-2.5 py-1 rounded-lg border border-[#0A1B5C]/20 hover:bg-[#0A1B5C]/5 text-[#0A1B5C] text-xs font-bold flex items-center gap-1 transition-all active:scale-95 bg-white"
-                          title="Customize your resume link like a LinkedIn vanity handle"
-                        >
-                          <Pencil className="w-3 h-3 text-[#0A1B5C]" />
-                          <span>Customize URL</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Inline Custom URL Editor */}
-                  {isCustomizingSlug && (
-                    <div className="p-4 rounded-2xl bg-white border border-[#0A1B5C]/20 shadow-xs space-y-3 animate-in fade-in-50 duration-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-[#0A1B5C]" />
-                          <h4 className="text-xs font-bold text-neutral-900">
-                            Customize Your Shareable Resume Link
-                          </h4>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setIsCustomizingSlug(false)}
-                          className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                          <div className="flex-1 flex items-center rounded-xl border border-neutral-300 focus-within:border-[#0A1B5C] focus-within:ring-1 focus-within:ring-[#0A1B5C] bg-white overflow-hidden text-xs">
-                            <span className="px-3 py-2.5 bg-neutral-50 text-neutral-500 font-semibold border-r border-neutral-200 select-none">
-                              vouchins.com/resume/
-                            </span>
-                            <input
-                              type="text"
-                              value={customSlugInput}
-                              onChange={(e) => setCustomSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                              placeholder="your-name"
-                              className="flex-1 px-3 py-2 text-xs font-bold text-neutral-900 focus:outline-none"
-                              maxLength={40}
-                            />
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={handleSaveCustomSlug}
-                              disabled={isSavingSlug || slugChecking || slugStatus.available === false || !customSlugInput}
-                              className="px-4 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
-                            >
-                              {isSavingSlug ? (
-                                <>
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  <span>Saving...</span>
-                                </>
-                              ) : (
-                                <span>Save URL</span>
-                              )}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => setIsCustomizingSlug(false)}
-                              className="px-3 py-2.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-600 text-xs font-semibold transition-all"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Real-time Availability Feedback */}
-                        <div className="flex items-center gap-2 text-[11px] pt-0.5">
-                          {slugChecking ? (
-                            <span className="text-neutral-500 flex items-center gap-1 font-medium">
-                              <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />
-                              Checking availability...
-                            </span>
-                          ) : slugStatus.available ? (
-                            <span className="text-emerald-700 flex items-center gap-1 font-bold">
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              vouchins.com/resume/{customSlugInput} is available!
-                            </span>
-                          ) : slugStatus.error ? (
-                            <span className="text-red-600 flex items-center gap-1 font-medium">
-                              <AlertCircle className="w-3 h-3 text-red-500" />
-                              {slugStatus.error}
-                            </span>
-                          ) : (
-                            <span className="text-neutral-400">
-                              Choose a unique handle with letters, numbers, and hyphens (3-40 characters).
-                            </span>
-                          )}
-                        </div>
+                            <Pencil className="w-3 h-3 text-[#0A1B5C]" />
+                            <span>Customize URL</span>
+                          </button>
+                        )}
                       </div>
                     </div>
-                  )}
 
-                  {/* URL Bar & Actions */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                    {/* Inline Custom URL Editor */}
+                    {isCustomizingSlug && (
+                      <div className="p-4 rounded-2xl bg-white border border-[#0A1B5C]/20 shadow-xs space-y-3 animate-in fade-in-50 duration-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-[#0A1B5C]" />
+                            <h4 className="text-xs font-bold text-neutral-900">
+                              Customize Your Shareable Resume Link
+                            </h4>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomizingSlug(false)}
+                            className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                            <div className="flex-1 flex items-center rounded-xl border border-neutral-300 focus-within:border-[#0A1B5C] focus-within:ring-1 focus-within:ring-[#0A1B5C] bg-white overflow-hidden text-xs">
+                              <span className="px-3 py-2.5 bg-neutral-50 text-neutral-500 font-semibold border-r border-neutral-200 select-none">
+                                vouchins.com/resume/
+                              </span>
+                              <input
+                                type="text"
+                                value={customSlugInput}
+                                onChange={(e) => setCustomSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                                placeholder="your-name"
+                                className="flex-1 px-3 py-2 text-xs font-bold text-neutral-900 focus:outline-none"
+                                maxLength={40}
+                              />
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={handleSaveCustomSlug}
+                                disabled={isSavingSlug || slugChecking || slugStatus.available === false || !customSlugInput}
+                                className="px-4 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
+                              >
+                                {isSavingSlug ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Saving...</span>
+                                  </>
+                                ) : (
+                                  <span>Save URL</span>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setIsCustomizingSlug(false)}
+                                className="px-3 py-2.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-600 text-xs font-semibold transition-all"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Real-time Availability Feedback */}
+                          <div className="flex items-center gap-2 text-[11px] pt-0.5">
+                            {slugChecking ? (
+                              <span className="text-neutral-500 flex items-center gap-1 font-medium">
+                                <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />
+                                Checking availability...
+                              </span>
+                            ) : slugStatus.available ? (
+                              <span className="text-emerald-700 flex items-center gap-1 font-bold">
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                vouchins.com/resume/{customSlugInput} is available!
+                              </span>
+                            ) : slugStatus.error ? (
+                              <span className="text-red-600 flex items-center gap-1 font-medium">
+                                <AlertCircle className="w-3 h-3 text-red-500" />
+                                {slugStatus.error}
+                              </span>
+                            ) : (
+                              <span className="text-neutral-400">
+                                Choose a unique handle with letters, numbers, and hyphens (3-40 characters).
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Readonly URL Box */}
-                    <div className="flex-1 flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200/90 text-xs font-mono text-neutral-600 overflow-hidden">
+                    <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-neutral-50 border border-neutral-200/90 text-xs font-mono text-neutral-600 overflow-hidden">
                       <Link2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                       <span className="truncate selection:bg-[#0A1B5C]/20">
                         {shareableUrl}
@@ -696,12 +699,12 @@ export function JobsOverviewDashboard() {
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center gap-2 pt-1 flex-wrap sm:flex-nowrap">
                       {/* Copy Link Button */}
                       <button
                         type="button"
                         onClick={handleCopyShareLink}
-                        className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white text-neutral-800 text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                        className="flex-1 px-3.5 py-2 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white text-neutral-800 text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
                         title="Copy shareable link"
                       >
                         {copiedLink ? (
@@ -722,10 +725,10 @@ export function JobsOverviewDashboard() {
                         href={effectiveSlug ? `/resume/${effectiveSlug}` : shareableUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                        className="flex-1 px-3.5 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                         title="Open resume in a new tab"
                       >
-                        <span>Open in New Tab</span>
+                        <span>Open in Tab</span>
                         <ExternalLink className="w-3.5 h-3.5 text-white" />
                       </a>
 
@@ -735,7 +738,7 @@ export function JobsOverviewDashboard() {
                           type="button"
                           onClick={() => handleDirectDownload(activeResume)}
                           disabled={isDownloadingDirect}
-                          className="flex-1 sm:flex-initial px-3.5 py-2.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-60 cursor-pointer whitespace-nowrap"
+                          className="flex-1 px-3.5 py-2 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-60 cursor-pointer whitespace-nowrap"
                           title="Download ATS-compliant PDF"
                         >
                           <Download className="w-3.5 h-3.5 text-[#0A1B5C]" />
@@ -745,14 +748,15 @@ export function JobsOverviewDashboard() {
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-neutral-500 font-medium">
-                    Share this link with recruiters, hiring managers, or colleagues. Anyone with the link can view your formatted resume and download an ATS-compliant PDF in one click.
+                  <p className="text-[11px] text-neutral-500 font-medium pt-2 border-t border-neutral-100">
+                    Share this link with recruiters, hiring managers, or colleagues. Anyone with the link can view your formatted resume and download an ATS-compliant PDF.
                   </p>
-                </div>
+                </section>
               )}
             </div>
-            ) : (
-              /* State B: User has NOT added resume yet - Single Clear Primary CTA */
+          ) : (
+            /* State B: User has NOT added resume yet - Single Clear Primary CTA */
+            <section className="bg-white rounded-3xl border border-neutral-200/80 p-6 sm:p-8 shadow-xs">
               <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 border border-amber-200/60">
@@ -782,8 +786,8 @@ export function JobsOverviewDashboard() {
                   <ArrowRight className="w-4 h-4 ml-0.5 text-white" />
                 </Link>
               </div>
-            )}
-          </section>
+            </section>
+          )}
 
           {/* Matching Jobs Section (Only visible when user has added a Master Resume) */}
           {hasResume && (

@@ -181,13 +181,7 @@ export async function GET(request: Request) {
       console.warn("Error querying database jobs:", jobsError);
     }
 
-    // If database jobs pool is low (< 5), trigger an asynchronous non-blocking background crawler sync
-    const currentDbJobsCount = dbJobs?.length || 0;
-    if (currentDbJobsCount < 5) {
-      crawlAndSyncTechJobs(5).catch((err) => {
-        console.warn("Background ATS crawl sync note:", err?.message || err);
-      });
-    }
+    // Direct recruiter jobs are currently paused per user request until direct recruiters are onboarded
 
     // 3. Fetch live tech jobs in parallel:
     // Source A: Direct Public ATS Boards (Greenhouse, Lever, Ashby) with Next.js ISR Cache
@@ -399,51 +393,54 @@ export async function GET(request: Request) {
       addJobIfUnique(job);
     }
 
-    // Priority 4: Curated Premier Tech Hub Catalog (Oracle, ServiceNow, Microsoft, Uber, Amazon, DE Shaw, Salesforce, Qualcomm, Stripe, Google, Meta)
-    const nowIso = new Date().toISOString();
-    for (const cj of CURATED_TECH_JOBS) {
-      const matchEvaluation = evaluateJobMatch(
-        {
+    // Priority 4: Curated Premier Tech Hub Catalog (Emergency offline fallback only)
+    // Only populated when all primary sources (DB, Live ATS, Freehire) return zero listings
+    if (combined.length === 0) {
+      const nowIso = new Date().toISOString();
+      for (const cj of CURATED_TECH_JOBS) {
+        const matchEvaluation = evaluateJobMatch(
+          {
+            title: cj.title,
+            description: cj.description.about,
+            requirements: cj.description.qualifications.join("\n"),
+            experienceLevel: cj.experienceLevel,
+            workplaceType: cj.workplaceType,
+            location: cj.location,
+            companyName: cj.companyName,
+          },
+          candidateSkills,
+          detectedSeniority,
+          candidateLocation
+        );
+
+        const count = getInsiderCount(cj.companyName);
+
+        addJobIfUnique({
+          id: cj.id,
           title: cj.title,
+          company_name: cj.companyName,
+          company_logo: cj.companyLogo,
+          location: cj.location,
+          workplace_type: cj.workplaceType,
+          job_type: cj.jobType,
+          experience_level: cj.experienceLevel,
+          category: cj.category,
+          salary_range: cj.salaryRange,
           description: cj.description.about,
           requirements: cj.description.qualifications.join("\n"),
-          experienceLevel: cj.experienceLevel,
-          workplaceType: cj.workplaceType,
-          location: cj.location,
-          companyName: cj.companyName,
-        },
-        candidateSkills,
-        detectedSeniority,
-        candidateLocation
-      );
-
-      const count = getInsiderCount(cj.companyName);
-
-      addJobIfUnique({
-        id: cj.id,
-        title: cj.title,
-        company_name: cj.companyName,
-        company_logo: cj.companyLogo,
-        location: cj.location,
-        workplace_type: cj.workplaceType,
-        job_type: cj.jobType,
-        experience_level: cj.experienceLevel,
-        category: cj.category,
-        salary_range: cj.salaryRange,
-        description: cj.description.about,
-        requirements: cj.description.qualifications.join("\n"),
-        external_apply_url: cj.externalApplyUrl,
-        is_internal: cj.isInternal,
-        match_score: matchEvaluation.matchScore,
-        match_breakdown: matchEvaluation.matchBreakdown,
-        why_you_match: matchEvaluation.whyYouMatch,
-        matching_skills: matchEvaluation.matchingSkills.length > 0 ? matchEvaluation.matchingSkills : cj.matchingSkills,
-        missing_skills: matchEvaluation.missingSkills.length > 0 ? matchEvaluation.missingSkills : cj.missingSkills,
-        tailored_bullet_suggestion: matchEvaluation.tailoredBulletSuggestion,
-        insider_count: count > 0 ? count : cj.insiderCount,
-        is_recommended: matchEvaluation.isRecommended,
-        created_at: nowIso,
-      });
+          external_apply_url: cj.externalApplyUrl,
+          is_internal: cj.isInternal,
+          match_score: matchEvaluation.matchScore,
+          match_breakdown: matchEvaluation.matchBreakdown,
+          why_you_match: matchEvaluation.whyYouMatch,
+          matching_skills: matchEvaluation.matchingSkills.length > 0 ? matchEvaluation.matchingSkills : cj.matchingSkills,
+          missing_skills: matchEvaluation.missingSkills.length > 0 ? matchEvaluation.missingSkills : cj.missingSkills,
+          tailored_bullet_suggestion: matchEvaluation.tailoredBulletSuggestion,
+          insider_count: count > 0 ? count : cj.insiderCount,
+          is_recommended: matchEvaluation.isRecommended,
+          created_at: nowIso,
+        });
+      }
     }
 
     // 9. Prune stale jobs (> 90 days) and apply workplace mode & location matching

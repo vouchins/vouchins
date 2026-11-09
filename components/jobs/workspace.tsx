@@ -9,9 +9,11 @@ import {
   ResumeSuggestion,
   SubscriptionInfo,
   isUserProOrElite,
+  JobMatchVectors,
 } from '@/lib/jobs/types';
 import { evaluateResumeHeuristically } from '@/lib/jobs/xyz-evaluator';
 import { invalidateResumesCache } from '@/lib/jobs/client-cache';
+import { formatLocalizedSalary } from './recommend-dashboard';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -157,6 +159,7 @@ export function Workspace({
   // Handle document edits in the canvas and live-recalculate readiness score
   const handleDocumentChange = (updatedDoc: ResumeDocument) => {
     setDocument(updatedDoc);
+    setMatchedJobs([]);
     const fresh = evaluateResumeHeuristically(updatedDoc);
     setEvaluation((prev) => ({
       ...prev,
@@ -165,6 +168,7 @@ export function Workspace({
       strengths: fresh.strengths,
       detectedSeniority: fresh.detectedSeniority,
       targetRole: fresh.targetRole,
+      jobMatchVectors: fresh.jobMatchVectors,
     }));
   };
 
@@ -190,6 +194,7 @@ export function Workspace({
       };
 
       setDocument(updatedDoc);
+      setMatchedJobs([]);
 
       // Re-evaluate document dynamically with the metric-rich rewrite
       const fresh = evaluateResumeHeuristically(updatedDoc);
@@ -205,6 +210,7 @@ export function Workspace({
         pillarScores: fresh.pillarScores,
         strengths: fresh.strengths,
         suggestions: updatedSuggestions,
+        jobMatchVectors: fresh.jobMatchVectors,
       });
 
       // Trigger visual pulse highlight on the target bullet in canvas
@@ -238,6 +244,7 @@ export function Workspace({
       };
 
       setDocument(updatedDoc);
+      setMatchedJobs([]);
 
       const fresh = evaluateResumeHeuristically(updatedDoc);
 
@@ -251,6 +258,7 @@ export function Workspace({
         pillarScores: fresh.pillarScores,
         strengths: fresh.strengths,
         suggestions: updatedSuggestions,
+        jobMatchVectors: fresh.jobMatchVectors,
       });
 
       toast.info('Suggestion reverted to original phrasing.');
@@ -259,6 +267,7 @@ export function Workspace({
 
   // Save current document state and persistent evaluation to Supabase
   const handleSave = async () => {
+    setMatchedJobs([]);
     setIsSaving(true);
     const toastId = toast.loading('Saving resume draft and readiness score...');
 
@@ -351,6 +360,14 @@ export function Workspace({
 
     setLoadingJobs(true);
     try {
+      const candidateLoc = document?.contact?.location || 'Hyderabad, India';
+      const fresh = evaluateResumeHeuristically(document);
+      const latestVectors: JobMatchVectors = {
+        ...(fresh.jobMatchVectors || evaluation.jobMatchVectors),
+        preferredLocations: [candidateLoc, 'Remote'],
+        detectedRole: document?.experience?.[0]?.roleTitle || fresh.targetRole || evaluation.targetRole || 'Software Engineer',
+      };
+
       const authHeaders = await getAuthHeaders();
       const res = await fetch('/api/jobs/match-jobs', {
         method: 'POST',
@@ -359,7 +376,7 @@ export function Workspace({
           ...authHeaders,
         },
         body: JSON.stringify({
-          vectors: evaluation.jobMatchVectors,
+          vectors: latestVectors,
         }),
       });
 
@@ -727,7 +744,7 @@ export function Workspace({
 
                     <div className="flex items-center justify-between pt-2.5 border-t border-neutral-200/60 mt-0.5 gap-2">
                       <span className="text-xs font-semibold text-neutral-700 truncate">
-                        {job.salaryRange || 'Competitive compensation'}
+                        {formatLocalizedSalary(job.salaryRange, job.location || document?.contact?.location)}
                       </span>
                       <div className="flex items-center gap-2 shrink-0">
                         <Button
