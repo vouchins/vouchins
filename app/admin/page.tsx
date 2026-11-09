@@ -20,6 +20,7 @@ import {
   Megaphone,
   BarChart3,
   Download,
+  GraduationCap,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase/browser";
 import { UsersTab } from "@/components/admin/users-tab";
@@ -34,6 +35,7 @@ import { CompaniesTab } from "@/components/admin/companies-tab";
 import { CampaignsTab } from "@/components/admin/campaigns-tab";
 import { AnalyticsTab } from "@/components/admin/analytics-tab";
 import { ContentImporterTab } from "@/components/admin/content-importer-tab";
+import { SkillsTab } from "@/components/admin/skills-tab";
 
 function AdminPageContent() {
   const router = useRouter();
@@ -639,6 +641,9 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="skills" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
+                  <GraduationCap className="h-4 w-4 mr-2" /> Skills & Courses
+                </TabsTrigger>
               </TabsList>
 
               <div className="relative">
@@ -738,6 +743,9 @@ function AdminPageContent() {
                     </TabsContent>
                     <TabsContent value="content-importer">
                       <ContentImporterTab />
+                    </TabsContent>
+                    <TabsContent value="skills">
+                      <SkillsTab onRefresh={handleRefreshActiveTab} loading={loading || isTabLoading} />
                     </TabsContent>
                   </>
                 )}
