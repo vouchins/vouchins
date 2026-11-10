@@ -19,6 +19,7 @@ type PublicFeedPost = {
 const PUBLIC_PAGES: MetadataRoute.Sitemap = [
   { url: BASE_URL, changeFrequency: "weekly", priority: 1 },
   { url: `${BASE_URL}/jobs`, changeFrequency: "weekly", priority: 0.9 },
+  { url: `${BASE_URL}/jobs/list`, changeFrequency: "weekly", priority: 0.9 },
   { url: `${BASE_URL}/jobs/dashboard`, changeFrequency: "weekly", priority: 0.9 },
   { url: `${BASE_URL}/about`, changeFrequency: "monthly", priority: 0.8 },
   { url: `${BASE_URL}/how-it-works`, changeFrequency: "monthly", priority: 0.8 },

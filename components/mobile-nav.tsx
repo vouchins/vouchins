@@ -142,7 +142,7 @@ export function MobileNav({
           type="button"
           aria-label="Open jobs"
           onClick={() => {
-            router.push("/jobs/dashboard");
+            router.push("/jobs");
           }}
           className={cn(
             "feed-focus flex min-w-0 flex-col items-center gap-1 rounded-xl py-1",

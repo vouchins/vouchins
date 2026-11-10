@@ -342,7 +342,7 @@ function NavigationContent() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => router.push("/jobs/dashboard")}
+                  onClick={() => router.push("/jobs")}
                   className={cn(
                     "h-9 rounded-xl px-2.5 md:px-3 relative group transition-all duration-150",
                     pathname?.startsWith("/jobs")

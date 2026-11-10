@@ -34,7 +34,7 @@ const composerActions = [
 
 function StaticHeader() {
   const actions = [
-    { label: "Jobs", href: "/jobs/dashboard", icon: Briefcase },
+    { label: "Jobs", href: "/jobs", icon: Briefcase },
     { label: "Saved", href: "/saved", icon: Bookmark },
     { label: "Messages", href: "/messages", icon: MessageCircle },
     { label: "Alerts", href: "/notifications", icon: Bell },

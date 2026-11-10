@@ -649,7 +649,8 @@ export function JobRecommendationsDashboard() {
   const [mobileView, setMobileView] = useState<'list' | 'detail'>(initialJobId ? 'detail' : 'list');
 
   // Search & Filter State
-  const [searchQuery, setSearchQuery] = useState('');
+  const initialSearchQuery = searchParams.get('q') || searchParams.get('search') || '';
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const initialTab = searchParams.get('tab') === 'recommended' || pathname === '/jobs/recommend' ? 'recommended' : 'all';
   const [activeChip, setActiveChip] = useState<'all' | 'high_match' | 'insiders' | 'remote' | 'tier1' | 'high_salary'>('all');
   const [activeListTab, setActiveListTab] = useState<'all' | 'recommended' | 'saved' | 'applied'>(initialTab);
@@ -1008,7 +1009,8 @@ export function JobRecommendationsDashboard() {
   const handleSelectJob = (jobId: string) => {
     setSelectedJobId(jobId);
     setMobileView('detail');
-    const targetUrl = pathname === '/jobs' ? `/jobs?id=${jobId}` : `/jobs/recommend?id=${jobId}`;
+    const basePath = pathname === '/jobs/recommend' ? '/jobs/recommend' : '/jobs/list';
+    const targetUrl = `${basePath}?id=${jobId}`;
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', targetUrl);
     }

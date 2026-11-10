@@ -795,7 +795,7 @@ export function Workspace({
                 Looking for more tech opportunities?
               </span>
               <Link
-                href="/jobs"
+                href="/jobs/list"
                 onClick={() => setMatchedJobsOpen(false)}
                 className="text-xs font-bold text-[#0A1B5C] hover:text-[#11287e] flex items-center gap-1.5 transition-colors"
               >

@@ -113,7 +113,7 @@ export function JobsNavbar({
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSearchControlled && currentSearchValue.trim()) {
-      router.push(`/jobs?q=${encodeURIComponent(currentSearchValue.trim())}`);
+      router.push(`/jobs/list?q=${encodeURIComponent(currentSearchValue.trim())}`);
     }
   };
 

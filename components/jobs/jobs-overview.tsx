@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Briefcase,
@@ -64,7 +64,17 @@ export function JobsOverviewDashboard() {
   const [jobsList, setJobsList] = useState<any[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
 
-  const firstName = user?.full_name?.trim().split(' ')[0] || '';
+  // Dynamic user display name
+  const userName = useMemo(() => {
+    if (user?.full_name?.trim()) {
+      return user.full_name.trim().split(' ')[0];
+    }
+    if (user?.email) {
+      const username = user.email.split('@')[0];
+      return username.charAt(0).toUpperCase() + username.slice(1);
+    }
+    return '';
+  }, [user?.full_name, user?.email]);
 
   useEffect(() => {
     let isMounted = true;
@@ -108,6 +118,39 @@ export function JobsOverviewDashboard() {
   const hasResume = Boolean(primaryResume) || Boolean((user as any)?.resume_path);
   const totalResumesCount = resumes.length > 0 ? resumes.length : ((user as any)?.resume_path ? 1 : 0);
   const additionalResumesCount = Math.max(0, totalResumesCount - 1);
+
+  // Context-aware greeting for returning, new, and unauthenticated users
+  const greeting = useMemo(() => {
+    // 1. Unauthenticated / Guest Users
+    if (!user) {
+      return {
+        badge: 'AI Career Acceleration Engine',
+        title: 'Welcome to Vouchins Jobs',
+        subtitle:
+          'Discover high-impact engineering opportunities, audit your resume against Google XYZ standards, and get verified employee referrals at top tech companies.',
+      };
+    }
+
+    // 2. Logged-in New Users (No Master Resume uploaded yet)
+    if (!hasResume) {
+      return {
+        badge: 'AI Career Acceleration Engine',
+        title: userName
+          ? `Welcome to Vouchins Jobs, ${userName}`
+          : 'Welcome to Vouchins Jobs',
+        subtitle:
+          'Get started by adding your Master Resume to unlock personalized job matches, ATS optimization, and verified corporate referrals.',
+      };
+    }
+
+    // 3. Logged-in Returning Users (Master Resume active)
+    return {
+      badge: 'AI Career Acceleration Engine',
+      title: userName ? `Welcome back, ${userName}` : 'Welcome back',
+      subtitle:
+        'Your Master Resume is active. We are matching your profile against verified tech roles and employee referral opportunities.',
+    };
+  }, [user, hasResume, userName]);
 
   // Shareable resume link state
   const [selectedResumeId, setSelectedResumeId] = useState<string>('');
@@ -443,39 +486,74 @@ export function JobsOverviewDashboard() {
             <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
               <div className="space-y-3 max-w-3xl">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white/90 text-xs font-extrabold uppercase tracking-wider backdrop-blur-md border border-white/10">
-                  <span>AI Career Acceleration Engine</span>
+                  <span>{greeting.badge}</span>
                 </div>
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
-                  Welcome back{firstName ? `, ${firstName}` : ''}
+                  {greeting.title}
                 </h1>
                 <p className="text-sm sm:text-base text-neutral-200 font-medium leading-relaxed">
-                  {hasResume
-                    ? 'Your Master Resume is active. We are matching your profile against verified tech roles and employee referral opportunities.'
-                    : 'Get started by adding your Master Resume to unlock personalized job matches, ATS optimization, and verified corporate referrals.'}
+                  {greeting.subtitle}
                 </p>
               </div>
 
-              {/* Action Buttons: Only shown when resume exists to prevent duplicate CTAs */}
-              {/* {hasResume && (
-                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+              {/* Context-Aware Action Buttons */}
+              {!user ? (
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto shrink-0">
                   <Link
-                    href="/jobs/resume"
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-neutral-100 text-[#0A1B5C] text-xs sm:text-sm font-black shadow-md transition-all active:scale-95 whitespace-nowrap"
+                    href="/login?returnTo=/jobs"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-neutral-100 text-[#0A1B5C] text-xs sm:text-sm font-black shadow-md transition-all active:scale-95 whitespace-nowrap cursor-pointer"
                   >
-                    <FileText className="h-4 w-4" />
-                    <span>Master Resume Studio</span>
-                    <ArrowRight className="h-4 w-4 ml-0.5" />
+                    <span>Sign In to Get Started</span>
+                    <ArrowRight className="h-4 w-4 ml-0.5 text-[#0A1B5C]" />
                   </Link>
 
                   <Link
-                    href="/jobs"
-                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs sm:text-sm font-bold border border-white/20 backdrop-blur-md transition-all active:scale-95 whitespace-nowrap"
+                    href="/jobs/list"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs sm:text-sm font-bold border border-white/20 backdrop-blur-md transition-all active:scale-95 whitespace-nowrap cursor-pointer"
+                  >
+                    <Briefcase className="h-4 w-4 text-white" />
+                    <span>Browse Open Roles</span>
+                  </Link>
+                </div>
+              ) : hasResume ? (
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto shrink-0">
+                  <Link
+                    href="/jobs/resume"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-neutral-100 text-[#0A1B5C] text-xs sm:text-sm font-black shadow-md transition-all active:scale-95 whitespace-nowrap cursor-pointer"
+                  >
+                    <FileText className="h-4 w-4 text-[#0A1B5C]" />
+                    <span>Master Resume Studio</span>
+                    <ArrowRight className="h-4 w-4 ml-0.5 text-[#0A1B5C]" />
+                  </Link>
+
+                  <Link
+                    href="/jobs/list"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs sm:text-sm font-bold border border-white/20 backdrop-blur-md transition-all active:scale-95 whitespace-nowrap cursor-pointer"
                   >
                     <Briefcase className="h-4 w-4 text-white" />
                     <span>Explore Matched Jobs</span>
                   </Link>
                 </div>
-              )} */}
+              ) : (
+                <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto shrink-0">
+                  <Link
+                    href="/jobs/resume"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white hover:bg-neutral-100 text-[#0A1B5C] text-xs sm:text-sm font-black shadow-md transition-all active:scale-95 whitespace-nowrap cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4 text-[#0A1B5C]" />
+                    <span>Upload Master Resume</span>
+                    <ArrowRight className="h-4 w-4 ml-0.5 text-[#0A1B5C]" />
+                  </Link>
+
+                  <Link
+                    href="/jobs/list"
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs sm:text-sm font-bold border border-white/20 backdrop-blur-md transition-all active:scale-95 whitespace-nowrap cursor-pointer"
+                  >
+                    <Briefcase className="h-4 w-4 text-white" />
+                    <span>Explore Jobs</span>
+                  </Link>
+                </div>
+              )}
             </div>
           </section>
 
@@ -780,24 +858,28 @@ export function JobsOverviewDashboard() {
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <h2 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight">
-                        Add Your Master Resume
+                        {user ? 'Add Your Master Resume' : 'Get Started with Master Resume'}
                       </h2>
-                      <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[11px] font-black border border-amber-200">
-                        Action Required
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
+                        user ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      }`}>
+                        {user ? 'Action Required' : 'Step 1'}
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm text-neutral-500 font-medium leading-relaxed max-w-2xl">
-                      Upload your resume to calculate your Google XYZ compliance score, generate deterministic bullet optimizations, and unlock personalized AI job matches calibrated to your skills.
+                      {user
+                        ? 'Upload your resume to calculate your Google XYZ compliance score, generate deterministic bullet optimizations, and unlock personalized AI job matches calibrated to your skills.'
+                        : 'Upload your resume or sign in to calculate your Google XYZ compliance score, generate bullet point audits, and unlock verified employee referrals at top tech companies.'}
                     </p>
                   </div>
                 </div>
 
                 <Link
-                  href="/jobs/resume"
+                  href={user ? '/jobs/resume' : `/login?returnTo=${encodeURIComponent('/jobs/resume')}`}
                   className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#0A1B5C] hover:bg-[#0c2277] text-white text-xs sm:text-sm font-black shadow-md transition-all active:scale-95 shrink-0"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Upload Master Resume</span>
+                  <Plus className="w-4 h-4 text-white" />
+                  <span>{user ? 'Upload Master Resume' : 'Sign In & Upload Resume'}</span>
                   <ArrowRight className="w-4 h-4 ml-0.5 text-white" />
                 </Link>
               </div>
@@ -821,7 +903,7 @@ export function JobsOverviewDashboard() {
                 </div>
 
                 <Link
-                  href="/jobs"
+                  href="/jobs/list"
                   className="text-xs font-bold text-[#0A1B5C] hover:text-[#0c2277] flex items-center gap-1 group"
                 >
                   <span>Explore All Positions</span>
@@ -886,7 +968,7 @@ export function JobsOverviewDashboard() {
 
                     {/* Action Button */}
                     <Link
-                      href="/jobs"
+                      href={job.id ? `/jobs/list?id=${encodeURIComponent(job.id)}` : '/jobs/list'}
                       className="inline-flex items-center justify-between w-full pt-3 border-t border-neutral-100 text-xs font-black text-[#0A1B5C] hover:text-[#0c2277] group"
                     >
                       <span>View Role Details</span>
@@ -969,7 +1051,7 @@ export function JobsOverviewDashboard() {
               </div>
 
               <Link
-                href="/jobs"
+                href="/jobs/list"
                 className="mt-4 pt-3 border-t border-neutral-100 text-xs font-bold text-[#0A1B5C] hover:text-[#0c2277] flex items-center justify-between group"
               >
                 <span>Browse Matched Positions</span>
@@ -1002,7 +1084,7 @@ export function JobsOverviewDashboard() {
               </div>
 
               <Link
-                href="/jobs"
+                href="/jobs/list"
                 className="mt-4 pt-3 border-t border-neutral-100 text-xs font-bold text-[#0A1B5C] hover:text-[#0c2277] flex items-center justify-between group"
               >
                 <span>Request Employee Vouchers</span>
@@ -1133,7 +1215,7 @@ export function JobsOverviewDashboard() {
               </div>
 
               <Link
-                href="/jobs"
+                href="/jobs/list"
                 className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0A1B5C] text-white hover:bg-[#0d2379] text-xs font-bold shadow-xs transition-all active:scale-95"
               >
                 <span>View Job Recommendations</span>
@@ -1183,7 +1265,7 @@ export function JobsOverviewDashboard() {
                   </div>
 
                   <Link
-                    href="/jobs"
+                    href="/jobs/list"
                     className="inline-flex items-center justify-between w-full pt-3 border-t border-neutral-100 text-xs font-black text-[#0A1B5C] hover:text-[#0c2277] group"
                   >
                     <span>Open Recommendations Feed</span>

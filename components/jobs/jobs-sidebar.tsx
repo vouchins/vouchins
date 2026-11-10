@@ -69,14 +69,14 @@ export function JobsSidebar({
       id: 'dashboard' as const,
       label: 'Overview',
       tooltip: 'Dashboard & Analytics',
-      href: '/jobs/dashboard',
+      href: '/jobs',
       icon: LayoutDashboard,
     },
     {
       id: 'jobs' as const,
       label: 'Jobs',
       tooltip: 'AI Job Recommendations',
-      href: '/jobs',
+      href: '/jobs/list',
       icon: Briefcase,
     },
     {
