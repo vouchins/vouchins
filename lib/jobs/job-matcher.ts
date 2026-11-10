@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { JobMatchVectors } from './types';
 import { CURATED_TECH_JOBS } from './curated-tech-jobs';
-import { isLocationMatch } from './ats-client';
+import { isLocationMatch, containsSkill } from './ats-client';
 import { cleanJobApplyUrl } from './url-cleaner';
 
 export interface MatchedJobResult {
@@ -48,7 +48,7 @@ export async function matchJobsForProfile(
       const jobText = `${job.title} ${job.description || ''} ${job.requirements || ''}`.toLowerCase();
 
       (vectors.primarySkills || []).forEach((skill) => {
-        if (jobText.includes(skill.toLowerCase())) {
+        if (containsSkill(jobText, skill)) {
           matchingSkills.push(skill);
           score += 6;
         }
@@ -107,7 +107,7 @@ export async function matchJobsForProfile(
       const jobText = `${cj.title} ${cj.description.about} ${cj.matchingSkills.join(' ')}`.toLowerCase();
 
       (vectors.primarySkills || []).forEach((skill) => {
-        if (jobText.includes(skill.toLowerCase())) {
+        if (containsSkill(jobText, skill)) {
           matchingSkills.push(skill);
           score += 6;
         }

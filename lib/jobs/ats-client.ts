@@ -434,6 +434,32 @@ const COMMON_TECH_TAXONOMY = [
 ];
 
 /**
+ * Safely tests whether a skill exists in a text corpus using word boundaries.
+ * Accurately prevents false-positive matches (e.g. "Go" matching "Google" or "algorithm",
+ * "Java" matching "JavaScript", "AI" matching "maintain" or "email").
+ */
+export function containsSkill(textCorpus: string, skill: string): boolean {
+  if (!textCorpus || !skill) return false;
+  const cleanSkill = skill.trim();
+  if (!cleanSkill) return false;
+  const lowerCorpus = textCorpus.toLowerCase();
+  const lowerSkill = cleanSkill.toLowerCase();
+
+  // Special cases for languages with symbols:
+  if (lowerSkill === 'c++') return /(^|[^a-zA-Z0-9])c\+\+([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  if (lowerSkill === 'c#') return /(^|[^a-zA-Z0-9])c#([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  if (lowerSkill === '.net') return /(^|[^a-zA-Z0-9])\.net([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  if (lowerSkill === 'go') {
+    return /(^|[^a-zA-Z0-9])(go|golang)([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  }
+
+  // Exact word boundary matching for acronyms and keywords (e.g. "AI", "ML", "Java", "SQL", "Rust")
+  const escaped = lowerSkill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, 'i');
+  return regex.test(lowerCorpus);
+}
+
+/**
  * Calculates candidate match metrics against a job posting text and requirements.
  */
 export function evaluateJobMatch(
@@ -456,10 +482,9 @@ export function evaluateJobMatch(
   const matchingSkills: string[] = [];
   const missingSkills: string[] = [];
 
-  // 1. Detect candidate matching skills
+  // 1. Detect candidate matching skills using precise word boundaries
   candidateSkills.forEach((skill) => {
-    const sLower = skill.toLowerCase().trim();
-    if (sLower && sLower.length >= 2 && textCorpus.includes(sLower)) {
+    if (skill && containsSkill(textCorpus, skill)) {
       if (!matchingSkills.includes(skill)) {
         matchingSkills.push(skill);
       }
@@ -468,24 +493,14 @@ export function evaluateJobMatch(
 
   const hasGenuineSkillMatch = matchingSkills.length > 0;
 
-  // If candidate had skills but none matched exactly, fallback to primary candidate skill as baseline
-  if (matchingSkills.length === 0 && candidateSkills.length > 0) {
-    matchingSkills.push(candidateSkills[0]);
-  }
-
-  // 2. Detect missing / recommended skills from tech taxonomy
+  // 2. Detect missing / recommended skills from tech taxonomy that the job actually mentions
   COMMON_TECH_TAXONOMY.forEach((tech) => {
-    const tLower = tech.toLowerCase();
-    if (textCorpus.includes(tLower) && !normalizedCandidate.includes(tLower)) {
-      if (missingSkills.length < 3 && !matchingSkills.some((m) => m.toLowerCase() === tLower)) {
+    if (containsSkill(textCorpus, tech) && !candidateSkills.some((cs) => cs.toLowerCase() === tech.toLowerCase())) {
+      if (missingSkills.length < 4 && !matchingSkills.some((m) => m.toLowerCase() === tech.toLowerCase())) {
         missingSkills.push(tech);
       }
     }
   });
-
-  if (missingSkills.length === 0) {
-    missingSkills.push('OpenTelemetry', 'Distributed Tracing');
-  }
 
   // 3. Dynamic match score computation
   let baseScore = 76;
@@ -496,7 +511,7 @@ export function evaluateJobMatch(
   // Bonus for candidate skills explicitly present in job title
   const titleLower = jobInfo.title.toLowerCase();
   const titleSkillMatches = candidateSkills.filter(
-    (s) => s.length >= 2 && titleLower.includes(s.toLowerCase().trim())
+    (s) => s.length >= 2 && containsSkill(titleLower, s)
   );
   if (titleSkillMatches.length > 0) {
     baseScore += 6;

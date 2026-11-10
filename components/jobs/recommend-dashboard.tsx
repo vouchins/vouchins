@@ -60,7 +60,7 @@ import { JobsSidebar } from './jobs-sidebar';
 import { JobsNavbar } from './jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
-import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch } from '@/lib/jobs/ats-client';
+import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch, containsSkill } from '@/lib/jobs/ats-client';
 import { cleanJobApplyUrl } from '@/lib/jobs/url-cleaner';
 import { CompanyLogo } from './company-logo';
 import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
@@ -411,8 +411,8 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       'React', 'TypeScript', 'Node.js', 'Python', 'Go', 'AWS', 'Kubernetes',
       'Docker', 'PostgreSQL', 'GraphQL', 'Next.js', 'Kafka', 'Redis', 'Java', 'GCP', 'SQL', 'C++'
     ];
-    // Safe substring checking (avoids regex crashes on characters like + in C++)
-    const matchingSkills = commonTech.filter((s) => textLower.includes(s.toLowerCase()));
+    // Accurate word boundary skill checking
+    const matchingSkills = commonTech.filter((s) => containsSkill(textLower, s));
     if (matchingSkills.length === 0) {
       matchingSkills.push('TypeScript', 'React', 'System Design', 'Cloud APIs');
     }
@@ -701,7 +701,26 @@ export function JobRecommendationsDashboard() {
               const skills: string[] = [];
               if (Array.isArray(data.document.skills)) {
                 data.document.skills.forEach((cat: any) => {
-                  if (Array.isArray(cat.items)) skills.push(...cat.items);
+                  if (typeof cat === 'string' && cat.trim()) {
+                    skills.push(cat.trim());
+                  } else if (Array.isArray(cat?.items)) {
+                    cat.items.forEach((item: any) => {
+                      if (typeof item === 'string' && item.trim()) {
+                        skills.push(item.trim());
+                      }
+                    });
+                  }
+                });
+              }
+              if (Array.isArray(data.document.projects)) {
+                data.document.projects.forEach((p: any) => {
+                  if (Array.isArray(p?.techStack)) {
+                    p.techStack.forEach((t: any) => {
+                      if (typeof t === 'string' && t.trim() && !skills.includes(t.trim())) {
+                        skills.push(t.trim());
+                      }
+                    });
+                  }
                 });
               }
               if (skills.length > 0) {
@@ -891,10 +910,8 @@ export function JobRecommendationsDashboard() {
           matchScore: evaluation.matchScore,
           matchBreakdown: evaluation.matchBreakdown,
           whyYouMatch: evaluation.whyYouMatch,
-          matchingSkills:
-            evaluation.matchingSkills.length > 0 ? evaluation.matchingSkills : j.matchingSkills,
-          missingSkills:
-            evaluation.missingSkills.length > 0 ? evaluation.missingSkills : j.missingSkills,
+          matchingSkills: evaluation.matchingSkills,
+          missingSkills: evaluation.missingSkills,
           isRecommended: evaluation.isRecommended,
         };
       }
@@ -2470,16 +2487,22 @@ export function JobRecommendationsDashboard() {
                           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                           Matched Competencies ({selectedJob.matchingSkills.length})
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {selectedJob.matchingSkills.map((s, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
-                            >
-                              ✓ {s}
-                            </span>
-                          ))}
-                        </div>
+                        {selectedJob.matchingSkills.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedJob.matchingSkills.map((s, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
+                              >
+                                ✓ {s}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-neutral-400 italic">
+                            No direct overlap detected with skills on your active resume.
+                          </p>
+                        )}
                       </div>
 
                       {/* Missing Skills (Opportunities to Tailor) */}
@@ -2488,16 +2511,22 @@ export function JobRecommendationsDashboard() {
                           <AlertTriangle className="h-4 w-4 text-amber-500" />
                           Keywords Missing ({selectedJob.missingSkills.length})
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {selectedJob.missingSkills.map((s, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-semibold"
-                            >
-                              + {s}
-                            </span>
-                          ))}
-                        </div>
+                        {selectedJob.missingSkills.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedJob.missingSkills.map((s, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-semibold"
+                              >
+                                + {s}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-emerald-700 font-medium">
+                            ✓ Great alignment - No missing core keywords detected.
+                          </p>
+                        )}
                         <button
                           onClick={() => setTailorModalOpen(true)}
                           className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1 pt-1"

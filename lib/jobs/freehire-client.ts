@@ -6,6 +6,7 @@
  */
 
 import { cleanJobApplyUrl } from './url-cleaner';
+import { containsSkill } from './ats-client';
 
 export interface FreehireJobQuery {
   skills?: string[];
@@ -191,8 +192,10 @@ export function transformFreehireJob(
 
   candidateSkills.forEach((candSkill) => {
     const lower = candSkill.toLowerCase().trim();
-    if (jobSkills.some((js) => js.toLowerCase() === lower) || rawText.includes(lower)) {
-      matchingSkills.push(candSkill);
+    if (jobSkills.some((js) => js.toLowerCase() === lower) || containsSkill(rawText, candSkill)) {
+      if (!matchingSkills.includes(candSkill)) {
+        matchingSkills.push(candSkill);
+      }
     }
   });
 
@@ -204,10 +207,6 @@ export function transformFreehireJob(
       }
     }
   });
-
-  if (matchingSkills.length === 0 && candidateSkills.length > 0) {
-    matchingSkills.push(candidateSkills[0]);
-  }
 
   // Calculate dynamic match score
   let baseScore = 75;
