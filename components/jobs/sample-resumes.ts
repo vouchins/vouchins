@@ -109,7 +109,7 @@ export const SAMPLE_STAFF_EVALUATION: ResumeEvaluation = {
     relevance: 91,
     brevity: 83,
   },
-  detectedSeniority: 'Staff Software Engineer (L6 / IC6)',
+  detectedSeniority: 'Staff Software Engineer (L4)',
   targetRole: 'Staff / Principal Full-Stack Engineer',
   strengths: [
     'Strong executive architectural scope with multi-million user scale ($1.8M pipeline, 6.5M MAU)',
@@ -179,7 +179,7 @@ export const SAMPLE_STAFF_EVALUATION: ResumeEvaluation = {
   ],
   jobMatchVectors: {
     detectedRole: 'Staff Full-Stack Engineer',
-    seniority: 'Staff Software Engineer (L6 / IC6)',
+    seniority: 'Staff Software Engineer (L4)',
     primarySkills: ['TypeScript', 'Next.js', 'React', 'Go', 'Distributed Systems', 'Redis'],
     secondarySkills: ['PostgreSQL', 'Docker', 'Kubernetes', 'AWS', 'GraphQL', 'CI/CD'],
     estimatedYearsExperience: 9,

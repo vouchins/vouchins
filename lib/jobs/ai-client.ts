@@ -289,7 +289,7 @@ Target companies: Google, Meta, Amazon, Uber, Salesforce.
 Scoring requirements:
 - overallScore (0-100)
 - pillarScores: { impact (0-100), relevance (0-100), brevity (0-100) }
-- detectedSeniority (string, accurately reflecting candidate career stage, e.g. "Engineering Intern (L1)", "Associate Software Engineer (L3)", "Software Engineer (L4)", "Senior Software Engineer (L5)", "Staff Software Engineer (L6)", "Principal Engineer (L7+)")
+- detectedSeniority (string, accurately reflecting candidate career stage: "Engineering Intern (L0)", "Associate Software Engineer (L1)", "Software Engineer (L2)", "Senior Software Engineer (L3)", "Staff Software Engineer (L4)", "Principal Engineer (L5+)")
 - targetRole (string, strictly derived from candidate's latest work title or target focus, without forcing Senior or Staff if candidate is an intern, junior, or entry-level fresher)
 - strengths (array of strings)
 - missingKeywords (array of strings)

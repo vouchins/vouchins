@@ -340,6 +340,55 @@ function condenseBullet(bullet: string): string {
   return clean;
 }
 
+export function parseExperienceYears(doc?: ResumeDocument | null): number {
+  if (!doc?.experience || doc.experience.length === 0) return 0;
+
+  // Check if all are internships or trainee programs
+  const allInternships = doc.experience.every((e) =>
+    /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(e.roleTitle)
+  );
+  if (allInternships) return 0;
+
+  const currentYear = new Date().getFullYear();
+  let minStartYear = currentYear;
+  let maxEndYear = 0;
+  let foundValidDate = false;
+
+  for (const exp of doc.experience) {
+    const startMatch = (exp.startDate || '').match(/\b(19\d{2}|20\d{2})\b/);
+    const endMatch = (exp.endDate || '').match(/\b(19\d{2}|20\d{2})\b/);
+
+    if (startMatch) {
+      const sY = parseInt(startMatch[1], 10);
+      if (sY >= 1990 && sY <= currentYear) {
+        minStartYear = Math.min(minStartYear, sY);
+        foundValidDate = true;
+      }
+    }
+
+    if (exp.isCurrent || /present|current/i.test(exp.endDate || '')) {
+      maxEndYear = Math.max(maxEndYear, currentYear);
+      foundValidDate = true;
+    } else if (endMatch) {
+      const eY = parseInt(endMatch[1], 10);
+      if (eY >= 1990 && eY <= currentYear + 1) {
+        maxEndYear = Math.max(maxEndYear, eY);
+        foundValidDate = true;
+      }
+    }
+  }
+
+  if (foundValidDate && maxEndYear >= minStartYear) {
+    return Math.max(0, maxEndYear - minStartYear);
+  }
+
+  const nonInternRoles = doc.experience.filter(
+    (e) => !/\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(e.roleTitle)
+  ).length;
+
+  return Math.min(25, nonInternRoles * 2);
+}
+
 export function detectSeniority(
   corpus: string,
   docOrCount?: ResumeDocument | number,
@@ -354,83 +403,114 @@ export function detectSeniority(
 
   const rawLatestTitle = explicitTitle || doc?.experience?.[0]?.roleTitle || '';
   const latestTitle = rawLatestTitle.trim().toLowerCase();
+  const expYears = parseExperienceYears(doc);
 
   // 1. Evaluate candidate's latest work title if present
   if (latestTitle) {
-    // Intern / Trainee / Student / Apprentice / Co-op
-    if (/\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(latestTitle)) {
-      return 'Engineering Intern (L1)';
+    // L1: Associate, Junior, Fresher, SDE-1, Graduate Engineer Trainee (0 yrs freshers)
+    if (
+      /\b(associate|junior|jr\.?|fresher|sde[-_ ]?1\b|sde[-_ ]?i\b|graduate engineer trainee|graduate trainee|engineer trainee|grad|entry)\b/i.test(latestTitle) ||
+      /\b(l1|ic1)\b/i.test(latestTitle)
+    ) {
+      return 'Associate Software Engineer (L1)';
     }
 
-    // Junior / Associate / Entry-Level / Graduate / Fresher
-    if (/\b(associate|junior|jr\.?|entry|graduate|grad|fresher)\b/i.test(latestTitle)) {
-      return 'Associate Software Engineer (L3)';
+    // Intern (L0): Intern, Trainee, Apprentice, Student, Co-op (Currently interning)
+    if (
+      /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(latestTitle) ||
+      /\b(l0|ic0)\b/i.test(latestTitle)
+    ) {
+      return 'Engineering Intern (L0)';
     }
 
-    // Principal / Director / Distinguished / Fellow / VP
-    if (/\b(principal|distinguished|fellow|director|vp|vice president)\b/i.test(latestTitle)) {
-      return 'Principal Engineer (L7+)';
+    // L5+: Principal, Distinguished Engineer, Director, Fellow, VP (13+ yrs)
+    if (
+      /\b(principal|distinguished|fellow|director|vp|vice president)\b/i.test(latestTitle) ||
+      /\b(l5\+|ic5\+|l[5-9]\b|l1[0-9]\b|ic[5-9]\b|ic1[0-9]\b)\b/i.test(latestTitle)
+    ) {
+      return 'Principal Engineer (L5+)';
     }
 
-    // Staff / Architect / Tech Lead / Lead Architect
-    if (/\b(staff|architect|tech lead|technical lead)\b/i.test(latestTitle)) {
-      return 'Staff Software Engineer (L6)';
+    // L4: Staff, Lead Architect, Chief Architect (9-13 yrs)
+    if (
+      /\b(staff|lead architect|chief architect)\b/i.test(latestTitle) ||
+      /\b(l4|ic4)\b/i.test(latestTitle)
+    ) {
+      return 'Staff Software Engineer (L4)';
     }
 
-    // Senior / Lead / Manager / Sr.
-    if (/\b(senior|sr\.?|lead|manager)\b/i.test(latestTitle)) {
-      return 'Senior Software Engineer (L5)';
+    // L3: Senior, Tech Lead, SDE-3 (5-9 yrs)
+    if (
+      /\b(senior|sr\.?|tech lead|technical lead|team lead|sde[-_ ]?3\b|sde[-_ ]?iii\b)\b/i.test(latestTitle) ||
+      /\b(l3|ic3)\b/i.test(latestTitle)
+    ) {
+      return 'Senior Software Engineer (L3)';
     }
 
-    // Explicit Level notation in title (e.g. L3, L4, L5, L6, L7)
-    if (/\b(l7|l8|ic7|ic8)\b/i.test(latestTitle)) return 'Principal Engineer (L7+)';
-    if (/\b(l6|ic6)\b/i.test(latestTitle)) return 'Staff Software Engineer (L6)';
-    if (/\b(l5|ic5)\b/i.test(latestTitle)) return 'Senior Software Engineer (L5)';
-    if (/\b(l4|ic4)\b/i.test(latestTitle)) return 'Software Engineer (L4)';
-    if (/\b(l3|ic3)\b/i.test(latestTitle)) return 'Associate Software Engineer (L3)';
-    if (/\b(l1|l2|ic1|ic2)\b/i.test(latestTitle)) return 'Engineering Intern (L1)';
+    // L2: Software Engineer, Full Stack Developer, SDE-2, MTS (2-5 yrs)
+    if (
+      /\b(sde[-_ ]?2\b|sde[-_ ]?ii\b|mts\b|member of technical staff)\b/i.test(latestTitle) ||
+      /\b(l2|ic2)\b/i.test(latestTitle)
+    ) {
+      return 'Software Engineer (L2)';
+    }
+
+    // Architect without explicit lead or staff prefix
+    if (/\barchitect\b/i.test(latestTitle)) {
+      return 'Staff Software Engineer (L4)';
+    }
+
+    // Title without explicit seniority marker (e.g. "Software Engineer", "Full Stack Developer", "Backend Developer")
+    // Map using typical experience brackets:
+    // 0 yrs -> L1, 2-5 yrs -> L2, 5-9 yrs -> L3, 9-13 yrs -> L4, 13+ yrs -> L5+
+    if (expYears >= 13) return 'Principal Engineer (L5+)';
+    if (expYears >= 9) return 'Staff Software Engineer (L4)';
+    if (expYears >= 5) return 'Senior Software Engineer (L3)';
+    if (expYears >= 2) return 'Software Engineer (L2)';
+    if (expYears === 0 && roleCount <= 1) return 'Associate Software Engineer (L1)';
+    return 'Software Engineer (L2)';
   }
 
-  // 2. Candidate has NO work experience (fresher or student with 0 roles)
+  // 2. Candidate has NO work experience (0 yrs freshers or students)
   if (roleCount === 0) {
     if (/\b(intern|internship|student|pursuing|undergraduate)\b/i.test(corpus)) {
-      return 'Engineering Intern (L1)';
+      return 'Engineering Intern (L0)';
     }
-    return 'Entry-Level / Fresher (L3)';
+    return 'Associate Software Engineer (L1)';
   }
 
   // 3. Inspect experience history if available
   if (doc?.experience && doc.experience.length > 0) {
-    // If all experiences are internships or trainee programs
+    // If all experiences are internships or trainee programs -> Intern (L0)
     const allInternships = doc.experience.every((e) =>
       /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(e.roleTitle)
     );
     if (allInternships) {
-      return 'Engineering Intern (L1)';
+      return 'Engineering Intern (L0)';
     }
 
-    // If all experiences are entry or associate level
+    // If all experiences are entry or associate level -> L1
     const allEntry = doc.experience.every((e) =>
-      /\b(associate|junior|jr\.?|entry|graduate|fresher|intern|trainee)\b/i.test(e.roleTitle)
+      /\b(associate|junior|jr\.?|entry|graduate|fresher|intern|trainee|sde[-_ ]?1\b|sde[-_ ]?i\b)\b/i.test(e.roleTitle)
     );
     if (allEntry) {
-      return 'Associate Software Engineer (L3)';
+      return 'Associate Software Engineer (L1)';
     }
   }
 
-  // 4. Role count and corpus heuristics for multi-role careers (only for non-freshers)
-  if (/\b(principal engineer|distinguished engineer|director of engineering)\b/i.test(corpus)) {
-    return 'Principal Engineer (L7+)';
+  // 4. Multi-role experience years / role count heuristics
+  if (expYears >= 13 || /\b(principal engineer|distinguished engineer|director of engineering)\b/i.test(corpus)) {
+    return 'Principal Engineer (L5+)';
   }
-  if (roleCount >= 4 || /\b(staff software engineer|chief architect|principal architect)\b/i.test(corpus)) {
-    return 'Staff Software Engineer (L6)';
+  if (expYears >= 9 || roleCount >= 5 || /\b(staff software engineer|chief architect|principal architect|lead architect)\b/i.test(corpus)) {
+    return 'Staff Software Engineer (L4)';
   }
-  if (roleCount >= 2 && /\b(senior software engineer|senior developer|tech lead)\b/i.test(corpus)) {
-    return 'Senior Software Engineer (L5)';
+  if (expYears >= 5 || roleCount >= 3 || /\b(senior software engineer|senior developer|tech lead)\b/i.test(corpus)) {
+    return 'Senior Software Engineer (L3)';
   }
 
-  // Default to mid-level for established engineering roles without senior or junior markers
-  return 'Software Engineer (L4)';
+  // Default to L2 for regular software engineers
+  return 'Software Engineer (L2)';
 }
 
 export function detectTargetRole(corpus: string, doc: ResumeDocument): string {
@@ -482,15 +562,7 @@ export function detectTargetRole(corpus: string, doc: ResumeDocument): string {
 }
 
 function estimateYears(doc: ResumeDocument): number {
-  if (!doc.experience || doc.experience.length === 0) return 0;
-
-  // If all roles are internships or trainee programs, total experience is 0 years
-  const isAllIntern = doc.experience.every((e) =>
-    /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(e.roleTitle)
-  );
-  if (isAllIntern) return 0;
-
-  return Math.min(15, Math.max(1, doc.experience.length * 2));
+  return parseExperienceYears(doc);
 }
 
 /**

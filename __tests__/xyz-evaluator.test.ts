@@ -64,7 +64,7 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
   });
 
   describe('Dynamic Seniority and Latest Work Title Derivation', () => {
-    it('evaluates a fresher resume with 0 experience without forcing L4 or L5 senior titles', () => {
+    it('evaluates a fresher resume with 0 experience as Associate Software Engineer (L1)', () => {
       const fresherResume = {
         contact: {
           fullName: 'Alice Student',
@@ -91,15 +91,15 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
 
       const result = evaluateResumeHeuristically(fresherResume as any);
 
-      expect(result.detectedSeniority).toBe('Entry-Level / Fresher (L3)');
+      expect(result.detectedSeniority).toBe('Associate Software Engineer (L1)');
       expect(result.targetRole).toBe('Junior Frontend Engineer');
-      expect(result.detectedSeniority).not.toContain('L4');
-      expect(result.detectedSeniority).not.toContain('L5');
+      expect(result.detectedSeniority).not.toContain('L2');
+      expect(result.detectedSeniority).not.toContain('L3');
       expect(result.targetRole).not.toContain('Senior');
       expect(result.targetRole).not.toContain('Staff');
     });
 
-    it('derives seniority and title from latest role when candidate has an internship', () => {
+    it('evaluates an interning student as Engineering Intern (L0)', () => {
       const internResume = {
         contact: {
           fullName: 'Bob Intern',
@@ -134,13 +134,11 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
 
       const result = evaluateResumeHeuristically(internResume as any);
 
-      expect(result.detectedSeniority).toBe('Engineering Intern (L1)');
+      expect(result.detectedSeniority).toBe('Engineering Intern (L0)');
       expect(result.targetRole).toBe('Software Engineer Intern');
-      expect(result.detectedSeniority).not.toContain('L5');
-      expect(result.targetRole).not.toContain('Senior');
     });
 
-    it('derives seniority and title for an Associate Software Engineer', () => {
+    it('derives L1 for an Associate Software Engineer / SDE-1', () => {
       const associateResume = {
         contact: {
           fullName: 'Charlie Dev',
@@ -153,7 +151,7 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
           {
             id: 'exp-1',
             company: 'Cloud Corp',
-            roleTitle: 'Associate Software Engineer',
+            roleTitle: 'Graduate Engineer Trainee',
             startDate: '2023',
             endDate: 'Present',
             isCurrent: true,
@@ -166,12 +164,41 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
 
       const result = evaluateResumeHeuristically(associateResume as any);
 
-      expect(result.detectedSeniority).toBe('Associate Software Engineer (L3)');
-      expect(result.targetRole).toBe('Associate Software Engineer');
-      expect(result.detectedSeniority).not.toContain('L5');
+      expect(result.detectedSeniority).toBe('Associate Software Engineer (L1)');
+      expect(result.targetRole).toBe('Graduate Engineer Trainee');
     });
 
-    it('derives seniority and exact title for a Senior Engineer', () => {
+    it('derives L2 for a Software Engineer / SDE-2 with 2-5 years experience', () => {
+      const midResume = {
+        contact: {
+          fullName: 'Evan Developer',
+          email: 'evan@example.com',
+          location: 'Hyderabad, India',
+        },
+        summary: 'Full stack developer building production web applications.',
+        skills: [{ category: 'Core', items: ['TypeScript', 'React', 'Node.js'] }],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Nexus Tech',
+            roleTitle: 'Software Engineer',
+            startDate: '2022',
+            endDate: 'Present',
+            isCurrent: true,
+            bullets: ['Built full stack features serving 50k users.'],
+          },
+        ],
+        projects: [],
+        education: [],
+      };
+
+      const result = evaluateResumeHeuristically(midResume as any);
+
+      expect(result.detectedSeniority).toBe('Software Engineer (L2)');
+      expect(result.targetRole).toBe('Software Engineer');
+    });
+
+    it('derives L3 for a Senior Software Engineer / Tech Lead with 5-9 years experience', () => {
       const seniorResume = {
         contact: {
           fullName: 'Diana Architect',
@@ -185,7 +212,7 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
             id: 'exp-1',
             company: 'Scale Inc',
             roleTitle: 'Senior Backend Engineer',
-            startDate: '2020',
+            startDate: '2019',
             endDate: 'Present',
             isCurrent: true,
             bullets: ['Architected distributed Kafka pipeline streaming 500k events/sec.'],
@@ -197,8 +224,68 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
 
       const result = evaluateResumeHeuristically(seniorResume as any);
 
-      expect(result.detectedSeniority).toBe('Senior Software Engineer (L5)');
+      expect(result.detectedSeniority).toBe('Senior Software Engineer (L3)');
       expect(result.targetRole).toBe('Senior Backend Engineer');
+    });
+
+    it('derives L4 for a Staff Software Engineer / Lead Architect', () => {
+      const staffResume = {
+        contact: {
+          fullName: 'Fiona Staff',
+          email: 'fiona@example.com',
+          location: 'Bengaluru, India',
+        },
+        summary: 'Staff engineer leading architectural governance.',
+        skills: [{ category: 'Core', items: ['Java', 'Distributed Systems', 'Cloud'] }],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Enterprise Core',
+            roleTitle: 'Staff Software Engineer',
+            startDate: '2015',
+            endDate: 'Present',
+            isCurrent: true,
+            bullets: ['Led cross-functional migration to event-driven services.'],
+          },
+        ],
+        projects: [],
+        education: [],
+      };
+
+      const result = evaluateResumeHeuristically(staffResume as any);
+
+      expect(result.detectedSeniority).toBe('Staff Software Engineer (L4)');
+      expect(result.targetRole).toBe('Staff Software Engineer');
+    });
+
+    it('derives L5+ for a Principal Engineer with 13+ years experience', () => {
+      const principalResume = {
+        contact: {
+          fullName: 'George Principal',
+          email: 'george@example.com',
+          location: 'San Francisco, CA',
+        },
+        summary: 'Principal engineer directing distributed platforms.',
+        skills: [{ category: 'Core', items: ['Distributed Systems', 'Cloud Infrastructure'] }],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Global Cloud Systems',
+            roleTitle: 'Principal Engineer',
+            startDate: '2010',
+            endDate: 'Present',
+            isCurrent: true,
+            bullets: ['Directed multi-region cloud infrastructure strategy.'],
+          },
+        ],
+        projects: [],
+        education: [],
+      };
+
+      const result = evaluateResumeHeuristically(principalResume as any);
+
+      expect(result.detectedSeniority).toBe('Principal Engineer (L5+)');
+      expect(result.targetRole).toBe('Principal Engineer');
     });
   });
 });
