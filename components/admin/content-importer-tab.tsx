@@ -52,26 +52,56 @@ export function ContentImporterTab() {
   } | null>(null);
 
   const [isCrawlingJobs, setIsCrawlingJobs] = useState(false);
+  const [selectedBatchIndex, setSelectedBatchIndex] = useState(0);
+  const [selectedLimit, setSelectedLimit] = useState<number>(25);
+  const [batchInfo, setBatchInfo] = useState<{ totalCompanies: number; totalBatches: number; batchSize: number }>({
+    totalCompanies: 457,
+    totalBatches: 19,
+    batchSize: 25,
+  });
   const [crawlResult, setCrawlResult] = useState<{
+    batchIndex?: number;
+    totalBatches?: number;
+    nextBatchIndex?: number | null;
+    totalCompanies?: number;
+    companiesProcessed?: string[];
     crawled: number;
     inserted: number;
     skippedDuplicates: number;
     importedJobs?: { title: string; company: string; location: string }[];
   } | null>(null);
 
-  const handleRunJobCrawl = async () => {
+  useEffect(() => {
+    fetch('/api/admin/jobs/crawl')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.totalCompanies && data.totalBatches) {
+          setBatchInfo({
+            totalCompanies: data.totalCompanies,
+            totalBatches: data.totalBatches,
+            batchSize: data.batchSize || 25,
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleRunJobCrawl = async (batchIdx = selectedBatchIndex) => {
     setIsCrawlingJobs(true);
     setCrawlResult(null);
     try {
       const res = await fetch("/api/admin/jobs/crawl", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ limit: 15 }),
+        body: JSON.stringify({ batchIndex: batchIdx, batchSize: batchInfo.batchSize, limit: selectedLimit }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to crawl jobs");
       setCrawlResult(data);
-      toast.success(`Crawl completed: ${data.inserted} new jobs added!`);
+      if (typeof data.nextBatchIndex === 'number') {
+        setSelectedBatchIndex(data.nextBatchIndex);
+      }
+      toast.success(`Batch ${batchIdx + 1} completed: ${data.inserted} new jobs added!`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error running job crawler");
     } finally {
@@ -148,37 +178,79 @@ export function ContentImporterTab() {
             <Briefcase className="h-5 w-5 text-[#0A1B5C]" />
             <h2 className="text-lg font-bold text-[#0A1B5C]">Tech Jobs Crawler & Importer</h2>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#4FD1C5]/20 text-[#0A1B5C]">
-              Jobs Platform
+              Freehire API ({batchInfo.totalCompanies} Companies)
             </span>
           </div>
           <p className="text-sm text-neutral-500 mt-1">
-            Crawl live job openings directly from Tier-1 tech company ATS feeds (Greenhouse & Lever) and sync them into the Jobs directory.
+            Fetch live job openings across all {batchInfo.totalCompanies} registered companies in batches using Freehire API. Automatically syncs authentic ATS requisition links.
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-neutral-500">
-            <span className="font-semibold text-neutral-700">Supported boards:</span>
-            {["Figma", "Stripe", "Airbnb", "DoorDash", "Spotify"].map((company) => (
-              <span key={company} className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium text-[11px]">
-                {company}
-              </span>
-            ))}
+            <span className="font-semibold text-neutral-700">Batch configuration:</span>
+            <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium text-[11px]">
+              {batchInfo.batchSize} companies per batch
+            </span>
+            <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-700 font-medium text-[11px]">
+              {batchInfo.totalBatches} total batches
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="batchSelect" className="text-xs font-semibold text-neutral-600">
+              Select Batch:
+            </label>
+            <select
+              id="batchSelect"
+              value={selectedBatchIndex}
+              onChange={(e) => setSelectedBatchIndex(Number(e.target.value))}
+              disabled={isCrawlingJobs}
+              className="text-xs font-bold rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+            >
+              {Array.from({ length: batchInfo.totalBatches }).map((_, idx) => {
+                const startNum = idx * batchInfo.batchSize + 1;
+                const endNum = Math.min((idx + 1) * batchInfo.batchSize, batchInfo.totalCompanies);
+                return (
+                  <option key={idx} value={idx}>
+                    Batch {idx + 1} ({startNum} - {endNum})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="limitSelect" className="text-xs font-semibold text-neutral-600">
+              Per Company:
+            </label>
+            <select
+              id="limitSelect"
+              value={selectedLimit}
+              onChange={(e) => setSelectedLimit(Number(e.target.value))}
+              disabled={isCrawlingJobs}
+              className="text-xs font-bold rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+            >
+              <option value={10}>10 jobs</option>
+              <option value={25}>25 jobs</option>
+              <option value={50}>50 jobs</option>
+              <option value={100}>100 jobs</option>
+            </select>
+          </div>
+
           <Button
-            onClick={handleRunJobCrawl}
+            onClick={() => handleRunJobCrawl(selectedBatchIndex)}
             disabled={isCrawlingJobs}
             className="bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs flex items-center gap-2 transition-all active:scale-95"
           >
             {isCrawlingJobs ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Crawling & Importing...
+                Crawling Batch {selectedBatchIndex + 1}...
               </>
             ) : (
               <>
                 <RefreshCw className="h-4 w-4" />
-                Crawl & Import Jobs Now
+                Crawl Batch {selectedBatchIndex + 1}
               </>
             )}
           </Button>
@@ -186,18 +258,36 @@ export function ContentImporterTab() {
       </div>
 
       {crawlResult && (
-        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs text-emerald-950 space-y-2">
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-xs text-emerald-950 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 font-bold text-sm text-emerald-900">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
               <span>
-                Crawl completed! {crawlResult.inserted} new jobs imported ({crawlResult.skippedDuplicates} duplicate postings skipped).
+                Batch {((crawlResult.batchIndex ?? selectedBatchIndex) + 1)} of {crawlResult.totalBatches || batchInfo.totalBatches} completed! {crawlResult.inserted} new jobs imported ({crawlResult.skippedDuplicates} duplicates skipped).
               </span>
             </div>
             <span className="text-[11px] font-semibold text-emerald-700">
               Total scanned: {crawlResult.crawled}
             </span>
           </div>
+
+          {crawlResult.companiesProcessed && crawlResult.companiesProcessed.length > 0 && (
+            <div className="pt-2 border-t border-emerald-200/60">
+              <span className="font-bold text-emerald-900 block mb-1">
+                Companies Scanned in this Batch ({crawlResult.companiesProcessed.length}):
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {crawlResult.companiesProcessed.map((comp, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-0.5 rounded-md bg-white/90 border border-emerald-200 text-emerald-900 text-[11px] font-medium"
+                  >
+                    {comp}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {crawlResult.importedJobs && crawlResult.importedJobs.length > 0 && (
             <div className="pt-2 border-t border-emerald-200/60">

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireActiveAdmin } from '@/lib/admin/auth';
 import { crawlAndSyncTechJobs } from '@/lib/jobs/crawler';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,17 +10,36 @@ export async function POST(request: Request) {
     const auth = await requireActiveAdmin();
     if (auth.response) return auth.response;
 
-    let perBoardLimit = 15;
+    let batchIndex = 0;
+    let batchSize = 25;
+    let perCompanyLimit = 25;
+    let companyName: string | undefined;
+
     try {
       const body = await request.json().catch(() => ({}));
-      if (typeof body.limit === 'number' && body.limit > 0 && body.limit <= 50) {
-        perBoardLimit = body.limit;
+      if (typeof body.batchIndex === 'number' && body.batchIndex >= 0) {
+        batchIndex = body.batchIndex;
+      }
+      if (typeof body.batchSize === 'number' && body.batchSize > 0 && body.batchSize <= 50) {
+        batchSize = body.batchSize;
+      }
+      const rawLimit = typeof body.perCompanyLimit === 'number' ? body.perCompanyLimit : body.limit;
+      if (typeof rawLimit === 'number' && rawLimit > 0 && rawLimit <= 100) {
+        perCompanyLimit = rawLimit;
+      }
+      if (typeof body.companyName === 'string' && body.companyName.trim()) {
+        companyName = body.companyName.trim();
       }
     } catch {
-      // Use default
+      // Use defaults
     }
 
-    const result = await crawlAndSyncTechJobs(perBoardLimit);
+    const result = await crawlAndSyncTechJobs({
+      batchIndex,
+      batchSize,
+      perCompanyLimit,
+      companyName,
+    });
 
     return NextResponse.json(result);
   } catch (error: any) {
@@ -36,10 +56,20 @@ export async function GET() {
     const auth = await requireActiveAdmin();
     if (auth.response) return auth.response;
 
+    const { count } = await supabaseAdmin
+      .from('companies')
+      .select('id', { count: 'exact', head: true });
+
+    const totalCompanies = count || 457;
+    const batchSize = 25;
+    const totalBatches = Math.max(1, Math.ceil(totalCompanies / batchSize));
+
     return NextResponse.json({
       status: 'ready',
-      message: 'Job crawler engine is operational. Send POST to trigger an import run.',
-      sources: ['Figma (Greenhouse)', 'Stripe (Greenhouse)', 'Airbnb (Greenhouse)', 'DoorDash (Greenhouse)', 'Spotify (Lever)'],
+      message: 'Freehire company-backed job crawler engine is operational.',
+      totalCompanies,
+      batchSize,
+      totalBatches,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Unauthorized' }, { status: 500 });

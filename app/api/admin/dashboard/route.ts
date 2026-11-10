@@ -62,6 +62,7 @@ async function counts() {
     { key: "feedback", query: () => supabaseAdmin.from("feedback").select("id", { count: "exact", head: true }).eq("status", "pending") },
     { key: "recruiters", query: () => supabaseAdmin.from("recruiters").select("id", { count: "exact", head: true }).eq("status", "pending") },
     { key: "companies", query: () => supabaseAdmin.from("companies").select("id", { count: "exact", head: true }) },
+    { key: "jobs", query: () => supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("is_active", true) },
     { key: "campaigns", query: () => supabaseAdmin.from("campaigns").select("id", { count: "exact", head: true }) },
     { key: "blog", query: () => supabaseAdmin.from("blog_posts").select("id", { count: "exact", head: true }) },
   ];

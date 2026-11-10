@@ -9,8 +9,8 @@ export interface CrawledJobItem {
   location: string;
   description: string;
   requirements?: string;
-  job_type: string;
-  experience_level: string;
+  job_type: 'full-time' | 'part-time' | 'contract' | 'internship';
+  experience_level: 'entry' | 'mid' | 'senior' | 'lead/director';
   category: string;
   salary_range?: string;
   external_apply_url: string;
@@ -19,8 +19,22 @@ export interface CrawledJobItem {
   updated_at: string;
 }
 
+export interface CrawlBatchOptions {
+  batchIndex?: number;
+  batchSize?: number;
+  perCompanyLimit?: number;
+  companyIds?: string[];
+  companyName?: string;
+}
+
 export interface CrawlJobResult {
   success: boolean;
+  batchIndex: number;
+  batchSize: number;
+  totalBatches: number;
+  totalCompanies: number;
+  nextBatchIndex: number | null;
+  companiesProcessed: string[];
   crawled: number;
   inserted: number;
   skippedDuplicates: number;
@@ -30,79 +44,90 @@ export interface CrawlJobResult {
 
 const SYSTEM_RECRUITER_ID = '57d1bab1-1c10-45f8-8835-d1421cab8ca5';
 
-interface GreenhouseTarget {
-  company: string;
-  boardToken: string;
-  domain: string;
-}
-
-interface LeverTarget {
-  company: string;
-  siteToken: string;
-  domain: string;
-}
-
-interface AshbyTarget {
-  company: string;
-  siteToken: string;
-  domain: string;
-}
-
-const GREENHOUSE_TARGETS: GreenhouseTarget[] = [
-  { company: 'Figma', boardToken: 'figma', domain: 'figma.com' },
-  { company: 'Stripe', boardToken: 'stripe', domain: 'stripe.com' },
-  { company: 'Airbnb', boardToken: 'airbnb', domain: 'airbnb.com' },
-  { company: 'DoorDash', boardToken: 'doordash', domain: 'doordash.com' },
-];
-
-const LEVER_TARGETS: LeverTarget[] = [
-  { company: 'Spotify', siteToken: 'spotify', domain: 'spotify.com' },
-];
-
-const ASHBY_TARGETS: AshbyTarget[] = [
-  { company: 'Linear', siteToken: 'linear', domain: 'linear.app' },
-  { company: 'Notion', siteToken: 'notion', domain: 'notion.so' },
-  { company: 'Ramp', siteToken: 'ramp', domain: 'ramp.com' },
-];
-
-function detectCategory(title: string): string {
+function detectCategory(title: string, rawCategory?: string): string {
+  const cat = (rawCategory || '').toLowerCase();
   const t = title.toLowerCase();
-  if (t.includes('data') || t.includes('ai') || t.includes('machine learning') || t.includes('ml') || t.includes('scientist')) {
+  if (cat.includes('data') || t.includes('data') || t.includes('ai') || t.includes('machine learning') || t.includes('ml') || t.includes('scientist')) {
     return 'Data / AI';
   }
-  if (t.includes('product manager') || t.includes('product lead') || t.includes('group product')) {
+  if (cat.includes('product') || t.includes('product manager') || t.includes('product lead') || t.includes('group product')) {
     return 'Product Management';
   }
-  if (t.includes('designer') || t.includes('ux') || t.includes('ui') || t.includes('product design')) {
+  if (cat.includes('design') || t.includes('designer') || t.includes('ux') || t.includes('ui') || t.includes('product design')) {
     return 'Design';
   }
-  if (t.includes('sales') || t.includes('account executive') || t.includes('business development') || t.includes('bdr')) {
+  if (cat.includes('sales') || t.includes('sales') || t.includes('account executive') || t.includes('business development') || t.includes('bdr')) {
     return 'Sales';
   }
-  if (t.includes('finance') || t.includes('accounting') || t.includes('tax') || t.includes('audit')) {
+  if (cat.includes('finance') || t.includes('finance') || t.includes('accounting') || t.includes('tax') || t.includes('audit')) {
     return 'Finance / Risk';
   }
-  if (t.includes('recruiter') || t.includes('talent') || t.includes('people') || t.includes('hr')) {
+  if (cat.includes('hr') || cat.includes('people') || t.includes('recruiter') || t.includes('talent') || t.includes('people') || t.includes('hr')) {
     return 'HR';
   }
-  if (t.includes('operations') || t.includes('program manager') || t.includes('coordinator')) {
+  if (cat.includes('operations') || t.includes('operations') || t.includes('program manager') || t.includes('coordinator')) {
     return 'Operations';
   }
   return 'Engineering';
 }
 
-function detectExperienceLevel(title: string): string {
+function detectJobType(rawType?: string): 'full-time' | 'part-time' | 'contract' | 'internship' {
+  const t = (rawType || '').toLowerCase();
+  if (t.includes('intern')) return 'internship';
+  if (t.includes('contract') || t.includes('freelance') || t.includes('temp')) return 'contract';
+  if (t.includes('part')) return 'part-time';
+  return 'full-time';
+}
+
+function detectExperienceLevel(
+  title: string,
+  rawSeniority?: string
+): 'entry' | 'mid' | 'senior' | 'lead/director' {
+  const s = (rawSeniority || '').toLowerCase();
   const t = title.toLowerCase();
-  if (t.includes('staff') || t.includes('principal') || t.includes('architect') || t.includes('director') || t.includes('head of')) {
-    return 'Staff';
+
+  // Lead / Director / Staff / Principal / Architect / VP / Head of
+  if (
+    s.includes('principal') ||
+    t.includes('principal') ||
+    s.includes('director') ||
+    t.includes('director') ||
+    s.includes('staff') ||
+    t.includes('staff') ||
+    s.includes('lead') ||
+    t.includes('lead') ||
+    s.includes('architect') ||
+    t.includes('architect') ||
+    t.includes('head of') ||
+    t.includes('vp') ||
+    t.includes('chief')
+  ) {
+    return 'lead/director';
   }
-  if (t.includes('senior') || t.includes('sr.') || t.includes('sr ') || t.includes('lead')) {
-    return 'Senior';
+
+  // Senior
+  if (s.includes('senior') || t.includes('senior') || t.includes('sr.') || t.includes('sr ')) {
+    return 'senior';
   }
-  if (t.includes('junior') || t.includes('jr.') || t.includes('associate') || t.includes('intern') || t.includes('graduate')) {
-    return 'Entry';
+
+  // Entry
+  if (
+    s.includes('entry') ||
+    s.includes('junior') ||
+    t.includes('junior') ||
+    t.includes('jr.') ||
+    t.includes('jr ') ||
+    t.includes('associate') ||
+    s.includes('intern') ||
+    t.includes('intern') ||
+    t.includes('trainee') ||
+    t.includes('fresher') ||
+    t.includes('graduate')
+  ) {
+    return 'entry';
   }
-  return 'Mid';
+
+  return 'mid';
 }
 
 function cleanHtmlToText(html: string): string {
@@ -118,16 +143,35 @@ function cleanHtmlToText(html: string): string {
     .trim();
 }
 
+function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
 /**
- * Crawls active public ATS job boards, filters duplicates against the Supabase jobs table,
- * and inserts freshly discovered job openings into public.jobs.
+ * Crawls live tech jobs across companies using Freehire search API in batches,
+ * deduplicates against Supabase, and batch-inserts new active jobs.
  */
-export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJobResult> {
+export async function crawlAndSyncTechJobs(
+  optionsOrLimit: number | CrawlBatchOptions = 25
+): Promise<CrawlJobResult> {
+  const options: CrawlBatchOptions =
+    typeof optionsOrLimit === 'number'
+      ? { batchSize: optionsOrLimit, perCompanyLimit: 25 }
+      : optionsOrLimit || {};
+
+  const batchIndex = Math.max(0, options.batchIndex || 0);
+  const batchSize = Math.max(1, Math.min(50, options.batchSize || 25));
+  const perCompanyLimit = Math.max(1, Math.min(100, options.perCompanyLimit || 25));
+
   const crawledItems: CrawledJobItem[] = [];
   const sourceStats: { company: string; platform: string; count: number }[] = [];
   const nowIso = new Date().toISOString();
 
-  // Resolve valid recruiter ID to ensure foreign key constraint satisfaction
+  // 1. Resolve active recruiter ID for foreign key constraint
   let activeRecruiterId = SYSTEM_RECRUITER_ID;
   try {
     const { data: rec } = await supabaseAdmin
@@ -150,155 +194,130 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
     // Keep default
   }
 
-  // 1. Crawl Greenhouse Boards
-  for (const target of GREENHOUSE_TARGETS) {
-    try {
-      const url = `https://boards-api.greenhouse.io/v1/boards/${target.boardToken}/jobs`;
-      const res = await fetch(url, {
-        headers: { Accept: 'application/json' },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) continue;
+  // 2. Fetch companies from the database
+  let companiesQuery = supabaseAdmin
+    .from('companies')
+    .select('id, name, domain', { count: 'exact' })
+    .order('name', { ascending: true });
 
-      const data = await res.json();
-      const rawJobs: any[] = Array.isArray(data.jobs) ? data.jobs : [];
-      let addedFromBoard = 0;
-
-      for (const job of rawJobs.slice(0, perBoardLimit)) {
-        if (!job.title || !job.absolute_url) continue;
-
-        const description = cleanHtmlToText(job.content || job.title).slice(0, 3000);
-        const locationStr = job.location?.name ? String(job.location.name).trim() : 'Remote';
-
-        crawledItems.push({
-          recruiter_id: activeRecruiterId,
-          title: String(job.title).trim(),
-          company_name: target.company,
-          company_logo: `https://www.google.com/s2/favicons?domain=${target.domain}&sz=128`,
-          location: locationStr,
-          description: description || `${target.company} is hiring for ${job.title}. Apply directly on their career portal.`,
-          requirements: 'Distributed systems, Cloud infrastructure, APIs, Strong technical acumen.',
-          job_type: 'Full-time',
-          experience_level: detectExperienceLevel(job.title),
-          category: detectCategory(job.title),
-          external_apply_url: cleanJobApplyUrl(String(job.absolute_url).trim()),
-          is_active: true,
-          created_at: nowIso,
-          updated_at: nowIso,
-        });
-
-        addedFromBoard++;
-      }
-
-      sourceStats.push({ company: target.company, platform: 'Greenhouse', count: addedFromBoard });
-    } catch (err) {
-      console.warn(`Greenhouse crawl error for ${target.company}:`, err);
-    }
+  if (options.companyName) {
+    companiesQuery = companiesQuery.ilike('name', `%${options.companyName}%`);
+  } else if (options.companyIds && options.companyIds.length > 0) {
+    companiesQuery = companiesQuery.in('id', options.companyIds);
   }
 
-  // 2. Crawl Lever Boards
-  for (const target of LEVER_TARGETS) {
-    try {
-      const url = `https://api.lever.co/v0/postings/${target.siteToken}?mode=json`;
-      const res = await fetch(url, {
-        headers: { Accept: 'application/json' },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) continue;
+  const { data: companiesData, count: dbCount } = await companiesQuery;
+  const allCompanies: { id: string; name: string; domain?: string }[] =
+    companiesData && companiesData.length > 0
+      ? companiesData
+      : [
+          { id: '1', name: 'Google', domain: 'google.com' },
+          { id: '2', name: 'Meta', domain: 'meta.com' },
+          { id: '3', name: 'Microsoft', domain: 'microsoft.com' },
+          { id: '4', name: 'Amazon', domain: 'amazon.com' },
+          { id: '5', name: 'ServiceNow', domain: 'servicenow.com' },
+          { id: '6', name: 'Oracle', domain: 'oracle.com' },
+          { id: '7', name: 'Salesforce', domain: 'salesforce.com' },
+          { id: '8', name: 'Uber', domain: 'uber.com' },
+        ];
 
-      const rawJobs: any[] = await res.json();
-      if (!Array.isArray(rawJobs)) continue;
+  const totalCompanies = dbCount || allCompanies.length;
+  const totalBatches = Math.max(1, Math.ceil(allCompanies.length / batchSize));
+  const startIndex = batchIndex * batchSize;
+  const targetCompanies = allCompanies.slice(startIndex, startIndex + batchSize);
+  const nextBatchIndex = startIndex + batchSize < allCompanies.length ? batchIndex + 1 : null;
 
-      let addedFromBoard = 0;
+  // 3. Query Freehire API concurrently in batches of 5 companies
+  const companyChunks = chunkArray(targetCompanies, 5);
+  const seenBatchUrls = new Set<string>();
 
-      for (const job of rawJobs.slice(0, perBoardLimit)) {
-        if (!job.text || !job.hostedUrl) continue;
+  for (const chunk of companyChunks) {
+    await Promise.all(
+      chunk.map(async (company) => {
+        try {
+          const encodedComp = encodeURIComponent(company.name.trim());
+          const url = `https://freehire.me/api/v1/jobs/search?q=${encodedComp}&q_fields=company&limit=${perCompanyLimit}`;
+          const res = await fetch(url, {
+            headers: { Accept: 'application/json' },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(6000),
+          });
 
-        const description = cleanHtmlToText(job.descriptionPlain || job.description || job.text).slice(0, 3000);
-        const locationStr = job.categories?.location || 'Remote';
-        const commitment = job.categories?.commitment || 'Full-time';
+          if (!res.ok) return;
 
-        crawledItems.push({
-          recruiter_id: activeRecruiterId,
-          title: String(job.text).trim(),
-          company_name: target.company,
-          company_logo: `https://www.google.com/s2/favicons?domain=${target.domain}&sz=128`,
-          location: locationStr,
-          description: description || `${target.company} is hiring for ${job.text}. Apply directly on their career portal.`,
-          requirements: 'Technical domain expertise, modern development frameworks, cross-functional collaboration.',
-          job_type: commitment.includes('Part') ? 'Part-time' : 'Full-time',
-          experience_level: detectExperienceLevel(job.text),
-          category: detectCategory(job.text),
-          salary_range: job.additionalPlain?.match(/\$[\d,]+(?:\s*-\s*\$[\d,]+)?/)?.[0] || undefined,
-          external_apply_url: cleanJobApplyUrl(String(job.hostedUrl).trim()),
-          is_active: true,
-          created_at: nowIso,
-          updated_at: nowIso,
-        });
+          const data = await res.json();
+          const rawJobs: any[] = Array.isArray(data?.data) ? data.data : [];
+          let addedFromComp = 0;
 
-        addedFromBoard++;
-      }
+          for (const job of rawJobs) {
+            if (!job.title || (!job.url && !job.apply_url && !job.external_apply_url)) continue;
 
-      sourceStats.push({ company: target.company, platform: 'Lever', count: addedFromBoard });
-    } catch (err) {
-      console.warn(`Lever crawl error for ${target.company}:`, err);
-    }
+            const applyUrl = job.url || job.apply_url || job.external_apply_url;
+            const cleanedUrl = cleanJobApplyUrl(String(applyUrl).trim());
+            if (!cleanedUrl || seenBatchUrls.has(cleanedUrl)) continue;
+            seenBatchUrls.add(cleanedUrl);
+
+            const descText = cleanHtmlToText(job.description || job.title).slice(0, 3000);
+            const locationStr =
+              job.location ||
+              (Array.isArray(job.cities) && job.cities.length > 0 ? job.cities.join(', ') : '') ||
+              'Remote';
+
+            const cleanDomain = company.domain || `${company.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+            const companyLogo = `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=128`;
+
+            const requirements = Array.isArray(job.enrichment?.requirements)
+              ? job.enrichment.requirements.map((r: any) => r.text || r).join('\n')
+              : 'Distributed systems, Cloud infrastructure, APIs, Strong technical acumen.';
+
+            crawledItems.push({
+              recruiter_id: activeRecruiterId,
+              title: String(job.title).trim(),
+              company_name: company.name,
+              company_logo: companyLogo,
+              location: locationStr,
+              description: descText || `${company.name} is hiring for ${job.title}. Apply directly on their career portal.`,
+              requirements,
+              job_type: detectJobType(job.enrichment?.employment_type),
+              experience_level: detectExperienceLevel(job.title, job.enrichment?.seniority),
+              category: detectCategory(job.title, job.enrichment?.category),
+              external_apply_url: cleanedUrl,
+              is_active: true,
+              created_at: nowIso,
+              updated_at: nowIso,
+            });
+
+            addedFromComp++;
+          }
+
+          if (addedFromComp > 0) {
+            sourceStats.push({ company: company.name, platform: 'Freehire (ATS)', count: addedFromComp });
+          }
+        } catch (err) {
+          console.warn(`Freehire crawl note for ${company.name}:`, err);
+        }
+      })
+    );
   }
 
-  // 3. Crawl Ashby Boards
-  for (const target of ASHBY_TARGETS) {
-    try {
-      const url = `https://api.ashbyhq.com/posting-api/job-board/${target.siteToken}?includeCompensation=true`;
-      const res = await fetch(url, {
-        headers: { Accept: 'application/json' },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!res.ok) continue;
-
-      const data = await res.json();
-      const rawJobs: any[] = Array.isArray(data?.jobs) ? data.jobs : [];
-      let addedFromBoard = 0;
-
-      for (const job of rawJobs.slice(0, perBoardLimit)) {
-        if (!job.title || (!job.jobUrl && !job.id)) continue;
-
-        const applyUrl = job.jobUrl || `https://jobs.ashbyhq.com/${target.siteToken}/${job.id}`;
-        const locationStr = job.location || job.secondaryLocations?.[0]?.location || 'Remote';
-        const salaryText = job.compensation?.compensationTierSummary || job.compensation?.summary || undefined;
-
-        crawledItems.push({
-          recruiter_id: activeRecruiterId,
-          title: String(job.title).trim(),
-          company_name: target.company,
-          company_logo: `https://www.google.com/s2/favicons?domain=${target.domain}&sz=128`,
-          location: locationStr,
-          description: `${target.company} is hiring for ${job.title}. Apply directly via their careers portal.`,
-          requirements: 'High technical craftsmanship, platform design, and production engineering.',
-          job_type: job.employmentType || 'Full-time',
-          experience_level: detectExperienceLevel(job.title),
-          category: detectCategory(job.title),
-          salary_range: salaryText,
-          external_apply_url: cleanJobApplyUrl(String(applyUrl).trim()),
-          is_active: true,
-          created_at: nowIso,
-          updated_at: nowIso,
-        });
-
-        addedFromBoard++;
-      }
-
-      sourceStats.push({ company: target.company, platform: 'Ashby', count: addedFromBoard });
-    } catch (err) {
-      console.warn(`Ashby crawl error for ${target.company}:`, err);
-    }
+  // 4. Prune stale jobs older than 90 days from database
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  try {
+    await supabaseAdmin.from('jobs').delete().lt('created_at', ninetyDaysAgo);
+  } catch (pruneErr) {
+    console.warn('Crawler stale jobs pruning note:', pruneErr);
   }
 
+  // 5. Deduplicate against existing jobs by external_apply_url
   if (crawledItems.length === 0) {
     return {
       success: true,
+      batchIndex,
+      batchSize,
+      totalBatches,
+      totalCompanies,
+      nextBatchIndex,
+      companiesProcessed: targetCompanies.map((c) => c.name),
       crawled: 0,
       inserted: 0,
       skippedDuplicates: 0,
@@ -307,42 +326,51 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
     };
   }
 
-  // Strictly prune stale jobs older than 3 months (90 days)
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-  try {
-    await supabaseAdmin.from('jobs').delete().lt('created_at', ninetyDaysAgo);
-  } catch (pruneErr) {
-    console.warn('Crawler stale jobs pruning error:', pruneErr);
-  }
-
-  // 3. Deduplicate against existing jobs by external_apply_url
   const allUrls = crawledItems.map((j) => j.external_apply_url);
-  const { data: existingJobs, error: existingError } = await supabaseAdmin
-    .from('jobs')
-    .select('external_apply_url')
-    .in('external_apply_url', allUrls);
+  const existingUrlSet = new Set<string>();
 
-  if (existingError) {
-    console.warn('Error checking existing job URLs:', existingError);
+  // Chunk URL queries in groups of 30 to prevent PostgREST URI length overflow (HTTP 400 Bad Request)
+  const urlChunks = chunkArray(allUrls, 30);
+  for (const chunk of urlChunks) {
+    const { data: existingJobs, error: existingError } = await supabaseAdmin
+      .from('jobs')
+      .select('external_apply_url')
+      .in('external_apply_url', chunk);
+
+    if (existingError) {
+      console.warn('Error checking existing job URLs chunk:', existingError);
+    } else if (existingJobs) {
+      for (const j of existingJobs) {
+        if (j.external_apply_url) existingUrlSet.add(j.external_apply_url);
+      }
+    }
   }
 
-  const existingUrlSet = new Set((existingJobs || []).map((j) => j.external_apply_url));
   const newJobsToInsert = crawledItems.filter((j) => !existingUrlSet.has(j.external_apply_url));
 
-  // 4. Batch Insert newly discovered jobs
+  // 6. Batch Insert newly discovered jobs in chunks of 50
   if (newJobsToInsert.length > 0) {
-    const { error: insertError } = await supabaseAdmin
-      .from('jobs')
-      .insert(newJobsToInsert);
+    const insertChunks = chunkArray(newJobsToInsert, 50);
+    for (const chunk of insertChunks) {
+      const { error: insertError } = await supabaseAdmin
+        .from('jobs')
+        .insert(chunk);
 
-    if (insertError) {
-      console.error('Error inserting crawled jobs into database:', insertError);
-      throw insertError;
+      if (insertError) {
+        console.error('Error inserting crawled jobs chunk into database:', insertError);
+        throw insertError;
+      }
     }
   }
 
   return {
     success: true,
+    batchIndex,
+    batchSize,
+    totalBatches,
+    totalCompanies,
+    nextBatchIndex,
+    companiesProcessed: targetCompanies.map((c) => c.name),
     crawled: crawledItems.length,
     inserted: newJobsToInsert.length,
     skippedDuplicates: crawledItems.length - newJobsToInsert.length,

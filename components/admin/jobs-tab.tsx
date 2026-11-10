@@ -1,0 +1,884 @@
+"use client";
+
+import { useEffect, useState, useCallback, useTransition } from "react";
+import {
+  Briefcase,
+  Search,
+  Filter,
+  RefreshCw,
+  ExternalLink,
+  Trash2,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  Building2,
+  MapPin,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  Sparkles,
+  Check,
+  Copy,
+  AlertCircle,
+  Clock,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+
+export interface AdminJob {
+  id: string;
+  recruiter_id: string;
+  title: string;
+  company_name: string;
+  company_logo?: string;
+  location: string;
+  job_type: "full-time" | "part-time" | "contract" | "internship" | string;
+  salary_range?: string;
+  experience_level: "entry" | "mid" | "senior" | "lead/director" | string;
+  category: string;
+  impressions: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  external_apply_url?: string;
+  description: string;
+  requirements?: string;
+}
+
+interface JobsTabProps {
+  onRefresh?: () => Promise<void>;
+  loading?: boolean;
+}
+
+const CATEGORIES = [
+  "All",
+  "Engineering",
+  "Product Management",
+  "Design",
+  "Data / AI",
+  "Sales",
+  "Marketing",
+  "HR",
+  "Finance / Risk",
+  "Operations",
+];
+
+const EXPERIENCE_LEVELS = [
+  { value: "all", label: "All Seniorities" },
+  { value: "entry", label: "Entry Level (L0 / L1)" },
+  { value: "mid", label: "Mid Level (L2)" },
+  { value: "senior", label: "Senior (L3)" },
+  { value: "lead/director", label: "Lead / Director (L4 / L5+)" },
+];
+
+const JOB_TYPES = [
+  { value: "all", label: "All Types" },
+  { value: "full-time", label: "Full-time" },
+  { value: "part-time", label: "Part-time" },
+  { value: "contract", label: "Contract" },
+  { value: "internship", label: "Internship" },
+];
+
+export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
+  const [jobs, setJobs] = useState<AdminJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedExperience, setSelectedExperience] = useState("all");
+  const [selectedJobType, setSelectedJobType] = useState("all");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState<"all" | "active" | "inactive">("all");
+  const [selectedSort, setSelectedSort] = useState("newest");
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [stats, setStats] = useState({ activeJobs: 0, totalJobs: 0, inactiveJobs: 0 });
+
+  // Dialog State
+  const [inspectJob, setInspectJob] = useState<AdminJob | null>(null);
+  const [jobToDelete, setJobToDelete] = useState<AdminJob | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [hasCopiedUrl, setHasCopiedUrl] = useState(false);
+
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+        experience_level: selectedExperience,
+        job_type: selectedJobType,
+        category: selectedCategory === "All" ? "all" : selectedCategory,
+        status: selectedStatus,
+        sort: selectedSort,
+      });
+
+      if (searchQuery.trim()) {
+        params.set("q", searchQuery.trim());
+      }
+
+      const res = await fetch(`/api/admin/jobs?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load jobs");
+      }
+
+      setJobs(data.jobs || []);
+      setTotalJobs(data.total || 0);
+      setTotalPages(data.totalPages || 1);
+      if (data.stats) {
+        setStats(data.stats);
+      }
+    } catch (err: any) {
+      console.error("Error fetching jobs in admin:", err);
+      toast.error(err.message || "Failed to load jobs");
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    page,
+    pageSize,
+    searchQuery,
+    selectedExperience,
+    selectedJobType,
+    selectedCategory,
+    selectedStatus,
+    selectedSort,
+  ]);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
+  const handleToggleJobStatus = async (job: AdminJob) => {
+    const nextStatus = !job.is_active;
+    try {
+      const res = await fetch("/api/admin/jobs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: job.id, is_active: nextStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update job status");
+
+      setJobs((prev) =>
+        prev.map((j) => (j.id === job.id ? { ...j, is_active: nextStatus } : j))
+      );
+      if (inspectJob && inspectJob.id === job.id) {
+        setInspectJob({ ...inspectJob, is_active: nextStatus });
+      }
+      setStats((prev) => ({
+        ...prev,
+        activeJobs: nextStatus ? prev.activeJobs + 1 : Math.max(0, prev.activeJobs - 1),
+        inactiveJobs: nextStatus ? Math.max(0, prev.inactiveJobs - 1) : prev.inactiveJobs + 1,
+      }));
+      toast.success(`Job marked as ${nextStatus ? "active" : "inactive"}`);
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || "Error updating job status");
+    }
+  };
+
+  const handleDeleteJob = async () => {
+    if (!jobToDelete) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/jobs?id=${jobToDelete.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete job");
+
+      toast.success("Job deleted permanently");
+      setJobToDelete(null);
+      if (inspectJob?.id === jobToDelete.id) {
+        setInspectJob(null);
+      }
+      fetchJobs();
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete job");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleCopyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    setHasCopiedUrl(true);
+    toast.success("Job application URL copied to clipboard");
+    setTimeout(() => setHasCopiedUrl(false), 2000);
+  };
+
+  const renderSeniorityBadge = (level: string) => {
+    const l = (level || "").toLowerCase();
+    if (l === "entry") {
+      return (
+        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          Entry
+        </span>
+      );
+    }
+    if (l === "senior") {
+      return (
+        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+          Senior
+        </span>
+      );
+    }
+    if (l.includes("lead") || l.includes("director") || l === "staff" || l === "principal") {
+      return (
+        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+          Lead / Director
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+        Mid
+      </span>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Stats Overview */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-neutral-200/70 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+              Active Jobs
+            </p>
+            <p className="text-2xl font-black text-[#0A1B5C] mt-1">{stats.activeJobs}</p>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-[#4FD1C5]/15 flex items-center justify-center text-[#0A1B5C]">
+            <CheckCircle2 className="h-5 w-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-neutral-200/70 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+              Total Database Jobs
+            </p>
+            <p className="text-2xl font-black text-neutral-800 mt-1">{stats.totalJobs}</p>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-600">
+            <Briefcase className="h-5 w-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-neutral-200/70 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+              Inactive / Paused
+            </p>
+            <p className="text-2xl font-black text-neutral-600 mt-1">{stats.inactiveJobs}</p>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-400">
+            <XCircle className="h-5 w-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl border border-neutral-200/70 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+              Filtered Matches
+            </p>
+            <p className="text-2xl font-black text-[#0A1B5C] mt-1">{totalJobs}</p>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-[#0A1B5C]/10 flex items-center justify-center text-[#0A1B5C]">
+            <Filter className="h-5 w-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Filter & Search Toolbar */}
+      <div className="bg-white p-4 rounded-xl border border-neutral-200/70 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Search by job title, company name, or city..."
+              className="pl-9 text-xs h-9 bg-neutral-50/70 border-neutral-200 focus:bg-white"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={() => fetchJobs()}
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs font-semibold border-neutral-200 text-neutral-700 hover:bg-neutral-50 flex items-center gap-1.5"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-[#0A1B5C]" : ""}`} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-2 border-t border-neutral-100">
+          {/* Seniority */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+              Seniority
+            </label>
+            <select
+              value={selectedExperience}
+              onChange={(e) => {
+                setSelectedExperience(e.target.value);
+                setPage(1);
+              }}
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+            >
+              {EXPERIENCE_LEVELS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Job Type */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+              Job Type
+            </label>
+            <select
+              value={selectedJobType}
+              onChange={(e) => {
+                setSelectedJobType(e.target.value);
+                setPage(1);
+              }}
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+            >
+              {JOB_TYPES.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+              Category
+            </label>
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setPage(1);
+              }}
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+            >
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+              Status
+            </label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => {
+                setSelectedStatus(e.target.value as any);
+                setPage(1);
+              }}
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+            >
+              <option value="all">All Statuses</option>
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+            </select>
+          </div>
+
+          {/* Sort */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+              Sort By
+            </label>
+            <select
+              value={selectedSort}
+              onChange={(e) => {
+                setSelectedSort(e.target.value);
+                setPage(1);
+              }}
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="title">Job Title (A - Z)</option>
+              <option value="company">Company (A - Z)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Jobs Listing Table */}
+      <div className="bg-white rounded-xl border border-neutral-200/70 shadow-xs overflow-hidden">
+        {loading ? (
+          <div className="p-12 flex flex-col items-center justify-center gap-3">
+            <RefreshCw className="h-7 w-7 text-[#0A1B5C] animate-spin" />
+            <p className="text-xs font-semibold text-neutral-500">Loading jobs from database...</p>
+          </div>
+        ) : jobs.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <Briefcase className="h-10 w-10 text-neutral-300 mx-auto" />
+            <h3 className="text-sm font-bold text-neutral-800">No jobs found matching your criteria</h3>
+            <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+              Try adjusting your search query, seniority filters, or run the Content Importer crawler to pull latest tech openings.
+            </p>
+            <Button
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedExperience("all");
+                setSelectedJobType("all");
+                setSelectedCategory("All");
+                setSelectedStatus("all");
+                setPage(1);
+              }}
+              variant="outline"
+              size="sm"
+              className="text-xs font-semibold text-[#0A1B5C] border-neutral-300"
+            >
+              Reset Filters
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-neutral-50/80 border-b border-neutral-200/80 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                  <th className="py-3 px-4">Company & Role</th>
+                  <th className="py-3 px-3">Location</th>
+                  <th className="py-3 px-3">Category</th>
+                  <th className="py-3 px-3">Seniority</th>
+                  <th className="py-3 px-3">Type</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3">Posted</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {jobs.map((job) => {
+                  const companyDomain = `${job.company_name.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
+                  const logoSrc = job.company_logo || `https://www.google.com/s2/favicons?domain=${companyDomain}&sz=64`;
+
+                  return (
+                    <tr key={job.id} className="hover:bg-neutral-50/60 transition-colors">
+                      {/* Company & Title */}
+                      <td className="py-3.5 px-4 max-w-xs">
+                        <div className="flex items-start gap-3">
+                          <div className="h-8 w-8 rounded-lg border border-neutral-200 bg-white p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                            <img
+                              src={logoSrc}
+                              alt={job.company_name}
+                              className="h-full w-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <button
+                              onClick={() => setInspectJob(job)}
+                              className="font-bold text-neutral-900 hover:text-[#0A1B5C] hover:underline text-left line-clamp-1 cursor-pointer"
+                            >
+                              {job.title}
+                            </button>
+                            <p className="text-[11px] font-medium text-neutral-500 line-clamp-1">
+                              {job.company_name}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Location */}
+                      <td className="py-3.5 px-3 text-neutral-600 whitespace-nowrap">
+                        <span className="flex items-center gap-1 line-clamp-1 max-w-[140px]">
+                          <MapPin className="h-3 w-3 text-neutral-400 shrink-0" />
+                          <span className="truncate">{job.location || "Remote"}</span>
+                        </span>
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-neutral-100 text-neutral-700">
+                          {job.category || "Engineering"}
+                        </span>
+                      </td>
+
+                      {/* Seniority */}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        {renderSeniorityBadge(job.experience_level)}
+                      </td>
+
+                      {/* Job Type */}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <span className="text-[11px] font-medium text-neutral-600 capitalize">
+                          {job.job_type}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <button
+                          onClick={() => handleToggleJobStatus(job)}
+                          className="cursor-pointer group flex items-center gap-1.5 focus:outline-none"
+                          title="Click to toggle status"
+                        >
+                          <span
+                            className={`h-2 w-2 rounded-full ${
+                              job.is_active ? "bg-emerald-500" : "bg-neutral-300"
+                            }`}
+                          />
+                          <span
+                            className={`text-[11px] font-bold ${
+                              job.is_active
+                                ? "text-emerald-700 group-hover:underline"
+                                : "text-neutral-500 group-hover:underline"
+                            }`}
+                          >
+                            {job.is_active ? "Active" : "Inactive"}
+                          </span>
+                        </button>
+                      </td>
+
+                      {/* Posted Date */}
+                      <td className="py-3.5 px-3 whitespace-nowrap text-neutral-400 text-[11px]">
+                        {new Date(job.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            onClick={() => setInspectJob(job)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-neutral-500 hover:text-[#0A1B5C] hover:bg-neutral-100 rounded-lg"
+                            title="Inspect Job Details"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+
+                          {job.external_apply_url && (
+                            <a
+                              href={job.external_apply_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="h-7 w-7 inline-flex items-center justify-center text-neutral-500 hover:text-[#0A1B5C] hover:bg-neutral-100 rounded-lg"
+                              title="Open External Apply Link"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          )}
+
+                          <Button
+                            onClick={() => setJobToDelete(job)}
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                            title="Delete Job"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination Bar */}
+        {jobs.length > 0 && (
+          <div className="py-3 px-4 bg-neutral-50/50 border-t border-neutral-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-neutral-600">
+            <div className="flex items-center gap-2">
+              <span>
+                Showing <span className="font-bold">{(page - 1) * pageSize + 1}</span> to{" "}
+                <span className="font-bold">{Math.min(page * pageSize, totalJobs)}</span> of{" "}
+                <span className="font-bold">{totalJobs}</span> jobs
+              </span>
+
+              <span className="text-neutral-300">|</span>
+
+              <label htmlFor="pageSizeSelect" className="text-neutral-500 text-[11px]">
+                Per page:
+              </label>
+              <select
+                id="pageSizeSelect"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="text-xs font-semibold rounded border border-neutral-200 bg-white px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs font-semibold border-neutral-200"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                Previous
+              </Button>
+
+              <span className="px-2 text-xs font-bold text-neutral-700">
+                Page {page} of {totalPages}
+              </span>
+
+              <Button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs font-semibold border-neutral-200"
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Inspect Job Modal */}
+      <Dialog open={!!inspectJob} onOpenChange={(open) => !open && setInspectJob(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-6">
+          {inspectJob && (
+            <>
+              <DialogHeader className="shrink-0 space-y-2 border-b border-neutral-100 pb-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        inspectJob.is_active ? "bg-emerald-500" : "bg-neutral-400"
+                      }`}
+                    />
+                    <Badge variant="outline" className="text-xs font-bold capitalize">
+                      {inspectJob.is_active ? "Active Requisition" : "Inactive"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {renderSeniorityBadge(inspectJob.experience_level)}
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-neutral-100 text-neutral-700 capitalize">
+                      {inspectJob.job_type}
+                    </span>
+                  </div>
+                </div>
+
+                <DialogTitle className="text-xl font-bold text-[#0A1B5C] leading-snug">
+                  {inspectJob.title}
+                </DialogTitle>
+                <DialogDescription className="text-xs font-medium text-neutral-500 flex flex-wrap items-center gap-3">
+                  <span className="flex items-center gap-1 font-bold text-neutral-700">
+                    <Building2 className="h-3.5 w-3.5 text-neutral-400" />
+                    {inspectJob.company_name}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 text-neutral-400" />
+                    {inspectJob.location || "Remote"}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 text-neutral-400" />
+                    Posted {new Date(inspectJob.created_at).toLocaleDateString()}
+                  </span>
+                </DialogDescription>
+              </DialogHeader>
+
+              {/* Scrollable Details Content */}
+              <div className="flex-1 overflow-y-auto space-y-4 py-4 pr-1 text-xs">
+                {inspectJob.salary_range && (
+                  <div className="bg-neutral-50 p-3 rounded-lg border border-neutral-100">
+                    <p className="text-[10px] uppercase font-bold text-neutral-400">
+                      Estimated Compensation
+                    </p>
+                    <p className="text-sm font-black text-neutral-800 mt-0.5">
+                      {inspectJob.salary_range}
+                    </p>
+                  </div>
+                )}
+
+                {inspectJob.external_apply_url && (
+                  <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100/70 space-y-1.5">
+                    <p className="text-[10px] uppercase font-bold text-blue-900">
+                      Authentic ATS Application Link
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-mono text-neutral-700 truncate flex-1">
+                        {inspectJob.external_apply_url}
+                      </p>
+                      <Button
+                        onClick={() => handleCopyUrl(inspectJob.external_apply_url!)}
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs font-semibold text-[#0A1B5C]"
+                      >
+                        {hasCopiedUrl ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-emerald-600 mr-1" /> Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5 mr-1" /> Copy
+                          </>
+                        )}
+                      </Button>
+                      <a
+                        href={inspectJob.external_apply_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1"
+                      >
+                        Open <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {/* Job Description */}
+                <div className="space-y-1.5">
+                  <h4 className="text-xs font-bold text-neutral-800 uppercase tracking-wider">
+                    Role Description
+                  </h4>
+                  <div className="bg-neutral-50/60 p-3 rounded-lg border border-neutral-100 text-neutral-700 whitespace-pre-line leading-relaxed">
+                    {inspectJob.description || "No description provided."}
+                  </div>
+                </div>
+
+                {/* Job Requirements */}
+                {inspectJob.requirements && (
+                  <div className="space-y-1.5">
+                    <h4 className="text-xs font-bold text-neutral-800 uppercase tracking-wider">
+                      Requirements & Technical Skills
+                    </h4>
+                    <div className="bg-neutral-50/60 p-3 rounded-lg border border-neutral-100 text-neutral-700 whitespace-pre-line leading-relaxed">
+                      {inspectJob.requirements}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer Actions */}
+              <DialogFooter className="shrink-0 pt-3 border-t border-neutral-100 flex items-center justify-between gap-2">
+                <Button
+                  onClick={() => handleToggleJobStatus(inspectJob)}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs font-bold border-neutral-300"
+                >
+                  {inspectJob.is_active ? "Mark as Inactive" : "Mark as Active"}
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => {
+                      setJobToDelete(inspectJob);
+                      setInspectJob(null);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs font-bold text-red-600 hover:bg-red-50"
+                  >
+                    Delete Requisition
+                  </Button>
+                  <Button
+                    onClick={() => setInspectJob(null)}
+                    className="bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold px-4 rounded-xl"
+                  >
+                    Done
+                  </Button>
+                </div>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!jobToDelete} onOpenChange={(open) => !open && setJobToDelete(null)}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              Permanently Delete Job?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-neutral-600 pt-2 leading-relaxed">
+              Are you sure you want to delete <span className="font-bold text-neutral-800">{jobToDelete?.title}</span> at{" "}
+              <span className="font-bold text-neutral-800">{jobToDelete?.company_name}</span>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-4 flex items-center justify-end gap-2">
+            <Button
+              onClick={() => setJobToDelete(null)}
+              variant="outline"
+              size="sm"
+              disabled={isDeleting}
+              className="text-xs font-bold"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteJob}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 rounded-xl"
+            >
+              {isDeleting ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+

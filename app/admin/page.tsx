@@ -35,6 +35,7 @@ import { CompaniesTab } from "@/components/admin/companies-tab";
 import { CampaignsTab } from "@/components/admin/campaigns-tab";
 import { AnalyticsTab } from "@/components/admin/analytics-tab";
 import { ContentImporterTab } from "@/components/admin/content-importer-tab";
+import { JobsTab } from "@/components/admin/jobs-tab";
 import { SkillsTab } from "@/components/admin/skills-tab";
 
 function AdminPageContent() {
@@ -630,6 +631,14 @@ function AdminPageContent() {
                     </Badge>
                   )}
                 </TabsTrigger>
+                <TabsTrigger value="jobs" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
+                  <Briefcase className="h-4 w-4 mr-2" /> Jobs{" "}
+                  {(dbCounts.jobs || 0) > 0 && (
+                    <Badge variant="secondary" className="ml-2 bg-indigo-100 text-indigo-700 font-bold">
+                      {dbCounts.jobs}
+                    </Badge>
+                  )}
+                </TabsTrigger>
                 <TabsTrigger value="content-importer" className="px-6 font-bold text-xs md:rounded-full md:border md:border-neutral-200 md:bg-white md:px-4 md:py-2.5 md:shadow-sm md:data-[state=active]:border-primary md:data-[state=active]:bg-primary md:data-[state=active]:text-white">
                   <Download className="h-4 w-4 mr-2" /> Content Importer
                 </TabsTrigger>
@@ -736,6 +745,10 @@ function AdminPageContent() {
                         onRefresh={handleRefreshActiveTab}
                         loading={loading || isTabLoading}
                       />
+                    </TabsContent>
+
+                    <TabsContent value="jobs">
+                      <JobsTab onRefresh={handleRefreshActiveTab} loading={loading || isTabLoading} />
                     </TabsContent>
 
                     <TabsContent value="campaigns">
