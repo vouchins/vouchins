@@ -126,14 +126,25 @@ export async function GET(request: Request) {
           if (!evaluation.strengths || evaluation.strengths.length === 0) {
             evaluation.strengths = fresh.strengths;
           }
+          if (fresh.targetRole) {
+            evaluation.targetRole = fresh.targetRole;
+          }
+          if (fresh.detectedSeniority) {
+            evaluation.detectedSeniority = fresh.detectedSeniority;
+          }
+          if (fresh.jobMatchVectors) {
+            evaluation.jobMatchVectors = fresh.jobMatchVectors;
+          }
         }
       }
+
+      const activeTargetRole = evaluation?.targetRole || doc?.experience?.[0]?.roleTitle || evaluationsMap[r.id]?.targetRole || 'Software Engineer';
 
       return {
         id: r.id,
         name: r.title || r.file_name || 'Master Resume',
         customSlug: (r as any).custom_slug || (doc as any)?.customSlug || null,
-        targetJobTitle: evaluation?.targetRole || evaluationsMap[r.id]?.targetRole || 'Software Engineer',
+        targetJobTitle: activeTargetRole,
         lastModified: formatTimeAgo(r.updated_at),
         created: formatTimeAgo(r.created_at),
         isPrimary: index === 0,

@@ -62,4 +62,143 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
     expect(text).toContain('real-time');
     expect(text).toContain('full-stack');
   });
+
+  describe('Dynamic Seniority and Latest Work Title Derivation', () => {
+    it('evaluates a fresher resume with 0 experience without forcing L4 or L5 senior titles', () => {
+      const fresherResume = {
+        contact: {
+          fullName: 'Alice Student',
+          email: 'alice@example.com',
+          location: 'Hyderabad, India',
+        },
+        summary: 'Aspiring software engineer passionate about web development, React, and data structures.',
+        skills: [
+          { category: 'Frontend', items: ['React', 'JavaScript', 'HTML', 'CSS'] },
+          { category: 'Backend', items: ['Node.js', 'Express', 'PostgreSQL'] },
+        ],
+        experience: [],
+        projects: [
+          {
+            title: 'Campus Event Portal',
+            techStack: ['React', 'Node.js', 'PostgreSQL'],
+            bullets: ['Built a portal for student registrations, serving 500+ attendees.'],
+          },
+        ],
+        education: [
+          { degree: 'B.Tech in Computer Science', institution: 'JNTU Hyderabad', year: '2024' },
+        ],
+      };
+
+      const result = evaluateResumeHeuristically(fresherResume as any);
+
+      expect(result.detectedSeniority).toBe('Entry-Level / Fresher (L3)');
+      expect(result.targetRole).toBe('Junior Frontend Engineer');
+      expect(result.detectedSeniority).not.toContain('L4');
+      expect(result.detectedSeniority).not.toContain('L5');
+      expect(result.targetRole).not.toContain('Senior');
+      expect(result.targetRole).not.toContain('Staff');
+    });
+
+    it('derives seniority and title from latest role when candidate has an internship', () => {
+      const internResume = {
+        contact: {
+          fullName: 'Bob Intern',
+          email: 'bob@example.com',
+          location: 'Bengaluru, India',
+        },
+        summary: 'Computer Science graduate with internship experience at tech startups.',
+        skills: [{ category: 'Core', items: ['Python', 'Django', 'TypeScript'] }],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Tech Innovations',
+            roleTitle: 'Software Engineer Intern',
+            startDate: 'Jan 2024',
+            endDate: 'Jun 2024',
+            isCurrent: false,
+            bullets: ['Assisted in building REST APIs using Django and PostgreSQL.'],
+          },
+          {
+            id: 'exp-2',
+            company: 'Web Solutions',
+            roleTitle: 'Frontend Intern',
+            startDate: 'Jun 2023',
+            endDate: 'Dec 2023',
+            isCurrent: false,
+            bullets: ['Constructed user interface components with TypeScript and React.'],
+          },
+        ],
+        projects: [],
+        education: [],
+      };
+
+      const result = evaluateResumeHeuristically(internResume as any);
+
+      expect(result.detectedSeniority).toBe('Engineering Intern (L1)');
+      expect(result.targetRole).toBe('Software Engineer Intern');
+      expect(result.detectedSeniority).not.toContain('L5');
+      expect(result.targetRole).not.toContain('Senior');
+    });
+
+    it('derives seniority and title for an Associate Software Engineer', () => {
+      const associateResume = {
+        contact: {
+          fullName: 'Charlie Dev',
+          email: 'charlie@example.com',
+          location: 'Pune, India',
+        },
+        summary: 'Associate engineer building backend services.',
+        skills: [{ category: 'Backend', items: ['Java', 'Spring Boot', 'MySQL'] }],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Cloud Corp',
+            roleTitle: 'Associate Software Engineer',
+            startDate: '2023',
+            endDate: 'Present',
+            isCurrent: true,
+            bullets: ['Developed Spring Boot microservices handling 10k requests daily.'],
+          },
+        ],
+        projects: [],
+        education: [],
+      };
+
+      const result = evaluateResumeHeuristically(associateResume as any);
+
+      expect(result.detectedSeniority).toBe('Associate Software Engineer (L3)');
+      expect(result.targetRole).toBe('Associate Software Engineer');
+      expect(result.detectedSeniority).not.toContain('L5');
+    });
+
+    it('derives seniority and exact title for a Senior Engineer', () => {
+      const seniorResume = {
+        contact: {
+          fullName: 'Diana Architect',
+          email: 'diana@example.com',
+          location: 'Hyderabad, India',
+        },
+        summary: 'Senior backend engineer with deep experience in distributed systems.',
+        skills: [{ category: 'Core', items: ['Go', 'Kafka', 'PostgreSQL', 'Docker'] }],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Scale Inc',
+            roleTitle: 'Senior Backend Engineer',
+            startDate: '2020',
+            endDate: 'Present',
+            isCurrent: true,
+            bullets: ['Architected distributed Kafka pipeline streaming 500k events/sec.'],
+          },
+        ],
+        projects: [],
+        education: [],
+      };
+
+      const result = evaluateResumeHeuristically(seniorResume as any);
+
+      expect(result.detectedSeniority).toBe('Senior Software Engineer (L5)');
+      expect(result.targetRole).toBe('Senior Backend Engineer');
+    });
+  });
 });

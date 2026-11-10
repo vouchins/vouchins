@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { cleanJobApplyUrl } from './url-cleaner';
 
 export interface CrawledJobItem {
   recruiter_id: string;
@@ -181,7 +182,7 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
           job_type: 'Full-time',
           experience_level: detectExperienceLevel(job.title),
           category: detectCategory(job.title),
-          external_apply_url: String(job.absolute_url).trim(),
+          external_apply_url: cleanJobApplyUrl(String(job.absolute_url).trim()),
           is_active: true,
           created_at: nowIso,
           updated_at: nowIso,
@@ -231,7 +232,7 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
           experience_level: detectExperienceLevel(job.text),
           category: detectCategory(job.text),
           salary_range: job.additionalPlain?.match(/\$[\d,]+(?:\s*-\s*\$[\d,]+)?/)?.[0] || undefined,
-          external_apply_url: String(job.hostedUrl).trim(),
+          external_apply_url: cleanJobApplyUrl(String(job.hostedUrl).trim()),
           is_active: true,
           created_at: nowIso,
           updated_at: nowIso,
@@ -280,7 +281,7 @@ export async function crawlAndSyncTechJobs(perBoardLimit = 15): Promise<CrawlJob
           experience_level: detectExperienceLevel(job.title),
           category: detectCategory(job.title),
           salary_range: salaryText,
-          external_apply_url: String(applyUrl).trim(),
+          external_apply_url: cleanJobApplyUrl(String(applyUrl).trim()),
           is_active: true,
           created_at: nowIso,
           updated_at: nowIso,

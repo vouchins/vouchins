@@ -14,6 +14,7 @@ import {
 import { evaluateResumeHeuristically } from '@/lib/jobs/xyz-evaluator';
 import { invalidateResumesCache } from '@/lib/jobs/client-cache';
 import { formatLocalizedSalary } from './recommend-dashboard';
+import { cleanJobApplyUrl } from '@/lib/jobs/url-cleaner';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -395,7 +396,7 @@ export function Workspace({
   const handleApplyToJob = async (job: any) => {
     // 1. External ATS Job (Greenhouse, Lever, Ashby, etc.): open direct career page
     if (job.externalApplyUrl) {
-      window.open(job.externalApplyUrl, '_blank', 'noopener,noreferrer');
+      window.open(cleanJobApplyUrl(job.externalApplyUrl), '_blank', 'noopener,noreferrer');
       if (!appliedJobIds.includes(job.id)) {
         setAppliedJobIds((prev) => [...prev, job.id]);
       }
@@ -513,20 +514,11 @@ export function Workspace({
               <span className="text-xs sm:text-sm font-extrabold text-neutral-900 truncate max-w-[150px] sm:max-w-xs md:max-w-sm">
                 {resumeName || `${document?.contact?.fullName || 'Candidate'} - Master Resume`}
               </span>
-              <span className="hidden lg:inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[#0A1B5C]/10 text-[#0A1B5C] shrink-0">
-                Job Pass
-              </span>
             </div>
             <span className="text-[10px] text-neutral-500 hidden md:inline truncate max-w-xs">
-              Targeting {evaluation?.targetRole || 'Software Engineer'}
+              Targeting {document?.experience?.[0]?.roleTitle || evaluation?.targetRole || 'Software Engineer'}
             </span>
           </div>
-
-          {/* Readiness Score Badge */}
-          <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/80 text-xs font-bold shrink-0">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-            Readiness: {evaluation?.overallScore ?? 0}/100
-          </span>
         </div>
 
         {/* Center: Mobile View Toggle */}

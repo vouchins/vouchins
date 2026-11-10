@@ -3,14 +3,14 @@ import { Suspense } from 'react';
 import { JobRecommendationsDashboard } from '@/components/jobs/recommend-dashboard';
 
 export const metadata: Metadata = {
-  title: 'AI Job Recommendations | Vouchins Job Pass',
+  title: 'AI Job Recommendations | Vouchins',
   description:
     'Curated tech roles matched against your Master Resume with verified employee referrals, Google XYZ gap analysis, and 1-click ATS tailoring.',
   alternates: {
     canonical: 'https://www.vouchins.com/jobs/recommend',
   },
   openGraph: {
-    title: 'AI Job Recommendations | Vouchins Job Pass',
+    title: 'AI Job Recommendations | Vouchins',
     description:
       'Curated tech roles matched against your Master Resume with verified employee referrals, Google XYZ gap analysis, and 1-click ATS tailoring.',
     url: 'https://www.vouchins.com/jobs/recommend',

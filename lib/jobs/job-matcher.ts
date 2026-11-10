@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { JobMatchVectors } from './types';
 import { CURATED_TECH_JOBS } from './curated-tech-jobs';
 import { isLocationMatch } from './ats-client';
+import { cleanJobApplyUrl } from './url-cleaner';
 
 export interface MatchedJobResult {
   id: string;
@@ -92,7 +93,7 @@ export async function matchJobsForProfile(
         matchScore: finalScore,
         matchingSkills,
         reasons,
-        externalApplyUrl: job.external_apply_url || null,
+        externalApplyUrl: cleanJobApplyUrl(job.external_apply_url) || null,
         isInternal: !job.external_apply_url,
       };
     });

@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Plus,
   MoreHorizontal,
   FileText,
   Star,
@@ -213,7 +212,7 @@ export function ResumePageClient() {
         });
         invalidateResumesCache();
       }
-    } catch {}
+    } catch { }
     toast.success('Primary resume updated and moved to top of list.');
   };
 
@@ -456,12 +455,12 @@ export function ResumePageClient() {
           prev.map((r) =>
             r.id === activeResume.id
               ? {
-                  ...r,
-                  id: updatedId,
-                  document: updatedDoc,
-                  evaluation: updatedEval,
-                  lastModified: 'Just now',
-                }
+                ...r,
+                id: updatedId,
+                document: updatedDoc,
+                evaluation: updatedEval,
+                lastModified: 'Just now',
+              }
               : r
           )
         );
@@ -601,7 +600,6 @@ export function ResumePageClient() {
                         disabled={isProcessing}
                         className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#0c2277] text-white font-extrabold text-xs shadow-xs transition-all active:scale-95 disabled:opacity-60"
                       >
-                        <Plus className="w-4 h-4" />
                         <span>Use Sample Resume</span>
                       </button>
                     </div>
@@ -646,7 +644,6 @@ export function ResumePageClient() {
                     }}
                     className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#0c2277] text-white font-bold text-xs shadow-xs transition-all active:scale-95 border border-[#0A1B5C]"
                   >
-                    <Plus className="h-4 w-4" />
                     <span>Add Resume</span>
                   </button>
                 </div>
@@ -787,12 +784,12 @@ export function ResumePageClient() {
                   prev.map((r) =>
                     r.id === activeResume.id
                       ? {
-                          ...r,
-                          id: savedResumeId,
-                          document: doc,
-                          evaluation,
-                          lastModified: 'Just now',
-                        }
+                        ...r,
+                        id: savedResumeId,
+                        document: doc,
+                        evaluation,
+                        lastModified: 'Just now',
+                      }
                       : r
                   )
                 );
@@ -809,7 +806,6 @@ export function ResumePageClient() {
         <DialogContent className="sm:max-w-xl bg-white border border-neutral-200 rounded-3xl p-6 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-neutral-900 flex items-center gap-2">
-              <Plus className="h-5 w-5 text-[#0A1B5C]" />
               Add ATS Master Resume
             </DialogTitle>
             <DialogDescription className="text-xs text-neutral-500">

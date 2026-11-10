@@ -237,8 +237,8 @@ export async function evaluateResumeAI(options: AIEvaluationOptions): Promise<{
       pillarScores: calibratedPillarScores,
       strengths: baseEval.strengths?.length ? baseEval.strengths : heuristic.strengths,
       suggestions: mergedSuggestions.length > 0 ? mergedSuggestions : heuristic.suggestions,
-      detectedSeniority: baseEval.detectedSeniority || heuristic.detectedSeniority,
-      targetRole: baseEval.targetRole || heuristic.targetRole,
+      detectedSeniority: heuristic.detectedSeniority || baseEval.detectedSeniority,
+      targetRole: (doc.experience?.[0]?.roleTitle ? heuristic.targetRole : (baseEval.targetRole || heuristic.targetRole)),
       missingKeywords: baseEval.missingKeywords?.length ? baseEval.missingKeywords : heuristic.missingKeywords,
       jobMatchVectors: baseEval.jobMatchVectors || heuristic.jobMatchVectors,
     };
@@ -289,8 +289,8 @@ Target companies: Google, Meta, Amazon, Uber, Salesforce.
 Scoring requirements:
 - overallScore (0-100)
 - pillarScores: { impact (0-100), relevance (0-100), brevity (0-100) }
-- detectedSeniority (string, e.g. "Staff Software Engineer (L6)", "Senior Software Engineer (L5)")
-- targetRole (string)
+- detectedSeniority (string, accurately reflecting candidate career stage, e.g. "Engineering Intern (L1)", "Associate Software Engineer (L3)", "Software Engineer (L4)", "Senior Software Engineer (L5)", "Staff Software Engineer (L6)", "Principal Engineer (L7+)")
+- targetRole (string, strictly derived from candidate's latest work title or target focus, without forcing Senior or Staff if candidate is an intern, junior, or entry-level fresher)
 - strengths (array of strings)
 - missingKeywords (array of strings)
 - suggestions (array of { id, roleIndex, bulletIndex, pillar: 'impact'|'relevance'|'brevity', severity: 'critical'|'recommended'|'optional', originalText, suggestedRewrite, rationale, applied: false })

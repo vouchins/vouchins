@@ -10,6 +10,8 @@
  * - Real live requisitions with valid direct apply links
  */
 
+import { cleanJobApplyUrl } from './url-cleaner';
+
 export interface AtsTarget {
   company: string;
   boardToken: string;
@@ -735,7 +737,7 @@ async function fetchGreenhouseBoard(
           salary_range: 'Competitive / Market Band',
           description: descText,
           requirements: `Strong technical proficiency in modern platforms, system design, and collaborative engineering.`,
-          external_apply_url: String(j.absolute_url).trim(),
+          external_apply_url: cleanJobApplyUrl(String(j.absolute_url).trim()),
           is_internal: false,
           match_score: matchResult.matchScore,
           match_breakdown: matchResult.matchBreakdown,
@@ -862,7 +864,7 @@ async function fetchLeverBoard(
           salary_range: salaryText,
           description: descText,
           requirements: `Modern development stack, distributed systems, resilient microservices, and cross-functional delivery.`,
-          external_apply_url: String(j.hostedUrl).trim(),
+          external_apply_url: cleanJobApplyUrl(String(j.hostedUrl).trim()),
           is_internal: false,
           match_score: matchResult.matchScore,
           match_breakdown: matchResult.matchBreakdown,
@@ -990,7 +992,7 @@ async function fetchAshbyBoard(
           salary_range: salaryText,
           description: `${target.company} is seeking an exceptional ${title}. View requirements and apply directly via Ashby requisition.`,
           requirements: `Proven software development capabilities, product architecture, system scalability.`,
-          external_apply_url: String(applyUrl).trim(),
+          external_apply_url: cleanJobApplyUrl(String(applyUrl).trim()),
           is_internal: false,
           match_score: matchResult.matchScore,
           match_breakdown: matchResult.matchBreakdown,

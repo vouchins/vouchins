@@ -14,6 +14,7 @@ import {
 import { crawlAndSyncTechJobs } from "@/lib/jobs/crawler";
 import { CURATED_TECH_JOBS } from "@/lib/jobs/curated-tech-jobs";
 import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
+import { cleanJobApplyUrl } from "@/lib/jobs/url-cleaner";
 
 export const dynamic = "force-dynamic";
 
@@ -107,13 +108,16 @@ export async function GET(request: Request) {
           }
 
           // Automatically detect candidate seniority from latest job title if not explicitly filtered
-          if (
-            experienceLevel === "all" &&
-            Array.isArray(docSchema.experience) &&
-            docSchema.experience.length > 0 &&
-            docSchema.experience[0]?.roleTitle
-          ) {
-            detectedSeniority = detectExperienceLevel(docSchema.experience[0].roleTitle);
+          if (experienceLevel === "all") {
+            if (
+              Array.isArray(docSchema.experience) &&
+              docSchema.experience.length > 0 &&
+              docSchema.experience[0]?.roleTitle
+            ) {
+              detectedSeniority = detectExperienceLevel(docSchema.experience[0].roleTitle);
+            } else if (Array.isArray(docSchema.experience) && docSchema.experience.length === 0) {
+              detectedSeniority = "Entry";
+            }
           }
         }
       }
@@ -309,6 +313,7 @@ export async function GET(request: Request) {
 
       return {
         ...j,
+        external_apply_url: cleanJobApplyUrl(j.external_apply_url),
         match_score: j.match_score || matchEvaluation.matchScore,
         match_breakdown: j.match_breakdown || matchEvaluation.matchBreakdown,
         why_you_match: j.why_you_match || matchEvaluation.whyYouMatch,
@@ -325,6 +330,7 @@ export async function GET(request: Request) {
       const count = getInsiderCount(j.company_name);
       return {
         ...j,
+        external_apply_url: cleanJobApplyUrl(j.external_apply_url),
         insider_count: count,
       };
     });
@@ -343,7 +349,7 @@ export async function GET(request: Request) {
         salary_range: fh.salaryRange,
         description: fh.description.about,
         requirements: fh.description.qualifications.join("\n"),
-        external_apply_url: fh.externalApplyUrl,
+        external_apply_url: cleanJobApplyUrl(fh.externalApplyUrl),
         is_internal: false,
         match_score: fh.matchScore,
         match_breakdown: fh.matchBreakdown,

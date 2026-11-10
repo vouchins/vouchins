@@ -21,7 +21,7 @@ export function ScoreGauge({ score, seniority, size = 130 }: ScoreGaugeProps) {
 
   if (score >= 85) {
     color = '#10B981';
-    tierLabel = 'Top 5% Candidate';
+    tierLabel = 'Top Contender';
     tierBadgeBg = 'bg-emerald-50 text-emerald-900 border-emerald-200';
   } else if (score < 70) {
     color = '#F59E0B';

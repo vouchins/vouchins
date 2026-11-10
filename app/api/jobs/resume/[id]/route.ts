@@ -85,6 +85,15 @@ export async function GET(
         if (!finalEvaluation.strengths || finalEvaluation.strengths.length === 0) {
           finalEvaluation.strengths = fresh.strengths;
         }
+        if (fresh.targetRole) {
+          finalEvaluation.targetRole = fresh.targetRole;
+        }
+        if (fresh.detectedSeniority) {
+          finalEvaluation.detectedSeniority = fresh.detectedSeniority;
+        }
+        if (fresh.jobMatchVectors) {
+          finalEvaluation.jobMatchVectors = fresh.jobMatchVectors;
+        }
       }
     }
 

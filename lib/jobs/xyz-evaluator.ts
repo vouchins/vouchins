@@ -172,7 +172,7 @@ export function evaluateResumeHeuristically(
   const overallScore = Math.round(impactScore * 0.4 + relevanceScore * 0.35 + brevityScore * 0.25);
 
   // Seniority detection
-  const detectedSeniority = detectSeniority(textCorpus, doc.experience.length);
+  const detectedSeniority = detectSeniority(textCorpus, doc);
   const targetRole = detectTargetRole(textCorpus, doc);
 
   const strengths: string[] = [];
@@ -180,6 +180,9 @@ export function evaluateResumeHeuristically(
   if (relevanceScore >= 75) strengths.push('Modern tech stack alignment with current distributed architectures');
   if (brevityScore >= 80) strengths.push('High-density, ATS-optimized layout with concise bullet cadence');
   if (doc.experience.length >= 3) strengths.push('Demonstrated progression across multiple production software roles');
+  if (doc.experience.length === 0 && (doc.projects?.length || 0) >= 2) {
+    strengths.push('Strong portfolio of technical projects demonstrating hands-on engineering capabilities');
+  }
   if (strengths.length === 0) strengths.push('Solid core foundation with clear opportunities for metric enhancement');
 
   const jobMatchVectors: JobMatchVectors = {
@@ -337,25 +340,157 @@ function condenseBullet(bullet: string): string {
   return clean;
 }
 
-function detectSeniority(corpus: string, roleCount: number): string {
-  if (/principal|distinguished|director/i.test(corpus)) return 'Principal Engineer (L7+)';
-  if (/staff|architect|tech lead/i.test(corpus) || roleCount >= 4) return 'Staff Software Engineer (L6)';
-  if (/senior|lead/i.test(corpus) || roleCount >= 2) return 'Senior Software Engineer (L5)';
+export function detectSeniority(
+  corpus: string,
+  docOrCount?: ResumeDocument | number,
+  explicitTitle?: string
+): string {
+  const doc: ResumeDocument | null =
+    typeof docOrCount === 'object' && docOrCount !== null ? docOrCount : null;
+  const roleCount =
+    typeof docOrCount === 'number'
+      ? docOrCount
+      : (doc?.experience?.length ?? 0);
+
+  const rawLatestTitle = explicitTitle || doc?.experience?.[0]?.roleTitle || '';
+  const latestTitle = rawLatestTitle.trim().toLowerCase();
+
+  // 1. Evaluate candidate's latest work title if present
+  if (latestTitle) {
+    // Intern / Trainee / Student / Apprentice / Co-op
+    if (/\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(latestTitle)) {
+      return 'Engineering Intern (L1)';
+    }
+
+    // Junior / Associate / Entry-Level / Graduate / Fresher
+    if (/\b(associate|junior|jr\.?|entry|graduate|grad|fresher)\b/i.test(latestTitle)) {
+      return 'Associate Software Engineer (L3)';
+    }
+
+    // Principal / Director / Distinguished / Fellow / VP
+    if (/\b(principal|distinguished|fellow|director|vp|vice president)\b/i.test(latestTitle)) {
+      return 'Principal Engineer (L7+)';
+    }
+
+    // Staff / Architect / Tech Lead / Lead Architect
+    if (/\b(staff|architect|tech lead|technical lead)\b/i.test(latestTitle)) {
+      return 'Staff Software Engineer (L6)';
+    }
+
+    // Senior / Lead / Manager / Sr.
+    if (/\b(senior|sr\.?|lead|manager)\b/i.test(latestTitle)) {
+      return 'Senior Software Engineer (L5)';
+    }
+
+    // Explicit Level notation in title (e.g. L3, L4, L5, L6, L7)
+    if (/\b(l7|l8|ic7|ic8)\b/i.test(latestTitle)) return 'Principal Engineer (L7+)';
+    if (/\b(l6|ic6)\b/i.test(latestTitle)) return 'Staff Software Engineer (L6)';
+    if (/\b(l5|ic5)\b/i.test(latestTitle)) return 'Senior Software Engineer (L5)';
+    if (/\b(l4|ic4)\b/i.test(latestTitle)) return 'Software Engineer (L4)';
+    if (/\b(l3|ic3)\b/i.test(latestTitle)) return 'Associate Software Engineer (L3)';
+    if (/\b(l1|l2|ic1|ic2)\b/i.test(latestTitle)) return 'Engineering Intern (L1)';
+  }
+
+  // 2. Candidate has NO work experience (fresher or student with 0 roles)
+  if (roleCount === 0) {
+    if (/\b(intern|internship|student|pursuing|undergraduate)\b/i.test(corpus)) {
+      return 'Engineering Intern (L1)';
+    }
+    return 'Entry-Level / Fresher (L3)';
+  }
+
+  // 3. Inspect experience history if available
+  if (doc?.experience && doc.experience.length > 0) {
+    // If all experiences are internships or trainee programs
+    const allInternships = doc.experience.every((e) =>
+      /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(e.roleTitle)
+    );
+    if (allInternships) {
+      return 'Engineering Intern (L1)';
+    }
+
+    // If all experiences are entry or associate level
+    const allEntry = doc.experience.every((e) =>
+      /\b(associate|junior|jr\.?|entry|graduate|fresher|intern|trainee)\b/i.test(e.roleTitle)
+    );
+    if (allEntry) {
+      return 'Associate Software Engineer (L3)';
+    }
+  }
+
+  // 4. Role count and corpus heuristics for multi-role careers (only for non-freshers)
+  if (/\b(principal engineer|distinguished engineer|director of engineering)\b/i.test(corpus)) {
+    return 'Principal Engineer (L7+)';
+  }
+  if (roleCount >= 4 || /\b(staff software engineer|chief architect|principal architect)\b/i.test(corpus)) {
+    return 'Staff Software Engineer (L6)';
+  }
+  if (roleCount >= 2 && /\b(senior software engineer|senior developer|tech lead)\b/i.test(corpus)) {
+    return 'Senior Software Engineer (L5)';
+  }
+
+  // Default to mid-level for established engineering roles without senior or junior markers
   return 'Software Engineer (L4)';
 }
 
-function detectTargetRole(corpus: string, doc: ResumeDocument): string {
-  if (/fullstack|full-stack|full stack/i.test(corpus)) return 'Staff / Senior Full-Stack Engineer';
-  if (/backend|platform|distributed systems/i.test(corpus)) return 'Senior Backend & Distributed Systems Engineer';
-  if (/frontend|react|next\.js|web/i.test(corpus)) return 'Senior Frontend / UI Systems Engineer';
-  if (/devops|sre|cloud|infrastructure/i.test(corpus)) return 'Senior Platform & Cloud Infrastructure Engineer';
-  if (doc.experience[0]?.roleTitle) return doc.experience[0].roleTitle;
-  return 'Senior Software Engineer';
+export function detectTargetRole(corpus: string, doc: ResumeDocument): string {
+  // 1. Highest priority: candidate's actual latest work title from resume
+  const latestTitle = doc.experience?.[0]?.roleTitle?.trim();
+  if (latestTitle && latestTitle.length >= 2) {
+    const cleaned = latestTitle
+      .replace(/^[-•*|·\s]+/, '')
+      .replace(/[-•*|·\s]+$/, '')
+      .trim();
+
+    // Ignore generic non-title artifacts
+    if (cleaned.length >= 2 && !/^(enterprise tech|experience|work experience|professional experience)$/i.test(cleaned)) {
+      return cleaned;
+    }
+  }
+
+  // 2. Candidate is a fresher or entry-level with 0 experience
+  // Derive a relevant entry-level title from their technical stack and projects
+  if (!doc.experience || doc.experience.length === 0) {
+    if (/\b(fullstack|full-stack|full stack|mern|mean)\b/i.test(corpus)) {
+      return 'Junior Full-Stack Engineer';
+    }
+    if (/\b(frontend|front-end|react|vue|angular|next\.js|ui engineer)\b/i.test(corpus)) {
+      return 'Junior Frontend Engineer';
+    }
+    if (/\b(backend|back-end|node|express|django|flask|spring|fastapi|golang|microservices)\b/i.test(corpus)) {
+      return 'Junior Backend Engineer';
+    }
+    if (/\b(ai engineering|machine learning|deep learning|data scientist|data science|nlp|llm|pytorch)\b/i.test(corpus)) {
+      return 'Junior AI / Machine Learning Engineer';
+    }
+    if (/\b(devops|cloud|aws|azure|gcp|docker|kubernetes|sre)\b/i.test(corpus)) {
+      return 'Junior Cloud / DevOps Engineer';
+    }
+    if (/\b(data analyst|business analyst|sql|tableau|power bi)\b/i.test(corpus)) {
+      return 'Junior Data Analyst';
+    }
+    return 'Associate Software Engineer';
+  }
+
+  // 3. Fallback when experience array exists but latest role title was blank or generic
+  if (/\b(fullstack|full-stack|full stack)\b/i.test(corpus)) return 'Full-Stack Engineer';
+  if (/\b(backend|platform|distributed systems)\b/i.test(corpus)) return 'Backend & Distributed Systems Engineer';
+  if (/\b(frontend|react|next\.js|web)\b/i.test(corpus)) return 'Frontend Engineer';
+  if (/\b(devops|sre|cloud|infrastructure)\b/i.test(corpus)) return 'Platform & Cloud Infrastructure Engineer';
+
+  return 'Software Engineer';
 }
 
 function estimateYears(doc: ResumeDocument): number {
-  if (doc.experience.length === 0) return 3;
-  return Math.min(15, Math.max(2, doc.experience.length * 2));
+  if (!doc.experience || doc.experience.length === 0) return 0;
+
+  // If all roles are internships or trainee programs, total experience is 0 years
+  const isAllIntern = doc.experience.every((e) =>
+    /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(e.roleTitle)
+  );
+  if (isAllIntern) return 0;
+
+  return Math.min(15, Math.max(1, doc.experience.length * 2));
 }
 
 /**
@@ -500,7 +635,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   const DATE_RANGE_REGEX = /(?:(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4})\s*[\s\-–—to]+\s*(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4}|Present|Current))/i;
   const ACTION_VERB_REGEX = /^(?:[•\-*–—\u2022\u25E6\u25AA\u2043\s]*)(?:developed|built|engineered|architected|spearheaded|implemented|designed|created|led|managed|collaborated|maintained|optimized|automated|delivered|integrated|authored|executed|established|configured|deployed|mentored|resolved|streamlined|formulated|directed|oversaw|constructed|standardized|refactored|efactoring|upgraded|scaled|reduced|increased|improved|headed|drove)/i;
   const BULLET_SYMBOL_REGEX = /^[\s]*[•\-*–—\u2022\u25E6\u25AA\u2043]/;
-  const TITLE_KEYWORD_REGEX = /(?:engineer|developer|lead|architect|manager|director|analyst|specialist|consultant|intern|officer|head|administrator|designer)/i;
+  const TITLE_KEYWORD_REGEX = /(?:engineer|developer|lead|architect|manager|director|analyst|specialist|consultant|intern|officer|head|administrator|designer|trainee|associate|fresher|fellow|scientist|programmer|sde|researcher|apprentice)/i;
 
   if (expBlock) {
     const elines = expBlock.lines;

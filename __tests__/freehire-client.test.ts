@@ -42,7 +42,7 @@ describe('Freehire API Client & Ingestion Transformer', () => {
       expect(transformed.workplaceType).toBe('Remote');
       expect(transformed.experienceLevel).toBe('Senior');
       expect(transformed.salaryRange).toBe('$195k - $245k / yr');
-      expect(transformed.externalApplyUrl).toBe('https://boards.greenhouse.io/stripe/jobs/123456?utm_source=vouchins');
+      expect(transformed.externalApplyUrl).toBe('https://boards.greenhouse.io/stripe/jobs/123456');
 
       // Check skill overlap detection
       expect(transformed.matchingSkills).toContain('Go');
@@ -69,6 +69,21 @@ describe('Freehire API Client & Ingestion Transformer', () => {
       expect(transformed.companyLogo).toContain('figma.com');
       expect(transformed.salaryRange).toBe('Competitive / Market Band');
       expect(transformed.workplaceType).toBe('Onsite');
+    });
+
+    it('strips utm_source and tracking parameters from external apply URLs to prevent 404 errors', () => {
+      const rawJob: FreehireRawJob = {
+        id: 'job-utm-test',
+        title: 'Backend Engineer',
+        company: 'Oracle',
+        url: 'https://careers.oracle.com/jobs/229643?utm_source=freehire&utm_medium=referral&ref=freehire',
+      };
+
+      const transformed = transformFreehireJob(rawJob, ['Java']);
+      expect(transformed.externalApplyUrl).toBe('https://careers.oracle.com/jobs/229643');
+      expect(transformed.externalApplyUrl).not.toContain('utm_source');
+      expect(transformed.externalApplyUrl).not.toContain('utm_medium');
+      expect(transformed.externalApplyUrl).not.toContain('ref=freehire');
     });
   });
 

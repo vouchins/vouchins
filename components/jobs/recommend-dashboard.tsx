@@ -14,10 +14,8 @@ import {
   Users,
   CheckCircle2,
   Bookmark,
-  Share2,
   ExternalLink,
   ChevronRight,
-  Filter,
   ArrowRight,
   FileText,
   SlidersHorizontal,
@@ -63,6 +61,7 @@ import { JobsNavbar } from './jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
 import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch } from '@/lib/jobs/ats-client';
+import { cleanJobApplyUrl } from '@/lib/jobs/url-cleaner';
 import { CompanyLogo } from './company-logo';
 import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
 
@@ -247,7 +246,7 @@ export function extractJobId(url?: string | null): string | null {
       if (uuidMatch) return uuidMatch[0].slice(0, 8);
       return lastPart.slice(0, 16);
     }
-  } catch {}
+  } catch { }
   return null;
 }
 
@@ -379,27 +378,27 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
     const workplaceType: 'Remote' | 'Hybrid' | 'Onsite' = locLower.includes('remote')
       ? 'Remote'
       : locLower.includes('hybrid')
-      ? 'Hybrid'
-      : 'Onsite';
+        ? 'Hybrid'
+        : 'Onsite';
 
     const jobTypeStr = (job.job_type || 'full-time').toLowerCase();
     const jobType: 'Full-time' | 'Contract' | 'Part-time' = jobTypeStr.includes('contract')
       ? 'Contract'
       : jobTypeStr.includes('part')
-      ? 'Part-time'
-      : 'Full-time';
+        ? 'Part-time'
+        : 'Full-time';
 
     const expLower = (job.experience_level || 'mid').toLowerCase();
     const experienceLevel: 'Senior' | 'Staff' | 'Lead' | 'Principal' | 'Mid' =
       expLower.includes('lead') || expLower.includes('director')
         ? 'Lead'
         : expLower.includes('principal')
-        ? 'Principal'
-        : expLower.includes('staff')
-        ? 'Staff'
-        : expLower.includes('senior')
-        ? 'Senior'
-        : 'Mid';
+          ? 'Principal'
+          : expLower.includes('staff')
+            ? 'Staff'
+            : expLower.includes('senior')
+              ? 'Senior'
+              : 'Mid';
 
     // Base match score heuristic
     let baseScore = 85;
@@ -521,8 +520,10 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       },
       isInternal: false,
       recruiterId: job.recruiter_id || null,
-      externalJobId: extractJobId(job.external_apply_url),
-      externalApplyUrl: hasValidExternalJobId(job.external_apply_url) ? job.external_apply_url.trim() : null,
+      externalJobId: extractJobId(cleanJobApplyUrl(job.external_apply_url)),
+      externalApplyUrl: hasValidExternalJobId(cleanJobApplyUrl(job.external_apply_url))
+        ? cleanJobApplyUrl(job.external_apply_url)
+        : null,
       isCurated: false,
       isRecommended: (job.match_score || matchScore) >= 88,
     };
@@ -1105,10 +1106,11 @@ export function JobRecommendationsDashboard() {
     if (selectedJob?.isInternal) return '';
     const url = selectedJob?.externalApplyUrl?.trim();
     if (!url) return '';
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      return `https://${url}`;
+    const cleaned = cleanJobApplyUrl(url);
+    if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+      return `https://${cleaned}`;
     }
-    return url;
+    return cleaned;
   }, [selectedJob]);
 
   // Effective Verified Insiders Count for Selected Job
@@ -1217,7 +1219,8 @@ export function JobRecommendationsDashboard() {
     if (!appliedJobIds.includes(id)) {
       setAppliedJobIds((prev) => [...prev, id]);
     }
-    const finalUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+    const cleaned = cleanJobApplyUrl(url);
+    const finalUrl = cleaned.startsWith('http://') || cleaned.startsWith('https://') ? cleaned : `https://${cleaned}`;
     toast.success(`Redirecting to ${jobToApply.companyName} careers portal...`);
     window.open(finalUrl, '_blank', 'noopener,noreferrer');
   };
@@ -1377,9 +1380,8 @@ export function JobRecommendationsDashboard() {
           atsScore={atsScore}
         >
           {/* Quick Filter Chips (Jobright Style) */}
-          <div className={`max-w-[1720px] mx-auto mt-2.5 sm:mt-3 pt-2 sm:pt-2.5 border-t border-neutral-100 items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1 ${
-            mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
-          }`}>
+          <div className={`max-w-[1720px] mx-auto mt-2.5 sm:mt-3 pt-2 sm:pt-2.5 border-t border-neutral-100 items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pb-1 ${mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
+            }`}>
             <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider shrink-0 mr-1 flex items-center gap-1">
               <SlidersHorizontal className="h-3 w-3" /> Filters:
             </span>
@@ -1388,11 +1390,10 @@ export function JobRecommendationsDashboard() {
             <DropdownMenu open={isLocationMenuOpen} onOpenChange={setIsLocationMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                    selectedCity && selectedCity.toLowerCase() !== 'all'
-                      ? 'bg-[#0A1B5C] text-white shadow-xs'
-                      : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${selectedCity && selectedCity.toLowerCase() !== 'all'
+                    ? 'bg-[#0A1B5C] text-white shadow-xs'
+                    : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
+                    }`}
                 >
                   <MapPin className="h-3.5 w-3.5 text-[#4FD1C5]" />
                   <span>
@@ -1465,11 +1466,10 @@ export function JobRecommendationsDashboard() {
                   {user?.city && (
                     <DropdownMenuItem
                       onClick={() => handleApplyLocation(user.city!.trim())}
-                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-                        selectedCity.toLowerCase() === user.city.toLowerCase()
-                          ? 'bg-[#0A1B5C]/10 text-[#0A1B5C]'
-                          : 'text-neutral-700 hover:bg-neutral-100'
-                      }`}
+                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${selectedCity.toLowerCase() === user.city.toLowerCase()
+                        ? 'bg-[#0A1B5C]/10 text-[#0A1B5C]'
+                        : 'text-neutral-700 hover:bg-neutral-100'
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         <MapPin className="h-3.5 w-3.5 text-[#0A1B5C]" />
@@ -1500,11 +1500,10 @@ export function JobRecommendationsDashboard() {
                       <DropdownMenuItem
                         key={loc.label}
                         onClick={() => handleApplyLocation(loc.value)}
-                        className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer ${
-                          isLocSelected
-                            ? 'bg-[#0A1B5C] text-white font-bold'
-                            : 'text-neutral-700 hover:bg-neutral-100'
-                        }`}
+                        className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer ${isLocSelected
+                          ? 'bg-[#0A1B5C] text-white font-bold'
+                          : 'text-neutral-700 hover:bg-neutral-100'
+                          }`}
                       >
                         <span>{loc.label}</span>
                         {isLocSelected && <CheckCircle2 className="h-3.5 w-3.5 text-[#4FD1C5]" />}
@@ -1519,21 +1518,20 @@ export function JobRecommendationsDashboard() {
             <DropdownMenu open={isWorkModeMenuOpen} onOpenChange={setIsWorkModeMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                    workModeFilter !== 'all'
-                      ? 'bg-[#0A1B5C] text-white shadow-xs'
-                      : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${workModeFilter !== 'all'
+                    ? 'bg-[#0A1B5C] text-white shadow-xs'
+                    : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
+                    }`}
                 >
                   <Briefcase className="h-3.5 w-3.5 text-[#4FD1C5]" />
                   <span>
                     {workModeFilter === 'all'
                       ? 'All Workplaces'
                       : workModeFilter === 'onsite'
-                      ? 'Onsite Only'
-                      : workModeFilter === 'hybrid'
-                      ? 'Hybrid Only'
-                      : 'Remote Only'}
+                        ? 'Onsite Only'
+                        : workModeFilter === 'hybrid'
+                          ? 'Hybrid Only'
+                          : 'Remote Only'}
                   </span>
                   <ChevronRight className="h-3 w-3 rotate-90 opacity-70 ml-0.5" />
                 </button>
@@ -1562,11 +1560,10 @@ export function JobRecommendationsDashboard() {
                         }
                         setIsWorkModeMenuOpen(false);
                       }}
-                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#0A1B5C] text-white font-bold'
-                          : 'text-neutral-700 hover:bg-neutral-100'
-                      }`}
+                      className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer ${isSelected
+                        ? 'bg-[#0A1B5C] text-white font-bold'
+                        : 'text-neutral-700 hover:bg-neutral-100'
+                        }`}
                     >
                       <span>{mode.label}</span>
                       {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-[#4FD1C5]" />}
@@ -1580,19 +1577,18 @@ export function JobRecommendationsDashboard() {
             <DropdownMenu open={isCompanyMenuOpen} onOpenChange={setIsCompanyMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${
-                    selectedCompanies.length > 0 && !selectedCompanies.includes('all')
-                      ? 'bg-[#0A1B5C] text-white shadow-xs'
-                      : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${selectedCompanies.length > 0 && !selectedCompanies.includes('all')
+                    ? 'bg-[#0A1B5C] text-white shadow-xs'
+                    : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
+                    }`}
                 >
                   <Building2 className="h-3.5 w-3.5 text-[#4FD1C5]" />
                   <span>
                     {selectedCompanies.length === 0 || selectedCompanies.includes('all')
                       ? 'All Companies'
                       : selectedCompanies.length === 1
-                      ? selectedCompanies[0]
-                      : `${selectedCompanies[0]} +${selectedCompanies.length - 1}`}
+                        ? selectedCompanies[0]
+                        : `${selectedCompanies[0]} +${selectedCompanies.length - 1}`}
                   </span>
                   <ChevronRight className="h-3 w-3 rotate-90 opacity-70 ml-0.5" />
                 </button>
@@ -1660,19 +1656,17 @@ export function JobRecommendationsDashboard() {
                 {/* Option 1: All Companies Checkbox */}
                 <div
                   onClick={selectAllCompanies}
-                  className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${
-                    selectedCompanies.length === 0 || selectedCompanies.includes('all')
-                      ? 'bg-[#0A1B5C] text-white'
-                      : 'text-neutral-700 hover:bg-neutral-100'
-                  }`}
+                  className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-colors ${selectedCompanies.length === 0 || selectedCompanies.includes('all')
+                    ? 'bg-[#0A1B5C] text-white'
+                    : 'text-neutral-700 hover:bg-neutral-100'
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     <div
-                      className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                        selectedCompanies.length === 0 || selectedCompanies.includes('all')
-                          ? 'bg-[#4FD1C5] border-[#4FD1C5] text-[#0A1B5C]'
-                          : 'border-neutral-300 bg-white'
-                      }`}
+                      className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${selectedCompanies.length === 0 || selectedCompanies.includes('all')
+                        ? 'bg-[#4FD1C5] border-[#4FD1C5] text-[#0A1B5C]'
+                        : 'border-neutral-300 bg-white'
+                        }`}
                     >
                       {(selectedCompanies.length === 0 || selectedCompanies.includes('all')) && (
                         <Check className="h-3 w-3 stroke-[3]" />
@@ -1681,11 +1675,10 @@ export function JobRecommendationsDashboard() {
                     <span>All Companies (Show All)</span>
                   </div>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                      selectedCompanies.length === 0 || selectedCompanies.includes('all')
-                        ? 'bg-white/20 text-white'
-                        : 'bg-neutral-100 text-neutral-600'
-                    }`}
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${selectedCompanies.length === 0 || selectedCompanies.includes('all')
+                      ? 'bg-white/20 text-white'
+                      : 'bg-neutral-100 text-neutral-600'
+                      }`}
                   >
                     {allJobs.length} roles
                   </span>
@@ -1707,19 +1700,17 @@ export function JobRecommendationsDashboard() {
                           e.stopPropagation();
                           toggleCompany(comp);
                         }}
-                        className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${
-                          isChecked
-                            ? 'bg-[#0A1B5C]/10 text-[#0A1B5C] font-semibold'
-                            : 'text-neutral-700 hover:bg-neutral-100'
-                        }`}
+                        className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer transition-colors ${isChecked
+                          ? 'bg-[#0A1B5C]/10 text-[#0A1B5C] font-semibold'
+                          : 'text-neutral-700 hover:bg-neutral-100'
+                          }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div
-                            className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                              isChecked
-                                ? 'bg-[#0A1B5C] border-[#0A1B5C] text-white'
-                                : 'border-neutral-300 bg-white'
-                            }`}
+                            className={`w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0 ${isChecked
+                              ? 'bg-[#0A1B5C] border-[#0A1B5C] text-white'
+                              : 'border-neutral-300 bg-white'
+                              }`}
                           >
                             {isChecked && <Check className="h-3 w-3 stroke-[3]" />}
                           </div>
@@ -1761,7 +1752,7 @@ export function JobRecommendationsDashboard() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {[
+            {/* {[
               { id: 'high_match', label: '🔥 90%+ Match', icon: Flame },
               { id: 'insiders', label: '🤝 Insiders Ready', icon: Users },
               { id: 'remote', label: '🏠 Remote Only', icon: MapPin },
@@ -1800,7 +1791,7 @@ export function JobRecommendationsDashboard() {
                   )}
                 </button>
               );
-            })}
+            })} */}
 
             {activeChip !== 'all' && (
               <button
@@ -1829,15 +1820,13 @@ export function JobRecommendationsDashboard() {
         </JobsNavbar>
 
         {/* Main Two-Pane Split Dashboard (Desktop: Split / Mobile: List ↔ Detail) */}
-        <main className={`flex-1 min-h-0 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 overflow-hidden ${
-          mobileView === 'detail'
-            ? 'h-[calc(100dvh-60px)] sm:h-[calc(100dvh-70px)] lg:h-full'
-            : 'h-[calc(100dvh-130px)] lg:h-full'
-        }`}>
-          {/* Left Column (38% on desktop): AI Job Recommendations Feed */}
-          <div className={`lg:col-span-5 flex-col h-full min-h-0 overflow-hidden ${
-            mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
+        <main className={`flex-1 min-h-0 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 overflow-hidden ${mobileView === 'detail'
+          ? 'h-[calc(100dvh-60px)] sm:h-[calc(100dvh-70px)] lg:h-full'
+          : 'h-[calc(100dvh-130px)] lg:h-full'
           }`}>
+          {/* Left Column (38% on desktop): AI Job Recommendations Feed */}
+          <div className={`lg:col-span-5 flex-col h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
+            }`}>
             {/* Feed Tabs: All Jobs | Recommended | Saved | Applied */}
             <div className="bg-white rounded-2xl border border-neutral-200/80 p-1 flex items-center gap-1.5 mb-2.5 shrink-0 shadow-xs overflow-x-auto no-scrollbar">
               <button
@@ -1927,7 +1916,7 @@ export function JobRecommendationsDashboard() {
             )}
 
             {/* Active Location & Workplace Filter Helper Banner */}
-            {((selectedCity && selectedCity.toLowerCase() !== 'all') || workModeFilter !== 'all') && (
+            {/* {((selectedCity && selectedCity.toLowerCase() !== 'all') || workModeFilter !== 'all') && (
               <div className="mb-2 px-3 py-1.5 rounded-xl bg-blue-50/90 border border-blue-200/80 flex items-center justify-between text-xs text-[#0A1B5C] shrink-0 flex-wrap gap-2">
                 <div className="flex items-center gap-1.5 font-semibold">
                   <MapPin className="h-3.5 w-3.5 text-[#0A1B5C]" />
@@ -1949,8 +1938,8 @@ export function JobRecommendationsDashboard() {
                           {workModeFilter === 'remote'
                             ? 'Remote'
                             : workModeFilter === 'onsite'
-                            ? 'Onsite'
-                            : 'Hybrid'}
+                              ? 'Onsite'
+                              : 'Hybrid'}
                         </strong>{' '}
                         roles worldwide ({filteredJobs.length} roles)
                       </>
@@ -1983,7 +1972,7 @@ export function JobRecommendationsDashboard() {
                   )}
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Active Company Filter Helper Banner */}
             {selectedCompanies.length > 0 && !selectedCompanies.includes('all') && (
@@ -2016,22 +2005,20 @@ export function JobRecommendationsDashboard() {
                   <button
                     type="button"
                     onClick={() => setSortBy('relevance')}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                      sortBy === 'relevance'
-                        ? 'bg-[#0A1B5C] text-white shadow-xs'
-                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                    }`}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${sortBy === 'relevance'
+                      ? 'bg-[#0A1B5C] text-white shadow-xs'
+                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                      }`}
                   >
                     Relevance
                   </button>
                   <button
                     type="button"
                     onClick={() => setSortBy('date')}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
-                      sortBy === 'date'
-                        ? 'bg-[#0A1B5C] text-white shadow-xs'
-                        : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                    }`}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${sortBy === 'date'
+                      ? 'bg-[#0A1B5C] text-white shadow-xs'
+                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                      }`}
                   >
                     Date Posted
                   </button>
@@ -2068,8 +2055,8 @@ export function JobRecommendationsDashboard() {
                     {selectedCompanies.length > 0
                       ? `No matching roles found for company "${selectedCompanies.join(', ')}". Try resetting your company filter.`
                       : selectedCity
-                      ? `No matching roles found for "${selectedCity}". Try resetting your location or search filters.`
-                      : 'Try clearing your search query or switching filter chips.'}
+                        ? `No matching roles found for "${selectedCity}". Try resetting your location or search filters.`
+                        : 'Try clearing your search query or switching filter chips.'}
                   </p>
                   <button
                     type="button"
@@ -2193,18 +2180,17 @@ export function JobRecommendationsDashboard() {
                       </div>
 
                       {/* Verified Insider Callout (Jobright Secret Weapon) */}
-                      <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px]">
-                        <span className="text-[#0A1B5C] font-semibold flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-                          {job.insiderCount > 0
-                            ? `${job.insiderCount} verified insider${job.insiderCount === 1 ? '' : 's'} ready to vouch`
-                            : 'Invite insiders to vouch'}
-                        </span>
+                      {job.insiderCount > 0 && (
+                        <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px]">
+                          <span className="text-[#0A1B5C] font-semibold flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
 
-                        <span className="text-[#0A1B5C] font-semibold text-xs group-hover:translate-x-0.5 transition-transform flex items-center">
-                          View Details <ChevronRight className="h-3 w-3" />
-                        </span>
-                      </div>
+                            {`${job.insiderCount} verified insider${job.insiderCount === 1 ? '' : 's'} ready to vouch`}
+
+                          </span>
+                        </div>
+                      )}
+
                     </div>
                   );
                 })
@@ -2213,9 +2199,8 @@ export function JobRecommendationsDashboard() {
           </div>
 
           {/* Right Column (62% on desktop): Deep-Dive Job & Copilot Action Pane */}
-          <div className={`lg:col-span-7 bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-sm flex flex-col h-full min-h-0 overflow-hidden ${
-            mobileView === 'detail' ? 'flex' : 'hidden lg:flex'
-          }`}>
+          <div className={`lg:col-span-7 bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-sm flex flex-col h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'flex' : 'hidden lg:flex'
+            }`}>
             {/* 1. Mobile Back to List Header */}
             <div className="lg:hidden px-3.5 py-2.5 bg-white border-b border-neutral-200 flex items-center justify-between shrink-0 z-20 shadow-2xs">
               <button
@@ -2254,7 +2239,7 @@ export function JobRecommendationsDashboard() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1">
                         <span className="font-semibold text-sm text-neutral-900">{selectedJob.companyName}</span>
-                        {selectedJob.isInternal ? (
+                        {/* {selectedJob.isInternal ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#0A1B5C] text-white flex items-center gap-1 shadow-xs">
                             <Building2 className="h-3 w-3 text-white" />
                             Verified Recruiter Role
@@ -2264,7 +2249,7 @@ export function JobRecommendationsDashboard() {
                             <ExternalLink className="h-3 w-3 text-[#0A1B5C]" />
                             External ATS Listing {selectedJob.externalJobId ? `(Req #${selectedJob.externalJobId})` : ''}
                           </span>
-                        )}
+                        )} */}
                       </div>
                       <h1 className="text-lg sm:text-2xl font-bold text-neutral-900 leading-snug">
                         {selectedJob.title}
@@ -2431,483 +2416,483 @@ export function JobRecommendationsDashboard() {
 
               {/* Deep-Dive Body Scroll Container */}
               <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 pb-24 lg:pb-6">
-              {/* TAB 1: MATCH INSIGHTS */}
-              {activeDetailTab === 'match' && (
-                <div className="space-y-6">
-                  {/* AI Why You Match Banner */}
-                  <div className="rounded-2xl bg-[#eefaf6] border border-emerald-200/80 p-5 space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="p-1 rounded-md bg-emerald-600 text-white">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      </span>
-                      <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
-                        Why Your Master Resume Matches This Position
-                      </h4>
+                {/* TAB 1: MATCH INSIGHTS */}
+                {activeDetailTab === 'match' && (
+                  <div className="space-y-6">
+                    {/* AI Why You Match Banner */}
+                    <div className="rounded-2xl bg-[#eefaf6] border border-emerald-200/80 p-5 space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1 rounded-md bg-emerald-600 text-white">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </span>
+                        <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
+                          Why Your Master Resume Matches This Position
+                        </h4>
+                      </div>
+                      <p className="text-xs sm:text-sm text-neutral-700 leading-relaxed font-medium">
+                        {selectedJob.whyYouMatch}
+                      </p>
                     </div>
-                    <p className="text-xs sm:text-sm text-neutral-700 leading-relaxed font-medium">
-                      {selectedJob.whyYouMatch}
-                    </p>
-                  </div>
 
-                  {/* Score Breakdown Cards */}
-                  <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
-                    <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
-                        Technical Skills
-                      </span>
-                      <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
-                        {selectedJob.matchBreakdown.skillsScore}%
-                      </span>
-                    </div>
-                    <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
-                        Seniority & Scope
-                      </span>
-                      <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
-                        {selectedJob.matchBreakdown.experienceScore}%
-                      </span>
-                    </div>
-                    <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
-                      <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
-                        Tech Stack Fit
-                      </span>
-                      <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
-                        {selectedJob.matchBreakdown.stackScore}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Matched Skills vs Missing Skills Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Matched Skills */}
-                    <div className="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
-                      <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                        Matched Competencies ({selectedJob.matchingSkills.length})
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedJob.matchingSkills.map((s, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
-                          >
-                            ✓ {s}
-                          </span>
-                        ))}
+                    {/* Score Breakdown Cards */}
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                      <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+                        <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
+                          Technical Skills
+                        </span>
+                        <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
+                          {selectedJob.matchBreakdown.skillsScore}%
+                        </span>
+                      </div>
+                      <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+                        <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
+                          Seniority & Scope
+                        </span>
+                        <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
+                          {selectedJob.matchBreakdown.experienceScore}%
+                        </span>
+                      </div>
+                      <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
+                        <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
+                          Tech Stack Fit
+                        </span>
+                        <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
+                          {selectedJob.matchBreakdown.stackScore}%
+                        </span>
                       </div>
                     </div>
 
-                    {/* Missing Skills (Opportunities to Tailor) */}
-                    <div className="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
-                      <span className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
-                        <AlertTriangle className="h-4 w-4 text-amber-500" />
-                        Keywords Missing ({selectedJob.missingSkills.length})
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedJob.missingSkills.map((s, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-semibold"
-                          >
-                            + {s}
-                          </span>
-                        ))}
-                      </div>
-                      <button
-                        onClick={() => setTailorModalOpen(true)}
-                        className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1 pt-1"
-                      >
-                        <span>1-Click add missing keywords via Tailor Studio</span>
-                        <ArrowRight className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 1-Click Tailor Preview Card */}
-                  <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/50 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider">
-                        Google XYZ Tailored Bullet Transformation
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                        {selectedJob.tailoredBulletSuggestion.impactMetric}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-xs">
-                      <div className="p-2.5 rounded-lg bg-white border border-neutral-200 text-neutral-500 line-through">
-                        &ldquo;{selectedJob.tailoredBulletSuggestion.original}&rdquo;
-                      </div>
-                      <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-950 font-medium leading-relaxed">
-                        &ldquo;{selectedJob.tailoredBulletSuggestion.tailored}&rdquo;
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 2: VERIFIED INSIDERS (REFERRALS) */}
-              {activeDetailTab === 'insiders' && (
-                <div className="space-y-4">
-                  {/* Banners: ONLY render if there are insiders (companyInsiders.length > 0) */}
-                  {companyInsiders.length > 0 && (
-                    !isUserVerifiedOrAdmin ? (
-                      <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                        <div className="flex items-start gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
-                            <Lock className="h-4 w-4 text-amber-700" />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-xs text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
-                              Corporate Verification Required to Connect
-                            </h4>
-                            <p className="text-xs text-amber-900/80 mt-0.5">
-                              You can view verified colleagues at {selectedJob.companyName}, but connecting and requesting referrals requires a verified corporate work email.
-                            </p>
-                          </div>
-                        </div>
-                        <Link
-                          href={user ? '/verify-email' : '/login?returnTo=%2Fjobs'}
-                          className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-xs shrink-0 text-center transition-all active:scale-95"
-                        >
-                          {user ? 'Verify Work Email' : 'Sign In to Verify'}
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="p-4 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/10 flex items-center justify-between shadow-xs">
-                        <div>
-                          <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
-                            Internal Corporate Referrals at {selectedJob.companyName}
-                          </h4>
-                          <p className="text-xs text-neutral-600 mt-0.5">
-                            Verified via corporate email domain. Candidates with insider referrals have a 4x higher interview callback rate.
-                          </p>
+                    {/* Matched Skills vs Missing Skills Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Matched Skills */}
+                      <div className="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
+                        <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          Matched Competencies ({selectedJob.matchingSkills.length})
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedJob.matchingSkills.map((s, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-semibold"
+                            >
+                              ✓ {s}
+                            </span>
+                          ))}
                         </div>
                       </div>
-                    )
-                  )}
 
-                  {/* Insiders List */}
-                  {isLoadingInsiders ? (
-                    <div className="space-y-3">
-                      {[1, 2, 3].map((n) => (
-                        <div
-                          key={n}
-                          className="p-4 rounded-2xl border border-neutral-200 bg-white animate-pulse flex items-center justify-between gap-3 shadow-xs"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-xl bg-neutral-200 shrink-0" />
-                            <div className="space-y-2">
-                              <div className="h-4 w-32 bg-neutral-200 rounded" />
-                              <div className="h-3 w-48 bg-neutral-100 rounded" />
-                            </div>
-                          </div>
-                          <div className="h-8 w-28 bg-neutral-200 rounded-xl" />
+                      {/* Missing Skills (Opportunities to Tailor) */}
+                      <div className="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
+                        <span className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          Keywords Missing ({selectedJob.missingSkills.length})
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedJob.missingSkills.map((s, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-semibold"
+                            >
+                              + {s}
+                            </span>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  ) : companyInsiders.length === 0 ? (
-                    <div className="p-8 rounded-2xl bg-white border border-neutral-200 text-center space-y-4 shadow-xs">
-                      <div className="w-12 h-12 rounded-2xl bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center justify-center mx-auto">
-                        <Users className="h-6 w-6 text-[#0A1B5C]" />
-                      </div>
-                      <div className="space-y-1">
-                        <h5 className="font-bold text-sm text-neutral-900">
-                          No Vouchins Insiders Found for {selectedJob.companyName} Yet
-                        </h5>
-                        <p className="text-xs text-neutral-500 max-w-sm mx-auto">
-                          Be the first to invite colleagues from {selectedJob.companyName} to Vouchins and build the company referral network.
-                        </p>
-                      </div>
-                      <div className="pt-2">
                         <button
-                          type="button"
-                          onClick={() => {
-                            if (!user) {
-                              window.location.href = '/login?returnTo=/jobs';
-                            } else {
-                              setIsInviteOpen(true);
-                            }
-                          }}
-                          className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-all active:scale-95"
+                          onClick={() => setTailorModalOpen(true)}
+                          className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1 pt-1"
                         >
-                          <Send className="h-3.5 w-3.5" />
-                          <span>Invite Colleagues from {selectedJob.companyName}</span>
+                          <span>1-Click add missing keywords via Tailor Studio</span>
+                          <ArrowRight className="h-3 w-3" />
                         </button>
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {companyInsiders.map((insider, idx) => {
-                        const isVerifiedViewer = isUserVerifiedOrAdmin;
-                        const displayName = isVerifiedViewer
-                          ? insider.name
-                          : formatPartialName(insider.name);
-                        const isAlreadyRequested = sentReferralInsiderIds.includes(insider.id);
 
-                        const avatarInitials = displayName
-                          .split(' ')
-                          .map((p) => p[0])
-                          .filter(Boolean)
-                          .join('')
-                          .slice(0, 2)
-                          .toUpperCase();
+                    {/* 1-Click Tailor Preview Card */}
+                    <div className="p-5 rounded-2xl border border-neutral-200 bg-neutral-50/50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider">
+                          Google XYZ Tailored Bullet Transformation
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          {selectedJob.tailoredBulletSuggestion.impactMetric}
+                        </span>
+                      </div>
 
-                        return (
+                      <div className="space-y-2 text-xs">
+                        <div className="p-2.5 rounded-lg bg-white border border-neutral-200 text-neutral-500 line-through">
+                          &ldquo;{selectedJob.tailoredBulletSuggestion.original}&rdquo;
+                        </div>
+                        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-950 font-medium leading-relaxed">
+                          &ldquo;{selectedJob.tailoredBulletSuggestion.tailored}&rdquo;
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: VERIFIED INSIDERS (REFERRALS) */}
+                {activeDetailTab === 'insiders' && (
+                  <div className="space-y-4">
+                    {/* Banners: ONLY render if there are insiders (companyInsiders.length > 0) */}
+                    {companyInsiders.length > 0 && (
+                      !isUserVerifiedOrAdmin ? (
+                        <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                          <div className="flex items-start gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                              <Lock className="h-4 w-4 text-amber-700" />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-xs text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                                Corporate Verification Required to Connect
+                              </h4>
+                              <p className="text-xs text-amber-900/80 mt-0.5">
+                                You can view verified colleagues at {selectedJob.companyName}, but connecting and requesting referrals requires a verified corporate work email.
+                              </p>
+                            </div>
+                          </div>
+                          <Link
+                            href={user ? '/verify-email' : '/login?returnTo=%2Fjobs'}
+                            className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-xs shrink-0 text-center transition-all active:scale-95"
+                          >
+                            {user ? 'Verify Work Email' : 'Sign In to Verify'}
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-2xl bg-[#0A1B5C]/5 border border-[#0A1B5C]/10 flex items-center justify-between shadow-xs">
+                          <div>
+                            <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
+                              Internal Corporate Referrals at {selectedJob.companyName}
+                            </h4>
+                            <p className="text-xs text-neutral-600 mt-0.5">
+                              Verified via corporate email domain. Candidates with insider referrals have a 4x higher interview callback rate.
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    )}
+
+                    {/* Insiders List */}
+                    {isLoadingInsiders ? (
+                      <div className="space-y-3">
+                        {[1, 2, 3].map((n) => (
                           <div
-                            key={insider.id || idx}
-                            className="p-3.5 sm:p-4 rounded-2xl border border-neutral-200/90 bg-white hover:border-[#4FD1C5] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+                            key={n}
+                            className="p-4 rounded-2xl border border-neutral-200 bg-white animate-pulse flex items-center justify-between gap-3 shadow-xs"
                           >
                             <div className="flex items-center gap-3">
-                              {insider.avatarUrl && isVerifiedViewer ? (
-                                <Image
-                                  src={insider.avatarUrl}
-                                  alt={displayName}
-                                  width={44}
-                                  height={44}
-                                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-neutral-200 shadow-xs shrink-0"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-neutral-100 border border-neutral-200 text-[#0A1B5C] font-bold flex items-center justify-center text-sm shadow-xs shrink-0">
-                                  {avatarInitials}
-                                </div>
-                              )}
-
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  {insider.isRegisteredUser && isVerifiedViewer ? (
-                                    <Link
-                                      href={`/users/${insider.id}`}
-                                      target="_blank"
-                                      className="font-semibold text-sm text-neutral-900 hover:text-[#0A1B5C] transition-colors hover:underline flex items-center gap-1"
-                                    >
-                                      <span>{displayName}</span>
-                                      <ExternalLink className="h-3 w-3 text-neutral-400" />
-                                    </Link>
-                                  ) : (
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-semibold text-sm text-neutral-900">{displayName}</span>
-                                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center gap-1">
-                                        <Lock className="h-2.5 w-2.5 text-amber-600" />
-                                        Partial info
-                                      </span>
-                                    </div>
-                                  )}
-
-                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                                    <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                                    @{insider.domain}
-                                  </span>
-
-                                  {insider.vouchPoints > 0 && (
-                                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C]">
-                                      ★ {insider.vouchPoints} Vouch Points
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="text-xs text-neutral-500 font-medium flex items-center gap-2 mt-0.5 truncate">
-                                  <span>{insider.role}</span>
-                                  {insider.city && (
-                                    <>
-                                      <span>·</span>
-                                      <span className="flex items-center gap-0.5">
-                                        <MapPin className="h-3 w-3 text-neutral-400" /> {insider.city}
-                                      </span>
-                                    </>
-                                  )}
-                                  <span>·</span>
-                                  <span className="text-emerald-700 font-bold">{insider.responseRate}</span>
-                                </div>
+                              <div className="w-11 h-11 rounded-xl bg-neutral-200 shrink-0" />
+                              <div className="space-y-2">
+                                <div className="h-4 w-32 bg-neutral-200 rounded" />
+                                <div className="h-3 w-48 bg-neutral-100 rounded" />
                               </div>
                             </div>
+                            <div className="h-8 w-28 bg-neutral-200 rounded-xl" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : companyInsiders.length === 0 ? (
+                      <div className="p-8 rounded-2xl bg-white border border-neutral-200 text-center space-y-4 shadow-xs">
+                        <div className="w-12 h-12 rounded-2xl bg-[#0A1B5C]/10 text-[#0A1B5C] flex items-center justify-center mx-auto">
+                          <Users className="h-6 w-6 text-[#0A1B5C]" />
+                        </div>
+                        <div className="space-y-1">
+                          <h5 className="font-bold text-sm text-neutral-900">
+                            No Vouchins Insiders Found for {selectedJob.companyName} Yet
+                          </h5>
+                          <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+                            Be the first to invite colleagues from {selectedJob.companyName} to Vouchins and build the company referral network.
+                          </p>
+                        </div>
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!user) {
+                                window.location.href = '/login?returnTo=/jobs';
+                              } else {
+                                setIsInviteOpen(true);
+                              }
+                            }}
+                            className="px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-semibold shadow-xs inline-flex items-center gap-1.5 transition-all active:scale-95"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            <span>Invite Colleagues from {selectedJob.companyName}</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {companyInsiders.map((insider, idx) => {
+                          const isVerifiedViewer = isUserVerifiedOrAdmin;
+                          const displayName = isVerifiedViewer
+                            ? insider.name
+                            : formatPartialName(insider.name);
+                          const isAlreadyRequested = sentReferralInsiderIds.includes(insider.id);
 
-                            <div className="shrink-0 flex items-center gap-2">
-                              {isVerifiedViewer ? (
-                                isAlreadyRequested ? (
-                                  <span className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1">
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                    Referral Requested
-                                  </span>
+                          const avatarInitials = displayName
+                            .split(' ')
+                            .map((p) => p[0])
+                            .filter(Boolean)
+                            .join('')
+                            .slice(0, 2)
+                            .toUpperCase();
+
+                          return (
+                            <div
+                              key={insider.id || idx}
+                              className="p-3.5 sm:p-4 rounded-2xl border border-neutral-200/90 bg-white hover:border-[#4FD1C5] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+                            >
+                              <div className="flex items-center gap-3">
+                                {insider.avatarUrl && isVerifiedViewer ? (
+                                  <Image
+                                    src={insider.avatarUrl}
+                                    alt={displayName}
+                                    width={44}
+                                    height={44}
+                                    className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-neutral-200 shadow-xs shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-neutral-100 border border-neutral-200 text-[#0A1B5C] font-bold flex items-center justify-center text-sm shadow-xs shrink-0">
+                                    {avatarInitials}
+                                  </div>
+                                )}
+
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {insider.isRegisteredUser && isVerifiedViewer ? (
+                                      <Link
+                                        href={`/users/${insider.id}`}
+                                        target="_blank"
+                                        className="font-semibold text-sm text-neutral-900 hover:text-[#0A1B5C] transition-colors hover:underline flex items-center gap-1"
+                                      >
+                                        <span>{displayName}</span>
+                                        <ExternalLink className="h-3 w-3 text-neutral-400" />
+                                      </Link>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="font-semibold text-sm text-neutral-900">{displayName}</span>
+                                        <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center gap-1">
+                                          <Lock className="h-2.5 w-2.5 text-amber-600" />
+                                          Partial info
+                                        </span>
+                                      </div>
+                                    )}
+
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                                      <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                                      @{insider.domain}
+                                    </span>
+
+                                    {insider.vouchPoints > 0 && (
+                                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C]">
+                                        ★ {insider.vouchPoints} Vouch Points
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="text-xs text-neutral-500 font-medium flex items-center gap-2 mt-0.5 truncate">
+                                    <span>{insider.role}</span>
+                                    {insider.city && (
+                                      <>
+                                        <span>·</span>
+                                        <span className="flex items-center gap-0.5">
+                                          <MapPin className="h-3 w-3 text-neutral-400" /> {insider.city}
+                                        </span>
+                                      </>
+                                    )}
+                                    <span>·</span>
+                                    <span className="text-emerald-700 font-bold">{insider.responseRate}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 flex items-center gap-2">
+                                {isVerifiedViewer ? (
+                                  isAlreadyRequested ? (
+                                    <span className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center justify-center gap-1">
+                                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                      Referral Requested
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleInitiateReferral(insider)}
+                                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-all shadow-xs text-center active:scale-95"
+                                    >
+                                      Request Referral
+                                    </button>
+                                  )
                                 ) : (
                                   <button
                                     type="button"
                                     onClick={() => handleInitiateReferral(insider)}
-                                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-all shadow-xs text-center active:scale-95"
+                                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold border border-neutral-300 transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
                                   >
-                                    Request Referral
+                                    <Lock className="h-3.5 w-3.5 text-neutral-500" />
+                                    <span>Connect (Verify to Unlock)</span>
                                   </button>
-                                )
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleInitiateReferral(insider)}
-                                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold border border-neutral-300 transition-all shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
-                                >
-                                  <Lock className="h-3.5 w-3.5 text-neutral-500" />
-                                  <span>Connect (Verify to Unlock)</span>
-                                </button>
-                              )}
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 3: FULL JOB DESCRIPTION */}
-              {activeDetailTab === 'description' && (
-                <div className="space-y-6 text-left">
-                  {/* About Company */}
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
-                      About {selectedJob.companyName}
-                    </h4>
-                    <p className="text-xs sm:text-sm text-neutral-700 leading-relaxed font-normal">
-                      {selectedJob.description.about}
-                    </p>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
+                )}
 
-                  {/* Responsibilities */}
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2.5">
-                      What You&apos;ll Do
-                    </h4>
-                    <ul className="space-y-2">
-                      {selectedJob.description.responsibilities.map((resp, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-neutral-700 leading-relaxed">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#0A1B5C] mt-2 shrink-0" />
-                          <span>{resp}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Qualifications */}
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2.5">
-                      Qualifications & Hiring Bar
-                    </h4>
-                    <ul className="space-y-2">
-                      {selectedJob.description.qualifications.map((qual, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-neutral-700 leading-relaxed">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-                          <span>{qual}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Tech Stack */}
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
-                      Primary Tech Stack
-                    </h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedJob.description.techStack.map((tech, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-800 text-xs font-semibold"
-                        >
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Compensation & Benefits */}
-                  <div>
-                    <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
-                      Benefits & Perks
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {selectedJob.description.benefits.map((benefit, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-700 font-medium"
-                        >
-                          ✓ {benefit}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 4: AI COPILOT & PREP */}
-              {activeDetailTab === 'copilot' && (
-                <div className="space-y-5">
-                  <div className="p-4 rounded-2xl bg-[#0A1B5C] text-white flex items-center justify-between">
+                {/* TAB 3: FULL JOB DESCRIPTION */}
+                {activeDetailTab === 'description' && (
+                  <div className="space-y-6 text-left">
+                    {/* About Company */}
                     <div>
-                      <h4 className="font-semibold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
-                        <Bot className="h-3.5 w-3.5 text-amber-400" />
-                        Jobs Career Copilot
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
+                        About {selectedJob.companyName}
                       </h4>
-                      <p className="text-xs text-neutral-300 mt-0.5">
-                        Tailor application materials and simulate hiring manager questions for {selectedJob.title}.
+                      <p className="text-xs sm:text-sm text-neutral-700 leading-relaxed font-normal">
+                        {selectedJob.description.about}
                       </p>
                     </div>
-                  </div>
 
-                  {/* One-Click Action Prompts */}
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      'Generate role-tailored cover letter',
-                      'Top 5 interview questions for this role',
-                      'Analyze hiring manager keywords',
-                    ].map((prompt, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleRunCopilotPrompt(prompt)}
-                        className="px-3.5 py-2 rounded-xl border border-neutral-200 bg-white hover:border-[#0A1B5C] hover:bg-neutral-50 text-xs font-bold text-neutral-800 transition-all flex items-center gap-1.5"
-                      >
-                        <ArrowRight className="h-3 w-3 text-[#0A1B5C]" />
-                        <span>{prompt}</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* AI Output Response Box */}
-                  {copilotLoading ? (
-                    <div className="p-8 rounded-2xl bg-neutral-50 border border-neutral-200 text-center space-y-2">
-                      <Loader2 className="h-6 w-6 text-[#0A1B5C] animate-spin mx-auto" />
-                      <span className="text-xs font-bold text-neutral-600 block">
-                        Synthesizing hiring insights for {selectedJob.companyName}...
-                      </span>
+                    {/* Responsibilities */}
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2.5">
+                        What You&apos;ll Do
+                      </h4>
+                      <ul className="space-y-2">
+                        {selectedJob.description.responsibilities.map((resp, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-neutral-700 leading-relaxed">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#0A1B5C] mt-2 shrink-0" />
+                            <span>{resp}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  ) : copilotResponse ? (
-                    <div className="rounded-2xl border border-neutral-200 bg-white p-5 space-y-3 shadow-xs">
-                      <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
-                        <span className="text-xs font-bold text-[#0A1B5C] uppercase tracking-wider">
-                          Prompt: &ldquo;{copilotPrompt}&rdquo;
-                        </span>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(copilotResponse);
-                            toast.success('Copied to clipboard!');
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold flex items-center gap-1"
-                        >
-                          <Copy className="h-3 w-3" />
-                          <span>Copy</span>
-                        </button>
+
+                    {/* Qualifications */}
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2.5">
+                        Qualifications & Hiring Bar
+                      </h4>
+                      <ul className="space-y-2">
+                        {selectedJob.description.qualifications.map((qual, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-neutral-700 leading-relaxed">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+                            <span>{qual}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Tech Stack */}
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
+                        Primary Tech Stack
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedJob.description.techStack.map((tech, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-800 text-xs font-semibold"
+                          >
+                            {tech}
+                          </span>
+                        ))}
                       </div>
+                    </div>
 
-                      <pre className="text-xs text-neutral-800 whitespace-pre-wrap font-sans leading-relaxed">
-                        {copilotResponse}
-                      </pre>
+                    {/* Compensation & Benefits */}
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">
+                        Benefits & Perks
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {selectedJob.description.benefits.map((benefit, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2.5 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-700 font-medium"
+                          >
+                            ✓ {benefit}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="p-8 rounded-2xl bg-neutral-50 border border-neutral-200 text-center text-xs text-neutral-500">
-                      Click any prompt chip above to generate instant role-tailored materials.
+                  </div>
+                )}
+
+                {/* TAB 4: AI COPILOT & PREP */}
+                {activeDetailTab === 'copilot' && (
+                  <div className="space-y-5">
+                    <div className="p-4 rounded-2xl bg-[#0A1B5C] text-white flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
+                          <Bot className="h-3.5 w-3.5 text-amber-400" />
+                          Jobs Career Copilot
+                        </h4>
+                        <p className="text-xs text-neutral-300 mt-0.5">
+                          Tailor application materials and simulate hiring manager questions for {selectedJob.title}.
+                        </p>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* One-Click Action Prompts */}
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        'Generate role-tailored cover letter',
+                        'Top 5 interview questions for this role',
+                        'Analyze hiring manager keywords',
+                      ].map((prompt, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleRunCopilotPrompt(prompt)}
+                          className="px-3.5 py-2 rounded-xl border border-neutral-200 bg-white hover:border-[#0A1B5C] hover:bg-neutral-50 text-xs font-bold text-neutral-800 transition-all flex items-center gap-1.5"
+                        >
+                          <ArrowRight className="h-3 w-3 text-[#0A1B5C]" />
+                          <span>{prompt}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* AI Output Response Box */}
+                    {copilotLoading ? (
+                      <div className="p-8 rounded-2xl bg-neutral-50 border border-neutral-200 text-center space-y-2">
+                        <Loader2 className="h-6 w-6 text-[#0A1B5C] animate-spin mx-auto" />
+                        <span className="text-xs font-bold text-neutral-600 block">
+                          Synthesizing hiring insights for {selectedJob.companyName}...
+                        </span>
+                      </div>
+                    ) : copilotResponse ? (
+                      <div className="rounded-2xl border border-neutral-200 bg-white p-5 space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between pb-2 border-b border-neutral-100">
+                          <span className="text-xs font-bold text-[#0A1B5C] uppercase tracking-wider">
+                            Prompt: &ldquo;{copilotPrompt}&rdquo;
+                          </span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(copilotResponse);
+                              toast.success('Copied to clipboard!');
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-bold flex items-center gap-1"
+                          >
+                            <Copy className="h-3 w-3" />
+                            <span>Copy</span>
+                          </button>
+                        </div>
+
+                        <pre className="text-xs text-neutral-800 whitespace-pre-wrap font-sans leading-relaxed">
+                          {copilotResponse}
+                        </pre>
+                      </div>
+                    ) : (
+                      <div className="p-8 rounded-2xl bg-neutral-50 border border-neutral-200 text-center text-xs text-neutral-500">
+                        Click any prompt chip above to generate instant role-tailored materials.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
 
             {/* 3. Mobile Dedicated Bottom Action Bar */}
             <div className="lg:hidden sticky bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-neutral-200/90 px-2.5 sm:px-3 py-2 flex items-center gap-1.5 sm:gap-2 shadow-[0_-8px_25px_-5px_rgba(0,0,0,0.1)] pb-[max(0.5rem,env(safe-area-inset-bottom))] shrink-0">
@@ -3255,17 +3240,15 @@ export function JobRecommendationsDashboard() {
                             setSelectedResumeId(resume.id);
                             setApplyResumeUrl(`${window.location.origin}/jobs/resume?id=${resume.id}`);
                           }}
-                          className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${
-                            isSelected
-                              ? 'border-[#0A1B5C] bg-[#0A1B5C]/5 ring-2 ring-[#0A1B5C]/10'
-                              : 'border-neutral-200 hover:border-neutral-300 bg-white'
-                          }`}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between gap-3 ${isSelected
+                            ? 'border-[#0A1B5C] bg-[#0A1B5C]/5 ring-2 ring-[#0A1B5C]/10'
+                            : 'border-neutral-200 hover:border-neutral-300 bg-white'
+                            }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div
-                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                                isSelected ? 'border-[#0A1B5C] bg-[#0A1B5C]' : 'border-neutral-300'
-                              }`}
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${isSelected ? 'border-[#0A1B5C] bg-[#0A1B5C]' : 'border-neutral-300'
+                                }`}
                             >
                               {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                             </div>

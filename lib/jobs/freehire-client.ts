@@ -5,6 +5,8 @@
  * with zero scraping fragility and sub-second execution on Vercel Hobby.
  */
 
+import { cleanJobApplyUrl } from './url-cleaner';
+
 export interface FreehireJobQuery {
   skills?: string[];
   seniority?: 'junior' | 'middle' | 'senior' | 'lead' | 'all';
@@ -168,15 +170,8 @@ export function transformFreehireJob(
 
   let rawUrl = (raw.apply_url || raw.external_apply_url || raw.url || '').trim();
   if (rawUrl) {
-    // Replace any legacy freehire / free-hire utm_source or ref with vouchins
-    rawUrl = rawUrl
-      .replace(/([?&])utm_source=[^&]+/gi, '$1utm_source=vouchins')
-      .replace(/([?&])utm_medium=[^&]+/gi, '$1utm_medium=vouchins')
-      .replace(/([?&])ref=[^&]+/gi, '$1ref=vouchins');
-    if (!rawUrl.includes('utm_source=')) {
-      const sep = rawUrl.includes('?') ? '&' : '?';
-      rawUrl = `${rawUrl}${sep}utm_source=vouchins`;
-    }
+    // Strip utm_source and tracking parameters that cause career portals (Workday, Oracle, etc.) to 404 or fail
+    rawUrl = cleanJobApplyUrl(rawUrl);
   }
   const workplaceType = mapWorkMode(raw.work_mode || raw.workplace_type);
   const experienceLevel = mapSeniority(raw.seniority || raw.title);

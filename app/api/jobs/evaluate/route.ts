@@ -98,15 +98,16 @@ export async function POST(request: Request) {
         );
 
       if (!isTainted && !isMismatched && doc) {
+        const fresh = evaluateResumeHeuristically(doc, rawText);
         const evaluation = {
           overallScore: cached.overall_score,
           pillarScores: cached.pillar_scores,
-          detectedSeniority: cached.detected_seniority,
-          targetRole: cached.target_role,
+          detectedSeniority: fresh.detectedSeniority || cached.detected_seniority,
+          targetRole: fresh.targetRole || cached.target_role,
           strengths: cached.strengths || [],
           missingKeywords: cached.missing_keywords || [],
           suggestions: cached.suggestions,
-          jobMatchVectors: cached.job_match_vectors || cached.jobMatchVectors || {},
+          jobMatchVectors: fresh.jobMatchVectors || cached.job_match_vectors || cached.jobMatchVectors || {},
         };
 
         return NextResponse.json({

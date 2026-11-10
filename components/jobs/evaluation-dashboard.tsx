@@ -49,7 +49,7 @@ export function EvaluationDashboard({
             Target Benchmark
           </span>
           <span className="text-xs font-bold text-[#0A1B5C]">
-            {evaluation.targetRole}
+            {experience?.[0]?.roleTitle || evaluation.targetRole}
           </span>
         </div>
 
