@@ -25,6 +25,8 @@ export interface CrawlBatchOptions {
   perCompanyLimit?: number;
   companyIds?: string[];
   companyName?: string;
+  country?: string; // ISO 2-letter country code (e.g. 'in', 'us', 'gb') or 'all'
+  city?: string;    // City filter (e.g. 'Hyderabad', 'Bengaluru', 'San Francisco')
 }
 
 export interface CrawlJobResult {
@@ -236,7 +238,13 @@ export async function crawlAndSyncTechJobs(
       chunk.map(async (company) => {
         try {
           const encodedComp = encodeURIComponent(company.name.trim());
-          const url = `https://freehire.me/api/v1/jobs/search?q=${encodedComp}&q_fields=company&limit=${perCompanyLimit}`;
+          let url = `https://freehire.me/api/v1/jobs/search?q=${encodedComp}&q_fields=company&limit=${perCompanyLimit}`;
+          if (options.country && options.country.toLowerCase() !== 'all') {
+            url += `&countries=${encodeURIComponent(options.country.trim().toLowerCase())}`;
+          }
+          if (options.city && options.city.trim() && options.city.toLowerCase() !== 'all') {
+            url += `&cities=${encodeURIComponent(options.city.trim())}`;
+          }
           const res = await fetch(url, {
             headers: { Accept: 'application/json' },
             cache: 'no-store',
@@ -251,6 +259,32 @@ export async function crawlAndSyncTechJobs(
 
           for (const job of rawJobs) {
             if (!job.title || (!job.url && !job.apply_url && !job.external_apply_url)) continue;
+
+            // Strict geographic verification
+            if (options.country && options.country.toLowerCase() !== 'all') {
+              const targetCountry = options.country.trim().toLowerCase();
+              const jobCountries = Array.isArray(job.countries)
+                ? job.countries.map((c: any) => String(c).toLowerCase())
+                : [];
+              const locText = String(job.location || '').toLowerCase();
+              const matchesCountry =
+                jobCountries.includes(targetCountry) ||
+                (targetCountry === 'in' && /india|bengaluru|bangalore|hyderabad|pune|mumbai|delhi|gurgaon|noida|chennai|telangana|karnataka/i.test(locText)) ||
+                (targetCountry === 'us' && /usa|united states|california|texas|new york|washington|seattle|austin|san francisco/i.test(locText));
+              if (!matchesCountry && jobCountries.length > 0) continue;
+            }
+
+            if (options.city && options.city.trim() && options.city.toLowerCase() !== 'all') {
+              const targetCity = options.city.trim().toLowerCase();
+              const jobCities = Array.isArray(job.cities)
+                ? job.cities.map((c: any) => String(c).toLowerCase())
+                : [];
+              const locText = String(job.location || '').toLowerCase();
+              const matchesCity =
+                jobCities.some((c: string) => c.includes(targetCity) || targetCity.includes(c)) ||
+                locText.includes(targetCity);
+              if (!matchesCity) continue;
+            }
 
             const applyUrl = job.url || job.apply_url || job.external_apply_url;
             const cleanedUrl = cleanJobApplyUrl(String(applyUrl).trim());

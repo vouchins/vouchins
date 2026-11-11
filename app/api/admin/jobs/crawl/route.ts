@@ -14,6 +14,8 @@ export async function POST(request: Request) {
     let batchSize = 25;
     let perCompanyLimit = 25;
     let companyName: string | undefined;
+    let country: string | undefined;
+    let city: string | undefined;
 
     try {
       const body = await request.json().catch(() => ({}));
@@ -30,6 +32,12 @@ export async function POST(request: Request) {
       if (typeof body.companyName === 'string' && body.companyName.trim()) {
         companyName = body.companyName.trim();
       }
+      if (typeof body.country === 'string' && body.country.trim()) {
+        country = body.country.trim();
+      }
+      if (typeof body.city === 'string' && body.city.trim()) {
+        city = body.city.trim();
+      }
     } catch {
       // Use defaults
     }
@@ -39,6 +47,8 @@ export async function POST(request: Request) {
       batchSize,
       perCompanyLimit,
       companyName,
+      country,
+      city,
     });
 
     return NextResponse.json(result);
@@ -56,11 +66,12 @@ export async function GET() {
     const auth = await requireActiveAdmin();
     if (auth.response) return auth.response;
 
-    const { count } = await supabaseAdmin
+    const { data: companies, count } = await supabaseAdmin
       .from('companies')
-      .select('id', { count: 'exact', head: true });
+      .select('name', { count: 'exact' })
+      .order('name');
 
-    const totalCompanies = count || 457;
+    const totalCompanies = count || (companies?.length ?? 457);
     const batchSize = 25;
     const totalBatches = Math.max(1, Math.ceil(totalCompanies / batchSize));
 
@@ -70,6 +81,7 @@ export async function GET() {
       totalCompanies,
       batchSize,
       totalBatches,
+      companies: (companies || []).map((c) => c.name),
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Unauthorized' }, { status: 500 });

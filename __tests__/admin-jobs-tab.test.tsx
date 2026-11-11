@@ -106,6 +106,52 @@ describe("Admin JobsTab Component", () => {
     });
   });
 
+  it("filters jobs using searchable company dropdown", async () => {
+    render(<JobsTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Senior Backend Engineer")).toBeInTheDocument();
+    });
+
+    // Find and click the company combobox trigger
+    const companyCombobox = screen.getByRole("combobox", { name: /Filter by company/i });
+    expect(companyCombobox).toHaveTextContent("All Companies");
+    fireEvent.click(companyCombobox);
+
+    // Search input inside popover
+    const searchInput = screen.getByPlaceholderText(/Search company/i);
+    fireEvent.change(searchInput, { target: { value: "Stripe" } });
+
+    // Click "Filter by Stripe anyway"
+    const filterAnywayBtn = screen.getByText(/Filter by "Stripe" anyway/i);
+    fireEvent.click(filterAnywayBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("company=Stripe"),
+        expect.anything()
+      );
+    });
+  });
+
+  it("filters jobs by location input", async () => {
+    render(<JobsTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Senior Backend Engineer")).toBeInTheDocument();
+    });
+
+    const locationInput = screen.getByPlaceholderText(/Filter location/i);
+    fireEvent.change(locationInput, { target: { value: "Hyderabad" } });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        expect.stringContaining("location=Hyderabad"),
+        expect.anything()
+      );
+    });
+  });
+
   it("opens inspect modal when clicking job title", async () => {
     render(<JobsTab />);
 

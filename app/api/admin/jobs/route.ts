@@ -13,6 +13,8 @@ export async function GET(req: Request) {
     const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
     const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get('pageSize') || '25', 10)));
     const q = (url.searchParams.get('q') || '').trim();
+    const company = (url.searchParams.get('company') || '').trim();
+    const location = (url.searchParams.get('location') || '').trim();
     const experienceLevel = url.searchParams.get('experience_level') || 'all';
     const jobType = url.searchParams.get('job_type') || 'all';
     const category = url.searchParams.get('category') || 'all';
@@ -29,6 +31,16 @@ export async function GET(req: Request) {
       // Escape special characters in query string
       const sanitizedQ = q.replace(/[%_,]/g, ' ');
       query = query.or(`title.ilike.%${sanitizedQ}%,company_name.ilike.%${sanitizedQ}%,location.ilike.%${sanitizedQ}%`);
+    }
+
+    if (company && company.toLowerCase() !== 'all') {
+      const sanitizedComp = company.replace(/[%_,]/g, ' ');
+      query = query.ilike('company_name', `%${sanitizedComp}%`);
+    }
+
+    if (location && location.toLowerCase() !== 'all') {
+      const sanitizedLoc = location.replace(/[%_,]/g, ' ');
+      query = query.ilike('location', `%${sanitizedLoc}%`);
     }
 
     if (experienceLevel !== 'all') {
@@ -74,6 +86,19 @@ export async function GET(req: Request) {
     const totalCount = count || 0;
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
+    const includeCompanies = url.searchParams.get('include_companies') === 'true';
+    let companies: string[] | undefined;
+    if (includeCompanies) {
+      const [{ data: c1 }, { data: c2 }] = await Promise.all([
+        supabaseAdmin.from('jobs').select('company_name'),
+        supabaseAdmin.from('companies').select('name').order('name'),
+      ]);
+      const set = new Set<string>();
+      (c1 || []).forEach((j) => j.company_name?.trim() && set.add(j.company_name.trim()));
+      (c2 || []).forEach((c) => c.name?.trim() && set.add(c.name.trim()));
+      companies = Array.from(set).sort((a, b) => a.localeCompare(b));
+    }
+
     return NextResponse.json({
       jobs: jobs || [],
       total: totalCount,
@@ -85,6 +110,7 @@ export async function GET(req: Request) {
         totalJobs: totalRes.count || 0,
         inactiveJobs: Math.max(0, (totalRes.count || 0) - (activeRes.count || 0)),
       },
+      ...(companies ? { companies } : {}),
     });
   } catch (error: any) {
     console.error('Admin jobs query failed:', error);

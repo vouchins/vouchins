@@ -16,16 +16,23 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Layers,
   Sparkles,
   Check,
   Copy,
   AlertCircle,
   Clock,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -97,11 +104,18 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState("");
+  const [selectedLocation, setSelectedLocation] = useState("");
   const [selectedExperience, setSelectedExperience] = useState("all");
   const [selectedJobType, setSelectedJobType] = useState("all");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedStatus, setSelectedStatus] = useState<"all" | "active" | "inactive">("all");
   const [selectedSort, setSelectedSort] = useState("newest");
+
+  // Company Searchable Dropdown State
+  const [availableCompanies, setAvailableCompanies] = useState<string[]>([]);
+  const [isCompanyComboOpen, setIsCompanyComboOpen] = useState(false);
+  const [companySearchInput, setCompanySearchInput] = useState("");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -116,7 +130,7 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [hasCopiedUrl, setHasCopiedUrl] = useState(false);
 
-  const fetchJobs = useCallback(async () => {
+  const fetchJobs = useCallback(async (loadCompanies = false) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -131,6 +145,15 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
 
       if (searchQuery.trim()) {
         params.set("q", searchQuery.trim());
+      }
+      if (selectedCompany.trim()) {
+        params.set("company", selectedCompany.trim());
+      }
+      if (selectedLocation.trim()) {
+        params.set("location", selectedLocation.trim());
+      }
+      if (loadCompanies || availableCompanies.length === 0) {
+        params.set("include_companies", "true");
       }
 
       const res = await fetch(`/api/admin/jobs?${params.toString()}`, {
@@ -148,6 +171,9 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
       if (data.stats) {
         setStats(data.stats);
       }
+      if (Array.isArray(data.companies) && data.companies.length > 0) {
+        setAvailableCompanies(data.companies);
+      }
     } catch (err: any) {
       console.error("Error fetching jobs in admin:", err);
       toast.error(err.message || "Failed to load jobs");
@@ -158,12 +184,19 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
     page,
     pageSize,
     searchQuery,
+    selectedCompany,
+    selectedLocation,
     selectedExperience,
     selectedJobType,
     selectedCategory,
     selectedStatus,
     selectedSort,
+    availableCompanies.length,
   ]);
+
+  const filteredCompaniesForDropdown = availableCompanies.filter((comp) =>
+    comp.toLowerCase().includes(companySearchInput.toLowerCase().trim())
+  );
 
   useEffect(() => {
     fetchJobs();
@@ -313,10 +346,10 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
       </div>
 
       {/* Main Filter & Search Toolbar */}
-      <div className="bg-white p-4 rounded-xl border border-neutral-200/70 shadow-xs space-y-3">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-neutral-200/80 shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
             <Input
               value={searchQuery}
               onChange={(e) => {
@@ -324,16 +357,49 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                 setPage(1);
               }}
               placeholder="Search by job title, company name, or city..."
-              className="pl-9 text-xs h-9 bg-neutral-50/70 border-neutral-200 focus:bg-white"
+              className="pl-10 text-xs h-10 bg-neutral-50/70 border-neutral-200 focus:bg-white rounded-xl"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 text-xs font-bold"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {(searchQuery || selectedCompany || selectedLocation || selectedExperience !== "all" || selectedJobType !== "all" || selectedCategory !== "All" || selectedStatus !== "all") && (
+              <Button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCompany("");
+                  setSelectedLocation("");
+                  setSelectedExperience("all");
+                  setSelectedJobType("all");
+                  setSelectedCategory("All");
+                  setSelectedStatus("all");
+                  setPage(1);
+                }}
+                variant="ghost"
+                size="sm"
+                className="h-10 text-xs font-bold text-neutral-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-1.5 px-3 rounded-xl"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear Filters
+              </Button>
+            )}
+
             <Button
               onClick={() => fetchJobs()}
               variant="outline"
               size="sm"
-              className="h-9 text-xs font-semibold border-neutral-200 text-neutral-700 hover:bg-neutral-50 flex items-center gap-1.5"
+              className="h-10 text-xs font-bold border-neutral-200 text-neutral-700 hover:bg-neutral-50 flex items-center gap-1.5 px-3.5 rounded-xl shadow-2xs"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin text-[#0A1B5C]" : ""}`} />
               Refresh
@@ -342,10 +408,174 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
         </div>
 
         {/* Filters Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-2 border-t border-neutral-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 pt-3 border-t border-neutral-100">
+          {/* Company Searchable Dropdown */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+              <Building2 className="h-3 w-3 text-[#0A1B5C]" />
+              Company
+            </label>
+            <Popover open={isCompanyComboOpen} onOpenChange={setIsCompanyComboOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  role="combobox"
+                  aria-label="Filter by company"
+                  aria-expanded={isCompanyComboOpen}
+                  className="w-full h-9 flex items-center justify-between rounded-lg border border-neutral-200 bg-white px-2.5 text-xs text-neutral-800 shadow-2xs hover:bg-neutral-50/80 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] transition-all"
+                >
+                  <span className="truncate font-semibold text-left">
+                    {selectedCompany ? selectedCompany : "All Companies"}
+                  </span>
+                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                    {selectedCompany && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedCompany("");
+                          setPage(1);
+                        }}
+                        className="text-neutral-400 hover:text-red-600 p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </span>
+                    )}
+                    <ChevronDown className="h-3.5 w-3.5 text-neutral-400 opacity-70" />
+                  </div>
+                </button>
+              </PopoverTrigger>
+
+              <PopoverContent
+                align="start"
+                className="w-[260px] p-2 bg-white border border-neutral-200/90 shadow-lg rounded-xl z-50 space-y-1.5"
+              >
+                {/* Search input inside dropdown */}
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+                  <Input
+                    placeholder="Search company..."
+                    value={companySearchInput}
+                    onChange={(e) => setCompanySearchInput(e.target.value)}
+                    autoFocus
+                    className="h-8 pl-8 pr-7 text-xs bg-neutral-50/80 border-neutral-200 rounded-lg focus:bg-white"
+                  />
+                  {companySearchInput && (
+                    <button
+                      type="button"
+                      onClick={() => setCompanySearchInput("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Company Options List */}
+                <div className="max-h-[220px] overflow-y-auto space-y-0.5 pr-0.5 pt-1">
+                  {/* All Companies reset option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCompany("");
+                      setIsCompanyComboOpen(false);
+                      setCompanySearchInput("");
+                      setPage(1);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                      !selectedCompany
+                        ? "bg-[#0A1B5C]/10 text-[#0A1B5C] font-bold"
+                        : "text-neutral-700 hover:bg-neutral-100"
+                    }`}
+                  >
+                    <span>All Companies</span>
+                    {!selectedCompany && <Check className="h-3.5 w-3.5 text-[#0A1B5C]" />}
+                  </button>
+
+                  {/* Filtered company results */}
+                  {filteredCompaniesForDropdown.length === 0 ? (
+                    <div className="py-3 px-2 text-center text-xs text-neutral-400">
+                      <p>No company found.</p>
+                      {companySearchInput.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCompany(companySearchInput.trim());
+                            setIsCompanyComboOpen(false);
+                            setCompanySearchInput("");
+                            setPage(1);
+                          }}
+                          className="mt-1.5 inline-block text-[11px] font-bold text-[#0A1B5C] hover:underline"
+                        >
+                          Filter by "{companySearchInput.trim()}" anyway
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    filteredCompaniesForDropdown.map((company) => {
+                      const isSelected = selectedCompany.toLowerCase() === company.toLowerCase();
+                      return (
+                        <button
+                          key={company}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCompany(company);
+                            setIsCompanyComboOpen(false);
+                            setCompanySearchInput("");
+                            setPage(1);
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left transition-colors truncate ${
+                            isSelected
+                              ? "bg-[#0A1B5C]/10 text-[#0A1B5C] font-bold"
+                              : "text-neutral-700 hover:bg-neutral-100"
+                          }`}
+                        >
+                          <span className="truncate">{company}</span>
+                          {isSelected && <Check className="h-3.5 w-3.5 text-[#0A1B5C] shrink-0 ml-2" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Location Filter */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 flex items-center gap-1">
+              <MapPin className="h-3 w-3 text-[#0A1B5C]" />
+              Location
+            </label>
+            <div className="relative">
+              <Input
+                value={selectedLocation}
+                onChange={(e) => {
+                  setSelectedLocation(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Filter location..."
+                className="text-xs h-9 pr-7 bg-white border-neutral-200 rounded-lg shadow-2xs focus:ring-1 focus:ring-[#0A1B5C]"
+              />
+              {selectedLocation && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocation("");
+                    setPage(1);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Seniority */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">
               Seniority
             </label>
             <select
@@ -354,7 +584,7 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                 setSelectedExperience(e.target.value);
                 setPage(1);
               }}
-              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 h-9 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] shadow-2xs"
             >
               {EXPERIENCE_LEVELS.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -365,8 +595,8 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
           </div>
 
           {/* Job Type */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">
               Job Type
             </label>
             <select
@@ -375,7 +605,7 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                 setSelectedJobType(e.target.value);
                 setPage(1);
               }}
-              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 h-9 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] shadow-2xs"
             >
               {JOB_TYPES.map((item) => (
                 <option key={item.value} value={item.value}>
@@ -386,8 +616,8 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
           </div>
 
           {/* Category */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">
               Category
             </label>
             <select
@@ -396,7 +626,7 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                 setSelectedCategory(e.target.value);
                 setPage(1);
               }}
-              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 h-9 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] shadow-2xs"
             >
               {CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>
@@ -407,8 +637,8 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
           </div>
 
           {/* Status */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">
               Status
             </label>
             <select
@@ -417,7 +647,7 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                 setSelectedStatus(e.target.value as any);
                 setPage(1);
               }}
-              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 h-9 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] shadow-2xs"
             >
               <option value="all">All Statuses</option>
               <option value="active">Active Only</option>
@@ -426,8 +656,8 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
           </div>
 
           {/* Sort */}
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-neutral-500 block">
               Sort By
             </label>
             <select
@@ -436,7 +666,7 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                 setSelectedSort(e.target.value);
                 setPage(1);
               }}
-              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+              className="w-full text-xs font-semibold rounded-lg border border-neutral-200 bg-white px-2.5 h-9 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] shadow-2xs"
             >
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
@@ -445,6 +675,47 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
             </select>
           </div>
         </div>
+
+        {/* Active Filter Tags */}
+        {(selectedCompany || selectedLocation) && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 text-xs">
+            <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mr-1">
+              Active Filters:
+            </span>
+            {selectedCompany && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0A1B5C]/10 text-[#0A1B5C] font-semibold text-xs border border-[#0A1B5C]/20">
+                <Building2 className="h-3 w-3" />
+                Company: {selectedCompany}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCompany("");
+                    setPage(1);
+                  }}
+                  className="hover:text-red-600 p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {selectedLocation && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-semibold text-xs border border-emerald-200">
+                <MapPin className="h-3 w-3" />
+                Location: {selectedLocation}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocation("");
+                    setPage(1);
+                  }}
+                  className="hover:text-red-600 p-0.5"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Jobs Listing Table */}
@@ -459,11 +730,13 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
             <Briefcase className="h-10 w-10 text-neutral-300 mx-auto" />
             <h3 className="text-sm font-bold text-neutral-800">No jobs found matching your criteria</h3>
             <p className="text-xs text-neutral-500 max-w-sm mx-auto">
-              Try adjusting your search query, seniority filters, or run the Content Importer crawler to pull latest tech openings.
+              Try adjusting your search query, location or company filters, or run the Content Importer crawler to pull latest tech openings.
             </p>
             <Button
               onClick={() => {
                 setSearchQuery("");
+                setSelectedCompany("");
+                setSelectedLocation("");
                 setSelectedExperience("all");
                 setSelectedJobType("all");
                 setSelectedCategory("All");
@@ -519,19 +792,36 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                             >
                               {job.title}
                             </button>
-                            <p className="text-[11px] font-medium text-neutral-500 line-clamp-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedCompany(job.company_name);
+                                setPage(1);
+                              }}
+                              title={`Filter jobs for ${job.company_name}`}
+                              className="text-[11px] font-medium text-neutral-500 hover:text-[#0A1B5C] hover:underline cursor-pointer truncate text-left block"
+                            >
                               {job.company_name}
-                            </p>
+                            </button>
                           </div>
                         </div>
                       </td>
 
                       {/* Location */}
                       <td className="py-3.5 px-3 text-neutral-600 whitespace-nowrap">
-                        <span className="flex items-center gap-1 line-clamp-1 max-w-[140px]">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedLocation(job.location);
+                            setPage(1);
+                          }}
+                          title={`Filter jobs in ${job.location}`}
+                          className="flex items-center gap-1 line-clamp-1 max-w-[140px] hover:text-[#0A1B5C] hover:underline cursor-pointer text-left"
+                        >
                           <MapPin className="h-3 w-3 text-neutral-400 shrink-0" />
                           <span className="truncate">{job.location || "Remote"}</span>
-                        </span>
+                        </button>
                       </td>
 
                       {/* Category */}
