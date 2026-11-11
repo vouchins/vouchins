@@ -64,55 +64,188 @@ const KNOWN_COMPANY_DOMAINS: Record<string, string> = {
   box: 'box.com',
   plaid: 'plaid.com',
   brex: 'brex.com',
+  tcs: 'tcs.com',
+  'tata consultancy services': 'tcs.com',
+  infosys: 'infosys.com',
+  wipro: 'wipro.com',
+  hcl: 'hcltech.com',
+  hcltech: 'hcltech.com',
+  'hcl technologies': 'hcltech.com',
+  'tech mahindra': 'techmahindra.com',
+  ltimindtree: 'ltimindtree.com',
+  'l&t infotech': 'ltimindtree.com',
+  accenture: 'accenture.com',
+  cognizant: 'cognizant.com',
+  deloitte: 'deloitte.com',
+  pwc: 'pwc.com',
+  pricewaterhousecoopers: 'pwc.com',
+  ey: 'ey.com',
+  'ernst & young': 'ey.com',
+  kpmg: 'kpmg.com',
+  capgemini: 'capgemini.com',
+  synchrony: 'synchrony.com',
+  'synchrony financial': 'synchrony.com',
+  'state street': 'statestreet.com',
+  virtusa: 'virtusa.com',
+  zenoti: 'zenoti.com',
+  'abc fitness': 'abcfitness.com',
+  'wells fargo': 'wellsfargo.com',
+  'goldman sachs': 'goldmansachs.com',
+  'morgan stanley': 'morganstanley.com',
+  jpmorgan: 'jpmorganchase.com',
+  'jpmorgan chase': 'jpmorganchase.com',
+  'jp morgan': 'jpmorganchase.com',
+  qualcomm: 'qualcomm.com',
+  'de shaw': 'deshaw.com',
+  'd. e. shaw': 'deshaw.com',
+  groww: 'groww.in',
+  swiggy: 'swiggy.com',
+  zomato: 'zomato.com',
+  paytm: 'paytm.com',
+  phonepe: 'phonepe.com',
+  meesho: 'meesho.com',
+  cred: 'cred.club',
+  razorpay: 'razorpay.com',
+  postman: 'postman.com',
+  browserstack: 'browserstack.com',
+  inmobi: 'inmobi.com',
+  thoughtworks: 'thoughtworks.com',
+  highradius: 'highradius.com',
+  rubrik: 'rubrik.com',
+  druva: 'druva.com',
+  nutanix: 'nutanix.com',
+  cohesity: 'cohesity.com',
+  elastic: 'elastic.co',
+  zscaler: 'zscaler.com',
+  quantela: 'quantela.com',
+  qvantel: 'qvantel.com',
 };
 
+const ATS_AND_JOB_BOARD_HOSTS = [
+  'linkedin.com',
+  'naukri.com',
+  'indeed.com',
+  'glassdoor.com',
+  'wellfound.com',
+  'angel.co',
+  'adzuna.com',
+  'adzuna.in',
+  'adzuna.co.uk',
+  'monster.com',
+  'ziprecruiter.com',
+  'dice.com',
+  'internshala.com',
+  'instahyre.com',
+  'hirist.com',
+  'foundit.in',
+  'shine.com',
+  'simplyhired.com',
+  'careerbuilder.com',
+  'jobrapido.com',
+  'smartrecruiters.com',
+  'greenhouse.io',
+  'lever.co',
+  'ashbyhq.com',
+  'workday.com',
+  'myworkdayjobs.com',
+  'adp.com',
+  'taleo.net',
+  'icims.com',
+  'bamboohr.com',
+  'pinpointhq.com',
+  'recruitee.com',
+  'workable.com',
+  'jazzhr.com',
+  'isolvedhire.com',
+  'breezy.hr',
+  'jobvite.com',
+  'ultipro.com',
+  'ukg.com',
+  'successfactors.com',
+  'brassring.com',
+  'tinyurl.com',
+  'bit.ly',
+  't.co',
+  'lnkd.in',
+  'goo.gl',
+  'google.com',
+];
+
+function isGenericJobHost(host: string): boolean {
+  const h = host.toLowerCase().replace(/^www\./, '');
+  for (let i = 0; i < ATS_AND_JOB_BOARD_HOSTS.length; i++) {
+    const b = ATS_AND_JOB_BOARD_HOSTS[i];
+    if (h === b || h.endsWith('.' + b)) return true;
+  }
+  return false;
+}
+
 /**
- * Resolves the primary web domain for a company name or external link.
+ * Resolves the primary web domain for a company name, logo URL, or external link.
+ * Prevents third-party job boards (like LinkedIn, Wellfound, Naukri, or ATS portals)
+ * from overriding the actual hiring company's brand domain.
  */
-export function getCompanyDomain(companyName: string, externalUrl?: string | null): string {
+export function getCompanyDomain(
+  companyName: string,
+  externalUrl?: string | null,
+  logoUrl?: string | null
+): string {
   const cleanName = (companyName || '').toLowerCase().trim();
+
+  // 1. Check known company domains dictionary
   if (KNOWN_COMPANY_DOMAINS[cleanName]) {
     return KNOWN_COMPANY_DOMAINS[cleanName];
   }
 
-  // Check known domains by substring
   for (const [key, domain] of Object.entries(KNOWN_COMPANY_DOMAINS)) {
     if (cleanName.includes(key) || key.includes(cleanName)) {
       return domain;
     }
   }
 
-  // Extract from externalUrl if available
-  if (externalUrl) {
+  // 2. Extract verified domain from logoUrl if available (e.g. from crawler/database)
+  if (logoUrl) {
     try {
-      const parsed = new URL(externalUrl.startsWith('http') ? externalUrl : `https://${externalUrl}`);
-      const host = parsed.hostname.toLowerCase();
-      // Ignore generic ATS hosts that don't represent the company's website
-      if (
-        !host.includes('greenhouse.io') &&
-        !host.includes('lever.co') &&
-        !host.includes('ashbyhq.com') &&
-        !host.includes('workday.com') &&
-        !host.includes('google.com')
-      ) {
-        return host.replace(/^www\./, '');
+      const parsed = new URL(logoUrl.startsWith('http') ? logoUrl : `https://${logoUrl}`);
+      const domainParam = parsed.searchParams.get('domain') || parsed.searchParams.get('url');
+      if (domainParam) {
+        const cleanDomain = domainParam
+          .replace(/^https?:\/\//, '')
+          .replace(/^www\./, '')
+          .split('/')[0];
+        if (cleanDomain && !isGenericJobHost(cleanDomain)) {
+          return cleanDomain;
+        }
       }
     } catch {}
   }
 
-  // Fallback: clean company name into a domain format
+  // 3. Extract from externalUrl ONLY if not an ATS or job board aggregator
+  if (externalUrl) {
+    try {
+      const parsed = new URL(externalUrl.startsWith('http') ? externalUrl : `https://${externalUrl}`);
+      const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+      if (!isGenericJobHost(host)) {
+        return host.replace(/^(careers|jobs|usijobs|portal\.careers|talent)\./, '');
+      }
+    } catch {}
+  }
+
+  // 4. Fallback: clean company name into a standard web domain format
   const sanitized = cleanName.replace(/[^a-z0-9]/g, '');
   return sanitized ? `${sanitized}.com` : '';
 }
 
 /**
  * Constructs Google Favicon service URL (type=FAVICON, client=SOCIAL).
- * Safely clamps size between 16 and 64 to prevent upstream 404 image errors.
+ * Uses HTTPS protocol to support modern SSL/HSTS-only domains and prevent 404 errors.
+ * Safely clamps size between 16 and 64 to prevent upstream image errors.
  */
 export function getGoogleFaviconUrl(domain: string, size = 64): string {
   if (!domain) return '';
+  const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
   const safeSize = Math.min(Math.max(size, 16), 64);
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${domain}&size=${safeSize}`;
+  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${cleanDomain}&size=${safeSize}`;
 }
 
 interface CompanyLogoProps {
@@ -140,14 +273,19 @@ export function CompanyLogo({
 }: CompanyLogoProps) {
   const [hasError, setHasError] = useState(false);
 
-  const domain = getCompanyDomain(companyName, externalUrl);
-  // Prefer Google client=SOCIAL favicon URL or direct logoUrl
-  const resolvedUrl =
-    logoUrl && !logoUrl.includes('google.com/s2/favicons')
-      ? logoUrl
-      : domain
-      ? getGoogleFaviconUrl(domain, size)
-      : '';
+  // If logoUrl is a direct image (not a Google Favicon proxy), use it directly
+  const isDirectCustomLogo =
+    logoUrl &&
+    !logoUrl.includes('google.com/s2/favicons') &&
+    !logoUrl.includes('gstatic.com/faviconV2');
+
+  const domain = getCompanyDomain(companyName, externalUrl, logoUrl);
+
+  const resolvedUrl = isDirectCustomLogo
+    ? logoUrl
+    : domain
+    ? getGoogleFaviconUrl(domain, size)
+    : '';
 
   // Reset error state whenever resolvedUrl changes so changing selected job re-attempts image render
   useEffect(() => {

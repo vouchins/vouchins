@@ -28,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
   PopoverContent,
@@ -130,6 +131,57 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [hasCopiedUrl, setHasCopiedUrl] = useState(false);
 
+  // Bulk Selection & Delete State
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [isAllMatchingSelected, setIsAllMatchingSelected] = useState(false);
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const isAllPageSelected =
+    jobs.length > 0 && jobs.every((job) => selectedJobIds.has(job.id));
+  const isSomePageSelected =
+    jobs.some((job) => selectedJobIds.has(job.id));
+
+  const toggleSelectAllOnPage = (checked: boolean) => {
+    setSelectedJobIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        jobs.forEach((job) => next.add(job.id));
+      } else {
+        jobs.forEach((job) => next.delete(job.id));
+        setIsAllMatchingSelected(false);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectJob = (jobId: string, checked: boolean) => {
+    setSelectedJobIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(jobId);
+      } else {
+        next.delete(jobId);
+        setIsAllMatchingSelected(false);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllMatching = () => {
+    setIsAllMatchingSelected(true);
+    setSelectedJobIds((prev) => {
+      const next = new Set(prev);
+      jobs.forEach((job) => next.add(job.id));
+      return next;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedJobIds(new Set());
+    setIsAllMatchingSelected(false);
+  };
+
   const fetchJobs = useCallback(async (loadCompanies = false) => {
     setLoading(true);
     try {
@@ -231,6 +283,20 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
     }
   };
 
+  useEffect(() => {
+    // Reset selection when search or filters change
+    handleClearSelection();
+  }, [
+    searchQuery,
+    selectedCompany,
+    selectedLocation,
+    selectedExperience,
+    selectedJobType,
+    selectedCategory,
+    selectedStatus,
+    selectedSort,
+  ]);
+
   const handleDeleteJob = async () => {
     if (!jobToDelete) return;
     setIsDeleting(true);
@@ -242,8 +308,14 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
       if (!res.ok) throw new Error(data.error || "Failed to delete job");
 
       toast.success("Job deleted permanently");
+      const deletedId = jobToDelete.id;
+      setSelectedJobIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deletedId);
+        return next;
+      });
       setJobToDelete(null);
-      if (inspectJob?.id === jobToDelete.id) {
+      if (inspectJob?.id === deletedId) {
         setInspectJob(null);
       }
       fetchJobs();
@@ -252,6 +324,57 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
       toast.error(err.message || "Failed to delete job");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!isAllMatchingSelected && selectedJobIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      let res: Response;
+      if (isAllMatchingSelected) {
+        res = await fetch("/api/admin/jobs", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            allMatching: true,
+            q: searchQuery.trim(),
+            company: selectedCompany.trim(),
+            location: selectedLocation.trim(),
+            experience_level: selectedExperience,
+            job_type: selectedJobType,
+            category: selectedCategory === "All" ? "all" : selectedCategory,
+            status: selectedStatus,
+          }),
+        });
+      } else {
+        res = await fetch("/api/admin/jobs", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ids: Array.from(selectedJobIds),
+          }),
+        });
+      }
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete jobs");
+
+      const count = data.count ?? (isAllMatchingSelected ? totalJobs : selectedJobIds.size);
+      toast.success(
+        isAllMatchingSelected
+          ? `Successfully deleted all ${count} matching jobs`
+          : `Successfully deleted ${count} ${count === 1 ? "job" : "jobs"}`
+      );
+
+      handleClearSelection();
+      setIsBulkDeleteDialogOpen(false);
+      await fetchJobs();
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete jobs");
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -392,6 +515,24 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
               >
                 <X className="h-3.5 w-3.5" />
                 Clear Filters
+              </Button>
+            )}
+
+            {jobs.length > 0 && (
+              <Button
+                onClick={() => {
+                  if (isAllMatchingSelected || isAllPageSelected) {
+                    handleClearSelection();
+                  } else {
+                    toggleSelectAllOnPage(true);
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                className="h-10 text-xs font-bold border-neutral-200 text-neutral-700 hover:bg-neutral-50 flex items-center gap-1.5 px-3.5 rounded-xl shadow-2xs"
+              >
+                <Check className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                {isAllMatchingSelected || isAllPageSelected ? "Deselect Page" : "Select Page"}
               </Button>
             )}
 
@@ -718,6 +859,57 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
         )}
       </div>
 
+      {/* Bulk Selection Action Bar */}
+      {(selectedJobIds.size > 0 || isAllMatchingSelected) && (
+        <div className="bg-[#0A1B5C] text-white px-4 py-3 rounded-xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="inline-flex items-center justify-center bg-[#4FD1C5] text-[#0A1B5C] text-xs font-black h-6 min-w-6 px-2 rounded-full">
+              {isAllMatchingSelected ? totalJobs : selectedJobIds.size}
+            </span>
+            <span className="text-xs font-bold">
+              {isAllMatchingSelected ? (
+                <>All {totalJobs} jobs selected across all pages</>
+              ) : (
+                <>
+                  {selectedJobIds.size} {selectedJobIds.size === 1 ? "job" : "jobs"} selected on this page
+                </>
+              )}
+            </span>
+
+            {!isAllMatchingSelected && totalJobs > jobs.length && (
+              <button
+                type="button"
+                onClick={handleSelectAllMatching}
+                className="text-xs font-semibold text-[#4FD1C5] hover:underline cursor-pointer ml-1"
+              >
+                Select all {totalJobs} jobs matching criteria
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <Button
+              type="button"
+              onClick={handleClearSelection}
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs font-semibold text-neutral-200 hover:text-white hover:bg-white/10"
+            >
+              Clear selection
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setIsBulkDeleteDialogOpen(true)}
+              size="sm"
+              className="h-8 text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs flex items-center gap-1.5 px-3.5 rounded-lg"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete {isAllMatchingSelected ? `All (${totalJobs})` : `Selected (${selectedJobIds.size})`}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Jobs Listing Table */}
       <div className="bg-white rounded-xl border border-neutral-200/70 shadow-xs overflow-hidden">
         {loading ? (
@@ -755,6 +947,19 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-neutral-50/80 border-b border-neutral-200/80 text-[11px] font-bold text-neutral-500 uppercase tracking-wider">
+                  <th className="py-3 px-3 w-10 text-center">
+                    <Checkbox
+                      checked={
+                        isAllMatchingSelected || isAllPageSelected
+                          ? true
+                          : isSomePageSelected
+                          ? "indeterminate"
+                          : false
+                      }
+                      onCheckedChange={(checked) => toggleSelectAllOnPage(checked === true)}
+                      aria-label="Select all jobs on current page"
+                    />
+                  </th>
                   <th className="py-3 px-4">Company & Role</th>
                   <th className="py-3 px-3">Location</th>
                   <th className="py-3 px-3">Category</th>
@@ -769,9 +974,27 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                 {jobs.map((job) => {
                   const companyDomain = `${job.company_name.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
                   const logoSrc = job.company_logo || `https://www.google.com/s2/favicons?domain=${companyDomain}&sz=64`;
+                  const isSelected = isAllMatchingSelected || selectedJobIds.has(job.id);
 
                   return (
-                    <tr key={job.id} className="hover:bg-neutral-50/60 transition-colors">
+                    <tr
+                      key={job.id}
+                      className={`hover:bg-neutral-50/60 transition-colors ${
+                        isSelected ? "bg-[#0A1B5C]/5" : ""
+                      }`}
+                    >
+                      {/* Row Selection Checkbox */}
+                      <td
+                        className="py-3.5 px-3 w-10 text-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => toggleSelectJob(job.id, checked === true)}
+                          aria-label={`Select job ${job.title}`}
+                        />
+                      </td>
+
                       {/* Company & Title */}
                       <td className="py-3.5 px-4 max-w-xs">
                         <div className="flex items-start gap-3">
@@ -1164,6 +1387,71 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
               className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 rounded-xl"
             >
               {isDeleting ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <Dialog
+        open={isBulkDeleteDialogOpen}
+        onOpenChange={(open) => !isBulkDeleting && setIsBulkDeleteDialogOpen(open)}
+      >
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-neutral-900 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              {isAllMatchingSelected
+                ? "Permanently Delete All Matching Jobs?"
+                : `Permanently Delete ${selectedJobIds.size} Selected ${
+                    selectedJobIds.size === 1 ? "Job" : "Jobs"
+                  }?`}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-neutral-600 pt-2 leading-relaxed">
+              {isAllMatchingSelected ? (
+                <>
+                  Are you sure you want to delete all{" "}
+                  <span className="font-bold text-neutral-900">{totalJobs} jobs</span> matching
+                  your active filters across all pages? This action cannot be undone and will permanently
+                  remove them from the database.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete{" "}
+                  <span className="font-bold text-neutral-900">
+                    {selectedJobIds.size} selected {selectedJobIds.size === 1 ? "job" : "jobs"}
+                  </span>
+                  ? This action cannot be undone and will permanently remove them from the database.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-4 flex items-center justify-end gap-2">
+            <Button
+              onClick={() => setIsBulkDeleteDialogOpen(false)}
+              variant="outline"
+              size="sm"
+              disabled={isBulkDeleting}
+              className="text-xs font-bold"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-4 rounded-xl flex items-center gap-1.5"
+            >
+              {isBulkDeleting ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete Permanently
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

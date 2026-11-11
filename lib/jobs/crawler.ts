@@ -153,6 +153,36 @@ function chunkArray<T>(items: T[], chunkSize: number): T[][] {
   return chunks;
 }
 
+export function doesJobMatchCompany(
+  targetCompanyName: string,
+  rawJobCompany?: string,
+  applyUrl?: string
+): boolean {
+  if (!targetCompanyName) return false;
+  const target = targetCompanyName.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!target) return true;
+
+  if (rawJobCompany) {
+    const raw = rawJobCompany.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (raw === target || raw.startsWith(target) || raw.endsWith(target)) {
+      return true;
+    }
+  }
+
+  if (applyUrl) {
+    try {
+      const parsed = new URL(applyUrl.startsWith('http') ? applyUrl : `https://${applyUrl}`);
+      const host = parsed.hostname.toLowerCase();
+      const path = parsed.pathname.toLowerCase();
+      if (host.includes(target) || path.includes(target)) {
+        return true;
+      }
+    } catch {}
+  }
+
+  return false;
+}
+
 /**
  * Crawls live tech jobs across companies using Freehire search API in batches,
  * deduplicates against Supabase, and batch-inserts new active jobs.
@@ -260,6 +290,14 @@ export async function crawlAndSyncTechJobs(
           for (const job of rawJobs) {
             if (!job.title || (!job.url && !job.apply_url && !job.external_apply_url)) continue;
 
+            const applyUrl = job.url || job.apply_url || job.external_apply_url;
+
+            // Strict company match verification to prevent Freehire fuzzy false-positives
+            // (e.g. Freehire returning 'quantela-team' when querying 'qvantel')
+            if (!doesJobMatchCompany(company.name, job.company, String(applyUrl))) {
+              continue;
+            }
+
             // Strict geographic verification
             if (options.country && options.country.toLowerCase() !== 'all') {
               const targetCountry = options.country.trim().toLowerCase();
@@ -286,7 +324,6 @@ export async function crawlAndSyncTechJobs(
               if (!matchesCity) continue;
             }
 
-            const applyUrl = job.url || job.apply_url || job.external_apply_url;
             const cleanedUrl = cleanJobApplyUrl(String(applyUrl).trim());
             if (!cleanedUrl || seenBatchUrls.has(cleanedUrl)) continue;
             seenBatchUrls.add(cleanedUrl);

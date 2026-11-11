@@ -168,5 +168,137 @@ describe("Admin JobsTab Component", () => {
       expect(screen.getByText("Authentic ATS Application Link")).toBeInTheDocument();
     });
   });
+
+  it("handles row checkbox selection and bulk delete confirmation", async () => {
+    render(<JobsTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Senior Backend Engineer")).toBeInTheDocument();
+    });
+
+    // Checkbox for j-1
+    const rowCheckboxes = screen.getAllByRole("checkbox", { name: /Select job/i });
+    expect(rowCheckboxes).toHaveLength(2);
+
+    // Select the first job
+    fireEvent.click(rowCheckboxes[0]);
+
+    // Bulk selection bar should now be visible with 1 job selected
+    await waitFor(() => {
+      expect(screen.getByText(/1 job selected on this page/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Delete Selected \(1\)/i })).toBeInTheDocument();
+    });
+
+    // Click "Delete Selected (1)" to open dialog
+    const deleteSelectedBtn = screen.getByRole("button", { name: /Delete Selected \(1\)/i });
+    fireEvent.click(deleteSelectedBtn);
+
+    // Bulk delete dialog should be open
+    await waitFor(() => {
+      expect(screen.getByText(/Permanently Delete 1 Selected Job\?/i)).toBeInTheDocument();
+    });
+
+    // Click "Delete Permanently"
+    const confirmDeleteBtn = screen.getByRole("button", { name: /Delete Permanently/i });
+    fireEvent.click(confirmDeleteBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/jobs",
+        expect.objectContaining({
+          method: "DELETE",
+          body: JSON.stringify({ ids: ["j-1"] }),
+        })
+      );
+    });
+  });
+
+  it("handles select all on current page via header checkbox and clear selection", async () => {
+    render(<JobsTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Senior Backend Engineer")).toBeInTheDocument();
+    });
+
+    // Header checkbox to select all
+    const selectAllCheckbox = screen.getByRole("checkbox", { name: /Select all jobs on current page/i });
+    fireEvent.click(selectAllCheckbox);
+
+    // Bulk toolbar should show 2 jobs selected
+    await waitFor(() => {
+      expect(screen.getByText(/2 jobs selected on this page/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Delete Selected \(2\)/i })).toBeInTheDocument();
+    });
+
+    // Clear selection
+    const clearBtn = screen.getByRole("button", { name: /Clear selection/i });
+    fireEvent.click(clearBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/2 jobs selected on this page/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("allows selecting all matching jobs across all pages and deleting", async () => {
+    (global.fetch as jest.Mock).mockImplementationOnce((url: string) => {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          jobs: mockJobs,
+          total: 50,
+          page: 1,
+          pageSize: 25,
+          totalPages: 2,
+          stats: { activeJobs: 30, totalJobs: 50, inactiveJobs: 20 },
+        }),
+      });
+    });
+
+    render(<JobsTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Senior Backend Engineer")).toBeInTheDocument();
+    });
+
+    // Header checkbox to select all on page
+    const selectAllCheckbox = screen.getByRole("checkbox", { name: /Select all jobs on current page/i });
+    fireEvent.click(selectAllCheckbox);
+
+    // Option to select all 50 matching jobs should appear
+    await waitFor(() => {
+      expect(screen.getByText(/Select all 50 jobs matching criteria/i)).toBeInTheDocument();
+    });
+
+    const selectAllMatchingBtn = screen.getByText(/Select all 50 jobs matching criteria/i);
+    fireEvent.click(selectAllMatchingBtn);
+
+    // Bar now displays all 50 jobs selected
+    await waitFor(() => {
+      expect(screen.getByText(/All 50 jobs selected across all pages/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Delete All \(50\)/i })).toBeInTheDocument();
+    });
+
+    // Click delete all
+    const deleteAllBtn = screen.getByRole("button", { name: /Delete All \(50\)/i });
+    fireEvent.click(deleteAllBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Permanently Delete All Matching Jobs\?/i)).toBeInTheDocument();
+    });
+
+    // Confirm deletion
+    const confirmDeleteBtn = screen.getByRole("button", { name: /Delete Permanently/i });
+    fireEvent.click(confirmDeleteBtn);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/admin/jobs",
+        expect.objectContaining({
+          method: "DELETE",
+          body: expect.stringContaining('"allMatching":true'),
+        })
+      );
+    });
+  });
 });
 

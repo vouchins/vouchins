@@ -173,24 +173,128 @@ export async function DELETE(req: Request) {
     if (auth.response) return auth.response;
 
     const url = new URL(req.url);
-    const id = url.searchParams.get('id');
+    let ids: string[] = [];
+    let allMatching = url.searchParams.get('allMatching') === 'true';
 
-    if (!id) {
-      return NextResponse.json({ error: 'Job ID is required' }, { status: 400 });
+    // Active filters for allMatching
+    let q = (url.searchParams.get('q') || '').trim();
+    let company = (url.searchParams.get('company') || '').trim();
+    let location = (url.searchParams.get('location') || '').trim();
+    let experienceLevel = url.searchParams.get('experience_level') || '';
+    let jobType = url.searchParams.get('job_type') || '';
+    let category = url.searchParams.get('category') || '';
+    let status = url.searchParams.get('status') || '';
+
+    // Check query params for id or ids
+    const idParam = url.searchParams.get('id');
+    const idsParam = url.searchParams.get('ids');
+    if (idsParam) {
+      ids = idsParam.split(',').map((s) => s.trim()).filter(Boolean);
+    } else if (idParam) {
+      ids = [idParam.trim()];
     }
 
-    const { error } = await supabaseAdmin
-      .from('jobs')
-      .delete()
-      .eq('id', id);
+    // Try reading JSON body if available
+    try {
+      const body = await req.json();
+      if (body) {
+        if (body.allMatching === true) {
+          allMatching = true;
+          if (body.q !== undefined) q = (body.q || '').trim();
+          if (body.company !== undefined) company = (body.company || '').trim();
+          if (body.location !== undefined) location = (body.location || '').trim();
+          if (body.experience_level !== undefined) experienceLevel = body.experience_level || '';
+          if (body.job_type !== undefined) jobType = body.job_type || '';
+          if (body.category !== undefined) category = body.category || '';
+          if (body.status !== undefined) status = body.status || '';
+        }
+        if (Array.isArray(body.ids)) {
+          ids = body.ids.filter((item: any) => typeof item === 'string' && item.trim().length > 0);
+        } else if (typeof body.id === 'string' && body.id.trim()) {
+          ids = [body.id.trim()];
+        }
+      }
+    } catch {
+      // Body was empty or not JSON
+    }
 
-    if (error) throw error;
+    if (allMatching) {
+      let matchQuery = supabaseAdmin.from('jobs').select('id');
 
-    return NextResponse.json({ success: true });
+      if (q) {
+        const sanitizedQ = q.replace(/[%_,]/g, ' ');
+        matchQuery = matchQuery.or(`title.ilike.%${sanitizedQ}%,company_name.ilike.%${sanitizedQ}%,location.ilike.%${sanitizedQ}%`);
+      }
+
+      if (company && company.toLowerCase() !== 'all') {
+        const sanitizedComp = company.replace(/[%_,]/g, ' ');
+        matchQuery = matchQuery.ilike('company_name', `%${sanitizedComp}%`);
+      }
+
+      if (location && location.toLowerCase() !== 'all') {
+        const sanitizedLoc = location.replace(/[%_,]/g, ' ');
+        matchQuery = matchQuery.ilike('location', `%${sanitizedLoc}%`);
+      }
+
+      if (experienceLevel && experienceLevel !== 'all') {
+        matchQuery = matchQuery.eq('experience_level', experienceLevel.toLowerCase());
+      }
+
+      if (jobType && jobType !== 'all') {
+        matchQuery = matchQuery.eq('job_type', jobType.toLowerCase());
+      }
+
+      if (category && category !== 'all') {
+        matchQuery = matchQuery.eq('category', category);
+      }
+
+      if (status === 'active') {
+        matchQuery = matchQuery.eq('is_active', true);
+      } else if (status === 'inactive') {
+        matchQuery = matchQuery.eq('is_active', false);
+      }
+
+      const { data: matchedJobs, error: matchError } = await matchQuery;
+      if (matchError) throw matchError;
+
+      ids = (matchedJobs || []).map((j: { id: string }) => j.id);
+
+      if (ids.length === 0) {
+        return NextResponse.json({ success: true, count: 0, allMatching: true });
+      }
+    }
+
+    if (ids.length === 0) {
+      return NextResponse.json({ error: 'Job ID or IDs are required' }, { status: 400 });
+    }
+
+    const uniqueIds = Array.from(new Set(ids));
+    const chunkSize = 200;
+    let totalDeleted = 0;
+
+    for (let i = 0; i < uniqueIds.length; i += chunkSize) {
+      const chunk = uniqueIds.slice(i, i + chunkSize);
+
+      // Clean up dependent records defensively
+      await Promise.allSettled([
+        supabaseAdmin.from('job_applications').delete().in('job_id', chunk),
+        supabaseAdmin.from('job_views').delete().in('job_id', chunk),
+      ]);
+
+      const { error } = await supabaseAdmin
+        .from('jobs')
+        .delete()
+        .in('id', chunk);
+
+      if (error) throw error;
+      totalDeleted += chunk.length;
+    }
+
+    return NextResponse.json({ success: true, count: totalDeleted, allMatching });
   } catch (error: any) {
     console.error('Admin job deletion failed:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to delete job' },
+      { error: error.message || 'Failed to delete job(s)' },
       { status: 500 }
     );
   }

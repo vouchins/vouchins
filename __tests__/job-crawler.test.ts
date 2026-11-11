@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { crawlAndSyncTechJobs } from '@/lib/jobs/crawler';
+import { crawlAndSyncTechJobs, doesJobMatchCompany } from '@/lib/jobs/crawler';
 
 const mockFrom = jest.fn();
 jest.mock('@/lib/supabase/admin', () => ({
@@ -209,5 +209,20 @@ describe('Job Crawler Engine', () => {
     const insertedJobs = mockInsert.mock.calls[0][0];
     expect(insertedJobs.length).toBe(1);
     expect(insertedJobs[0].title).toBe('Hyderabad Software Engineer');
+  });
+
+  it('correctly discriminates distinct companies with similar spellings (e.g. Qvantel vs Quantela)', () => {
+    expect(
+      doesJobMatchCompany('qvantel', 'quantela-team', 'https://quantela-team.freshteam.com/jobs/123')
+    ).toBe(false);
+    expect(
+      doesJobMatchCompany('qvantel', 'QUANTEL MEDICAL', 'https://candidat.francetravail.fr/offres/123')
+    ).toBe(false);
+    expect(
+      doesJobMatchCompany('qvantel', 'optiva', 'https://optiva.wd3.myworkdayjobs.com/Qvantel_external_career_site/job/123')
+    ).toBe(true);
+    expect(
+      doesJobMatchCompany('Google', 'Google', 'https://careers.google.com/jobs/123')
+    ).toBe(true);
   });
 });

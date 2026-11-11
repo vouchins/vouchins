@@ -11,13 +11,53 @@ describe('CompanyLogo & Favicon Engine', () => {
     expect(getCompanyDomain('Figma')).toBe('figma.com');
     expect(getCompanyDomain('Audible')).toBe('audible.com');
     expect(getCompanyDomain('Johnson & Johnson')).toBe('jnj.com');
+    expect(getCompanyDomain('Accenture')).toBe('accenture.com');
+    expect(getCompanyDomain('Deloitte')).toBe('deloitte.com');
+    expect(getCompanyDomain('Synchrony Financial')).toBe('synchrony.com');
+    expect(getCompanyDomain('Quantela')).toBe('quantela.com');
+    expect(getCompanyDomain('Qvantel')).toBe('qvantel.com');
   });
 
-  it('constructs Google Favicon service URL conforming to requested spec', () => {
+  it('constructs Google Favicon service URL conforming to requested spec with HTTPS protocol', () => {
     const url = getGoogleFaviconUrl('oracle.com', 64);
     expect(url).toBe(
-      'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://oracle.com&size=64'
+      'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://oracle.com&size=64'
     );
+
+    const quantelaUrl = getGoogleFaviconUrl('quantela.com', 64);
+    expect(quantelaUrl).toBe(
+      'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://quantela.com&size=64'
+    );
+  });
+
+  it('ignores generic job board and ATS aggregators when resolving externalUrl', () => {
+    // Should NOT return linkedin.com, wellfound.com, naukri.com, adzuna.com, etc.
+    const domainFromLinkedIn = getCompanyDomain(
+      'Accenture',
+      'https://www.linkedin.com/jobs/view/4476305695/'
+    );
+    expect(domainFromLinkedIn).toBe('accenture.com');
+
+    const domainFromWellfound = getCompanyDomain(
+      'Abovo',
+      'https://wellfound.com/jobs/4791997-technical-co-founder'
+    );
+    expect(domainFromWellfound).not.toBe('wellfound.com');
+
+    const domainFromSmartRecruiters = getCompanyDomain(
+      'Abovo',
+      'https://jobs.smartrecruiters.com/AbOvoInc/12345'
+    );
+    expect(domainFromSmartRecruiters).not.toBe('smartrecruiters.com');
+  });
+
+  it('extracts canonical domain from logoUrl if available', () => {
+    const domain = getCompanyDomain(
+      'Abovo',
+      'https://wellfound.com/jobs/123',
+      'https://www.google.com/s2/favicons?domain=abovo.co.in&sz=128'
+    );
+    expect(domain).toBe('abovo.co.in');
   });
 
   it('renders Google favicon image for known company', () => {
@@ -26,7 +66,21 @@ describe('CompanyLogo & Favicon Engine', () => {
     expect(img).toBeInTheDocument();
     expect(img).toHaveAttribute(
       'src',
-      'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://oracle.com&size=64'
+      'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://oracle.com&size=64'
+    );
+  });
+
+  it('renders direct custom logoUrl when it is a direct image asset', () => {
+    render(
+      <CompanyLogo
+        companyName="Custom Corp"
+        logoUrl="https://res.cloudinary.com/demo/image/upload/sample.png"
+      />
+    );
+    const img = screen.getByRole('img');
+    expect(img).toHaveAttribute(
+      'src',
+      'https://res.cloudinary.com/demo/image/upload/sample.png'
     );
   });
 
@@ -47,4 +101,3 @@ describe('CompanyLogo & Favicon Engine', () => {
     expect(screen.getByText('AC')).toBeInTheDocument();
   });
 });
-

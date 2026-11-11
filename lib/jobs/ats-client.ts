@@ -425,16 +425,94 @@ export function isLocationMatch(
   return false;
 }
 
-const COMMON_TECH_TAXONOMY = [
+export const COMMON_TECH_TAXONOMY = [
   'TypeScript', 'JavaScript', 'React', 'Next.js', 'Node.js', 'Python', 'Go', 'Golang',
   'PostgreSQL', 'MySQL', 'Redis', 'Kafka', 'AWS', 'GCP', 'Azure', 'Kubernetes',
   'Docker', 'GraphQL', 'REST', 'gRPC', 'Distributed Systems', 'Microservices',
   'Tailwind CSS', 'Java', 'C++', 'Rust', 'Ruby', 'Rails', 'Elasticsearch',
-  'Terraform', 'CI/CD', 'OpenTelemetry', 'Datadog', 'SQL', 'MongoDB'
+  'Terraform', 'CI/CD', 'OpenTelemetry', 'Datadog', 'SQL', 'MongoDB', 'Spring Boot'
 ];
 
+export const SKILL_SYNONYMS: Record<string, string[]> = {
+  react: ['react.js', 'reactjs'],
+  'react.js': ['react', 'reactjs'],
+  reactjs: ['react', 'react.js'],
+  node: ['node.js', 'nodejs'],
+  'node.js': ['node', 'nodejs'],
+  nodejs: ['node', 'node.js'],
+  next: ['next.js', 'nextjs'],
+  'next.js': ['next', 'nextjs'],
+  nextjs: ['next', 'next.js'],
+  vue: ['vue.js', 'vuejs'],
+  'vue.js': ['vue', 'vuejs'],
+  vuejs: ['vue', 'vue.js'],
+  angular: ['angular.js', 'angularjs'],
+  'angular.js': ['angular', 'angularjs'],
+  angularjs: ['angular', 'angular.js'],
+  typescript: ['ts'],
+  ts: ['typescript'],
+  javascript: ['js'],
+  js: ['javascript'],
+  python: ['py'],
+  postgres: ['postgresql'],
+  postgresql: ['postgres'],
+  kubernetes: ['k8s'],
+  k8s: ['kubernetes'],
+  mongo: ['mongodb'],
+  mongodb: ['mongo'],
+  aws: ['amazon web services'],
+  'amazon web services': ['aws'],
+  gcp: ['google cloud', 'google cloud platform'],
+  'google cloud': ['gcp', 'google cloud platform'],
+  'google cloud platform': ['gcp', 'google cloud'],
+  azure: ['microsoft azure'],
+  'microsoft azure': ['azure'],
+  rest: ['restful', 'rest api', 'rest apis'],
+  'rest api': ['rest', 'restful', 'rest apis'],
+  'rest apis': ['rest', 'restful', 'rest api'],
+  restful: ['rest', 'rest api', 'rest apis'],
+  graphql: ['gql'],
+  gql: ['graphql'],
+  tailwind: ['tailwindcss'],
+  tailwindcss: ['tailwind'],
+  spring: ['spring boot', 'springboot'],
+  'spring boot': ['spring', 'springboot'],
+  springboot: ['spring', 'spring boot'],
+  'ci/cd': ['cicd', 'continuous integration'],
+  cicd: ['ci/cd', 'continuous integration'],
+  go: ['golang'],
+  golang: ['go'],
+  docker: ['containers', 'containerization'],
+  kafka: ['apache kafka'],
+  'apache kafka': ['kafka'],
+  spark: ['apache spark'],
+  'apache spark': ['spark'],
+  ml: ['machine learning'],
+  'machine learning': ['ml'],
+  ai: ['artificial intelligence', 'genai', 'generative ai'],
+  'artificial intelligence': ['ai', 'genai', 'generative ai'],
+  nlp: ['natural language processing'],
+  'natural language processing': ['nlp'],
+  sql: ['dbms', 'database', 'rdbms'],
+  dbms: ['sql', 'database', 'rdbms'],
+  rdbms: ['sql', 'dbms', 'database'],
+};
+
+function rawSkillMatch(lowerCorpus: string, cleanSkill: string): boolean {
+  const lowerSkill = cleanSkill.toLowerCase();
+  if (lowerSkill === 'c++') return /(^|[^a-zA-Z0-9])c\+\+([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  if (lowerSkill === 'c#') return /(^|[^a-zA-Z0-9])c#([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  if (lowerSkill === '.net') return /(^|[^a-zA-Z0-9])\.net([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  if (lowerSkill === 'go') {
+    return /(^|[^a-zA-Z0-9])(go|golang)([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  }
+  const escaped = lowerSkill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, 'i');
+  return regex.test(lowerCorpus);
+}
+
 /**
- * Safely tests whether a skill exists in a text corpus using word boundaries.
+ * Safely tests whether a skill exists in a text corpus using word boundaries and synonym aliasing.
  * Accurately prevents false-positive matches (e.g. "Go" matching "Google" or "algorithm",
  * "Java" matching "JavaScript", "AI" matching "maintain" or "email").
  */
@@ -443,20 +521,41 @@ export function containsSkill(textCorpus: string, skill: string): boolean {
   const cleanSkill = skill.trim();
   if (!cleanSkill) return false;
   const lowerCorpus = textCorpus.toLowerCase();
-  const lowerSkill = cleanSkill.toLowerCase();
+  if (rawSkillMatch(lowerCorpus, cleanSkill)) return true;
 
-  // Special cases for languages with symbols:
-  if (lowerSkill === 'c++') return /(^|[^a-zA-Z0-9])c\+\+([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
-  if (lowerSkill === 'c#') return /(^|[^a-zA-Z0-9])c#([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
-  if (lowerSkill === '.net') return /(^|[^a-zA-Z0-9])\.net([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
-  if (lowerSkill === 'go') {
-    return /(^|[^a-zA-Z0-9])(go|golang)([^a-zA-Z0-9]|$)/i.test(lowerCorpus);
+  const synonyms = SKILL_SYNONYMS[cleanSkill.toLowerCase()] || [];
+  return synonyms.some((syn) => rawSkillMatch(lowerCorpus, syn));
+}
+
+export function isSeniorityCompatible(
+  targetSeniority = 'Mid',
+  jobExp = 'Mid'
+): { compatible: boolean; isExact: boolean } {
+  const normTarget = targetSeniority.toLowerCase().trim();
+  const normJob = jobExp.toLowerCase().trim();
+
+  // Normalize 'lead/director' or 'director' to 'lead'
+  const cleanTarget = normTarget.replace('/director', '').replace('director', 'lead');
+  const cleanJob = normJob.replace('/director', '').replace('director', 'lead');
+
+  if (cleanTarget === cleanJob) {
+    return { compatible: true, isExact: true };
   }
 
-  // Exact word boundary matching for acronyms and keywords (e.g. "AI", "ML", "Java", "SQL", "Rust")
-  const escaped = lowerSkill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, 'i');
-  return regex.test(lowerCorpus);
+  const seniorityLevels: Record<string, string[]> = {
+    entry: ['entry', 'junior', 'associate', 'mid'],
+    mid: ['mid', 'entry', 'senior'],
+    senior: ['senior', 'mid', 'staff', 'lead'],
+    staff: ['staff', 'senior', 'lead', 'principal'],
+    lead: ['lead', 'staff', 'senior', 'principal'],
+    principal: ['principal', 'lead', 'staff', 'senior'],
+  };
+
+  const allowed = seniorityLevels[cleanTarget] || [cleanTarget];
+  return {
+    compatible: allowed.includes(cleanJob),
+    isExact: false,
+  };
 }
 
 /**
@@ -517,6 +616,11 @@ export function evaluateJobMatch(
     baseScore += 6;
   }
 
+  // Role relevance filter: prevents unrelated roles (e.g. chemist, driver) from scoring high
+  if (candidateSkills.length > 0 && !isRoleRelevant(jobInfo.title, candidateSkills)) {
+    baseScore -= 12;
+  }
+
   // Location & workplace alignment
   const jobLocLower = (jobInfo.location || '').toLowerCase();
   const candLocLower = (candidateLocation || '').toLowerCase().trim();
@@ -553,11 +657,13 @@ export function evaluateJobMatch(
   }
 
   const jobExp = jobInfo.experienceLevel || 'Mid';
-  if (
-    jobExp.toLowerCase() === targetSeniority.toLowerCase() ||
-    (targetSeniority === 'Senior' && (jobExp === 'Senior' || jobExp === 'Staff'))
-  ) {
-    baseScore += 3;
+  const seniorityCheck = isSeniorityCompatible(targetSeniority, jobExp);
+  if (seniorityCheck.isExact) {
+    baseScore += 4;
+  } else if (seniorityCheck.compatible) {
+    baseScore += 2;
+  } else {
+    baseScore -= 6;
   }
 
   const matchScore = Math.min(98, Math.max(50, baseScore));
@@ -743,7 +849,7 @@ async function fetchGreenhouseBoard(
           id: `ats-gh-${target.boardToken}-${j.id}`,
           title,
           company_name: target.company,
-          company_logo: `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${target.domain}&size=128`,
+          company_logo: `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${target.domain}&size=128`,
           location,
           workplace_type: workplaceType,
           job_type: 'Full-time',
@@ -870,7 +976,7 @@ async function fetchLeverBoard(
           id: `ats-lever-${target.boardToken}-${j.id}`,
           title,
           company_name: target.company,
-          company_logo: `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${target.domain}&size=128`,
+          company_logo: `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${target.domain}&size=128`,
           location,
           workplace_type: workplaceType,
           job_type: commitment.toLowerCase().includes('part') ? 'Part-time' : 'Full-time',
@@ -998,7 +1104,7 @@ async function fetchAshbyBoard(
           id: `ats-ashby-${target.boardToken}-${j.id}`,
           title,
           company_name: target.company,
-          company_logo: `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://${target.domain}&size=128`,
+          company_logo: `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${target.domain}&size=128`,
           location,
           workplace_type: workplaceType,
           job_type: 'Full-time',
