@@ -409,12 +409,24 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
     const textLower = `${job.requirements || ''} ${job.description || ''} ${title}`.toLowerCase();
     const commonTech = [
       'React', 'TypeScript', 'Node.js', 'Python', 'Go', 'AWS', 'Kubernetes',
-      'Docker', 'PostgreSQL', 'GraphQL', 'Next.js', 'Kafka', 'Redis', 'Java', 'GCP', 'SQL', 'C++'
+      'Docker', 'PostgreSQL', 'GraphQL', 'Next.js', 'Kafka', 'Redis', 'Java', 'GCP', 'SQL', 'C++',
+      'Distributed Systems', 'Cloud Infrastructure', 'Microservices', 'REST', 'APIs'
     ];
     // Accurate word boundary skill checking
     const matchingSkills = commonTech.filter((s) => containsSkill(textLower, s));
     if (matchingSkills.length === 0) {
-      matchingSkills.push('TypeScript', 'React', 'System Design', 'Cloud APIs');
+      if (job.requirements) {
+        const fromReq = job.requirements
+          .split(/[,;\n]+/)
+          .map((s: string) => s.trim().replace(/^[-*•]\s*/, ''))
+          .filter((s: string) => s.length >= 3 && s.length <= 32);
+        if (fromReq.length > 0) {
+          matchingSkills.push(...fromReq.slice(0, 4));
+        }
+      }
+      if (matchingSkills.length === 0) {
+        matchingSkills.push('Software Architecture', 'Cloud Services', 'System Design');
+      }
     }
 
     const descLines = (job.description || '')
@@ -542,7 +554,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       matchScore: 88,
       matchBreakdown: { skillsScore: 90, experienceScore: 85, stackScore: 88 },
       whyYouMatch: 'Your profile matches the core qualifications for this role.',
-      matchingSkills: ['TypeScript', 'React', 'System Design'],
+      matchingSkills: ['Software Architecture', 'System Design'],
       missingSkills: ['OpenTelemetry'],
       insiderCount: 2,
       verifiedInsiders: [],
@@ -550,7 +562,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
         about: job?.description?.slice(0, 300) || 'Position details.',
         responsibilities: ['Build and maintain services.'],
         qualifications: ['Engineering experience.'],
-        techStack: ['TypeScript', 'React'],
+        techStack: ['Software Architecture', 'Cloud Services'],
         benefits: ['Standard benefits.'],
       },
       tailoredBulletSuggestion: {

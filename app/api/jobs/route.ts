@@ -238,51 +238,69 @@ export async function GET(request: Request) {
 
     let rawDbJobs: any[] = [];
 
-    if (locationParam && locationParam !== "all") {
-      // User explicitly filtered by location
-      const locationOrFilter = buildPostgrestLocationFilter(locationParam);
-      let query = buildBaseDbQuery();
-      if (locationOrFilter) {
-        query = query.or(locationOrFilter);
-      }
-      const { data, error } = await query
-        .order("created_at", { ascending: false })
-        .limit(Math.max(limit * 2, 100));
+    // Extract top core tech keywords from candidateSkills to build a skill-targeted query
+    const skillKeywords: string[] = [];
+    for (const s of candidateSkills) {
+      const lower = s.toLowerCase();
+      if (lower.includes('react') && !skillKeywords.includes('React')) skillKeywords.push('React');
+      if ((lower.includes('front') || lower.includes('ui')) && !skillKeywords.includes('Frontend')) skillKeywords.push('Frontend');
+      if (lower.includes('javascript') && !skillKeywords.includes('JavaScript')) skillKeywords.push('JavaScript');
+      if (lower.includes('typescript') && !skillKeywords.includes('TypeScript')) skillKeywords.push('TypeScript');
+      if (lower.includes('node') && !skillKeywords.includes('Node')) skillKeywords.push('Node');
+      if (lower.includes('python') && !skillKeywords.includes('Python')) skillKeywords.push('Python');
+      if (lower.includes('java') && !lower.includes('script') && !skillKeywords.includes('Java')) skillKeywords.push('Java');
+      if ((lower.includes('golang') || lower === 'go') && !skillKeywords.includes('Go')) skillKeywords.push('Go');
+    }
 
-      if (error) {
-        console.warn("Error querying database jobs by location:", error);
+    let skillOrFilter = '';
+    if (skillKeywords.length > 0) {
+      const parts: string[] = [];
+      for (const kw of skillKeywords.slice(0, 4)) {
+        parts.push(`title.ilike."%${kw}%"`);
+        parts.push(`requirements.ilike."%${kw}%"`);
       }
-      rawDbJobs = data || [];
-    } else if (candidateLocation && candidateLocation.toLowerCase() !== "all") {
-      // Candidate location resolved from resume/profile.
-      // Query location-matched pool (home city + aliases + remote) and general latest jobs in parallel.
-      const locationOrFilter = buildPostgrestLocationFilter(candidateLocation);
-      const locFilterWithRemote = locationOrFilter
-        ? `${locationOrFilter},location.ilike."%remote%",location.ilike."%anywhere%"`
-        : 'location.ilike."%remote%"';
+      skillOrFilter = parts.join(',');
+    }
 
-      const [locRes, generalRes] = await Promise.all([
-        buildBaseDbQuery()
-          .or(locFilterWithRemote)
-          .order("created_at", { ascending: false })
-          .limit(150),
-        buildBaseDbQuery()
-          .order("created_at", { ascending: false })
-          .limit(150),
+    const activeLocation = (locationParam && locationParam !== 'all')
+      ? locationParam.trim()
+      : (candidateLocation && candidateLocation.toLowerCase() !== 'all')
+      ? candidateLocation.trim()
+      : '';
+
+    const locationOrFilter = activeLocation ? buildPostgrestLocationFilter(activeLocation) : '';
+    const locFilterWithRemote = locationOrFilter
+      ? `${locationOrFilter},location.ilike."%remote%",location.ilike."%anywhere%"`
+      : '';
+
+    if (locFilterWithRemote) {
+      // Query dual pools in parallel:
+      // Pool 1: Skill-targeted jobs matching candidate's tech domain in target location/remote
+      // Pool 2: Most recent jobs in target location/remote
+      const pool1Query = buildBaseDbQuery().or(locFilterWithRemote);
+      if (skillOrFilter) {
+        pool1Query.or(skillOrFilter);
+      }
+
+      const pool2Query = buildBaseDbQuery().or(locFilterWithRemote);
+
+      const [pool1Res, pool2Res] = await Promise.all([
+        pool1Query.order('created_at', { ascending: false }).limit(200),
+        pool2Query.order('created_at', { ascending: false }).limit(100),
       ]);
 
-      if (locRes.error) console.warn("Error querying candidate location pool:", locRes.error);
-      if (generalRes.error) console.warn("Error querying general jobs pool:", generalRes.error);
+      if (pool1Res.error) console.warn('Error querying skill-targeted DB jobs pool:', pool1Res.error);
+      if (pool2Res.error) console.warn('Error querying location DB jobs pool:', pool2Res.error);
 
       const seenIds = new Set<string>();
       const merged: any[] = [];
-      for (const j of locRes.data || []) {
+      for (const j of pool1Res.data || []) {
         if (!seenIds.has(j.id)) {
           seenIds.add(j.id);
           merged.push(j);
         }
       }
-      for (const j of generalRes.data || []) {
+      for (const j of pool2Res.data || []) {
         if (!seenIds.has(j.id)) {
           seenIds.add(j.id);
           merged.push(j);
@@ -291,12 +309,33 @@ export async function GET(request: Request) {
       rawDbJobs = merged;
     } else {
       // General browsing without specific location preference
-      const { data, error } = await buildBaseDbQuery()
-        .order("created_at", { ascending: false })
-        .limit(Math.max(limit * 2, 150));
+      let q1 = buildBaseDbQuery();
+      if (skillOrFilter) {
+        q1 = q1.or(skillOrFilter);
+      }
+      const [skillGeneralRes, recentGeneralRes] = await Promise.all([
+        q1.order('created_at', { ascending: false }).limit(200),
+        buildBaseDbQuery().order('created_at', { ascending: false }).limit(100),
+      ]);
 
-      if (error) console.warn("Error querying general database jobs:", error);
-      rawDbJobs = data || [];
+      if (skillGeneralRes.error) console.warn('Error querying skill general jobs pool:', skillGeneralRes.error);
+      if (recentGeneralRes.error) console.warn('Error querying recent general jobs pool:', recentGeneralRes.error);
+
+      const seenIds = new Set<string>();
+      const merged: any[] = [];
+      for (const j of skillGeneralRes.data || []) {
+        if (!seenIds.has(j.id)) {
+          seenIds.add(j.id);
+          merged.push(j);
+        }
+      }
+      for (const j of recentGeneralRes.data || []) {
+        if (!seenIds.has(j.id)) {
+          seenIds.add(j.id);
+          merged.push(j);
+        }
+      }
+      rawDbJobs = merged;
     }
 
     // ========================================================================
