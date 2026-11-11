@@ -9,6 +9,8 @@ import {
   evaluateJobMatch,
   detectWorkMode,
   isLocationMatch,
+  canonicalizeSkill,
+  candidateHasSkill,
 } from '@/lib/jobs/ats-client';
 import { buildPostgrestLocationFilter, GET } from '@/app/api/jobs/route';
 
@@ -30,6 +32,40 @@ describe('Resume to Database Job Matching Engine', () => {
       expect(containsSkill(corpus3, 'TypeScript')).toBe(true);
       expect(containsSkill(corpus3, 'Tailwind')).toBe(true);
       expect(containsSkill(corpus3, 'Next.js')).toBe(true);
+    });
+
+    it('correctly canonicalizes versioned skills and prevents false missing skills', () => {
+      expect(canonicalizeSkill('JavaScript (ES6+)')).toBe('JavaScript');
+      expect(canonicalizeSkill('ReactJS')).toBe('React');
+      expect(canonicalizeSkill('Node.js')).toBe('Node.js');
+      expect(canonicalizeSkill('Tailwind CSS')).toBe('Tailwind CSS');
+
+      const resumeSkills = ['JavaScript (ES6+)', 'ReactJS', 'Redux', 'Node.js', 'HTML5', 'CSS3'];
+      expect(candidateHasSkill('JavaScript', resumeSkills)).toBe(true);
+      expect(candidateHasSkill('React', resumeSkills)).toBe(true);
+      expect(candidateHasSkill('TypeScript', resumeSkills)).toBe(false);
+
+      const jobPosting = {
+        title: 'Software Developer II (Front-end)',
+        description: 'Join ABC Fitness to build modern web interfaces.',
+        requirements: 'Strong experience with React and modern JavaScript or TypeScript.',
+        experienceLevel: 'Mid',
+        location: 'Hyderabad Office, India.',
+        companyName: 'ABC Fitness',
+      };
+
+      const evalResult = evaluateJobMatch(jobPosting, resumeSkills, 'Mid', 'Hyderabad');
+
+      // Candidate has JavaScript (ES6+) and ReactJS, so JavaScript and React MUST match
+      expect(evalResult.matchingSkills).toContain('JavaScript');
+      expect(evalResult.matchingSkills).toContain('React');
+
+      // Neither JavaScript nor React should ever be flagged as missing
+      expect(evalResult.missingSkills).not.toContain('JavaScript');
+      expect(evalResult.missingSkills).not.toContain('React');
+
+      // TypeScript is genuinely not on the resume, so it is accurately flagged as missing
+      expect(evalResult.missingSkills).toContain('TypeScript');
     });
 
     it('strictly avoids false positive matches', () => {

@@ -309,6 +309,32 @@ const US_REGIONS = new Set([
   'us', 'usa', 'united states'
 ]);
 
+/**
+ * Verifies whether a candidate location string is a valid geographic location
+ * (city, state, region) rather than a job title, role headline, or company handle.
+ */
+export function isValidGeographicLocation(loc?: string | null): boolean {
+  if (!loc) return false;
+  const clean = loc.trim().toLowerCase();
+  if (!clean || clean === 'all' || clean === 'remote' || clean === 'anywhere' || clean === 'virtual' || clean === 'hybrid') {
+    return false;
+  }
+  // Reject email addresses, social handles, or "Role @ Company" format
+  if (clean.includes('@') || clean.includes('http://') || clean.includes('https://') || clean.includes('.com')) {
+    return false;
+  }
+  // Reject common job title keywords mistakenly stored in location fields
+  const jobTitleKeywords = [
+    'developer', 'engineer', 'architect', 'lead', 'manager', 'director',
+    'specialist', 'consultant', 'analyst', 'designer', 'intern', 'administrator',
+    'full stack', 'frontend', 'backend', 'qa', 'sdet', 'devops', 'software'
+  ];
+  if (jobTitleKeywords.some((kw) => clean.includes(kw))) {
+    return false;
+  }
+  return true;
+}
+
 export function isLocationMatch(
   jobLocation: string,
   candidateLocation: string,
@@ -325,8 +351,10 @@ export function isLocationMatch(
     }
   }
 
-  // 2. If no candidate location specified or set to 'all', match anything passing work mode
-  if (!candidateLocation || candidateLocation.toLowerCase() === 'all') return true;
+  // 2. If no candidate location specified, set to 'all', or invalid location, match anything passing work mode
+  if (!candidateLocation || candidateLocation.toLowerCase() === 'all' || !isValidGeographicLocation(candidateLocation)) {
+    return true;
+  }
 
   const candLoc = candidateLocation.toLowerCase().trim();
   const jobLoc = (jobLocation || '').toLowerCase().trim();
@@ -473,8 +501,9 @@ export const SKILL_SYNONYMS: Record<string, string[]> = {
   restful: ['rest', 'rest api', 'rest apis'],
   graphql: ['gql'],
   gql: ['graphql'],
-  tailwind: ['tailwindcss'],
-  tailwindcss: ['tailwind'],
+  tailwind: ['tailwindcss', 'tailwind css'],
+  tailwindcss: ['tailwind', 'tailwind css'],
+  'tailwind css': ['tailwind', 'tailwindcss'],
   spring: ['spring boot', 'springboot'],
   'spring boot': ['spring', 'springboot'],
   springboot: ['spring', 'spring boot'],
@@ -512,6 +541,74 @@ function rawSkillMatch(lowerCorpus: string, cleanSkill: string): boolean {
 }
 
 /**
+ * Canonicalizes skill names to standard representation.
+ * Strips version annotations like "(ES6+)", "(v18)", etc. and unifies synonyms.
+ */
+export function canonicalizeSkill(skill: string): string {
+  if (!skill) return '';
+  const clean = skill.trim();
+  // Strip parenthetical version notes like (ES6+), (v18), etc.
+  const base = clean.replace(/\s*\([^)]*\)/g, '').trim();
+  const lower = base.toLowerCase();
+
+  if (lower === 'react' || lower === 'reactjs' || lower === 'react.js') return 'React';
+  if (lower === 'javascript' || lower === 'js' || lower.startsWith('javascript')) return 'JavaScript';
+  if (lower === 'typescript' || lower === 'ts') return 'TypeScript';
+  if (lower === 'node' || lower === 'nodejs' || lower === 'node.js') return 'Node.js';
+  if (lower === 'next' || lower === 'nextjs' || lower === 'next.js') return 'Next.js';
+  if (lower === 'vue' || lower === 'vuejs' || lower === 'vue.js') return 'Vue';
+  if (lower === 'angular' || lower === 'angularjs' || lower === 'angular.js') return 'Angular';
+  if (lower === 'go' || lower === 'golang') return 'Go';
+  if (lower === 'postgres' || lower === 'postgresql') return 'PostgreSQL';
+  if (lower === 'tailwind' || lower === 'tailwindcss' || lower === 'tailwind css') return 'Tailwind CSS';
+  if (lower === 'rest' || lower === 'restful' || lower === 'rest api' || lower === 'restful apis' || lower === 'restful api') return 'REST';
+  if (lower === 'k8s' || lower === 'kubernetes') return 'Kubernetes';
+  if (lower === 'mongo' || lower === 'mongodb') return 'MongoDB';
+  if (lower === 'aws' || lower === 'amazon web services') return 'AWS';
+  if (lower === 'gcp' || lower === 'google cloud' || lower === 'google cloud platform') return 'GCP';
+  if (lower === 'azure' || lower === 'microsoft azure') return 'Azure';
+  if (lower === 'spring' || lower === 'spring boot' || lower === 'springboot') return 'Spring Boot';
+  if (lower === 'docker' || lower === 'containers' || lower === 'containerization') return 'Docker';
+  if (lower === 'kafka' || lower === 'apache kafka') return 'Kafka';
+  if (lower === 'spark' || lower === 'apache spark') return 'Spark';
+  if (lower === 'ml' || lower === 'machine learning') return 'Machine Learning';
+  if (lower === 'ai' || lower === 'artificial intelligence' || lower === 'genai' || lower === 'generative ai') return 'AI';
+  if (lower === 'ci/cd' || lower === 'cicd' || lower === 'continuous integration') return 'CI/CD';
+
+  return base || clean;
+}
+
+/**
+ * Checks whether the candidate possesses a given technical skill,
+ * taking into account canonical skill names, parenthetical versions, and synonyms.
+ */
+export function candidateHasSkill(tech: string, candidateSkills: string[]): boolean {
+  if (!tech || !candidateSkills || candidateSkills.length === 0) return false;
+  const normTech = canonicalizeSkill(tech).toLowerCase();
+
+  return candidateSkills.some((cs) => {
+    if (!cs) return false;
+    const normCs = canonicalizeSkill(cs).toLowerCase();
+    if (normCs === normTech) return true;
+    if (normCs.length >= 4 && normTech.length >= 4 && (normCs === normTech || normCs.includes(normTech) || normTech.includes(normCs))) {
+      // Prevent "java" from matching "javascript"
+      if ((normCs === 'java' && normTech === 'javascript') || (normCs === 'javascript' && normTech === 'java')) {
+        return false;
+      }
+      return true;
+    }
+
+    const syns = SKILL_SYNONYMS[normTech] || [];
+    if (syns.some((syn) => syn.toLowerCase() === normCs || syn.toLowerCase() === cs.toLowerCase())) return true;
+
+    const csSyns = SKILL_SYNONYMS[normCs] || [];
+    if (csSyns.some((syn) => syn.toLowerCase() === normTech || syn.toLowerCase() === tech.toLowerCase())) return true;
+
+    return false;
+  });
+}
+
+/**
  * Safely tests whether a skill exists in a text corpus using word boundaries and synonym aliasing.
  * Accurately prevents false-positive matches (e.g. "Go" matching "Google" or "algorithm",
  * "Java" matching "JavaScript", "AI" matching "maintain" or "email").
@@ -523,7 +620,12 @@ export function containsSkill(textCorpus: string, skill: string): boolean {
   const lowerCorpus = textCorpus.toLowerCase();
   if (rawSkillMatch(lowerCorpus, cleanSkill)) return true;
 
-  const synonyms = SKILL_SYNONYMS[cleanSkill.toLowerCase()] || [];
+  const canon = canonicalizeSkill(cleanSkill);
+  if (canon && canon.toLowerCase() !== cleanSkill.toLowerCase() && rawSkillMatch(lowerCorpus, canon)) {
+    return true;
+  }
+
+  const synonyms = SKILL_SYNONYMS[cleanSkill.toLowerCase()] || (canon ? SKILL_SYNONYMS[canon.toLowerCase()] : undefined) || [];
   return synonyms.some((syn) => rawSkillMatch(lowerCorpus, syn));
 }
 
@@ -581,11 +683,14 @@ export function evaluateJobMatch(
   const matchingSkills: string[] = [];
   const missingSkills: string[] = [];
 
-  // 1. Detect candidate matching skills using precise word boundaries
+  // 1. Detect candidate matching skills using precise word boundaries & canonical normalization
   candidateSkills.forEach((skill) => {
-    if (skill && containsSkill(textCorpus, skill)) {
-      if (!matchingSkills.includes(skill)) {
-        matchingSkills.push(skill);
+    if (!skill) return;
+    const baseSkill = canonicalizeSkill(skill);
+    if (containsSkill(textCorpus, skill) || (baseSkill && containsSkill(textCorpus, baseSkill))) {
+      const displaySkill = baseSkill || skill;
+      if (!matchingSkills.some((m) => canonicalizeSkill(m).toLowerCase() === displaySkill.toLowerCase())) {
+        matchingSkills.push(displaySkill);
       }
     }
   });
@@ -594,9 +699,14 @@ export function evaluateJobMatch(
 
   // 2. Detect missing / recommended skills from tech taxonomy that the job actually mentions
   COMMON_TECH_TAXONOMY.forEach((tech) => {
-    if (containsSkill(textCorpus, tech) && !candidateSkills.some((cs) => cs.toLowerCase() === tech.toLowerCase())) {
-      if (missingSkills.length < 4 && !matchingSkills.some((m) => m.toLowerCase() === tech.toLowerCase())) {
-        missingSkills.push(tech);
+    const normTech = canonicalizeSkill(tech);
+    if (containsSkill(textCorpus, tech)) {
+      const alreadyMatched = matchingSkills.some((m) => canonicalizeSkill(m).toLowerCase() === normTech.toLowerCase());
+      const hasSkill = candidateHasSkill(tech, candidateSkills);
+      if (!alreadyMatched && !hasSkill) {
+        if (missingSkills.length < 4 && !missingSkills.some((m) => canonicalizeSkill(m).toLowerCase() === normTech.toLowerCase())) {
+          missingSkills.push(tech);
+        }
       }
     }
   });
@@ -633,7 +743,7 @@ export function evaluateJobMatch(
   let locationAligned = false;
   let locationMismatch = false;
 
-  if (candLocLower && candLocLower !== 'all') {
+  if (candLocLower && candLocLower !== 'all' && isValidGeographicLocation(candidateLocation)) {
     const matchesCity = isLocationMatch(jobInfo.location || '', candidateLocation, jobInfo.workplaceType);
     if (matchesCity) {
       const isSpecificCityMatch =
@@ -682,7 +792,7 @@ export function evaluateJobMatch(
     locationNote = ` Perfectly matches your location in ${jobInfo.location}.`;
   } else if (isRemote) {
     locationNote = ' Offers flexible remote workplace policy.';
-  } else if (locationMismatch && candidateLocation) {
+  } else if (locationMismatch && candidateLocation && isValidGeographicLocation(candidateLocation)) {
     locationNote = ` Note: Position is on-site in ${jobInfo.location || 'office'}.`;
   }
 

@@ -12,6 +12,7 @@ import {
   NormalizedAtsJob,
   COMMON_TECH_TAXONOMY,
   containsSkill,
+  isValidGeographicLocation,
 } from "@/lib/jobs/ats-client";
 import { CURATED_TECH_JOBS } from "@/lib/jobs/curated-tech-jobs";
 import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
@@ -24,7 +25,7 @@ export const dynamic = "force-dynamic";
  * and regional/state aliases (e.g. Hyderabad -> hyd, telangana, cyberabad, hitec city).
  */
 export function buildPostgrestLocationFilter(locationStr: string): string {
-  if (!locationStr || locationStr.toLowerCase() === "all") return "";
+  if (!locationStr || locationStr.toLowerCase() === "all" || !isValidGeographicLocation(locationStr)) return "";
   const locLower = locationStr.toLowerCase().trim();
   const rawParts = locLower.split(/[,/|]+/).map((p) => p.trim()).filter((p) => p.length >= 2);
   const searchTerms = new Set<string>();
@@ -101,7 +102,10 @@ export async function GET(request: Request) {
       ? skillsParam.split(",").map((s) => s.trim()).filter(Boolean)
       : [];
     let detectedSeniority = experienceLevel !== "all" ? experienceLevel : "Senior";
-    let candidateLocation = locationParam && locationParam !== "all" ? locationParam.trim() : "";
+    let candidateLocation =
+      locationParam && locationParam !== "all" && isValidGeographicLocation(locationParam)
+        ? locationParam.trim()
+        : "";
     let hasMasterResume = false;
 
     try {
@@ -114,7 +118,7 @@ export async function GET(request: Request) {
           .eq("id", authCheck.userId)
           .maybeSingle();
 
-        if (!candidateLocation && userData?.city?.trim()) {
+        if (!candidateLocation && userData?.city?.trim() && isValidGeographicLocation(userData.city)) {
           candidateLocation = userData.city.trim();
         }
 
@@ -131,7 +135,7 @@ export async function GET(request: Request) {
           const docSchema = latestResume.document_schema;
 
           // If location is still not set, fallback to resume contact location
-          if (!candidateLocation && docSchema.contact?.location?.trim()) {
+          if (!candidateLocation && docSchema.contact?.location?.trim() && isValidGeographicLocation(docSchema.contact.location)) {
             candidateLocation = docSchema.contact.location.trim();
           }
 
@@ -641,7 +645,7 @@ export async function GET(request: Request) {
       return true;
     });
 
-    // 10. Sort by Date or Relevance (Match Score & Location Alignment descending)
+    // 10. Sort by Date or Relevance (Match Score & Role Alignment descending)
     freshCombined.sort((a, b) => {
       if (sortParam === "date") {
         const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -650,14 +654,65 @@ export async function GET(request: Request) {
         return (b.match_score || 0) - (a.match_score || 0);
       }
 
+      // 1. Primary: Significant Match Score difference (>= 4%)
+      const scoreDiff = (b.match_score || 0) - (a.match_score || 0);
+      if (Math.abs(scoreDiff) >= 4) {
+        return scoreDiff;
+      }
+
+      // 2. Title & Domain Role Relevance
+      const computeTitleRelevance = (title: string): number => {
+        const t = (title || "").toLowerCase();
+        let weight = 0;
+        for (const kw of skillKeywords) {
+          if (t.includes(kw.toLowerCase())) weight += 3;
+        }
+        if (t.includes("front-end") || t.includes("frontend") || t.includes("ui")) {
+          weight += 4;
+        } else if (t.includes("fullstack") || t.includes("full-stack") || t.includes("full stack")) {
+          weight += 2;
+        }
+
+        // Penalize mismatched titles for candidates with frontend/react background
+        const isFrontendCandidate = skillKeywords.some((k) => {
+          const lk = k.toLowerCase();
+          return lk.includes("react") || lk.includes("front") || lk.includes("ui");
+        });
+
+        if (isFrontendCandidate) {
+          if (
+            t.includes(".net") ||
+            (t.includes("java") && !t.includes("script")) ||
+            t.includes("pega") ||
+            t.includes("automation") ||
+            t.includes("relationship manager")
+          ) {
+            weight -= 4;
+          }
+        }
+        return weight;
+      };
+
+      const aWeight = computeTitleRelevance(a.title);
+      const bWeight = computeTitleRelevance(b.title);
+      if (bWeight !== aWeight) {
+        return bWeight - aWeight;
+      }
+
+      // 3. Number of Matched Competencies
+      const aMatchedCount = Array.isArray(a.matching_skills) ? a.matching_skills.length : 0;
+      const bMatchedCount = Array.isArray(b.matching_skills) ? b.matching_skills.length : 0;
+      if (bMatchedCount !== aMatchedCount) {
+        return bMatchedCount - aMatchedCount;
+      }
+
+      // 4. Exact score difference if close
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      // 5. Location preference: Candidate home city over generic remote
       if (candidateLocation && candidateLocation.toLowerCase() !== "all") {
-        const aMatches = isLocationMatch(a.location || "", candidateLocation, a.workplace_type, workModeParam as any);
-        const bMatches = isLocationMatch(b.location || "", candidateLocation, b.workplace_type, workModeParam as any);
-
-        if (aMatches && !bMatches) return -1;
-        if (!aMatches && bMatches) return 1;
-
-        // If both match, prefer specific home city over generic remote
         const aLoc = (a.location || "").toLowerCase();
         const bLoc = (b.location || "").toLowerCase();
         const cLoc = candidateLocation.toLowerCase();
@@ -671,7 +726,11 @@ export async function GET(request: Request) {
         if (aSpecific && !bSpecific) return -1;
         if (!aSpecific && bSpecific) return 1;
       }
-      return (b.match_score || 0) - (a.match_score || 0);
+
+      // 6. Recency descending
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return timeB - timeA;
     });
 
     let finalCombined = freshCombined;

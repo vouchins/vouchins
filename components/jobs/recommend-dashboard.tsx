@@ -60,7 +60,7 @@ import { JobsSidebar } from './jobs-sidebar';
 import { JobsNavbar } from './jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
-import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch, containsSkill } from '@/lib/jobs/ats-client';
+import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch, containsSkill, COMMON_TECH_TAXONOMY, canonicalizeSkill, isValidGeographicLocation } from '@/lib/jobs/ats-client';
 import { cleanJobApplyUrl } from '@/lib/jobs/url-cleaner';
 import { CompanyLogo } from './company-logo';
 import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
@@ -735,14 +735,32 @@ export function JobRecommendationsDashboard() {
                   }
                 });
               }
+              if (Array.isArray(data.document.experience)) {
+                data.document.experience.forEach((exp: any) => {
+                  const bulletsText = Array.isArray(exp.bullets) ? exp.bullets.join(' ') : '';
+                  const fullExpText = `${exp.roleTitle || ''} ${bulletsText}`;
+                  COMMON_TECH_TAXONOMY.forEach((tech) => {
+                    if (containsSkill(fullExpText, tech)) {
+                      const canon = canonicalizeSkill(tech);
+                      if (!skills.includes(canon)) {
+                        skills.push(canon);
+                      }
+                    }
+                  });
+                });
+              }
               if (skills.length > 0) {
                 setCandidateProfileSkills(skills);
               }
               if (Array.isArray(data.document.experience) && data.document.experience[0]?.roleTitle) {
                 setCandidateSeniority(data.document.experience[0].roleTitle);
               }
-              if (!selectedCity && data.document.contact?.location) {
-                setSelectedCity(data.document.contact.location.trim());
+              if (!selectedCity || !isValidGeographicLocation(selectedCity)) {
+                if (user?.city?.trim() && isValidGeographicLocation(user.city)) {
+                  setSelectedCity(user.city.trim());
+                } else if (data.document.contact?.location && isValidGeographicLocation(data.document.contact.location)) {
+                  setSelectedCity(data.document.contact.location.trim());
+                }
               }
             }
             if (typeof data.latestScore === 'number') {
@@ -775,10 +793,12 @@ export function JobRecommendationsDashboard() {
   };
 
   useEffect(() => {
-    if (user?.city?.trim() && !selectedCity) {
-      setSelectedCity(user.city.trim());
+    if (user?.city?.trim() && isValidGeographicLocation(user.city)) {
+      if (!selectedCity || !isValidGeographicLocation(selectedCity)) {
+        setSelectedCity(user.city.trim());
+      }
     }
-  }, [user?.city]);
+  }, [user?.city, selectedCity]);
 
   // Real Database Jobs State
   const [dbJobs, setDbJobs] = useState<RecommendedJob[]>([]);
@@ -789,7 +809,7 @@ export function JobRecommendationsDashboard() {
     setIsLoadingJobs(true);
     try {
       const locQuery =
-        selectedCity && selectedCity.toLowerCase() !== 'all'
+        selectedCity && selectedCity.toLowerCase() !== 'all' && isValidGeographicLocation(selectedCity)
           ? `&location=${encodeURIComponent(selectedCity)}`
           : '';
       const workModeQuery = workModeFilter !== 'all' ? `&work_mode=${workModeFilter}` : '';
@@ -902,6 +922,12 @@ export function JobRecommendationsDashboard() {
     const sourceJobs = dbJobs.length > 0 ? dbJobs : CURATED_RECOMMENDED_JOBS;
 
     const list = sourceJobs.map((j) => {
+      // Real database jobs already contain full-corpus server evaluation (including complete description and requirements).
+      // Preserve the server metrics to prevent overwriting with truncated description snippets.
+      if (!j.isCurated && j.matchingSkills && j.matchingSkills.length > 0) {
+        return j;
+      }
+
       if (candidateProfileSkills.length > 0) {
         const evaluation = evaluateJobMatch(
           {
@@ -1082,7 +1108,7 @@ export function JobRecommendationsDashboard() {
     }
 
     // Filter by Selected Location / City and Workplace Mode
-    if (selectedCity && selectedCity.toLowerCase() !== 'all') {
+    if (selectedCity && selectedCity.toLowerCase() !== 'all' && isValidGeographicLocation(selectedCity)) {
       list = list.filter((j) => isLocationMatch(j.location, selectedCity, j.workplaceType, workModeFilter));
     } else if (workModeFilter !== 'all') {
       list = list.filter((j) => isLocationMatch(j.location, '', j.workplaceType, workModeFilter));
@@ -1419,14 +1445,14 @@ export function JobRecommendationsDashboard() {
             <DropdownMenu open={isLocationMenuOpen} onOpenChange={setIsLocationMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <button
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${selectedCity && selectedCity.toLowerCase() !== 'all'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 ${selectedCity && selectedCity.toLowerCase() !== 'all' && isValidGeographicLocation(selectedCity)
                     ? 'bg-[#0A1B5C] text-white shadow-xs'
                     : 'bg-white text-neutral-700 hover:text-neutral-900 hover:bg-neutral-100 border border-neutral-200'
                     }`}
                 >
                   <MapPin className="h-3.5 w-3.5 text-[#4FD1C5]" />
                   <span>
-                    {selectedCity && selectedCity.toLowerCase() !== 'all'
+                    {selectedCity && selectedCity.toLowerCase() !== 'all' && isValidGeographicLocation(selectedCity)
                       ? `${selectedCity}`
                       : 'All Locations'}
                   </span>
@@ -2539,13 +2565,13 @@ export function JobRecommendationsDashboard() {
                             ✓ Great alignment - No missing core keywords detected.
                           </p>
                         )}
-                        <button
+                        {/* <button
                           onClick={() => setTailorModalOpen(true)}
                           className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1 pt-1"
                         >
                           <span>1-Click add missing keywords via Tailor Studio</span>
                           <ArrowRight className="h-3 w-3" />
-                        </button>
+                        </button> */}
                       </div>
                     </div>
 
