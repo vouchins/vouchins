@@ -231,6 +231,19 @@ export async function evaluateResumeAI(options: AIEvaluationOptions): Promise<{
 
     const mergedSuggestions = [...previouslyApplied, ...newSuggestions];
 
+    // Supplement with heuristic suggestions if Gemini missed any improvable bullets
+    const coveredCoordinates = new Set(
+      mergedSuggestions.map((s) => `${s.roleIndex}-${s.bulletIndex}`)
+    );
+
+    (heuristic.suggestions || []).forEach((hs) => {
+      const coord = `${hs.roleIndex}-${hs.bulletIndex}`;
+      if (!coveredCoordinates.has(coord) && docBullets.has(hs.originalText)) {
+        mergedSuggestions.push(hs);
+        coveredCoordinates.add(coord);
+      }
+    });
+
     return {
       ...baseEval,
       overallScore: calibratedOverallScore,
@@ -295,6 +308,12 @@ Scoring requirements:
 - missingKeywords (array of strings)
 - suggestions (array of { id, roleIndex, bulletIndex, pillar: 'impact'|'relevance'|'brevity', severity: 'critical'|'recommended'|'optional', originalText, suggestedRewrite, rationale, applied: false })
 - jobMatchVectors: { detectedRole, seniority, primarySkills, secondarySkills, estimatedYearsExperience, targetCompanyTier, preferredLocations }
+
+CRITICAL SUGGESTION AUDIT RULES:
+- Perform a comprehensive, complete audit of ALL experience roles and bullet points in this single pass.
+- Do NOT stop at 2 or 3 suggestions. Evaluate every single bullet point across all roles.
+- For EVERY bullet point that lacks measurable metrics, uses passive phrasing, or can be improved with the Google XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]"), provide a high-impact rewrite with exact roleIndex, bulletIndex, and originalText.
+- Aim to provide all actionable rewrite suggestions (typically 6-12 suggestions across all roles) at once, so the candidate can elevate their resume and boost their ATS score in one single pass without multiple re-analyses.
 
 ${reanalysisPromptAddition}
 

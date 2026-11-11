@@ -115,41 +115,49 @@ export function ResumePDFDocument({
   // Dynamic Stylesheet based on user configuration
   const dynamicStyles = StyleSheet.create({
     page: {
-      paddingTop: isCompact ? 24 : 36,
-      paddingBottom: isCompact ? 24 : 36,
-      paddingLeft: isCompact ? 28 : 36,
-      paddingRight: isCompact ? 28 : 36,
+      paddingTop: isCompact ? 24 : isStructured ? 26 : 36,
+      paddingBottom: isCompact ? 24 : isStructured ? 26 : 36,
+      paddingLeft: isCompact ? 28 : isStructured ? 30 : 36,
+      paddingRight: isCompact ? 28 : isStructured ? 30 : 36,
       fontFamily: fontRegular,
       fontSize: fontSizes.bodyText,
-      lineHeight: isCompact ? 1.25 : 1.35,
+      lineHeight: isCompact || isStructured ? 1.25 : 1.35,
       color: '#111827',
     },
     header: {
       borderBottomWidth: 1,
       borderBottomColor: isCentered ? 'transparent' : '#E5E7EB',
-      paddingBottom: isCompact ? 6 : 10,
-      marginBottom: isCompact ? 8 : 12,
+      paddingBottom: isCompact ? 8 : isStructured ? 8 : 12,
+      marginBottom: isCompact ? 10 : isStructured ? 10 : 14,
       alignItems: isCentered ? 'center' : 'flex-start',
     },
     fullName: {
       fontSize: fontSizes.name,
       fontFamily: fontBold,
       color: nameColor,
-      marginBottom: isCompact ? 4 : 6,
+      lineHeight: 1.2,
+      marginBottom: isCompact ? 5 : isStructured ? 4 : 8,
       textAlign: isCentered ? 'center' : 'left',
       letterSpacing: -0.5,
     },
     contactLine: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 6,
-      fontSize: fontSizes.bodyText * 0.85,
-      color: '#4B5563',
+      alignItems: 'center',
       justifyContent: isCentered ? 'center' : 'flex-start',
       marginTop: 2,
     },
+    contactSeparator: {
+      color: '#9CA3AF',
+      marginHorizontal: 4,
+      fontSize: fontSizes.bodyText * 0.8,
+    },
+    contactItem: {
+      fontSize: fontSizes.bodyText * 0.9,
+      color: '#6B7280',
+    },
     section: {
-      marginBottom: isCompact ? 7 : 10,
+      marginBottom: isCompact ? 7 : isStructured ? 7 : 10,
     },
     sectionTitle: {
       fontSize: fontSizes.sectionHeaders,
@@ -159,23 +167,27 @@ export function ResumePDFDocument({
       letterSpacing: 0.5,
       borderBottomWidth: 0.75,
       borderBottomColor: '#E5E7EB',
-      paddingBottom: isCompact ? 1.5 : 2.5,
-      marginBottom: isCompact ? 4 : 6,
-      textAlign: isCentered ? 'center' : 'left',
+      paddingBottom: isCompact ? 1.5 : isStructured ? 1.5 : 2.5,
+      marginBottom: isCompact ? 4 : isStructured ? 4 : 6,
+      textAlign: isCentered && !isStructured ? 'center' : 'left',
     },
     summaryText: {
       fontSize: fontSizes.bodyText * 0.92,
-      lineHeight: isCompact ? 1.25 : 1.35,
+      lineHeight: isCompact || isStructured ? 1.25 : 1.35,
       color: '#374151',
     },
     roleContainer: {
-      marginBottom: isCompact ? 5 : 7,
+      marginBottom: isCompact ? 5 : isStructured ? 5 : 7,
     },
     roleHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'baseline',
       marginBottom: 2,
+    },
+    roleTitleContainer: {
+      flex: 1,
+      marginRight: 6,
     },
     roleTitle: {
       fontSize: fontSizes.subHeaders,
@@ -185,15 +197,24 @@ export function ResumePDFDocument({
     companyName: {
       fontSize: fontSizes.bodyText * 0.95,
       fontFamily: fontRegular,
-      color: '#4B5563',
+      color: '#6B7280',
     },
     dateLocation: {
       fontSize: fontSizes.bodyText * 0.85,
       color: '#6B7280',
+      flexShrink: 0,
+      textAlign: 'right',
+    },
+    projectTechStack: {
+      fontSize: fontSizes.bodyText * 0.85,
+      color: '#6B7280',
+      flexShrink: 0,
+      textAlign: 'right',
+      maxWidth: '45%',
     },
     bulletRow: {
       flexDirection: 'row',
-      marginBottom: isCompact ? 1.5 : 2,
+      marginBottom: isCompact ? 1.5 : isStructured ? 1.5 : 2,
       paddingLeft: 4,
     },
     bulletPoint: {
@@ -204,7 +225,7 @@ export function ResumePDFDocument({
     bulletText: {
       flex: 1,
       fontSize: fontSizes.bodyText * 0.9,
-      lineHeight: isCompact ? 1.25 : 1.32,
+      lineHeight: isCompact || isStructured ? 1.25 : 1.32,
       color: '#1F2937',
     },
     skillRow: {
@@ -212,7 +233,7 @@ export function ResumePDFDocument({
       marginBottom: isCompact ? 1.5 : 2.5,
     },
     skillCategory: {
-      width: isStructured ? 85 : 125,
+      width: 125,
       fontSize: fontSizes.bodyText * 0.9,
       fontFamily: fontBold,
       color: '#111827',
@@ -220,6 +241,20 @@ export function ResumePDFDocument({
     skillItems: {
       flex: 1,
       fontSize: fontSizes.bodyText * 0.88,
+      color: '#374151',
+    },
+    structuredSkillGroup: {
+      marginBottom: isCompact ? 3 : 4,
+    },
+    structuredSkillCategory: {
+      fontSize: fontSizes.bodyText * 0.9,
+      fontFamily: fontBold,
+      color: '#111827',
+      marginBottom: 1,
+    },
+    structuredSkillItems: {
+      fontSize: fontSizes.bodyText * 0.85,
+      lineHeight: 1.22,
       color: '#374151',
     },
     eduContainer: {
@@ -240,16 +275,35 @@ export function ResumePDFDocument({
       color: '#4B5563',
       marginTop: 1,
     },
+    structuredEduGroup: {
+      marginBottom: isCompact ? 3 : 4,
+    },
+    structuredEduInstitution: {
+      fontSize: fontSizes.bodyText * 0.9,
+      fontFamily: fontBold,
+      color: '#111827',
+      marginBottom: 1,
+    },
+    structuredEduDegree: {
+      fontSize: fontSizes.bodyText * 0.85,
+      color: '#4B5563',
+      lineHeight: 1.22,
+    },
+    structuredEduDate: {
+      fontSize: fontSizes.bodyText * 0.8,
+      color: '#9CA3AF',
+      marginTop: 1,
+    },
     structuredColumns: {
       flexDirection: 'row',
-      gap: 12,
     },
     structuredMainCol: {
-      flex: 65,
+      width: '65%',
+      paddingRight: 12,
     },
     structuredSideCol: {
-      flex: 35,
-      paddingLeft: 10,
+      width: '35%',
+      paddingLeft: 12,
       borderLeftWidth: 0.75,
       borderLeftColor: '#E5E7EB',
     },
@@ -280,12 +334,19 @@ export function ResumePDFDocument({
     document.skills && document.skills.length > 0 ? (
       <View style={dynamicStyles.section}>
         <Text style={dynamicStyles.sectionTitle}>Technical Skills</Text>
-        {document.skills.map((skillGroup, idx) => (
-          <View key={idx} style={dynamicStyles.skillRow}>
-            <Text style={dynamicStyles.skillCategory}>{skillGroup.category}:</Text>
-            <Text style={dynamicStyles.skillItems}>{skillGroup.items.join(', ')}</Text>
-          </View>
-        ))}
+        {isStructured
+          ? document.skills.map((skillGroup, idx) => (
+              <View key={idx} style={dynamicStyles.structuredSkillGroup} wrap={false}>
+                <Text style={dynamicStyles.structuredSkillCategory}>{skillGroup.category}</Text>
+                <Text style={dynamicStyles.structuredSkillItems}>{skillGroup.items.join(', ')}</Text>
+              </View>
+            ))
+          : document.skills.map((skillGroup, idx) => (
+              <View key={idx} style={dynamicStyles.skillRow}>
+                <Text style={dynamicStyles.skillCategory}>{skillGroup.category}:</Text>
+                <Text style={dynamicStyles.skillItems}>{skillGroup.items.join(', ')}</Text>
+              </View>
+            ))}
       </View>
     ) : null;
 
@@ -296,10 +357,12 @@ export function ResumePDFDocument({
         {document.experience.map((role, roleIdx) => (
           <View key={roleIdx} style={dynamicStyles.roleContainer} wrap={false}>
             <View style={dynamicStyles.roleHeader}>
-              <Text style={dynamicStyles.roleTitle}>
-                {role.roleTitle}{' '}
-                <Text style={dynamicStyles.companyName}>• {role.company}</Text>
-              </Text>
+              <View style={dynamicStyles.roleTitleContainer}>
+                <Text style={dynamicStyles.roleTitle}>
+                  {role.roleTitle}{' '}
+                  <Text style={dynamicStyles.companyName}>• {role.company}</Text>
+                </Text>
+              </View>
               <Text style={dynamicStyles.dateLocation}>
                 {formatDateRange(role.startDate, role.endDate, dateFormat)}{' '}
                 {role.location ? `| ${role.location}` : ''}
@@ -321,18 +384,40 @@ export function ResumePDFDocument({
       <View style={dynamicStyles.section}>
         <Text style={dynamicStyles.sectionTitle}>Education</Text>
         {document.education.map((edu, eduIdx) => (
-          <View key={eduIdx} style={dynamicStyles.eduContainer}>
-            <View style={dynamicStyles.eduHeader}>
-              <Text style={dynamicStyles.eduInstitution}>{edu.institution}</Text>
-              <Text style={dynamicStyles.dateLocation}>
-                {edu.endDate ? formatResumeDate(edu.endDate, dateFormat) : ''}
-              </Text>
-            </View>
-            <Text style={dynamicStyles.eduDegree}>
-              {edu.degree}
-              {edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : ''}
-              {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
-            </Text>
+          <View
+            key={eduIdx}
+            style={isStructured ? dynamicStyles.structuredEduGroup : dynamicStyles.eduContainer}
+            wrap={false}
+          >
+            {isStructured ? (
+              <>
+                <Text style={dynamicStyles.structuredEduInstitution}>{edu.institution}</Text>
+                <Text style={dynamicStyles.structuredEduDegree}>
+                  {edu.degree}
+                  {edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : ''}
+                  {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
+                </Text>
+                {edu.endDate ? (
+                  <Text style={dynamicStyles.structuredEduDate}>
+                    {formatResumeDate(edu.endDate, dateFormat)}
+                  </Text>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <View style={dynamicStyles.eduHeader}>
+                  <Text style={dynamicStyles.eduInstitution}>{edu.institution}</Text>
+                  <Text style={dynamicStyles.dateLocation}>
+                    {edu.endDate ? formatResumeDate(edu.endDate, dateFormat) : ''}
+                  </Text>
+                </View>
+                <Text style={dynamicStyles.eduDegree}>
+                  {edu.degree}
+                  {edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : ''}
+                  {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
+                </Text>
+              </>
+            )}
           </View>
         ))}
       </View>
@@ -345,9 +430,11 @@ export function ResumePDFDocument({
         {document.projects.map((proj, projIdx) => (
           <View key={projIdx} style={dynamicStyles.roleContainer} wrap={false}>
             <View style={dynamicStyles.roleHeader}>
-              <Text style={dynamicStyles.roleTitle}>{proj.title}</Text>
+              <View style={dynamicStyles.roleTitleContainer}>
+                <Text style={dynamicStyles.roleTitle}>{proj.title}</Text>
+              </View>
               {proj.techStack && proj.techStack.length > 0 && (
-                <Text style={dynamicStyles.dateLocation}>
+                <Text style={dynamicStyles.projectTechStack}>
                   {proj.techStack.join(' • ')}
                 </Text>
               )}
@@ -373,7 +460,10 @@ export function ResumePDFDocument({
           </Text>
           <View style={dynamicStyles.contactLine}>
             {contactParts.map((part, idx) => (
-              <Text key={idx}>{idx > 0 ? `•  ${part}` : part}</Text>
+              <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {idx > 0 && <Text style={dynamicStyles.contactSeparator}>•</Text>}
+                <Text style={dynamicStyles.contactItem}>{part}</Text>
+              </View>
             ))}
           </View>
         </View>

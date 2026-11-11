@@ -288,4 +288,65 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
       expect(result.targetRole).toBe('Principal Engineer');
     });
   });
+
+  describe('Comprehensive Multi-Bullet Suggestions Coverage', () => {
+    it('generates suggestions across multiple roles and bullets without premature cutoff', () => {
+      const multiRoleResume = {
+        contact: {
+          fullName: 'Jane Developer',
+          email: 'jane@example.com',
+          location: 'Hyderabad, India',
+        },
+        summary: 'Full stack developer building web and cloud applications.',
+        skills: [{ category: 'Core', items: ['React', 'Node.js', 'PostgreSQL', 'AWS'] }],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Tech Corp A',
+            roleTitle: 'Software Engineer',
+            startDate: '2023',
+            endDate: 'Present',
+            isCurrent: true,
+            bullets: [
+              'Worked on customer checkout flow and payment gateway integrations.',
+              'Assisted senior team members in refactoring backend GraphQL queries.',
+              'Responsible for maintaining unit tests and code coverage across modules.',
+            ],
+          },
+          {
+            id: 'exp-2',
+            company: 'Tech Corp B',
+            roleTitle: 'Associate Software Engineer',
+            startDate: '2021',
+            endDate: '2023',
+            isCurrent: false,
+            bullets: [
+              'Helped implement authentication flow using JWT and OAuth2.',
+              'Contributed to the frontend redesign of dashboard analytics tables.',
+              'Wrote database migration scripts for PostgreSQL customer records.',
+            ],
+          },
+        ],
+        projects: [],
+        education: [],
+      };
+
+      const evaluation = evaluateResumeHeuristically(multiRoleResume as any);
+
+      // Verify that suggestions cover multiple bullets across both roles
+      expect(evaluation.suggestions.length).toBeGreaterThanOrEqual(6);
+
+      // Verify each suggestion has valid coordinates and non-empty rewrites
+      const coords = new Set<string>();
+      evaluation.suggestions.forEach((sug) => {
+        const coordKey = `${sug.roleIndex}-${sug.bulletIndex}`;
+        expect(coords.has(coordKey)).toBe(false); // No duplicate suggestions for the same bullet
+        coords.add(coordKey);
+
+        expect(sug.suggestedRewrite).toBeDefined();
+        expect(sug.suggestedRewrite.length).toBeGreaterThan(10);
+        expect(sug.originalText).toBeDefined();
+      });
+    });
+  });
 });

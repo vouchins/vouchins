@@ -9,20 +9,25 @@ import {
 import { ScoreGauge } from './score-gauge';
 import { PillarBreakdown } from './pillar-breakdown';
 import { SuggestionCard } from './suggestion-card';
-import { CheckCircle2, AlertTriangle, Filter } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Filter, Sparkles, Undo2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface EvaluationDashboardProps {
   evaluation: ResumeEvaluation;
   experience: WorkExperienceItem[];
   onApplySuggestion: (suggestion: ResumeSuggestion) => void;
+  onApplyAllSuggestions?: (suggestions: ResumeSuggestion[]) => void;
   onRevertSuggestion?: (suggestion: ResumeSuggestion) => void;
+  onRevertAllSuggestions?: (suggestions: ResumeSuggestion[]) => void;
 }
 
 export function EvaluationDashboard({
   evaluation,
   experience,
   onApplySuggestion,
+  onApplyAllSuggestions,
   onRevertSuggestion,
+  onRevertAllSuggestions,
 }: EvaluationDashboardProps) {
   const [filter, setFilter] = useState<'all' | 'impact' | 'relevance' | 'brevity'>('all');
 
@@ -33,6 +38,8 @@ export function EvaluationDashboard({
 
   const appliedCount = evaluation.suggestions.filter((s) => s.applied).length;
   const totalCount = evaluation.suggestions.length;
+  const unappliedSuggestions = evaluation.suggestions.filter((s) => !s.applied);
+  const unappliedCount = unappliedSuggestions.length;
 
   return (
     <div className="flex flex-col h-full bg-neutral-50/60 border-r border-neutral-200 overflow-y-auto p-4 sm:p-5 gap-6">
@@ -90,7 +97,7 @@ export function EvaluationDashboard({
 
       {/* 4. Actionable Suggestions Section */}
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-900">
               High-Impact Rewrites
@@ -98,6 +105,30 @@ export function EvaluationDashboard({
             <span className="px-2 py-0.5 rounded-full bg-neutral-200 text-neutral-800 text-[10px] font-bold">
               {appliedCount} / {totalCount} Applied
             </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {unappliedCount > 0 && onApplyAllSuggestions && (
+              <Button
+                size="sm"
+                onClick={() => onApplyAllSuggestions(unappliedSuggestions)}
+                className="h-7 px-3 text-[11px] font-bold bg-[#0A1B5C] hover:bg-[#0c2277] text-white gap-1.5 shadow-xs rounded-xl transition-all active:scale-[0.98]"
+              >
+                <Sparkles className="h-3 w-3 text-[#4FD1C5]" />
+                Apply All ({unappliedCount})
+              </Button>
+            )}
+
+            {unappliedCount === 0 && appliedCount > 0 && onRevertAllSuggestions && (
+              <button
+                type="button"
+                onClick={() => onRevertAllSuggestions(evaluation.suggestions.filter((s) => s.applied))}
+                className="text-[11px] font-medium text-neutral-500 hover:text-neutral-800 inline-flex items-center gap-1 transition-colors px-1"
+              >
+                <Undo2 className="h-3 w-3" />
+                Revert All
+              </button>
+            )}
           </div>
         </div>
 

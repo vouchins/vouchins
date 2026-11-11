@@ -266,6 +266,111 @@ export function Workspace({
     }
   };
 
+  // Apply all pending rewrite suggestions in a single batch
+  const handleApplyAllSuggestions = (suggestionsToApply: ResumeSuggestion[]) => {
+    if (!suggestionsToApply || suggestionsToApply.length === 0) return;
+
+    const updatedExperience = document.experience.map((role) => ({
+      ...role,
+      bullets: [...role.bullets],
+    }));
+
+    const appliedIds = new Set<string>();
+
+    suggestionsToApply.forEach((sug) => {
+      const { roleIndex, bulletIndex, suggestedRewrite } = sug;
+      if (
+        updatedExperience[roleIndex] &&
+        updatedExperience[roleIndex].bullets[bulletIndex] !== undefined
+      ) {
+        updatedExperience[roleIndex].bullets[bulletIndex] = suggestedRewrite;
+        appliedIds.add(sug.id);
+      }
+    });
+
+    if (appliedIds.size === 0) return;
+
+    const updatedDoc: ResumeDocument = {
+      ...document,
+      experience: updatedExperience,
+    };
+
+    setDocument(updatedDoc);
+    setMatchedJobs([]);
+
+    const fresh = evaluateResumeHeuristically(updatedDoc);
+
+    const updatedSuggestions = evaluation.suggestions.map((s) =>
+      appliedIds.has(s.id) ? { ...s, applied: true } : s
+    );
+
+    const oldScore = evaluation.overallScore;
+    const newScore = fresh.overallScore;
+
+    setEvaluation({
+      ...evaluation,
+      overallScore: newScore,
+      pillarScores: fresh.pillarScores,
+      strengths: fresh.strengths,
+      suggestions: updatedSuggestions,
+      jobMatchVectors: fresh.jobMatchVectors,
+    });
+
+    toast.success(
+      `Applied ${appliedIds.size} rewrites! ATS readiness boosted from ${oldScore} to ${newScore}/100.`
+    );
+  };
+
+  // Revert all applied suggestions back to original phrasing
+  const handleRevertAllSuggestions = (suggestionsToRevert: ResumeSuggestion[]) => {
+    if (!suggestionsToRevert || suggestionsToRevert.length === 0) return;
+
+    const updatedExperience = document.experience.map((role) => ({
+      ...role,
+      bullets: [...role.bullets],
+    }));
+
+    const revertedIds = new Set<string>();
+
+    suggestionsToRevert.forEach((sug) => {
+      const { roleIndex, bulletIndex, originalText } = sug;
+      if (
+        updatedExperience[roleIndex] &&
+        updatedExperience[roleIndex].bullets[bulletIndex] !== undefined
+      ) {
+        updatedExperience[roleIndex].bullets[bulletIndex] = originalText;
+        revertedIds.add(sug.id);
+      }
+    });
+
+    if (revertedIds.size === 0) return;
+
+    const updatedDoc: ResumeDocument = {
+      ...document,
+      experience: updatedExperience,
+    };
+
+    setDocument(updatedDoc);
+    setMatchedJobs([]);
+
+    const fresh = evaluateResumeHeuristically(updatedDoc);
+
+    const updatedSuggestions = evaluation.suggestions.map((s) =>
+      revertedIds.has(s.id) ? { ...s, applied: false } : s
+    );
+
+    setEvaluation({
+      ...evaluation,
+      overallScore: fresh.overallScore,
+      pillarScores: fresh.pillarScores,
+      strengths: fresh.strengths,
+      suggestions: updatedSuggestions,
+      jobMatchVectors: fresh.jobMatchVectors,
+    });
+
+    toast.info(`Reverted ${revertedIds.size} suggestions to original phrasing.`);
+  };
+
   // Save current document state and persistent evaluation to Supabase
   const handleSave = async () => {
     setMatchedJobs([]);
@@ -620,7 +725,9 @@ export function Workspace({
                 evaluation={evaluation}
                 experience={document.experience}
                 onApplySuggestion={handleApplySuggestion}
+                onApplyAllSuggestions={handleApplyAllSuggestions}
                 onRevertSuggestion={handleRevertSuggestion}
+                onRevertAllSuggestions={handleRevertAllSuggestions}
               />
             </ResizablePanel>
 
@@ -645,7 +752,9 @@ export function Workspace({
               evaluation={evaluation}
               experience={document.experience}
               onApplySuggestion={handleApplySuggestion}
+              onApplyAllSuggestions={handleApplyAllSuggestions}
               onRevertSuggestion={handleRevertSuggestion}
+              onRevertAllSuggestions={handleRevertAllSuggestions}
             />
           ) : (
             <ResumeCanvas

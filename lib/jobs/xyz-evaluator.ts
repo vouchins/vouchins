@@ -75,7 +75,7 @@ export function evaluateResumeHeuristically(
           foundWeak = true;
           weakVerbCount++;
           const rewrite = generateXYZRewrite(bullet, role.roleTitle);
-          if (rewrite && rewrite !== bullet) {
+          if (rewrite && rewrite !== bullet && suggestions.length < 20) {
             suggestions.push({
               id: `sug-impact-${roleIndex}-${bulletIndex}`,
               roleIndex,
@@ -93,7 +93,8 @@ export function evaluateResumeHeuristically(
       }
 
       // If no metric found and not already flagged for weak verb
-      if (!hasMetric && !foundWeak && suggestions.length < 6) {
+      let hasMetricSuggestion = false;
+      if (!hasMetric && !foundWeak && suggestions.length < 20) {
         const rewrite = injectQuantifiableMetrics(bullet);
         if (rewrite && rewrite !== bullet) {
           suggestions.push({
@@ -107,6 +108,7 @@ export function evaluateResumeHeuristically(
             rationale: `Lacks measurable metrics. Top-tier engineering bars (Google, Meta, Uber) look for quantifiable scope (e.g. % latency improvement, user scale, or throughput).`,
             applied: false,
           });
+          hasMetricSuggestion = true;
         }
       }
 
@@ -114,7 +116,7 @@ export function evaluateResumeHeuristically(
       const wordCount = bullet.trim().split(/\s+/).length;
       if (wordCount > 40) {
         runOnBullets++;
-        if (suggestions.length < 8) {
+        if (!foundWeak && !hasMetricSuggestion && suggestions.length < 20) {
           const rewrite = condenseBullet(bullet);
           if (rewrite && rewrite !== bullet) {
             suggestions.push({

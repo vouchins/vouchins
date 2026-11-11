@@ -1,7 +1,9 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ExportResumeDialog } from '@/components/jobs/export-resume-dialog';
+import { ResumePDFDocument } from '@/components/jobs/pdf-document';
 import { SAMPLE_STAFF_RESUME } from '@/components/jobs/sample-resumes';
+import { DEFAULT_EXPORT_CONFIG } from '@/lib/jobs/types';
 
 // Mock @react-pdf/renderer
 jest.mock('@react-pdf/renderer', () => ({
@@ -66,6 +68,10 @@ describe('ExportResumeDialog Component', () => {
     const centeredBtn = screen.getByRole('button', { name: /centered/i });
     fireEvent.click(centeredBtn);
     expect(screen.getByText(/centered layout/i)).toBeInTheDocument();
+
+    const structuredBtn = screen.getByRole('button', { name: /structured/i });
+    fireEvent.click(structuredBtn);
+    expect(screen.getByText(/structured layout/i)).toBeInTheDocument();
   });
 
   it('renders live preview containing candidate details and download button', () => {
@@ -86,6 +92,21 @@ describe('ExportResumeDialog Component', () => {
     const downloadButton = screen.getByRole('button', { name: /download resume/i });
     expect(downloadButton).toBeInTheDocument();
     expect(downloadButton).not.toBeDisabled();
+  });
+
+  it('renders ResumePDFDocument in structured layout matching sidebar hierarchy without crashing', () => {
+    const { container } = render(
+      <ResumePDFDocument
+        document={SAMPLE_STAFF_RESUME}
+        config={{ ...DEFAULT_EXPORT_CONFIG, template: 'structured' }}
+      />
+    );
+
+    // Should render candidate name, skills, experience, and education
+    expect(container).toHaveTextContent(SAMPLE_STAFF_RESUME.contact.fullName);
+    expect(container).toHaveTextContent('Technical Skills');
+    expect(container).toHaveTextContent('Education');
+    expect(container).toHaveTextContent(SAMPLE_STAFF_RESUME.education[0].institution);
   });
 });
 
