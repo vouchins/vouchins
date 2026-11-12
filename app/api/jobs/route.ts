@@ -90,7 +90,10 @@ export async function GET(request: Request) {
     const skillsParam = searchParams.get("skills") || "";
     const companiesParam = searchParams.get("companies") || "";
     const sortParam = searchParams.get("sort") || "relevance"; // "relevance" | "date"
-    const limit = parseInt(searchParams.get("limit") || "100", 10);
+    const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "50", 10), 5), 100);
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
 
     const selectedCompanies =
       companiesParam && companiesParam !== "all"
@@ -191,17 +194,20 @@ export async function GET(request: Request) {
       console.warn("User candidate profile resolution note:", authErr);
     }
 
-    if (candidateSkills.length === 0) {
+    // Only apply generic fallback skills if the candidate explicitly has a master resume
+    // but no parseable skills were extracted.
+    // If the candidate does NOT have a master resume, do NOT assume dummy skills.
+    if (candidateSkills.length === 0 && hasMasterResume) {
       candidateSkills = ["TypeScript", "React", "Node.js", "Python", "Go", "PostgreSQL", "Kafka"];
     }
 
     // 2. Fetch active jobs from Supabase database within 90 days (3 months)
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
-    const buildBaseDbQuery = () => {
+    const buildBaseDbQuery = (withCount = false) => {
       let q = supabaseAdmin
         .from("jobs")
-        .select("*")
+        .select("*", withCount ? { count: "exact" } : undefined)
         .eq("is_active", true)
         .gte("created_at", ninetyDaysAgo);
 
@@ -277,69 +283,60 @@ export async function GET(request: Request) {
       ? `${locationOrFilter},location.ilike."%remote%",location.ilike."%anywhere%"`
       : '';
 
+    let totalCount = 0;
+
     if (locFilterWithRemote) {
-      // Query dual pools in parallel:
-      // Pool 1: Skill-targeted jobs matching candidate's tech domain in target location/remote
-      // Pool 2: Most recent jobs in target location/remote
-      const pool1Query = buildBaseDbQuery().or(locFilterWithRemote);
-      if (skillOrFilter) {
-        pool1Query.or(skillOrFilter);
+      if (!skillOrFilter) {
+        // Candidate has no resume or skill filter: Paginated location query with exact total count
+        const { data, count, error } = await buildBaseDbQuery(true)
+          .or(locFilterWithRemote)
+          .order("created_at", { ascending: false })
+          .range(from, to);
+
+        if (error) console.warn("Error querying location DB jobs:", error);
+        rawDbJobs = data || [];
+        totalCount = typeof count === "number" ? count : rawDbJobs.length;
+      } else {
+        // Candidate has resume skills: Skill-matched query with exact location count
+        const [poolRes, countRes] = await Promise.all([
+          buildBaseDbQuery(false)
+            .or(locFilterWithRemote)
+            .or(skillOrFilter)
+            .order("created_at", { ascending: false })
+            .range(from, to),
+          buildBaseDbQuery(true)
+            .or(locFilterWithRemote)
+            .range(0, 0),
+        ]);
+
+        if (poolRes.error) console.warn("Error querying skill-targeted DB jobs pool:", poolRes.error);
+        rawDbJobs = poolRes.data || [];
+        totalCount = typeof countRes.count === "number" ? countRes.count : rawDbJobs.length;
       }
-
-      const pool2Query = buildBaseDbQuery().or(locFilterWithRemote);
-
-      const [pool1Res, pool2Res] = await Promise.all([
-        pool1Query.order('created_at', { ascending: false }).limit(200),
-        pool2Query.order('created_at', { ascending: false }).limit(100),
-      ]);
-
-      if (pool1Res.error) console.warn('Error querying skill-targeted DB jobs pool:', pool1Res.error);
-      if (pool2Res.error) console.warn('Error querying location DB jobs pool:', pool2Res.error);
-
-      const seenIds = new Set<string>();
-      const merged: any[] = [];
-      for (const j of pool1Res.data || []) {
-        if (!seenIds.has(j.id)) {
-          seenIds.add(j.id);
-          merged.push(j);
-        }
-      }
-      for (const j of pool2Res.data || []) {
-        if (!seenIds.has(j.id)) {
-          seenIds.add(j.id);
-          merged.push(j);
-        }
-      }
-      rawDbJobs = merged;
     } else {
       // General browsing without specific location preference
-      let q1 = buildBaseDbQuery();
-      if (skillOrFilter) {
-        q1 = q1.or(skillOrFilter);
-      }
-      const [skillGeneralRes, recentGeneralRes] = await Promise.all([
-        q1.order('created_at', { ascending: false }).limit(200),
-        buildBaseDbQuery().order('created_at', { ascending: false }).limit(100),
-      ]);
+      if (!skillOrFilter) {
+        const { data, count, error } = await buildBaseDbQuery(true)
+          .order("created_at", { ascending: false })
+          .range(from, to);
 
-      if (skillGeneralRes.error) console.warn('Error querying skill general jobs pool:', skillGeneralRes.error);
-      if (recentGeneralRes.error) console.warn('Error querying recent general jobs pool:', recentGeneralRes.error);
+        if (error) console.warn("Error querying general DB jobs:", error);
+        rawDbJobs = data || [];
+        totalCount = typeof count === "number" ? count : rawDbJobs.length;
+      } else {
+        const [poolRes, countRes] = await Promise.all([
+          buildBaseDbQuery(false)
+            .or(skillOrFilter)
+            .order("created_at", { ascending: false })
+            .range(from, to),
+          buildBaseDbQuery(true)
+            .range(0, 0),
+        ]);
 
-      const seenIds = new Set<string>();
-      const merged: any[] = [];
-      for (const j of skillGeneralRes.data || []) {
-        if (!seenIds.has(j.id)) {
-          seenIds.add(j.id);
-          merged.push(j);
-        }
+        if (poolRes.error) console.warn("Error querying skill general jobs pool:", poolRes.error);
+        rawDbJobs = poolRes.data || [];
+        totalCount = typeof countRes.count === "number" ? countRes.count : rawDbJobs.length;
       }
-      for (const j of recentGeneralRes.data || []) {
-        if (!seenIds.has(j.id)) {
-          seenIds.add(j.id);
-          merged.push(j);
-        }
-      }
-      rawDbJobs = merged;
     }
 
     // ========================================================================
@@ -572,7 +569,16 @@ export async function GET(request: Request) {
     // Only used when database query returns zero listings (e.g. offline dev or unit tests)
     if (combined.length === 0) {
       const nowIso = new Date().toISOString();
-      for (const cj of CURATED_TECH_JOBS) {
+      const filteredCurated = CURATED_TECH_JOBS.filter((cj) => {
+        if (activeLocation && !isLocationMatch(cj.location, activeLocation, cj.workplaceType)) {
+          return false;
+        }
+        return true;
+      });
+      totalCount = filteredCurated.length;
+
+      const pagedCurated = filteredCurated.slice(from, to + 1);
+      for (const cj of pagedCurated) {
         const matchEvaluation = evaluateJobMatch(
           {
             title: cj.title,
@@ -747,9 +753,12 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       jobs: finalJobs,
-      totalCount: finalJobs.length,
+      totalCount: Math.max(totalCount, finalJobs.length),
+      page,
+      limit,
+      hasMore: totalCount > to + 1,
       sourceBreakdown: {
-        database: augmentedDbJobs.length,
+        database: totalCount,
         ats: 0,
         freehire: 0,
       },

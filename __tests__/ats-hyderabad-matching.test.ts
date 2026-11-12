@@ -91,4 +91,35 @@ describe('Hyderabad Location & Resume Tech Stack Job Matching', () => {
       expect(job.workplace_type.toLowerCase()).toBe('hybrid');
     }
   });
+
+  it('returns all location jobs for users without a resume without dummy skills filtering', async () => {
+    // When a user has no resume and provides no skills, GET /api/jobs should return all jobs for Hyderabad
+    // with server-side pagination, exact count, without restricting to dummy TS/React skills
+    const req = new Request('http://localhost:3000/api/jobs?page=1&limit=50&location=Hyderabad');
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.page).toBe(1);
+    expect(data.limit).toBe(50);
+    expect(typeof data.totalCount).toBe('number');
+    expect(data.totalCount).toBeGreaterThanOrEqual(8);
+    expect(data.candidateProfile.hasMasterResume).toBe(false);
+    expect(data.candidateProfile.resolvedSkills).toEqual([]);
+    expect(data.candidateProfile.resolvedLocation).toBe('Hyderabad');
+
+    // All jobs in the current page should be in Hyderabad (or remote)
+    expect(data.jobs.length).toBeGreaterThanOrEqual(8);
+    for (const job of data.jobs) {
+      const loc = job.location.toLowerCase();
+      const isHyd = loc.includes('hyderabad') || loc.includes('remote') || loc.includes('anywhere');
+      expect(isHyd).toBe(true);
+    }
+
+    // Honest match explanation indicates city match
+    const hydJob = data.jobs.find((j: any) => j.location.toLowerCase().includes('hyderabad'));
+    expect(hydJob).toBeDefined();
+    expect(hydJob.why_you_match).toContain('Hyderabad');
+  });
 });

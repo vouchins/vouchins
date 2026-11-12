@@ -801,14 +801,19 @@ export function evaluateJobMatch(
       ? `Strong alignment with your background in ${firstSkill}${
           matchingSkills[1] ? ` and ${secondSkill}` : ''
         }. Role matches your target seniority (${jobExp}) at ${comp}.${locationNote}`
+      : locationAligned && candidateLocation
+      ? `Position is located in your registered city of ${candidateLocation}.${locationNote} Upload your Master Resume to unlock technical skill matching and automated 1-click ATS tailoring.`
       : `Explore opportunities at ${comp} aligned with your general engineering background.${locationNote}`;
 
   const tailoredBulletSuggestion = {
     original: `Contributed to ${jobInfo.title.toLowerCase()} systems and feature development.`,
-    tailored: `Architected high-throughput service components using ${firstSkill}${
-      matchingSkills[1] ? ` and ${secondSkill}` : ''
-    }, accelerating response latency by 38% and maintaining 99.99% availability across production workloads.`,
-    impactMetric: '-38% Latency',
+    tailored:
+      candidateSkills.length > 0
+        ? `Architected high-throughput service components using ${firstSkill}${
+            matchingSkills[1] ? ` and ${secondSkill}` : ''
+          }, accelerating response latency by 38% and maintaining 99.99% availability across production workloads.`
+        : `Led high-impact initiatives for ${jobInfo.title.toLowerCase()} projects, delivering measurable efficiency improvements and operational excellence.`,
+    impactMetric: candidateSkills.length > 0 ? '-38% Latency' : 'Operational Efficiency',
   };
 
   return {
@@ -816,13 +821,13 @@ export function evaluateJobMatch(
     missingSkills: missingSkills.slice(0, 3),
     matchScore,
     matchBreakdown: {
-      skillsScore: Math.min(99, matchScore + 2),
+      skillsScore: candidateSkills.length > 0 ? Math.min(99, matchScore + 2) : 0,
       experienceScore: Math.max(65, matchScore - 3),
-      stackScore: Math.min(99, matchScore + 1),
+      stackScore: candidateSkills.length > 0 ? Math.min(99, matchScore + 1) : 0,
     },
     whyYouMatch,
     tailoredBulletSuggestion,
-    isRecommended: matchScore >= 88 && !locationMismatch,
+    isRecommended: (matchScore >= 88 || locationAligned) && !locationMismatch,
   };
 }
 

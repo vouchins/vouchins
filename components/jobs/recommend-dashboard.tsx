@@ -531,12 +531,10 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
         tailored: `Architected high-throughput service components using ${(job.matching_skills && job.matching_skills[0]) || matchingSkills[0] || 'modern tech'}, accelerating response latency by 36% and increasing reliability across 1.5M+ requests.`,
         impactMetric: '36% Latency Reduction',
       },
-      isInternal: false,
+      isInternal: Boolean(job.is_internal || job.recruiter_id),
       recruiterId: job.recruiter_id || null,
       externalJobId: extractJobId(cleanJobApplyUrl(job.external_apply_url)),
-      externalApplyUrl: hasValidExternalJobId(cleanJobApplyUrl(job.external_apply_url))
-        ? cleanJobApplyUrl(job.external_apply_url)
-        : null,
+      externalApplyUrl: cleanJobApplyUrl(job.external_apply_url) || null,
       isCurated: false,
       isRecommended: (job.match_score || matchScore) >= 88,
     };
@@ -806,13 +804,21 @@ export function JobRecommendationsDashboard() {
     }
   }, [user?.city, selectedCity]);
 
-  // Real Database Jobs State
+  // Real Database Jobs State (Server-Side Paginated)
   const [dbJobs, setDbJobs] = useState<RecommendedJob[]>([]);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [page, setPage] = useState<number>(1);
+  const [hasMore, setHasMore] = useState<boolean>(false);
+  const [totalRolesCount, setTotalRolesCount] = useState<number | null>(null);
 
-  // Fetch real jobs from database & live ATS sources via /api/jobs
-  const loadJobs = React.useCallback(async () => {
-    setIsLoadingJobs(true);
+  // Fetch real jobs from database & live ATS sources with server-side pagination & exact count
+  const loadJobs = React.useCallback(async (targetPage = 1, append = false) => {
+    if (append) {
+      setIsLoadingMore(true);
+    } else {
+      setIsLoadingJobs(true);
+    }
     try {
       const locQuery =
         selectedCity && selectedCity.toLowerCase() !== 'all' && isValidGeographicLocation(selectedCity)
@@ -828,25 +834,49 @@ export function JobRecommendationsDashboard() {
           ? `&companies=${encodeURIComponent(selectedCompanies.join(','))}`
           : '';
       const sortQuery = `&sort=${sortBy}`;
+      const searchParam = searchQuery.trim() ? `&q=${encodeURIComponent(searchQuery.trim())}` : '';
 
-      const res = await fetch(`/api/jobs?limit=150${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${sortQuery}`);
+      const res = await fetch(
+        `/api/jobs?page=${targetPage}&limit=50${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${sortQuery}${searchParam}`
+      );
       if (res.ok) {
         const json = await res.json();
         if (json.jobs && Array.isArray(json.jobs)) {
           const transformed = json.jobs.map(transformDbJobToRecommendedJob);
-          setDbJobs(transformed);
+          if (append) {
+            setDbJobs((prev) => {
+              const seen = new Set(prev.map((j) => j.id));
+              const fresh = transformed.filter((j: RecommendedJob) => !seen.has(j.id));
+              return [...prev, ...fresh];
+            });
+          } else {
+            setDbJobs(transformed);
+          }
+          if (typeof json.totalCount === 'number') {
+            setTotalRolesCount(json.totalCount);
+          }
+          setHasMore(Boolean(json.hasMore));
         }
       }
     } catch (err) {
       console.error('Failed to load live jobs:', err);
     } finally {
       setIsLoadingJobs(false);
+      setIsLoadingMore(false);
     }
-  }, [selectedCity, workModeFilter, candidateProfileSkills, selectedCompanies, sortBy]);
+  }, [selectedCity, workModeFilter, candidateProfileSkills, selectedCompanies, sortBy, searchQuery]);
 
   useEffect(() => {
-    loadJobs();
+    setPage(1);
+    loadJobs(1, false);
   }, [loadJobs]);
+
+  const handleLoadMore = () => {
+    if (isLoadingMore || !hasMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadJobs(nextPage, true);
+  };
 
   // Load user resumes for application modal
   const loadUserResumes = React.useCallback(async () => {
@@ -974,7 +1004,9 @@ export function JobRecommendationsDashboard() {
         deduplicatedList.push(job);
       }
     }
-    const validList = deduplicatedList.filter((j) => j.isInternal || j.isCurated || hasValidExternalJobId(j.externalApplyUrl));
+    const validList = deduplicatedList.filter(
+      (j) => !j.isCurated || j.isInternal || hasValidExternalJobId(j.externalApplyUrl) || Boolean(j.externalApplyUrl)
+    );
     const ninetyDaysAgoMs = 90 * 24 * 60 * 60 * 1000;
     const now = Date.now();
     // Strict 3-month (90-day) job pruning
@@ -1903,7 +1935,7 @@ export function JobRecommendationsDashboard() {
                 <Briefcase className="h-3.5 w-3.5 shrink-0" />
                 <span>
                   <span className="hidden xl:inline">All Jobs</span>
-                  <span className="xl:hidden">All</span> ({allJobs.length})
+                  <span className="xl:hidden">All</span> ({totalRolesCount ?? allJobs.length})
                 </span>
               </button>
 
@@ -2058,7 +2090,7 @@ export function JobRecommendationsDashboard() {
             {/* Sort & Count Header Bar */}
             <div className="flex items-center justify-between mb-2 px-1 text-xs text-neutral-500 shrink-0">
               <span className="font-medium text-neutral-600">
-                Found <strong className="text-neutral-900 font-bold">{filteredJobs.length}</strong> {filteredJobs.length === 1 ? 'role' : 'roles'}
+                Found <strong className="text-neutral-900 font-bold">{totalRolesCount ?? filteredJobs.length}</strong> {(totalRolesCount ?? filteredJobs.length) === 1 ? 'role' : 'roles'}
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-semibold text-neutral-500">Sort by:</span>
@@ -2133,128 +2165,152 @@ export function JobRecommendationsDashboard() {
                   </button>
                 </div>
               ) : (
-                filteredJobs.map((job) => {
-                  const isSelected = selectedJob.id === job.id;
-                  const isSaved = savedJobIds.includes(job.id);
-                  const isApplied = appliedJobIds.includes(job.id);
+                <>
+                  {filteredJobs.map((job) => {
+                    const isSelected = selectedJob.id === job.id;
+                    const isSaved = savedJobIds.includes(job.id);
+                    const isApplied = appliedJobIds.includes(job.id);
 
-                  return (
-                    <div
-                      key={job.id}
-                      onClick={() => handleSelectJob(job.id)}
-                      className={`group p-4 rounded-2xl border transition-all cursor-pointer text-left relative bg-white ${isSelected
-                        ? 'border-[#0A1B5C] shadow-md ring-2 ring-[#0A1B5C]/10 bg-white'
-                        : 'border-neutral-200/90 hover:border-neutral-300 hover:shadow-xs'
-                        }`}
-                    >
-                      {/* Header Row: Company & Match Badge */}
-                      <div className="flex items-start justify-between gap-3 mb-2.5">
-                        <div className="flex items-center gap-3">
-                          <CompanyLogo
-                            companyName={job.companyName}
-                            logoUrl={job.companyLogo}
-                            externalUrl={job.externalApplyUrl}
-                            className="w-10 h-10 rounded-xl"
-                            size={64}
-                          />
-                          <div>
-                            <span className="font-semibold text-xs text-neutral-900 group-hover:text-[#0A1B5C] transition-colors flex items-center gap-1">
-                              {job.companyName}
-                              <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                            </span>
-                            <span className="text-[11px] text-neutral-500 font-medium">
-                              {job.location} · {job.workplaceType}
-                            </span>
+                    return (
+                      <div
+                        key={job.id}
+                        onClick={() => handleSelectJob(job.id)}
+                        className={`group p-4 rounded-2xl border transition-all cursor-pointer text-left relative bg-white ${isSelected
+                          ? 'border-[#0A1B5C] shadow-md ring-2 ring-[#0A1B5C]/10 bg-white'
+                          : 'border-neutral-200/90 hover:border-neutral-300 hover:shadow-xs'
+                          }`}
+                      >
+                        {/* Header Row: Company & Match Badge */}
+                        <div className="flex items-start justify-between gap-3 mb-2.5">
+                          <div className="flex items-center gap-3">
+                            <CompanyLogo
+                              companyName={job.companyName}
+                              logoUrl={job.companyLogo}
+                              externalUrl={job.externalApplyUrl}
+                              className="w-10 h-10 rounded-xl"
+                              size={64}
+                            />
+                            <div>
+                              <span className="font-semibold text-xs text-neutral-900 group-hover:text-[#0A1B5C] transition-colors flex items-center gap-1">
+                                {job.companyName}
+                                <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                              </span>
+                              <span className="text-[11px] text-neutral-500 font-medium">
+                                {job.location} · {job.workplaceType}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Match Score Ring / Badge */}
+                          <div className="flex items-center gap-2">
+                            <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shadow-xs">
+                              {/* <Zap className="h-3 w-3 text-emerald-600" /> */}
+                              <span>{job.matchScore}% Match</span>
+                            </div>
+
+                            <button
+                              onClick={(e) => toggleSaveJob(e, job.id)}
+                              aria-label="Bookmark Job"
+                              className={`p-1.5 rounded-lg border transition-colors ${isSaved
+                                ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                : 'bg-white border-neutral-200 text-neutral-400 hover:text-neutral-700'
+                                }`}
+                            >
+                              <Bookmark className={`h-3.5 w-3.5 ${isSaved ? 'fill-amber-500' : ''}`} />
+                            </button>
                           </div>
                         </div>
 
-                        {/* Match Score Ring / Badge */}
-                        <div className="flex items-center gap-2">
-                          <div className="px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-1 shadow-xs">
-                            {/* <Zap className="h-3 w-3 text-emerald-600" /> */}
-                            <span>{job.matchScore}% Match</span>
+                        {/* Job Title */}
+                        <h3 className="font-semibold text-sm text-neutral-900 mb-1.5 leading-snug line-clamp-1">
+                          {job.title}
+                        </h3>
+
+                        {/* Application Routing Tag */}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          {job.externalJobId ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">
+                              Req #{job.externalJobId}
+                            </span>
+                          ) : job.isCurated ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C] border border-[#0A1B5C]/20">
+                              <Building2 className="h-3 w-3 text-[#0A1B5C]" />
+                              Verified Enterprise Role
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {/* Salary & Meta Row */}
+                        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-neutral-600 mb-3">
+                          <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-semibold text-[11px]">
+                            {job.salaryRange}
+                          </span>
+                          <span className="text-neutral-400">·</span>
+                          <span className="text-[11px] text-neutral-500 font-medium flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-neutral-400" /> {job.postedAt}
+                          </span>
+                          {isApplied && (
+                            <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800">
+                              Applied
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Matching Skills Chips */}
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {job.matchingSkills.slice(0, 4).map((skill, sIdx) => (
+                            <span
+                              key={sIdx}
+                              className="px-2 py-0.5 rounded-md bg-[#eefaf6] text-[#0A1B5C] text-[10px] font-medium border border-emerald-100"
+                            >
+                              ✓ {skill}
+                            </span>
+                          ))}
+                          {job.matchingSkills.length > 4 && (
+                            <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-500 text-[10px] font-medium">
+                              +{job.matchingSkills.length - 4} more
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Verified Insider Callout (Jobright Secret Weapon) */}
+                        {job.insiderCount > 0 && (
+                          <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px]">
+                            <span className="text-[#0A1B5C] font-semibold flex items-center gap-1.5">
+                              <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
+
+                              {`${job.insiderCount} verified insider${job.insiderCount === 1 ? '' : 's'} ready to vouch`}
+
+                            </span>
                           </div>
+                        )}
 
-                          <button
-                            onClick={(e) => toggleSaveJob(e, job.id)}
-                            aria-label="Bookmark Job"
-                            className={`p-1.5 rounded-lg border transition-colors ${isSaved
-                              ? 'bg-amber-50 border-amber-200 text-amber-600'
-                              : 'bg-white border-neutral-200 text-neutral-400 hover:text-neutral-700'
-                              }`}
-                          >
-                            <Bookmark className={`h-3.5 w-3.5 ${isSaved ? 'fill-amber-500' : ''}`} />
-                          </button>
-                        </div>
                       </div>
+                    );
+                  })}
 
-                      {/* Job Title */}
-                      <h3 className="font-semibold text-sm text-neutral-900 mb-1.5 leading-snug line-clamp-1">
-                        {job.title}
-                      </h3>
-
-                      {/* Application Routing Tag */}
-                      <div className="flex items-center gap-1.5 mb-2">
-                        {job.externalJobId ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">
-                            Req #{job.externalJobId}
-                          </span>
-                        ) : job.isCurated ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#0A1B5C]/10 text-[#0A1B5C] border border-[#0A1B5C]/20">
-                            <Building2 className="h-3 w-3 text-[#0A1B5C]" />
-                            Verified Enterprise Role
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {/* Salary & Meta Row */}
-                      <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-neutral-600 mb-3">
-                        <span className="px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-800 font-semibold text-[11px]">
-                          {job.salaryRange}
-                        </span>
-                        <span className="text-neutral-400">·</span>
-                        <span className="text-[11px] text-neutral-500 font-medium flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-neutral-400" /> {job.postedAt}
-                        </span>
-                        {isApplied && (
-                          <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-100 text-emerald-800">
-                            Applied
+                  {hasMore && (
+                    <div className="pt-2 pb-6 text-center">
+                      <button
+                        type="button"
+                        onClick={handleLoadMore}
+                        disabled={isLoadingMore}
+                        className="px-5 py-2.5 rounded-xl bg-white border border-neutral-200 hover:border-neutral-300 text-[#0A1B5C] text-xs font-bold shadow-xs hover:bg-neutral-50 transition-all flex items-center gap-2 mx-auto disabled:opacity-50"
+                      >
+                        {isLoadingMore ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0A1B5C]" />
+                            <span>Loading more roles...</span>
+                          </>
+                        ) : (
+                          <span>
+                            Load more roles ({totalRolesCount ? Math.max(0, totalRolesCount - filteredJobs.length) : 'more'} remaining)
                           </span>
                         )}
-                      </div>
-
-                      {/* Matching Skills Chips */}
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {job.matchingSkills.slice(0, 4).map((skill, sIdx) => (
-                          <span
-                            key={sIdx}
-                            className="px-2 py-0.5 rounded-md bg-[#eefaf6] text-[#0A1B5C] text-[10px] font-medium border border-emerald-100"
-                          >
-                            ✓ {skill}
-                          </span>
-                        ))}
-                        {job.matchingSkills.length > 4 && (
-                          <span className="px-1.5 py-0.5 rounded-md bg-neutral-100 text-neutral-500 text-[10px] font-medium">
-                            +{job.matchingSkills.length - 4} more
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Verified Insider Callout (Jobright Secret Weapon) */}
-                      {job.insiderCount > 0 && (
-                        <div className="pt-2.5 border-t border-neutral-100 flex items-center justify-between text-[11px]">
-                          <span className="text-[#0A1B5C] font-semibold flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5 text-[#0A1B5C]" />
-
-                            {`${job.insiderCount} verified insider${job.insiderCount === 1 ? '' : 's'} ready to vouch`}
-
-                          </span>
-                        </div>
-                      )}
-
+                      </button>
                     </div>
-                  );
-                })
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -2487,13 +2543,33 @@ export function JobRecommendationsDashboard() {
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         </span>
                         <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
-                          Why Your Master Resume Matches This Position
+                          {candidateProfileSkills.length > 0
+                            ? 'Why Your Master Resume Matches This Position'
+                            : `Location Match - Based in ${selectedCity || 'Your Location'}`}
                         </h4>
                       </div>
                       <p className="text-xs sm:text-sm text-neutral-700 leading-relaxed font-medium">
                         {selectedJob.whyYouMatch}
                       </p>
                     </div>
+
+                    {/* Upload Resume Callout if candidate has no resume skills */}
+                    {candidateProfileSkills.length === 0 && (
+                      <div className="p-4 rounded-2xl bg-gradient-to-r from-[#0A1B5C]/5 to-[#4FD1C5]/10 border border-[#0A1B5C]/15 flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-bold text-[#0A1B5C]">Want personalized AI skill scoring?</p>
+                          <p className="text-[11px] text-neutral-500 mt-0.5">
+                            Upload your Master Resume to unlock instant ATS keyword matching and Google XYZ bullet tailoring.
+                          </p>
+                        </div>
+                        <Link
+                          href="/resume"
+                          className="px-3.5 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold shrink-0 transition-colors shadow-xs"
+                        >
+                          Upload Resume
+                        </Link>
+                      </div>
+                    )}
 
                     {/* Score Breakdown Cards */}
                     <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
@@ -2502,15 +2578,19 @@ export function JobRecommendationsDashboard() {
                           Technical Skills
                         </span>
                         <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
-                          {selectedJob.matchBreakdown.skillsScore}%
+                          {candidateProfileSkills.length > 0 && selectedJob.matchBreakdown.skillsScore > 0
+                            ? `${selectedJob.matchBreakdown.skillsScore}%`
+                            : 'Resume Needed'}
                         </span>
                       </div>
                       <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
                         <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-400 uppercase block mb-0.5 sm:mb-1">
-                          Seniority & Scope
+                          {candidateProfileSkills.length > 0 ? 'Seniority & Scope' : 'Location Fit'}
                         </span>
                         <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
-                          {selectedJob.matchBreakdown.experienceScore}%
+                          {candidateProfileSkills.length > 0
+                            ? `${selectedJob.matchBreakdown.experienceScore}%`
+                            : '100%'}
                         </span>
                       </div>
                       <div className="p-2.5 sm:p-3.5 rounded-xl bg-neutral-50 border border-neutral-200">
@@ -2518,7 +2598,9 @@ export function JobRecommendationsDashboard() {
                           Tech Stack Fit
                         </span>
                         <span className="text-base sm:text-lg font-bold text-[#0A1B5C]">
-                          {selectedJob.matchBreakdown.stackScore}%
+                          {candidateProfileSkills.length > 0 && selectedJob.matchBreakdown.stackScore > 0
+                            ? `${selectedJob.matchBreakdown.stackScore}%`
+                            : 'Resume Needed'}
                         </span>
                       </div>
                     </div>
