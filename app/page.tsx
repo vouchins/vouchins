@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HomepageNavbar } from "@/components/homepage-navbar";
 import { Footer } from "@/components/footer";
-import { getGoogleFaviconUrl } from "@/lib/utils";
+import { getGoogleFaviconUrl, handleFaviconError } from "@/lib/utils";
 import {
   Shield,
   ArrowRight,
@@ -328,6 +328,9 @@ export default function Home() {
                         src={getGoogleFaviconUrl(logo.domain, 64)}
                         alt={logo.name}
                         className="h-full w-full object-contain"
+                        onError={(e) => {
+                          handleFaviconError(e);
+                        }}
                       />
                     </div>
                     <span className="text-base font-bold text-white tracking-tight">{logo.name}</span>
@@ -349,6 +352,9 @@ export default function Home() {
                         src={getGoogleFaviconUrl(logo.domain, 64)}
                         alt={logo.name}
                         className="h-full w-full object-contain"
+                        onError={(e) => {
+                          handleFaviconError(e);
+                        }}
                       />
                     </div>
                     <span className="text-base font-bold text-white tracking-tight">{logo.name}</span>

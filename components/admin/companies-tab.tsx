@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { getGoogleFaviconUrl } from "@/lib/utils";
+import { getGoogleFaviconUrl, handleFaviconError } from "@/lib/utils";
 
 interface Company {
   id: string;
@@ -266,9 +266,11 @@ export function CompaniesTab({
                           alt=""
                           className="h-5 w-5 object-contain"
                           onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                            const fallback = e.currentTarget.parentElement?.querySelector(".fallback-icon");
-                            if (fallback) fallback.classList.remove("hidden");
+                            if (!handleFaviconError(e)) {
+                              e.currentTarget.style.display = "none";
+                              const fallback = e.currentTarget.parentElement?.querySelector(".fallback-icon");
+                              if (fallback) fallback.classList.remove("hidden");
+                            }
                           }}
                         />
                       ) : null}

@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getCompanyDomain } from "@/components/jobs/company-logo";
-import { getGoogleFaviconUrl } from "@/lib/utils";
+import { getGoogleFaviconUrl, handleFaviconError } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
@@ -1008,7 +1008,9 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
                               alt={job.company_name}
                               className="h-full w-full object-contain"
                               onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
+                                if (!handleFaviconError(e)) {
+                                  (e.target as HTMLElement).style.display = "none";
+                                }
                               }}
                             />
                           </div>

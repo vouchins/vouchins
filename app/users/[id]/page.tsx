@@ -56,7 +56,7 @@ import {
 import { VerifiedIcon } from "@/components/verified-icon";
 import { INDIAN_CITIES } from "@/lib/constants";
 import { LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
-import { getGoogleFaviconUrl } from "@/lib/utils";
+import { getGoogleFaviconUrl, handleFaviconError } from "@/lib/utils";
 
 const PROFILE_POST_SELECT =
   "*, user:users!posts_user_id_fkey(id, full_name, city, bio, avatar_url, vouch_points, is_verified, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name, avatar_url))";
@@ -905,6 +905,9 @@ export default function UserProfilePage() {
                       src={getGoogleFaviconUrl(profile.company?.[0]?.domain || profile.company?.domain, 128)}
                       alt={profile.full_name}
                       className="h-full w-full object-contain p-5"
+                      onError={(e) => {
+                        handleFaviconError(e);
+                      }}
                     />
                   ) : (
                     profile.full_name.charAt(0)
@@ -958,8 +961,10 @@ export default function UserProfilePage() {
                             alt={`${profile.company.name} logo`}
                             className="h-4 w-4 object-contain"
                             onError={(event) => {
-                              event.currentTarget.style.display = "none";
-                              event.currentTarget.nextElementSibling?.classList.remove("hidden");
+                              if (!handleFaviconError(event)) {
+                                event.currentTarget.style.display = "none";
+                                event.currentTarget.nextElementSibling?.classList.remove("hidden");
+                              }
                             }}
                           />
                           <Building2 className="hidden h-3.5 w-3.5 text-neutral-400" aria-hidden="true" />

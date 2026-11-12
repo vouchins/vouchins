@@ -1,4 +1,4 @@
-import { isValidDomain, cn } from '@/lib/utils';
+import { isValidDomain, cn, getGoogleFaviconUrl, handleFaviconError } from '@/lib/utils';
 import { isValidLinkedInUrl, normalizeLinkedInUrl, LINKEDIN_URL_PREFIX } from '@/lib/auth/validation';
 
 describe('Utility Functions', () => {
@@ -52,6 +52,31 @@ describe('Utility Functions', () => {
       expect(cn('bg-red-500', 'text-white')).toBe('bg-red-500 text-white');
       expect(cn('p-4 p-8')).toBe('p-8'); // Tailwind merge should prefer the latter
       expect(cn('text-black', undefined, null, false, 'bg-white')).toBe('text-black bg-white');
+    });
+  });
+
+  describe('getGoogleFaviconUrl & handleFaviconError', () => {
+    it('constructs HTTPS URL by default and supports HTTP fallback', () => {
+      expect(getGoogleFaviconUrl('tcs.com')).toContain('url=https://tcs.com');
+      expect(getGoogleFaviconUrl('focussoftnet.com', 64, 'http')).toContain('url=http://focussoftnet.com');
+      expect(getGoogleFaviconUrl('')).toBe('');
+    });
+
+    it('handles image error fallback from HTTPS to HTTP', () => {
+      const mockImg = {
+        src: 'https://t1.gstatic.com/faviconV2?url=https://focussoftnet.com&size=64',
+      };
+      const mockEvent = {
+        currentTarget: mockImg,
+      } as any;
+
+      const fallbackApplied = handleFaviconError(mockEvent);
+      expect(fallbackApplied).toBe(true);
+      expect(mockImg.src).toContain('url=http://focussoftnet.com');
+
+      // Second error when already on HTTP
+      const secondFallback = handleFaviconError(mockEvent);
+      expect(secondFallback).toBe(false);
     });
   });
 });

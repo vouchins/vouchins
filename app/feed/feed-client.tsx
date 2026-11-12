@@ -32,7 +32,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn, getGoogleFaviconUrl } from "@/lib/utils";
+import { cn, getGoogleFaviconUrl, handleFaviconError } from "@/lib/utils";
 import { BlurredPostCard } from "@/components/blurred-post-card";
 import { LeftSidebar } from "@/components/left-sidebar";
 import { RightSidebar } from "./side-bars/right/right-sidebar";
@@ -619,6 +619,11 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
                 alt=""
                 aria-hidden="true"
                 className="h-4 w-4 shrink-0 object-contain"
+                onError={(e) => {
+                  if (!handleFaviconError(e)) {
+                    e.currentTarget.style.display = "none";
+                  }
+                }}
               />
             ) : (
               <Building2 className="h-4 w-4 shrink-0" />

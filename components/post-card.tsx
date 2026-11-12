@@ -59,7 +59,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useUser } from "@/components/user-provider";
-import { cn, getGoogleFaviconUrl } from "@/lib/utils";
+import { cn, getGoogleFaviconUrl, handleFaviconError } from "@/lib/utils";
 import { VerifiedIcon } from "@/components/verified-icon";
 import { CommentForm } from "@/components/comment-form";
 
@@ -691,6 +691,9 @@ export function PostCard({
                 src={getGoogleFaviconUrl(post.user.company.domain, 64)}
                 alt={post.user.company?.name || "Company logo"}
                 className="h-full w-full object-contain p-1.5"
+                onError={(e) => {
+                  handleFaviconError(e);
+                }}
               />
             ) : (
               post.user.full_name.charAt(0)
@@ -758,6 +761,9 @@ export function PostCard({
                 src={getGoogleFaviconUrl(post.user.company.domain, 64)}
                 alt={post.user.company?.name || "Company Logo"}
                 className="h-full w-full object-contain p-1.5"
+                onError={(e) => {
+                  handleFaviconError(e);
+                }}
               />
             ) : (
               post.user.full_name.charAt(0)

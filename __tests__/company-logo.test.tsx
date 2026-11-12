@@ -28,6 +28,11 @@ describe('CompanyLogo & Favicon Engine', () => {
     expect(quantelaUrl).toBe(
       'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://quantela.com&size=64'
     );
+
+    const focusSoftnetHttpUrl = getGoogleFaviconUrl('focussoftnet.com', 64, 'http');
+    expect(focusSoftnetHttpUrl).toBe(
+      'https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=http://focussoftnet.com&size=64'
+    );
   });
 
   it('ignores generic job board and ATS aggregators when resolving externalUrl', () => {
@@ -84,19 +89,28 @@ describe('CompanyLogo & Favicon Engine', () => {
     );
   });
 
-  it('gracefully falls back to initials when image loading fails', () => {
+  it('gracefully falls back to initials when both HTTPS and HTTP image loading fails', () => {
     render(<CompanyLogo companyName="Oracle" />);
-    const img = screen.getByRole('img');
-    // Simulate image load error
-    fireEvent.error(img);
+    let img = screen.getByRole('img');
+    expect(img).toHaveAttribute('src', expect.stringContaining('url=https://oracle.com'));
 
-    // Initial OR should be displayed
+    // First error: falls back to HTTP protocol
+    fireEvent.error(img);
+    img = screen.getByRole('img');
+    expect(img).toHaveAttribute('src', expect.stringContaining('url=http://oracle.com'));
+
+    // Second error: falls back to initials OR
+    fireEvent.error(img);
     expect(screen.getByText('OR')).toBeInTheDocument();
   });
 
-  it('renders company initials for unknown or empty domain', () => {
+  it('renders company initials for unknown or empty domain after fallback', () => {
     render(<CompanyLogo companyName="Acme Corp" />);
-    const img = screen.getByRole('img');
+    let img = screen.getByRole('img');
+    // First error: retries with http
+    fireEvent.error(img);
+    img = screen.getByRole('img');
+    // Second error: shows initials
     fireEvent.error(img);
     expect(screen.getByText('AC')).toBeInTheDocument();
   });

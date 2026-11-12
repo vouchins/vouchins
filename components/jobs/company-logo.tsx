@@ -122,6 +122,8 @@ const KNOWN_COMPANY_DOMAINS: Record<string, string> = {
   zscaler: 'zscaler.com',
   quantela: 'quantela.com',
   qvantel: 'qvantel.com',
+  focussoftnet: 'focussoftnet.com',
+  'focus softnet': 'focussoftnet.com',
 };
 
 const ATS_AND_JOB_BOARD_HOSTS = [
@@ -262,6 +264,7 @@ export function CompanyLogo({
   size = 64,
   initialsClassName = 'text-sm font-bold text-[#0A1B5C]',
 }: CompanyLogoProps) {
+  const [protocol, setProtocol] = useState<'https' | 'http'>('https');
   const [hasError, setHasError] = useState(false);
 
   // If logoUrl is a direct image (not a Google Favicon proxy), use it directly
@@ -275,13 +278,14 @@ export function CompanyLogo({
   const resolvedUrl = isDirectCustomLogo
     ? logoUrl
     : domain
-    ? getGoogleFaviconUrl(domain, size)
+    ? getGoogleFaviconUrl(domain, size, protocol)
     : '';
 
-  // Reset error state whenever resolvedUrl changes so changing selected job re-attempts image render
+  // Reset error state and protocol whenever domain or logoUrl changes
   useEffect(() => {
+    setProtocol('https');
     setHasError(false);
-  }, [resolvedUrl]);
+  }, [domain, logoUrl]);
 
   const words = (companyName || 'CO').trim().split(/\s+/).filter(Boolean);
   const initials =
@@ -309,7 +313,13 @@ export function CompanyLogo({
         src={resolvedUrl}
         alt={companyName}
         className="w-full h-full object-contain"
-        onError={() => setHasError(true)}
+        onError={() => {
+          if (!isDirectCustomLogo && protocol === 'https') {
+            setProtocol('http');
+          } else {
+            setHasError(true);
+          }
+        }}
         loading="lazy"
       />
     </div>
