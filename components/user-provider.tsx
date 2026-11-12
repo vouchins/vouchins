@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase/browser";
+import { isValidGeographicLocation } from "@/lib/jobs/ats-client";
 
 interface UserCompany {
   name: string;
@@ -49,7 +50,13 @@ interface UserProviderProps {
 export function UserProvider({ children, initialUser = null, skipInitialFetchOnFeed = false }: UserProviderProps) {
   const pathname = usePathname();
   const shouldSkipFetch = skipInitialFetchOnFeed && pathname.startsWith("/feed");
-  const [user, setUser] = useState<UserProfile | null>(initialUser);
+  const [user, setUser] = useState<UserProfile | null>(() => {
+    if (!initialUser) return null;
+    return {
+      ...initialUser,
+      city: initialUser.city && isValidGeographicLocation(initialUser.city) ? initialUser.city : null,
+    };
+  });
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [vouchedEntities, setVouchedEntities] = useState<Record<string, boolean>>({});
   const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
@@ -134,7 +141,7 @@ export function UserProvider({ children, initialUser = null, skipInitialFetchOnF
           id: data.id,
           full_name: data.full_name,
           email: data.email,
-          city: data.city,
+          city: data.city && isValidGeographicLocation(data.city) ? data.city : null,
           avatar_url: data.avatar_url,
           vouch_points: data.vouch_points || 0,
           is_admin: data.is_admin,

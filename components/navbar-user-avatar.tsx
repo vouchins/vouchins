@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { User } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, getGoogleFaviconUrl } from '@/lib/utils';
 
 export interface NavbarUserAvatarProps {
   user?: {
@@ -45,7 +45,7 @@ export function NavbarUserAvatar({
           />
         ) : user?.company?.domain ? (
           <img
-            src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=64`}
+            src={getGoogleFaviconUrl(user.company.domain, 64)}
             alt={user.company.name || "Company"}
             className="h-full w-full object-contain p-1"
             referrerPolicy="no-referrer"

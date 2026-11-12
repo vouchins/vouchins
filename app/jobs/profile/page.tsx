@@ -8,6 +8,8 @@ import { JobsNavbar } from '@/components/jobs/jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { fetchCachedResumes } from '@/lib/jobs/client-cache';
 import { ImportLinkedinDialog } from '@/components/jobs/import-linkedin-dialog';
+import { supabase } from '@/lib/supabase/browser';
+import { isValidGeographicLocation } from '@/lib/jobs/ats-client';
 import {
   ResumeDocument,
   WorkExperienceItem,
@@ -95,14 +97,14 @@ export default function JobsProfilePage() {
     setDocument((prev) => {
       const uName = user.full_name?.trim() || '';
       const uEmail = user.email || '';
-      const uCity = user.city || '';
+      const uCity = user.city && isValidGeographicLocation(user.city) ? user.city.trim() : '';
       const uPhone = user.phone_number || '';
       const uLinkedin = user.linkedin_url || '';
 
       const needsUpdate =
         (!prev.contact.fullName && uName) ||
         (!prev.contact.email && uEmail) ||
-        (!prev.contact.location && uCity) ||
+        ((!prev.contact.location || !isValidGeographicLocation(prev.contact.location)) && uCity) ||
         (!prev.contact.phone && uPhone) ||
         (!prev.contact.linkedinUrl && uLinkedin);
 
@@ -114,7 +116,7 @@ export default function JobsProfilePage() {
           ...prev.contact,
           fullName: prev.contact.fullName || uName,
           email: prev.contact.email || uEmail,
-          location: prev.contact.location || uCity,
+          location: (prev.contact.location && isValidGeographicLocation(prev.contact.location) ? prev.contact.location : '') || uCity,
           phone: prev.contact.phone || uPhone,
           linkedinUrl: prev.contact.linkedinUrl || uLinkedin,
         },
@@ -211,7 +213,11 @@ export default function JobsProfilePage() {
 
     setPersonalDraft({
       fullName: candidateName,
-      location: document.contact.location || user?.city || '',
+      location:
+        (document.contact.location && isValidGeographicLocation(document.contact.location)
+          ? document.contact.location
+          : '') ||
+        (user?.city && isValidGeographicLocation(user.city) ? user.city : ''),
       email: document.contact.email || user?.email || '',
       phone: document.contact.phone || user?.phone_number || '',
       linkedinUrl: document.contact.linkedinUrl || user?.linkedin_url || '',
@@ -305,9 +311,22 @@ export default function JobsProfilePage() {
     userUpdates?: Record<string, any>
   ) => {
     try {
+      let authHeaders: Record<string, string> = {};
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          authHeaders = { Authorization: `Bearer ${session.access_token}` };
+        }
+      } catch {}
+
       const res = await fetch('/api/jobs/profile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+        },
         body: JSON.stringify({
           document: updatedDoc,
           userUpdates,
@@ -344,7 +363,7 @@ export default function JobsProfilePage() {
 
     await persistProfileUpdates(updatedDoc, {
       full_name: personalDraft.fullName,
-      city: personalDraft.location,
+      city: isValidGeographicLocation(personalDraft.location) ? personalDraft.location.trim() : '',
       phone_number: personalDraft.phone,
       linkedin_url: personalDraft.linkedinUrl,
     });
@@ -403,7 +422,11 @@ export default function JobsProfilePage() {
     user?.email?.split('@')[0] ||
     '';
 
-  const candidateLocation = document.contact.location || user?.city || '';
+  const candidateLocation =
+    (document.contact.location && isValidGeographicLocation(document.contact.location)
+      ? document.contact.location
+      : '') ||
+    (user?.city && isValidGeographicLocation(user.city) ? user.city : '');
   const candidateEmail = document.contact.email || user?.email || '';
   const candidatePhone = document.contact.phone || user?.phone_number || '';
   const candidateLinkedin = document.contact.linkedinUrl || user?.linkedin_url || '';
@@ -464,6 +487,15 @@ export default function JobsProfilePage() {
     document.experience,
     document.skills,
   ]);
+
+  const hasResume = Boolean(latestResume && (latestResume.id || latestResume.name));
+  const isProfileComplete = Boolean(
+    profileCompleteness.hasExperience &&
+    profileCompleteness.hasEducation &&
+    profileCompleteness.hasSkills
+  );
+  // Show "Import from LinkedIn" ONLY when user has no resume nor is profile complete
+  const shouldShowLinkedInImport = !hasResume && !isProfileComplete;
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC] text-neutral-900 font-sans">
@@ -591,7 +623,16 @@ export default function JobsProfilePage() {
                         {candidateLinkedin.replace(/^https?:\/\/(www\.)?/, '')}
                       </span>
                     </a>
-                  ) : null}
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={openPersonalModal}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-50 hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900 border border-dashed border-neutral-300 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Linkedin className="h-3.5 w-3.5 text-[#0077B5]" />
+                      <span>+ Add LinkedIn</span>
+                    </button>
+                  )}
 
                   {candidateGithub ? (
                     <a
@@ -978,54 +1019,60 @@ export default function JobsProfilePage() {
                 <ChevronRight className="h-4 w-4 text-neutral-400 group-hover:text-neutral-700 transition-colors" />
               </Link>
 
-              {/* 3. Update / Import LinkedIn Profile Card (Matching Screenshot 2) */}
-              <div className="bg-white rounded-2xl border border-neutral-200/90 p-4 shadow-2xs space-y-2.5">
-                <div
-                  onClick={() => setLinkedinModalOpen(true)}
-                  className="flex items-center justify-between cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2">
-                    <Linkedin className="h-4 w-4 text-[#0077B5] fill-[#0077B5]" />
-                    <span className="text-xs font-bold text-neutral-900 group-hover:text-[#0A1B5C] transition-colors">
-                      Update Linkedin URL
+              {/* 3. Master Resume Connection Card (Shown when user has a master resume) */}
+              {!isLoadingProfile && hasResume && (
+                <div className="bg-white rounded-2xl border border-neutral-200/90 p-4 shadow-2xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-[#0A1B5C]" />
+                      <span className="text-xs font-bold text-neutral-900">Master Resume</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      Connected
                     </span>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-neutral-400 group-hover:text-neutral-700 transition-colors" />
-                </div>
 
-                <p className="text-[11px] text-neutral-500 leading-relaxed font-normal">
-                  We use your LinkedIn info to find Insider Connections at hiring companies. If you&apos;ve
-                  updated your LinkedIn profile, refresh here.{' '}
-                  <button
-                    type="button"
-                    onClick={() => setLinkedinModalOpen(true)}
-                    className="font-bold text-neutral-800 underline hover:text-[#0A1B5C] inline cursor-pointer"
-                  >
-                    Refresh
-                  </button>
-                </p>
-
-                <div className="flex items-center gap-2 pt-1 border-t border-neutral-100">
-                  <button
-                    type="button"
-                    onClick={() => setLinkedinModalOpen(true)}
-                    className="flex-1 py-2 px-3 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
-                  >
-                    <Linkedin className="h-3.5 w-3.5 fill-white" />
-                    <span>Import LinkedIn</span>
-                  </button>
+                  <p className="text-[11px] text-neutral-500 leading-relaxed font-normal">
+                    Profile synchronized with{' '}
+                    <strong className="text-neutral-700">{latestResume?.name || 'Master Resume'}</strong>.
+                  </p>
 
                   <button
                     type="button"
                     onClick={handleSyncFromMasterResume}
                     title="1-Click populate from your master resume"
-                    className="py-2 px-3 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white text-neutral-800 text-xs font-bold transition-all active:scale-95 flex items-center gap-1"
+                    className="w-full py-2 px-3 rounded-xl border border-neutral-200 hover:border-neutral-300 bg-neutral-50 hover:bg-neutral-100 text-neutral-800 text-xs font-bold transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <RefreshCw className="h-3.5 w-3.5 text-neutral-600" />
-                    <span>Sync Resume</span>
+                    <span>Sync from Master Resume</span>
                   </button>
                 </div>
-              </div>
+              )}
+
+              {/* 4. Import from LinkedIn Card (Shown ONLY when user has no resume nor is profile complete) */}
+              {!isLoadingProfile && shouldShowLinkedInImport && (
+                <div className="bg-white rounded-2xl border border-neutral-200/90 p-4 shadow-2xs space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <Linkedin className="h-4 w-4 text-[#0077B5] fill-[#0077B5]" />
+                    <span className="text-xs font-bold text-neutral-900">
+                      Import from LinkedIn
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-neutral-500 leading-relaxed font-normal">
+                    Import your full career history, education, and skills in seconds by uploading your official LinkedIn profile PDF.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => setLinkedinModalOpen(true)}
+                    className="w-full py-2 px-3 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Linkedin className="h-3.5 w-3.5 fill-white" />
+                    <span>Import LinkedIn PDF</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1635,18 +1682,6 @@ export default function JobsProfilePage() {
             if (importedDoc) {
               setDocument(importedDoc);
               persistProfileUpdates(importedDoc, url ? { linkedin_url: url } : undefined);
-            } else if (url) {
-              setDocument((prev) => {
-                const updated = {
-                  ...prev,
-                  contact: {
-                    ...prev.contact,
-                    linkedinUrl: url,
-                  },
-                };
-                persistProfileUpdates(updated, { linkedin_url: url });
-                return updated;
-              });
             }
             if (url) {
               setPersonalDraft((prev) => ({ ...prev, linkedinUrl: url }));

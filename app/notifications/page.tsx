@@ -21,7 +21,7 @@ import {
   Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, getGoogleFaviconUrl } from "@/lib/utils";
 
 export default function NotificationsPage() {
   const router = useRouter();
@@ -281,7 +281,7 @@ export default function NotificationsPage() {
                               />
                             ) : companyDomain ? (
                               <img
-                                src={`https://www.google.com/s2/favicons?domain=${companyDomain}&sz=64`}
+                                src={getGoogleFaviconUrl(companyDomain, 64)}
                                 alt=""
                                 className="h-6 w-6 object-contain p-0.5"
                               />

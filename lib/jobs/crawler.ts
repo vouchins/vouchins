@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { cleanJobApplyUrl } from './url-cleaner';
+import { getGoogleFaviconUrl } from '@/lib/utils';
 
 export interface CrawledJobItem {
   recruiter_id: string;
@@ -335,7 +336,7 @@ export async function crawlAndSyncTechJobs(
               'Remote';
 
             const cleanDomain = company.domain || `${company.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
-            const companyLogo = `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=128`;
+            const companyLogo = getGoogleFaviconUrl(cleanDomain, 64);
 
             const requirements = Array.isArray(job.enrichment?.requirements)
               ? job.enrichment.requirements.map((r: any) => r.text || r).join('\n')

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getGoogleFaviconUrl } from "@/lib/utils";
 
 export async function GET(request: Request) {
   try {
@@ -134,11 +135,11 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (companyObj?.domain) {
-        resolvedCompanyLogo = `https://www.google.com/s2/favicons?domain=${companyObj.domain}&sz=128`;
+        resolvedCompanyLogo = getGoogleFaviconUrl(companyObj.domain, 64);
       } else {
         const cleanName = resolvedCompanyName.toLowerCase().replace(/[^a-z0-9]/g, "");
         if (cleanName) {
-          resolvedCompanyLogo = `https://www.google.com/s2/favicons?domain=${cleanName}.com&sz=128`;
+          resolvedCompanyLogo = getGoogleFaviconUrl(`${cleanName}.com`, 64);
         }
       }
     }

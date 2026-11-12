@@ -7,6 +7,7 @@
 
 import { cleanJobApplyUrl } from './url-cleaner';
 import { containsSkill } from './ats-client';
+import { getGoogleFaviconUrl } from '@/lib/utils';
 
 export interface FreehireJobQuery {
   skills?: string[];
@@ -158,7 +159,7 @@ export function transformFreehireJob(
     raw.company_slug ||
     companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  const companyLogo = `https://www.google.com/s2/favicons?domain=${companySlug}.com&sz=128`;
+  const companyLogo = getGoogleFaviconUrl(`${companySlug}.com`, 64);
 
   let locationStr = 'Remote';
   if (typeof raw.location === 'string') {

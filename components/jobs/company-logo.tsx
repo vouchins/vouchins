@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { getGoogleFaviconUrl } from '@/lib/utils';
+
+export { getGoogleFaviconUrl };
 
 const KNOWN_COMPANY_DOMAINS: Record<string, string> = {
   spacex: 'spacex.com',
@@ -234,18 +237,6 @@ export function getCompanyDomain(
   // 4. Fallback: clean company name into a standard web domain format
   const sanitized = cleanName.replace(/[^a-z0-9]/g, '');
   return sanitized ? `${sanitized}.com` : '';
-}
-
-/**
- * Constructs Google Favicon service URL (type=FAVICON, client=SOCIAL).
- * Uses HTTPS protocol to support modern SSL/HSTS-only domains and prevent 404 errors.
- * Safely clamps size between 16 and 64 to prevent upstream image errors.
- */
-export function getGoogleFaviconUrl(domain: string, size = 64): string {
-  if (!domain) return '';
-  const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-  const safeSize = Math.min(Math.max(size, 16), 64);
-  return `https://t1.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${cleanDomain}&size=${safeSize}`;
 }
 
 interface CompanyLogoProps {

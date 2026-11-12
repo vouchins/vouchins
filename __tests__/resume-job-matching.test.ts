@@ -11,7 +11,9 @@ import {
   isLocationMatch,
   canonicalizeSkill,
   candidateHasSkill,
+  isValidGeographicLocation,
 } from '@/lib/jobs/ats-client';
+import { parseRawTextToDocument } from '@/lib/jobs/xyz-evaluator';
 import { buildPostgrestLocationFilter, GET } from '@/app/api/jobs/route';
 
 describe('Resume to Database Job Matching Engine', () => {
@@ -174,6 +176,53 @@ describe('Resume to Database Job Matching Engine', () => {
 
       expect(localEval.matchScore).toBeGreaterThan(distantEval.matchScore);
       expect(distantEval.isRecommended).toBe(false);
+    });
+  });
+
+  describe('Resume Header Location Parsing and Geographic Validation', () => {
+    it('accurately validates geographic locations and rejects job titles and company names', () => {
+      expect(isValidGeographicLocation('Project Lead @ Oracle')).toBe(false);
+      expect(isValidGeographicLocation('Software Engineer')).toBe(false);
+      expect(isValidGeographicLocation('shaikt30@gmail.com')).toBe(false);
+      expect(isValidGeographicLocation('https://linkedin.com/in/shaik-taher')).toBe(false);
+      expect(isValidGeographicLocation('Remote')).toBe(false);
+      expect(isValidGeographicLocation('All')).toBe(false);
+
+      expect(isValidGeographicLocation('Hyderabad')).toBe(true);
+      expect(isValidGeographicLocation('Telangana, India')).toBe(true);
+      expect(isValidGeographicLocation('Hyderabad, Telangana, India')).toBe(true);
+      expect(isValidGeographicLocation('San Francisco, CA')).toBe(true);
+      expect(isValidGeographicLocation('Bengaluru, Karnataka, India')).toBe(true);
+    });
+
+    it('extracts real location from resume header without confusing role title with location', () => {
+      const sampleResume = `
+Shaik Taher
+Project Lead @ Oracle
+Hyderabad
+Telangana, India
+Email | shaikt30@gmail.com
+LinkedIn | linkedin/in/shaik-taher
+Github | github.com/ishaiktaher
++91-8801418257
+
+Professional Summary
+Senior Frontend Engineer with 9+ years of experience building scalable web applications using ReactJS, Redux, and JavaScript.
+
+Top Skills
+JavaScript (ES6+), ReactJS, Redux, Node.js
+
+Experience
+Oracle India Pvt Limited, Hyderabad, INDIA
+Software Engineer | Apr 2021 - Present
+Built and enhanced storefront framework with React and Node.js.
+`;
+
+      const doc = parseRawTextToDocument(sampleResume);
+      expect(doc.contact.fullName).toBe('Shaik Taher');
+      expect(doc.contact.location).toBe('Hyderabad, Telangana, India');
+      expect(doc.contact.email).toBe('shaikt30@gmail.com');
+      expect(doc.contact.phone).toBe('+91-8801418257');
     });
   });
 

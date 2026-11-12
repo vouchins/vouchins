@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { Lock, Search, User, X, MessageSquare } from "lucide-react";
 import { decryptMessage, initE2EEKeys } from "@/lib/crypto";
+import { getGoogleFaviconUrl } from "@/lib/utils";
 
 interface UserProfile {
   id: string;
@@ -37,7 +38,7 @@ function UserAvatar({ user, className = "h-11 w-11" }: { user: UserProfile; clas
         />
       ) : user.company?.domain ? (
         <img
-          src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=64`}
+          src={getGoogleFaviconUrl(user.company.domain, 64)}
           alt={user.company.name}
           className={`h-full w-full object-contain ${faviconPadding}`}
           referrerPolicy="no-referrer"

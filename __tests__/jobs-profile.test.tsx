@@ -99,25 +99,20 @@ describe('JobsProfilePage Component', () => {
     });
   });
 
-  it('renders right sidebar action cards and hides Complete Profile when already complete', async () => {
+  it('renders right sidebar action cards and hides Complete Profile and LinkedIn Import when already complete', async () => {
     render(<JobsProfilePage />);
 
-    // Since default document has personal info, education, experience, and skills, Complete Profile is hidden
-    expect(screen.queryByText('Complete Profile')).not.toBeInTheDocument();
-    expect(screen.getByText('Manage My Resume')).toBeInTheDocument();
-    expect(screen.getByText('Update Linkedin URL')).toBeInTheDocument();
-
-    // Verify clicking opens the LinkedIn dialog
-    const importBtn = screen.getByRole('button', { name: /import linkedin/i });
-    fireEvent.click(importBtn);
-
     await waitFor(() => {
-      expect(screen.getByText('Upload LinkedIn PDF')).toBeInTheDocument();
-      expect(screen.getByText('LinkedIn URL')).toBeInTheDocument();
+      // Since default document has personal info, education, experience, and skills, Complete Profile is hidden
+      expect(screen.queryByText('Complete Profile')).not.toBeInTheDocument();
+      expect(screen.getByText('Manage My Resume')).toBeInTheDocument();
+      expect(screen.getByText('Master Resume')).toBeInTheDocument();
+      // Import from LinkedIn option is hidden when user already has a resume or complete profile
+      expect(screen.queryByText('Import from LinkedIn')).not.toBeInTheDocument();
     });
   });
 
-  it('shows the Complete Profile alert when candidate profile is incomplete', async () => {
+  it('shows Complete Profile alert and Import from LinkedIn when candidate has no resume and incomplete profile', async () => {
     const { fetchCachedResumes } = require('@/lib/jobs/client-cache');
     fetchCachedResumes.mockResolvedValueOnce({ resumes: [], latestScore: null });
 
@@ -145,6 +140,15 @@ describe('JobsProfilePage Component', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Complete Profile')).toBeInTheDocument();
+      expect(screen.getByText('Import from LinkedIn')).toBeInTheDocument();
+    });
+
+    // Clicking opens the LinkedIn PDF import dialog
+    const importBtn = screen.getByRole('button', { name: /import linkedin/i });
+    fireEvent.click(importBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/How to download your official LinkedIn PDF/i)).toBeInTheDocument();
     });
   });
 
@@ -163,7 +167,7 @@ describe('JobsProfilePage Component', () => {
     });
   });
 
-  it('hides the Complete Profile section when user profile is already complete', () => {
+  it('hides the Complete Profile section when user profile is already complete', async () => {
     const { useUser } = require('@/components/user-provider');
     const originalUseUser = useUser;
 
@@ -186,9 +190,11 @@ describe('JobsProfilePage Component', () => {
 
     render(<JobsProfilePage />);
 
-    expect(screen.queryByText('Complete Profile')).not.toBeInTheDocument();
-    expect(screen.getByText('Manage My Resume')).toBeInTheDocument();
-    expect(screen.getByText('Update Linkedin URL')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('Complete Profile')).not.toBeInTheDocument();
+      expect(screen.getByText('Manage My Resume')).toBeInTheDocument();
+      expect(screen.queryByText('Import from LinkedIn')).not.toBeInTheDocument();
+    });
   });
 
   it('displays empty states and marks profile incomplete without John Doe data when no resume is uploaded', async () => {

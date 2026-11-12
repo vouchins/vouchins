@@ -32,7 +32,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, getGoogleFaviconUrl } from "@/lib/utils";
 import { BlurredPostCard } from "@/components/blurred-post-card";
 import { LeftSidebar } from "@/components/left-sidebar";
 import { RightSidebar } from "./side-bars/right/right-sidebar";
@@ -615,7 +615,7 @@ export function FeedClient({ initialUser, initialFeed, initialFilters }: FeedCli
           >
             {user?.company?.domain ? (
               <img
-                src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(user.company.domain)}&sz=64`}
+                src={getGoogleFaviconUrl(user.company.domain, 64)}
                 alt=""
                 aria-hidden="true"
                 className="h-4 w-4 shrink-0 object-contain"

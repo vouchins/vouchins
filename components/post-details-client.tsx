@@ -16,7 +16,7 @@ import { VerificationModal } from "@/components/verification-modal";
 import { ReportDialog } from "@/components/report-dialog";
 import { supabase } from "@/lib/supabase/browser";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, getGoogleFaviconUrl } from "@/lib/utils";
 import { RightSidebar } from "@/app/feed/side-bars/right/right-sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -212,7 +212,7 @@ export function PostDetailsClient({
           <div className="h-5 w-5 rounded bg-neutral-100 flex items-center justify-center overflow-hidden">
             {currentUser?.company?.domain ? (
               <img
-                src={`https://www.google.com/s2/favicons?domain=${currentUser?.company?.domain}&sz=32`}
+                src={getGoogleFaviconUrl(currentUser?.company?.domain, 32)}
                 alt=""
                 className="h-3.5 w-3.5 object-contain"
               />

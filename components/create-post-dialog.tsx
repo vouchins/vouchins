@@ -34,6 +34,7 @@ import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 import imageCompression from "browser-image-compression";
 import filter from "leo-profanity";
 import posthog from "posthog-js";
+import { getGoogleFaviconUrl } from "@/lib/utils";
 
 const CATEGORY_HELP_TEXT: Record<string, string> = {
   housing:
@@ -372,7 +373,7 @@ export function CreatePostDialog({
                       <div className="flex items-center gap-2">
                         {user.company?.domain ? (
                           <img
-                            src={`https://www.google.com/s2/favicons?domain=${user.company?.domain}&sz=32`}
+                            src={getGoogleFaviconUrl(user.company?.domain, 32)}
                             alt=""
                             className="h-3.5 w-3.5 object-contain shrink-0"
                           />

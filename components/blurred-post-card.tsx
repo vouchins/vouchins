@@ -15,6 +15,7 @@ import {
   Share2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getGoogleFaviconUrl } from "@/lib/utils";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 import {
   DropdownMenu,
@@ -56,7 +57,7 @@ export function BlurredPostCard({ post, onVerify }: BlurredPostCardProps) {
     : null;
 
   const companyLogoUrl = post.user.company?.domain
-    ? `https://www.google.com/s2/favicons?domain=${post.user.company?.domain}&sz=64`
+    ? getGoogleFaviconUrl(post.user.company?.domain, 64)
     : "";
 
   const handleCopyLink = async (e: React.MouseEvent) => {

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, getGoogleFaviconUrl } from "@/lib/utils";
 import { CATEGORIES, SUB_CATEGORIES } from "@/lib/constants";
 import { FOOTER_LINKS, SOCIAL_LINKS } from "@/lib/footer-links";
 import { useUser } from "@/components/user-provider";
@@ -218,7 +218,7 @@ export function LeftSidebar({
             <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-neutral-50 text-primary">
               {user?.company?.domain ? (
                 <img
-                  src={`https://www.google.com/s2/favicons?domain=${user.company.domain}&sz=32`}
+                  src={getGoogleFaviconUrl(user.company.domain, 32)}
                   alt=""
                   className="h-5 w-5 object-contain"
                 />

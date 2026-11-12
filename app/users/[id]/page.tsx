@@ -56,6 +56,7 @@ import {
 import { VerifiedIcon } from "@/components/verified-icon";
 import { INDIAN_CITIES } from "@/lib/constants";
 import { LINKEDIN_URL_PREFIX, isValidLinkedInUrl, normalizeLinkedInUrl } from "@/lib/auth/validation";
+import { getGoogleFaviconUrl } from "@/lib/utils";
 
 const PROFILE_POST_SELECT =
   "*, user:users!posts_user_id_fkey(id, full_name, city, bio, avatar_url, vouch_points, is_verified, company:companies(name, domain)), comments(id, text, created_at, user:users!comments_user_id_fkey(id, full_name, avatar_url))";
@@ -901,7 +902,7 @@ export default function UserProfilePage() {
                   ) : profile.company?.[0]?.domain ||
                     profile.company?.domain ? (
                     <img
-                      src={`https://www.google.com/s2/favicons?domain=${profile.company?.[0]?.domain || profile.company?.domain}&sz=128`}
+                      src={getGoogleFaviconUrl(profile.company?.[0]?.domain || profile.company?.domain, 128)}
                       alt={profile.full_name}
                       className="h-full w-full object-contain p-5"
                     />
@@ -953,7 +954,7 @@ export default function UserProfilePage() {
                       {profile.company.domain ? (
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded border border-neutral-200 bg-white">
                           <img
-                            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(profile.company.domain)}&sz=64`}
+                            src={getGoogleFaviconUrl(profile.company.domain, 64)}
                             alt={`${profile.company.name} logo`}
                             className="h-4 w-4 object-contain"
                             onError={(event) => {

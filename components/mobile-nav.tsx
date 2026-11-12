@@ -3,7 +3,7 @@
 import { MapPin, Plus, Lock, Building2, Briefcase, MessageCircle } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { cn } from "@/lib/utils";
+import { cn, getGoogleFaviconUrl } from "@/lib/utils";
 
 const CreatePostDialog = dynamic(
   () => import("@/components/create-post-dialog").then((mod) => mod.CreatePostDialog),
@@ -41,7 +41,7 @@ export function MobileNav({
   const cityLabel = selectedCity || user?.city || "City";
   const companyLabel = user?.company?.name || "Company";
   const companyLogoUrl = user?.company?.domain
-    ? `https://www.google.com/s2/favicons?domain=${user.company?.domain}&sz=64`
+    ? getGoogleFaviconUrl(user.company?.domain, 64)
     : null;
 
   return (

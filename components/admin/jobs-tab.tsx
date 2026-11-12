@@ -28,6 +28,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getCompanyDomain } from "@/components/jobs/company-logo";
+import { getGoogleFaviconUrl } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Popover,
@@ -972,8 +974,10 @@ export function JobsTab({ onRefresh, loading: parentLoading }: JobsTabProps) {
               </thead>
               <tbody className="divide-y divide-neutral-100">
                 {jobs.map((job) => {
-                  const companyDomain = `${job.company_name.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
-                  const logoSrc = job.company_logo || `https://www.google.com/s2/favicons?domain=${companyDomain}&sz=64`;
+                  const companyDomain = getCompanyDomain(job.company_name, job.external_apply_url, job.company_logo) || `${job.company_name.toLowerCase().replace(/[^a-z0-9]/g, "")}.com`;
+                  const logoSrc = job.company_logo && !job.company_logo.includes('google.com/s2/favicons') && !job.company_logo.includes('gstatic.com/faviconV2')
+                    ? job.company_logo
+                    : getGoogleFaviconUrl(companyDomain, 64);
                   const isSelected = isAllMatchingSelected || selectedJobIds.has(job.id);
 
                   return (

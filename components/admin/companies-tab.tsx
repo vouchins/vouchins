@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { getGoogleFaviconUrl } from "@/lib/utils";
 
 interface Company {
   id: string;
@@ -261,7 +262,7 @@ export function CompaniesTab({
                     <div className="h-8 w-8 rounded bg-neutral-100 flex items-center justify-center overflow-hidden border border-neutral-100 shrink-0">
                       {c.domain ? (
                         <img
-                          src={`https://www.google.com/s2/favicons?domain=${c.domain}&sz=64`}
+                          src={getGoogleFaviconUrl(c.domain, 64)}
                           alt=""
                           className="h-5 w-5 object-contain"
                           onError={(e) => {

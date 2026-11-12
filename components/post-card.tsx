@@ -59,7 +59,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useUser } from "@/components/user-provider";
-import { cn } from "@/lib/utils";
+import { cn, getGoogleFaviconUrl } from "@/lib/utils";
 import { VerifiedIcon } from "@/components/verified-icon";
 import { CommentForm } from "@/components/comment-form";
 
@@ -512,7 +512,7 @@ export function PostCard({
   };
 
   const companyLogoUrl = post.user.company?.domain
-    ? `https://www.google.com/s2/favicons?domain=${post.user.company?.domain}&sz=64`
+    ? getGoogleFaviconUrl(post.user.company.domain, 64)
     : null;
 
   const handleCardClick = () => {
@@ -688,7 +688,7 @@ export function PostCard({
               />
             ) : post.user.company?.domain ? (
               <img
-                src={`https://www.google.com/s2/favicons?domain=${post.user.company.domain}&sz=64`}
+                src={getGoogleFaviconUrl(post.user.company.domain, 64)}
                 alt={post.user.company?.name || "Company logo"}
                 className="h-full w-full object-contain p-1.5"
               />
@@ -755,7 +755,7 @@ export function PostCard({
               />
             ) : post.user.company?.domain ? (
               <img
-                src={`https://www.google.com/s2/favicons?domain=${post.user.company?.domain}&sz=64`}
+                src={getGoogleFaviconUrl(post.user.company.domain, 64)}
                 alt={post.user.company?.name || "Company Logo"}
                 className="h-full w-full object-contain p-1.5"
               />

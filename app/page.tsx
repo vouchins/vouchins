@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HomepageNavbar } from "@/components/homepage-navbar";
 import { Footer } from "@/components/footer";
+import { getGoogleFaviconUrl } from "@/lib/utils";
 import {
   Shield,
   ArrowRight,
@@ -324,7 +325,7 @@ export default function Home() {
                   <div key={`logo-1-${index}`} className="flex items-center gap-2 grayscale opacity-40 hover:opacity-100 hover:grayscale-0 transition duration-300">
                     <div className="h-7 w-7 rounded bg-white flex items-center justify-center p-1">
                       <img
-                        src={`https://www.google.com/s2/favicons?domain=${logo.domain}&sz=64`}
+                        src={getGoogleFaviconUrl(logo.domain, 64)}
                         alt={logo.name}
                         className="h-full w-full object-contain"
                       />
@@ -345,7 +346,7 @@ export default function Home() {
                   <div key={`logo-2-${index}`} className="flex items-center gap-2 grayscale opacity-40 hover:opacity-100 hover:grayscale-0 transition duration-300">
                     <div className="h-7 w-7 rounded bg-white flex items-center justify-center p-1">
                       <img
-                        src={`https://www.google.com/s2/favicons?domain=${logo.domain}&sz=64`}
+                        src={getGoogleFaviconUrl(logo.domain, 64)}
                         alt={logo.name}
                         className="h-full w-full object-contain"
                       />

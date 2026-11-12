@@ -6,6 +6,7 @@ import {
   JobMatchVectors,
   PillarScores,
 } from './types';
+import { isValidGeographicLocation } from './ats-client';
 
 // Metric detection patterns for Google XYZ formula (stateless regexes without g flag)
 const METRIC_PATTERNS = [
@@ -638,24 +639,38 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     }
   }
 
-  // Extract location from header line
+  // Extract location from header lines (first 10 lines)
   let location = '';
-  for (let i = 0; i < Math.min(6, lines.length); i++) {
-    const line = lines[i];
-    if (line.includes('@') || line.includes('linkedin.com') || /\d{8,}/.test(line)) {
+  const potentialLocs: string[] = [];
+  for (let i = 0; i < Math.min(10, lines.length); i++) {
+    const line = lines[i].trim();
+    if (!line || line === fullName) continue;
+
+    if (line.includes('@') || line.includes('linkedin') || line.includes('github') || /\d{8,}/.test(line)) {
       const locPart = line
         .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
         .replace(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/gi, '')
+        .replace(/(?:https?:\/\/)?(?:www\.)?linkedin\/in\/[a-zA-Z0-9_-]+/gi, '')
         .replace(/(?:https?:\/\/)?(?:www\.)?github\.com\/[a-zA-Z0-9_-]+/gi, '')
         .replace(/(?:\+?91[\s-]*)?[6789]\d{9}|\b\d{10}\b|(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '')
         .replace(/\b91\b/g, '')
+        .replace(/^(email|linkedin|github|phone|mobile|tel|contact)\s*[:|•·-]?\s*/gi, '')
         .replace(/[|•·\(\)\-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-      if (locPart.length > 2 && locPart.length < 50) {
-        location = locPart;
-        break;
+      if (isValidGeographicLocation(locPart)) {
+        potentialLocs.push(locPart);
       }
+    } else if (isValidGeographicLocation(line) && line.length < 50 && !line.includes(':')) {
+      potentialLocs.push(line);
+    }
+  }
+
+  if (potentialLocs.length > 0) {
+    if (potentialLocs.length >= 2 && !potentialLocs[0].includes(',') && potentialLocs[1].includes(',')) {
+      location = `${potentialLocs[0]}, ${potentialLocs[1]}`;
+    } else {
+      location = potentialLocs[0];
     }
   }
 

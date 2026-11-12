@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyJobsAccess } from '@/lib/jobs/auth-guard';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { ResumeDocument } from '@/lib/jobs/types';
+import { isValidGeographicLocation } from '@/lib/jobs/ats-client';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,11 +38,27 @@ export async function GET(request: Request) {
       console.warn('Could not fetch resume document:', resumeError);
     }
 
+    const userResult = userData ? { ...userData } : null;
+    if (userResult && userResult.city && !isValidGeographicLocation(userResult.city)) {
+      userResult.city = null;
+    }
+
+    let docResult = resumeData?.document_schema || null;
+    if (docResult && docResult.contact?.location && !isValidGeographicLocation(docResult.contact.location)) {
+      docResult = {
+        ...docResult,
+        contact: {
+          ...docResult.contact,
+          location: userResult?.city && isValidGeographicLocation(userResult.city) ? userResult.city : '',
+        },
+      };
+    }
+
     return NextResponse.json({
       success: true,
-      user: userData,
+      user: userResult,
       resumeId: resumeData?.id || null,
-      document: resumeData?.document_schema || null,
+      document: docResult,
     });
   } catch (err: any) {
     console.error('Jobs Profile GET error:', err);
@@ -72,6 +89,12 @@ export async function POST(request: Request) {
 
       for (const field of allowedFields) {
         if (userUpdates[field] !== undefined) {
+          if (field === 'city') {
+            const cityVal = typeof userUpdates.city === 'string' ? userUpdates.city.trim() : '';
+            if (cityVal && !isValidGeographicLocation(cityVal)) {
+              continue; // Reject storing job titles or company names as city
+            }
+          }
           filteredUpdates[field] = userUpdates[field];
         }
       }
@@ -88,6 +111,13 @@ export async function POST(request: Request) {
 
     // 2. Update or insert document into job_resumes
     if (document) {
+      // Sanitize document contact location if invalid
+      if (document.contact?.location && !isValidGeographicLocation(document.contact.location)) {
+        document.contact.location =
+          userUpdates?.city && isValidGeographicLocation(userUpdates.city)
+            ? userUpdates.city.trim()
+            : '';
+      }
       const { data: existingResume } = await supabaseAdmin
         .from('job_resumes')
         .select('id')

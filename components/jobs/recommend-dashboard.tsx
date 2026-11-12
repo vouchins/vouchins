@@ -63,6 +63,7 @@ import { supabase } from '@/lib/supabase/browser';
 import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch, containsSkill, COMMON_TECH_TAXONOMY, canonicalizeSkill, isValidGeographicLocation } from '@/lib/jobs/ats-client';
 import { cleanJobApplyUrl } from '@/lib/jobs/url-cleaner';
 import { CompanyLogo } from './company-logo';
+import { getGoogleFaviconUrl } from '@/lib/utils';
 import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
 
 export interface RecommendedJob {
@@ -482,7 +483,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       companyLogo:
         job.company_logo ||
         job.recruiter?.company_logo ||
-        `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=128`,
+        getGoogleFaviconUrl(cleanDomain, 64),
       location,
       workplaceType,
       jobType,
@@ -673,7 +674,10 @@ export function JobRecommendationsDashboard() {
   const [sortBy, setSortBy] = useState<'relevance' | 'date'>('relevance');
 
   // Location & City Filter State (Prioritizes user's home city)
-  const [selectedCity, setSelectedCity] = useState<string>(user?.city?.trim() || '');
+  const [selectedCity, setSelectedCity] = useState<string>(() => {
+    const initial = user?.city?.trim() || '';
+    return isValidGeographicLocation(initial) ? initial : '';
+  });
   const [customCityInput, setCustomCityInput] = useState<string>('');
   const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
 
@@ -758,8 +762,10 @@ export function JobRecommendationsDashboard() {
               if (!selectedCity || !isValidGeographicLocation(selectedCity)) {
                 if (user?.city?.trim() && isValidGeographicLocation(user.city)) {
                   setSelectedCity(user.city.trim());
-                } else if (data.document.contact?.location && isValidGeographicLocation(data.document.contact.location)) {
+                } else if (data.document?.contact?.location && isValidGeographicLocation(data.document.contact.location)) {
                   setSelectedCity(data.document.contact.location.trim());
+                } else {
+                  setSelectedCity('');
                 }
               }
             }
@@ -976,7 +982,7 @@ export function JobRecommendationsDashboard() {
 
     return freshList.sort((a, b) => {
       // Prioritize candidate selected city and workplace mode
-      if (selectedCity && selectedCity.toLowerCase() !== 'all') {
+      if (selectedCity && selectedCity.toLowerCase() !== 'all' && isValidGeographicLocation(selectedCity)) {
         const aMatches = isLocationMatch(a.location, selectedCity, a.workplaceType, workModeFilter);
         const bMatches = isLocationMatch(b.location, selectedCity, b.workplaceType, workModeFilter);
 
@@ -1518,7 +1524,7 @@ export function JobRecommendationsDashboard() {
                 <DropdownMenuSeparator className="my-1" />
 
                 <div className="max-h-56 overflow-y-auto space-y-0.5">
-                  {user?.city && (
+                  {user?.city && isValidGeographicLocation(user.city) && (
                     <DropdownMenuItem
                       onClick={() => handleApplyLocation(user.city!.trim())}
                       className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer ${selectedCity.toLowerCase() === user.city.toLowerCase()
@@ -2109,7 +2115,7 @@ export function JobRecommendationsDashboard() {
                   <p className="text-xs text-neutral-500 mt-1 max-w-xs">
                     {selectedCompanies.length > 0
                       ? `No matching roles found for company "${selectedCompanies.join(', ')}". Try resetting your company filter.`
-                      : selectedCity
+                      : selectedCity && isValidGeographicLocation(selectedCity)
                         ? `No matching roles found for "${selectedCity}". Try resetting your location or search filters.`
                         : 'Try clearing your search query or switching filter chips.'}
                   </p>
