@@ -686,6 +686,9 @@ export function JobRecommendationsDashboard() {
   // Candidate Profile Skills & Seniority from master resume
   const [candidateProfileSkills, setCandidateProfileSkills] = useState<string[]>([]);
   const [candidateSeniority, setCandidateSeniority] = useState<string>('Senior');
+  const [candidateCurrentRole, setCandidateCurrentRole] = useState<string>('');
+  const [candidateCurrentCompany, setCandidateCurrentCompany] = useState<string>('');
+  const [isCurrentlyWorking, setIsCurrentlyWorking] = useState<boolean>(false);
 
   // Company Filter State (Supports multi-select checkboxes & custom added companies)
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
@@ -695,6 +698,8 @@ export function JobRecommendationsDashboard() {
 
   // Zero-flicker In-Memory Insiders Cache
   const companyInsidersCacheRef = React.useRef<Map<string, CompanyInsider[]>>(new Map());
+  const detailScrollRef = React.useRef<HTMLDivElement>(null);
+  const listScrollRef = React.useRef<HTMLDivElement>(null);
 
   // Resumes list for Apply on Vouchins modal
   const [userResumes, setUserResumes] = useState<any[]>([]);
@@ -754,8 +759,21 @@ export function JobRecommendationsDashboard() {
               if (skills.length > 0) {
                 setCandidateProfileSkills(skills);
               }
-              if (Array.isArray(data.document.experience) && data.document.experience[0]?.roleTitle) {
-                setCandidateSeniority(data.document.experience[0].roleTitle);
+              if (Array.isArray(data.document.experience) && data.document.experience.length > 0) {
+                const currentExp = data.document.experience.find(
+                  (e: any) => e.isCurrent === true || /\b(present|current)\b/i.test(e.endDate || '')
+                );
+                if (currentExp && currentExp.roleTitle) {
+                  setCandidateCurrentRole(currentExp.roleTitle.trim());
+                  setCandidateCurrentCompany(currentExp.company?.trim() || (user as any)?.company?.name || '');
+                  setIsCurrentlyWorking(true);
+                  setCandidateSeniority(currentExp.roleTitle.trim());
+                } else if (data.document.experience[0]?.roleTitle) {
+                  setCandidateCurrentRole(data.document.experience[0].roleTitle.trim());
+                  setCandidateCurrentCompany(data.document.experience[0].company?.trim() || (user as any)?.company?.name || '');
+                  setIsCurrentlyWorking(false);
+                  setCandidateSeniority(data.document.experience[0].roleTitle.trim());
+                }
               }
               if (!selectedCity || !isValidGeographicLocation(selectedCity)) {
                 if (user?.city?.trim() && isValidGeographicLocation(user.city)) {
@@ -977,7 +995,12 @@ export function JobRecommendationsDashboard() {
           },
           candidateProfileSkills,
           candidateSeniority,
-          selectedCity
+          selectedCity,
+          {
+            currentRole: candidateCurrentRole,
+            currentCompany: candidateCurrentCompany,
+            isStillWorking: isCurrentlyWorking,
+          }
         );
         return {
           ...j,
@@ -1108,6 +1131,9 @@ export function JobRecommendationsDashboard() {
     if (typeof window !== 'undefined') {
       window.history.replaceState(null, '', targetUrl);
     }
+    setTimeout(() => {
+      detailScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    }, 0);
   };
 
   // Filtered jobs calculation
@@ -1460,12 +1486,12 @@ export function JobRecommendationsDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen lg:h-screen lg:overflow-hidden bg-[#F8FAFC] text-neutral-900 font-sans selection:bg-[#4FD1C5]/30 selection:text-[#0A1B5C]">
+    <div className="flex h-screen h-[100dvh] max-h-[100dvh] overflow-hidden bg-[#F8FAFC] text-neutral-900 font-sans selection:bg-[#4FD1C5]/30 selection:text-[#0A1B5C]">
       {/* 1. Left Hand Panel / Sidebar */}
       <JobsSidebar activeTab="jobs" hideMobileNav={mobileView === 'detail'} />
 
       {/* 2. Main Content Area */}
-      <div className={`flex-1 flex flex-col min-w-0 lg:h-full lg:min-h-0 lg:overflow-hidden ${mobileView === 'detail' ? 'pb-0' : 'pb-16 md:pb-0'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'pb-0' : 'pb-14 md:pb-0'}`}>
         {/* Top Application Header Bar */}
         <JobsNavbar
           searchQuery={searchQuery}
@@ -1913,12 +1939,9 @@ export function JobRecommendationsDashboard() {
         </JobsNavbar>
 
         {/* Main Two-Pane Split Dashboard (Desktop: Split / Mobile: List ↔ Detail) */}
-        <main className={`flex-1 min-h-0 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3 grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-6 overflow-hidden ${mobileView === 'detail'
-          ? 'h-[calc(100dvh-60px)] sm:h-[calc(100dvh-70px)] lg:h-full'
-          : 'h-[calc(100dvh-130px)] lg:h-full'
-          }`}>
+        <main className="flex-1 min-h-0 max-w-[1720px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3 flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-6 overflow-hidden h-full">
           {/* Left Column (38% on desktop): AI Job Recommendations Feed */}
-          <div className={`lg:col-span-5 flex-col h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
+          <div className={`lg:col-span-5 flex-1 lg:flex-initial flex-col h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'hidden lg:flex' : 'flex'
             }`}>
             {/* Feed Tabs: All Jobs | Recommended | Saved | Applied */}
             <div className="bg-white rounded-2xl border border-neutral-200/80 p-1 flex items-center gap-1.5 mb-2.5 shrink-0 shadow-xs overflow-x-auto no-scrollbar">
@@ -2120,7 +2143,7 @@ export function JobRecommendationsDashboard() {
             </div>
 
             {/* Scrollable Job Cards List (Independently scrollable on left) */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 pr-1.5 rounded-2xl [scrollbar-width:thin]">
+            <div ref={listScrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain space-y-3 pr-1.5 rounded-2xl [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] touch-pan-y pb-6">
               {isLoadingJobs && dbJobs.length === 0 ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4].map((i) => (
@@ -2316,7 +2339,7 @@ export function JobRecommendationsDashboard() {
           </div>
 
           {/* Right Column (62% on desktop): Deep-Dive Job & Copilot Action Pane */}
-          <div className={`lg:col-span-7 bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-sm flex flex-col h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'flex' : 'hidden lg:flex'
+          <div className={`lg:col-span-7 bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-sm flex-1 lg:flex-initial flex flex-col h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'flex' : 'hidden lg:flex'
             }`}>
             {/* 1. Mobile Back to List Header */}
             <div className="lg:hidden px-3.5 py-2.5 bg-white border-b border-neutral-200 flex items-center justify-between shrink-0 z-20 shadow-2xs">
@@ -2339,7 +2362,7 @@ export function JobRecommendationsDashboard() {
             </div>
 
             {/* 2. Unified Scroll Container (Scrolls header, tabs, and details seamlessly) */}
-            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+            <div ref={detailScrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] touch-pan-y pb-6">
               {/* Selected Job Top Bar */}
               <div className="p-4 sm:p-6 border-b border-neutral-200/80 bg-gradient-to-b from-neutral-50/50 to-white">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
@@ -3050,7 +3073,7 @@ export function JobRecommendationsDashboard() {
             </div>
 
             {/* 3. Mobile Dedicated Bottom Action Bar */}
-            <div className="lg:hidden sticky bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-neutral-200/90 px-2.5 sm:px-3 py-2 flex items-center gap-1.5 sm:gap-2 shadow-[0_-8px_25px_-5px_rgba(0,0,0,0.1)] pb-[max(0.5rem,env(safe-area-inset-bottom))] shrink-0">
+            <div className="lg:hidden shrink-0 bg-white/95 backdrop-blur-md border-t border-neutral-200/90 px-2.5 sm:px-3 py-2 flex items-center gap-1.5 sm:gap-2 shadow-[0_-8px_25px_-5px_rgba(0,0,0,0.1)] pb-[max(0.75rem,env(safe-area-inset-bottom))] z-30">
               {/* Bookmark Button */}
               <button
                 type="button"

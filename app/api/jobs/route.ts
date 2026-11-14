@@ -13,6 +13,9 @@ import {
   COMMON_TECH_TAXONOMY,
   containsSkill,
   isValidGeographicLocation,
+  CandidateMatchingContext,
+  detectRoleDomain,
+  isSameCompany,
 } from "@/lib/jobs/ats-client";
 import { CURATED_TECH_JOBS } from "@/lib/jobs/curated-tech-jobs";
 import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
@@ -100,7 +103,15 @@ export async function GET(request: Request) {
         ? companiesParam.split(",").map((c) => c.trim()).filter(Boolean)
         : [];
 
-    // 1. Resolve candidate skills, seniority, and preferred location from query or user profile / master resume
+    // 1. Resolve candidate skills, seniority, role, company, and preferred location from query or user profile / master resume
+    const currentRoleParam = searchParams.get("current_role") || searchParams.get("role") || "";
+    const currentCompanyParam = searchParams.get("current_company") || searchParams.get("company") || "";
+    const isWorkingParam = searchParams.get("is_working");
+
+    let candidateCurrentRole = currentRoleParam.trim();
+    let candidateCurrentCompany = currentCompanyParam.trim();
+    let isCurrentlyWorking = isWorkingParam !== null ? isWorkingParam === "true" : false;
+
     let candidateSkills: string[] = skillsParam
       ? skillsParam.split(",").map((s) => s.trim()).filter(Boolean)
       : [];
@@ -114,15 +125,20 @@ export async function GET(request: Request) {
     try {
       const authCheck = await verifyJobsAccess(request);
       if (authCheck.allowed && authCheck.userId) {
-        // Fetch user registered city from users table
+        // Fetch user registered city and affiliated company from users table
         const { data: userData } = await supabaseAdmin
           .from("users")
-          .select("city")
+          .select("city, company_id, company:companies(name)")
           .eq("id", authCheck.userId)
           .maybeSingle();
 
         if (!candidateLocation && userData?.city?.trim() && isValidGeographicLocation(userData.city)) {
           candidateLocation = userData.city.trim();
+        }
+
+        const userRegisteredCompany = (userData as any)?.company?.name?.trim() || "";
+        if (!candidateCurrentCompany && userRegisteredCompany) {
+          candidateCurrentCompany = userRegisteredCompany;
         }
 
         const { data: latestResume } = await supabaseAdmin
@@ -140,6 +156,36 @@ export async function GET(request: Request) {
           // If location is still not set, fallback to resume contact location
           if (!candidateLocation && docSchema.contact?.location?.trim() && isValidGeographicLocation(docSchema.contact.location)) {
             candidateLocation = docSchema.contact.location.trim();
+          }
+
+          // Extract candidate's current or last role & company from work experience
+          if (Array.isArray(docSchema.experience) && docSchema.experience.length > 0) {
+            // Find active/current position if candidate is still working there
+            const currentExp = docSchema.experience.find(
+              (e: any) => e.isCurrent === true || /\b(present|current)\b/i.test(e.endDate || "")
+            );
+
+            if (currentExp && currentExp.roleTitle?.trim()) {
+              if (!candidateCurrentRole) candidateCurrentRole = currentExp.roleTitle.trim();
+              if (!candidateCurrentCompany && currentExp.company?.trim()) {
+                candidateCurrentCompany = currentExp.company.trim();
+              }
+              if (isWorkingParam === null) isCurrentlyWorking = true;
+            } else {
+              // Last company / most recent experience entry if not currently working
+              const latestExp = docSchema.experience[0];
+              if (latestExp?.roleTitle?.trim()) {
+                if (!candidateCurrentRole) candidateCurrentRole = latestExp.roleTitle.trim();
+                if (!candidateCurrentCompany && latestExp.company?.trim()) {
+                  candidateCurrentCompany = latestExp.company.trim();
+                }
+                if (isWorkingParam === null) isCurrentlyWorking = false;
+              }
+            }
+          }
+
+          if (!candidateCurrentRole && docSchema.targetJobTitle?.trim()) {
+            candidateCurrentRole = docSchema.targetJobTitle.trim();
           }
 
           // Extract candidate skills from resume skills categories
@@ -173,15 +219,12 @@ export async function GET(request: Request) {
             }
           }
 
-          // Automatically detect candidate seniority from latest job title or experience breadth
+          // Automatically detect candidate seniority from current role, latest job title, or experience breadth
           if (experienceLevel === "all") {
-            if (
-              Array.isArray(docSchema.experience) &&
-              docSchema.experience.length > 0 &&
-              docSchema.experience[0]?.roleTitle
-            ) {
-              detectedSeniority = detectExperienceLevel(docSchema.experience[0].roleTitle);
-              if (detectedSeniority === "Mid" && docSchema.experience.length >= 3) {
+            const roleForSeniority = candidateCurrentRole || docSchema.experience?.[0]?.roleTitle;
+            if (roleForSeniority) {
+              detectedSeniority = detectExperienceLevel(roleForSeniority);
+              if (detectedSeniority === "Mid" && Array.isArray(docSchema.experience) && docSchema.experience.length >= 3) {
                 detectedSeniority = "Senior";
               }
             } else if (Array.isArray(docSchema.experience) && docSchema.experience.length === 0) {
@@ -192,6 +235,10 @@ export async function GET(request: Request) {
       }
     } catch (authErr) {
       console.warn("User candidate profile resolution note:", authErr);
+    }
+
+    if (experienceLevel === "all" && candidateCurrentRole && detectedSeniority === "Senior") {
+      detectedSeniority = detectExperienceLevel(candidateCurrentRole);
     }
 
     // Only apply generic fallback skills if the candidate explicitly has a master resume
@@ -248,8 +295,19 @@ export async function GET(request: Request) {
 
     let rawDbJobs: any[] = [];
 
-    // Extract top core tech keywords from candidateSkills to build a skill-targeted query
+    // Extract top core tech keywords from candidateSkills and current/last role to build a skill-targeted query
     const skillKeywords: string[] = [];
+    if (candidateCurrentRole) {
+      const roleDomain = detectRoleDomain(candidateCurrentRole);
+      if (roleDomain === 'frontend' && !skillKeywords.includes('Frontend')) skillKeywords.push('Frontend');
+      if (roleDomain === 'backend' && !skillKeywords.includes('Backend')) skillKeywords.push('Backend');
+      if (roleDomain === 'devops_sre' && !skillKeywords.includes('DevOps')) skillKeywords.push('DevOps');
+      if (roleDomain === 'data_ai' && !skillKeywords.includes('Data')) skillKeywords.push('Data');
+      if (roleDomain === 'mobile' && !skillKeywords.includes('Mobile')) skillKeywords.push('Mobile');
+      if (roleDomain === 'qa_sdet' && !skillKeywords.includes('QA')) skillKeywords.push('QA');
+      if (roleDomain === 'product' && !skillKeywords.includes('Product')) skillKeywords.push('Product');
+    }
+
     for (const s of candidateSkills) {
       const lower = s.toLowerCase();
       if (lower.includes('react') && !skillKeywords.includes('React')) skillKeywords.push('React');
@@ -461,7 +519,12 @@ export async function GET(request: Request) {
         },
         candidateSkills,
         detectedSeniority,
-        candidateLocation
+        candidateLocation,
+        {
+          currentRole: candidateCurrentRole,
+          currentCompany: candidateCurrentCompany,
+          isStillWorking: isCurrentlyWorking,
+        }
       );
 
       return {
@@ -591,7 +654,12 @@ export async function GET(request: Request) {
           },
           candidateSkills,
           detectedSeniority,
-          candidateLocation
+          candidateLocation,
+          {
+            currentRole: candidateCurrentRole,
+            currentCompany: candidateCurrentCompany,
+            isStillWorking: isCurrentlyWorking,
+          }
         );
 
         const count = getInsiderCount(cj.companyName);
@@ -667,40 +735,65 @@ export async function GET(request: Request) {
       }
 
       // 2. Title & Domain Role Relevance
-      const computeTitleRelevance = (title: string): number => {
+      const computeTitleRelevance = (title: string, compName: string): number => {
         const t = (title || "").toLowerCase();
         let weight = 0;
         for (const kw of skillKeywords) {
           if (t.includes(kw.toLowerCase())) weight += 3;
         }
-        if (t.includes("front-end") || t.includes("frontend") || t.includes("ui")) {
-          weight += 4;
-        } else if (t.includes("fullstack") || t.includes("full-stack") || t.includes("full stack")) {
-          weight += 2;
-        }
 
-        // Penalize mismatched titles for candidates with frontend/react background
-        const isFrontendCandidate = skillKeywords.some((k) => {
-          const lk = k.toLowerCase();
-          return lk.includes("react") || lk.includes("front") || lk.includes("ui");
-        });
+        if (candidateCurrentRole) {
+          const candDomain = detectRoleDomain(candidateCurrentRole);
+          const jobDomain = detectRoleDomain(title);
+          if (candDomain !== 'general_tech' && jobDomain !== 'general_tech') {
+            if (candDomain === jobDomain) {
+              weight += 8;
+            } else if (
+              (candDomain === 'fullstack' && (jobDomain === 'frontend' || jobDomain === 'backend')) ||
+              (jobDomain === 'fullstack' && (candDomain === 'frontend' || candDomain === 'backend')) ||
+              (candDomain === 'backend' && (jobDomain === 'devops_sre' || jobDomain === 'data_ai')) ||
+              (candDomain === 'devops_sre' && (jobDomain === 'security' || jobDomain === 'backend'))
+            ) {
+              weight += 4;
+            } else {
+              weight -= 8;
+            }
+          }
+        } else {
+          if (t.includes("front-end") || t.includes("frontend") || t.includes("ui")) {
+            weight += 4;
+          } else if (t.includes("fullstack") || t.includes("full-stack") || t.includes("full stack")) {
+            weight += 2;
+          }
 
-        if (isFrontendCandidate) {
-          if (
-            t.includes(".net") ||
-            (t.includes("java") && !t.includes("script")) ||
-            t.includes("pega") ||
-            t.includes("automation") ||
-            t.includes("relationship manager")
-          ) {
-            weight -= 4;
+          // Penalize mismatched titles for candidates with frontend/react background
+          const isFrontendCandidate = skillKeywords.some((k) => {
+            const lk = k.toLowerCase();
+            return lk.includes("react") || lk.includes("front") || lk.includes("ui");
+          });
+
+          if (isFrontendCandidate) {
+            if (
+              t.includes(".net") ||
+              (t.includes("java") && !t.includes("script")) ||
+              t.includes("pega") ||
+              t.includes("automation") ||
+              t.includes("relationship manager")
+            ) {
+              weight -= 4;
+            }
           }
         }
+
+        if (candidateCurrentCompany && isSameCompany(compName, candidateCurrentCompany)) {
+          weight += isCurrentlyWorking ? 5 : 3;
+        }
+
         return weight;
       };
 
-      const aWeight = computeTitleRelevance(a.title);
-      const bWeight = computeTitleRelevance(b.title);
+      const aWeight = computeTitleRelevance(a.title, a.company_name);
+      const bWeight = computeTitleRelevance(b.title, b.company_name);
       if (bWeight !== aWeight) {
         return bWeight - aWeight;
       }
@@ -767,6 +860,9 @@ export async function GET(request: Request) {
         detectedSeniority,
         resolvedSkills: candidateSkills.slice(0, 10),
         resolvedLocation: candidateLocation,
+        currentRole: candidateCurrentRole || null,
+        currentCompany: candidateCurrentCompany || null,
+        isStillWorking: isCurrentlyWorking,
       },
     });
   } catch (error: any) {

@@ -288,16 +288,9 @@ export function JobsSidebar({
       {!hideMobileNav && (
         <nav
           aria-label="Jobs mobile navigation"
-          className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-neutral-200/90 py-1 px-1.5 flex items-center justify-around shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
+          className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-neutral-200/90 py-1 px-1 flex items-center justify-around shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] md:hidden"
         >
-          {[
-            mainNavItems[0], // Overview
-            mainNavItems[1], // Jobs
-            mainNavItems[2], // Resume
-            mainNavItems[3], // Profile
-            mainNavItems[4], // Agent
-            mainNavItems[6], // Interview
-          ].map((item) => {
+          {mainNavItems.map((item) => {
             const isActive = activeTab === item.id;
             const Icon = item.icon;
 
@@ -311,7 +304,7 @@ export function JobsSidebar({
                   }
                 }}
                 className={cn(
-                  "relative flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all min-w-[50px]",
+                  "relative flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all flex-1 min-w-0",
                   isActive
                     ? "text-[#0A1B5C] font-black"
                     : "text-neutral-500 hover:text-neutral-900"
@@ -320,19 +313,19 @@ export function JobsSidebar({
                 <div className="relative flex items-center justify-center">
                   <Icon
                     className={cn(
-                      "w-5 h-5",
+                      "w-4.5 h-4.5 sm:w-5 sm:h-5",
                       isActive ? "text-[#0A1B5C]" : "text-neutral-500"
                     )}
                   />
                   {item.badge && (
-                    <span className="absolute -top-1 -right-2 px-1 py-0.2 bg-rose-500 text-white text-[7px] font-black rounded uppercase tracking-wider leading-none">
+                    <span className="absolute -top-1 -right-1.5 px-1 py-0.2 bg-rose-500 text-white text-[7px] font-black rounded uppercase tracking-wider leading-none">
                       {item.badge}
                     </span>
                   )}
                 </div>
                 <span
                   className={cn(
-                    "text-[10px] tracking-tight mt-0.5 leading-none",
+                    "text-[9px] sm:text-[10px] tracking-tight mt-0.5 leading-none truncate max-w-full text-center",
                     isActive ? "text-[#0A1B5C] font-extrabold" : "text-neutral-500 font-medium"
                   )}
                 >

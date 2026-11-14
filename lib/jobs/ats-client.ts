@@ -660,6 +660,104 @@ export function isSeniorityCompatible(
   };
 }
 
+export interface CandidateMatchingContext {
+  currentRole?: string;
+  currentCompany?: string;
+  isStillWorking?: boolean;
+}
+
+export type RoleDomain =
+  | 'frontend'
+  | 'backend'
+  | 'fullstack'
+  | 'devops_sre'
+  | 'data_ai'
+  | 'mobile'
+  | 'qa_sdet'
+  | 'product'
+  | 'design'
+  | 'security'
+  | 'management'
+  | 'general_tech';
+
+export function isSameCompany(comp1?: string, comp2?: string): boolean {
+  if (!comp1 || !comp2) return false;
+  const clean = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\b(inc|corp|corporation|llc|ltd|limited|technologies|solutions|labs|pvt|private|group)\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const c1 = clean(comp1);
+  const c2 = clean(comp2);
+  if (!c1 || !c2) return false;
+  return c1 === c2 || c1.includes(c2) || c2.includes(c1);
+}
+
+export function detectRoleDomain(titleOrRole: string): RoleDomain {
+  const t = (titleOrRole || '').toLowerCase();
+  if (!t.trim()) return 'general_tech';
+
+  // Product
+  if (/\b(product manager|product management|tpm|technical product manager|product owner|apm|gpm|director of product|vp of product)\b/i.test(t)) {
+    return 'product';
+  }
+
+  // Design / UX
+  if (/\b(ui\/ux|ux designer|product designer|visual designer|ui designer|ux researcher|interaction designer|design lead)\b/i.test(t)) {
+    return 'design';
+  }
+
+  // Security
+  if (/\b(security engineer|infosec|appsec|cybersecurity|penetration test|soc analyst|secops|security analyst)\b/i.test(t)) {
+    return 'security';
+  }
+
+  // Management
+  if (/\b(engineering manager|director of engineering|vp of engineering|head of engineering|cto|chief technology officer|tech lead manager)\b/i.test(t)) {
+    return 'management';
+  }
+
+  // QA / SDET / Testing
+  if (/\b(qa|sdet|quality assurance|test engineer|automation engineer|software test|software tester)\b/i.test(t)) {
+    return 'qa_sdet';
+  }
+
+  // Mobile
+  if (/\b(ios|android|mobile|flutter|react native|swift developer|kotlin developer)\b/i.test(t)) {
+    return 'mobile';
+  }
+
+  // Data / AI / ML
+  if (/\b(data engineer|data scientist|machine learning|ml engineer|ai engineer|deep learning|nlp|computer vision|analytics engineer|big data|business intelligence|bi developer|data analyst)\b/i.test(t)) {
+    return 'data_ai';
+  }
+
+  // DevOps / SRE / Cloud / Infrastructure
+  if (/\b(devops|sre|site reliability|cloud|platform|infrastructure|kubernetes|k8s|sysadmin|systems administrator|release engineer)\b/i.test(t)) {
+    return 'devops_sre';
+  }
+
+  // Frontend / UI / Web
+  if (/\b(frontend|front-end|front end|ui engineer|ui developer|web developer|react developer|angular developer|vue developer|client engineer)\b/i.test(t)) {
+    return 'frontend';
+  }
+
+  // Backend
+  if (/\b(backend|back-end|back end|server engineer|api engineer|microservices|java developer|golang developer|python developer|node developer|distributed systems|c\+\+ developer)\b/i.test(t)) {
+    return 'backend';
+  }
+
+  // Full Stack / SWE
+  if (/\b(fullstack|full-stack|full stack|web application developer|software engineer|software developer|sde|swe|member of technical staff|mts)\b/i.test(t)) {
+    return 'fullstack';
+  }
+
+  return 'general_tech';
+}
+
 /**
  * Calculates candidate match metrics against a job posting text and requirements.
  */
@@ -675,7 +773,8 @@ export function evaluateJobMatch(
   },
   candidateSkills: string[] = [],
   targetSeniority = 'Senior',
-  candidateLocation = ''
+  candidateLocation = '',
+  candidateContext?: CandidateMatchingContext
 ) {
   const normalizedCandidate = candidateSkills.map((s) => s.toLowerCase().trim()).filter(Boolean);
   const textCorpus = `${jobInfo.title} ${jobInfo.description || ''} ${jobInfo.requirements || ''}`.toLowerCase();
@@ -727,11 +826,82 @@ export function evaluateJobMatch(
   }
 
   // Role relevance filter: prevents unrelated roles (e.g. chemist, driver) from scoring high
-  if (candidateSkills.length > 0 && !isRoleRelevant(jobInfo.title, candidateSkills)) {
+  if (candidateSkills.length > 0 && !isRoleRelevant(jobInfo.title, candidateSkills, candidateContext?.currentRole)) {
     baseScore -= 12;
   }
 
-  // Location & workplace alignment
+  // 4. Candidate's Current / Last Role and Domain Alignment
+  let roleDomainMatch = false;
+  let roleDomainAdjacent = false;
+  let roleDomainMismatch = false;
+
+  if (candidateContext?.currentRole) {
+    const candDomain = detectRoleDomain(candidateContext.currentRole);
+    const jobDomain = detectRoleDomain(jobInfo.title);
+
+    if (candDomain !== 'general_tech' && jobDomain !== 'general_tech') {
+      if (candDomain === jobDomain) {
+        roleDomainMatch = true;
+        baseScore += 10; // Major bonus for matching candidate's current or last role domain
+      } else {
+        const isAdjacent =
+          (candDomain === 'fullstack' && (jobDomain === 'frontend' || jobDomain === 'backend')) ||
+          (jobDomain === 'fullstack' && (candDomain === 'frontend' || candDomain === 'backend')) ||
+          (candDomain === 'backend' && (jobDomain === 'devops_sre' || jobDomain === 'data_ai')) ||
+          (candDomain === 'devops_sre' && (jobDomain === 'security' || jobDomain === 'backend')) ||
+          (candDomain === 'management' && (jobDomain === 'fullstack' || jobDomain === 'backend' || jobDomain === 'frontend'));
+
+        if (isAdjacent) {
+          roleDomainAdjacent = true;
+          baseScore += 5; // Adjacent compatible domain
+        } else {
+          const severeMismatches = [
+            candDomain === 'product' && ['frontend', 'backend', 'devops_sre', 'data_ai', 'mobile', 'qa_sdet', 'security'].includes(jobDomain),
+            jobDomain === 'product' && ['frontend', 'backend', 'devops_sre', 'data_ai', 'mobile', 'qa_sdet', 'security'].includes(candDomain),
+            candDomain === 'design' && ['backend', 'devops_sre', 'data_ai', 'qa_sdet', 'security'].includes(jobDomain),
+            candDomain === 'qa_sdet' && ['devops_sre', 'data_ai', 'mobile'].includes(jobDomain),
+            candDomain === 'frontend' && ['data_ai', 'devops_sre'].includes(jobDomain),
+            candDomain === 'mobile' && ['data_ai', 'devops_sre'].includes(jobDomain),
+          ];
+
+          if (severeMismatches.some(Boolean)) {
+            roleDomainMismatch = true;
+            baseScore -= 12; // Penalty for cross-domain mismatch
+          }
+        }
+      }
+    }
+
+    // Direct title keyword overlap
+    const normCandRole = candidateContext.currentRole.toLowerCase();
+    const normJobTitle = jobInfo.title.toLowerCase();
+    const roleTokens = normCandRole
+      .split(/[\s,/-]+/)
+      .filter((t) => t.length >= 4 && !['engineer', 'developer', 'senior', 'junior', 'lead', 'staff', 'principal', 'level'].includes(t));
+    const hasTokenOverlap = roleTokens.some((t) => normJobTitle.includes(t));
+    if (hasTokenOverlap && !roleDomainMatch && !roleDomainAdjacent && !roleDomainMismatch) {
+      baseScore += 4;
+    }
+  }
+
+  // 5. Candidate's Current Company Context (Internal Mobility vs Alumni Boomerang)
+  let isInternalMobility = false;
+  let isAlumniMatch = false;
+
+  if (candidateContext?.currentCompany && jobInfo.companyName) {
+    const isSame = isSameCompany(jobInfo.companyName, candidateContext.currentCompany);
+    if (isSame) {
+      if (candidateContext.isStillWorking) {
+        isInternalMobility = true;
+        baseScore += 6; // Major bonus for internal mobility at current employer
+      } else {
+        isAlumniMatch = true;
+        baseScore += 4; // Bonus for alumni / boomerang candidate at former employer
+      }
+    }
+  }
+
+  // 6. Location & workplace alignment
   const jobLocLower = (jobInfo.location || '').toLowerCase();
   const candLocLower = (candidateLocation || '').toLowerCase().trim();
   const isRemote =
@@ -767,7 +937,9 @@ export function evaluateJobMatch(
   }
 
   const jobExp = jobInfo.experienceLevel || 'Mid';
-  const seniorityCheck = isSeniorityCompatible(targetSeniority, jobExp);
+  const candSeniority = candidateContext?.currentRole ? detectExperienceLevel(candidateContext.currentRole) : targetSeniority;
+  const seniorityToCheck = targetSeniority && targetSeniority !== 'Senior' ? targetSeniority : candSeniority;
+  const seniorityCheck = isSeniorityCompatible(seniorityToCheck, jobExp);
   if (seniorityCheck.isExact) {
     baseScore += 4;
   } else if (seniorityCheck.compatible) {
@@ -796,17 +968,62 @@ export function evaluateJobMatch(
     locationNote = ` Note: Position is on-site in ${jobInfo.location || 'office'}.`;
   }
 
-  const whyYouMatch =
-    matchingSkills.length > 0
-      ? `Strong alignment with your background in ${firstSkill}${
-          matchingSkills[1] ? ` and ${secondSkill}` : ''
-        }. Role matches your target seniority (${jobExp}) at ${comp}.${locationNote}`
-      : locationAligned && candidateLocation
-      ? `Position is located in your registered city of ${candidateLocation}.${locationNote} Upload your Master Resume to unlock technical skill matching and automated 1-click ATS tailoring.`
-      : `Explore opportunities at ${comp} aligned with your general engineering background.${locationNote}`;
+  let candidateContextPrefix = '';
+  if (isInternalMobility) {
+    candidateContextPrefix = `Internal mobility opportunity at your current company (${comp})${
+      candidateContext?.currentRole ? ` matching your background as ${candidateContext.currentRole}` : ''
+    }.`;
+  } else if (isAlumniMatch) {
+    candidateContextPrefix = `Alumni opportunity at your former company (${comp})${
+      candidateContext?.currentRole ? ` matching your experience as ${candidateContext.currentRole}` : ''
+    }.`;
+  } else if (candidateContext?.currentRole) {
+    if (roleDomainMatch || roleDomainAdjacent) {
+      if (candidateContext.isStillWorking && candidateContext.currentCompany) {
+        candidateContextPrefix = `Directly aligns with your current role as ${candidateContext.currentRole} at ${candidateContext.currentCompany}.`;
+      } else if (candidateContext.isStillWorking) {
+        candidateContextPrefix = `Directly aligns with your current role as ${candidateContext.currentRole}.`;
+      } else if (candidateContext.currentCompany) {
+        candidateContextPrefix = `Builds on your background as ${candidateContext.currentRole} at ${candidateContext.currentCompany}.`;
+      } else {
+        candidateContextPrefix = `Builds on your background as ${candidateContext.currentRole}.`;
+      }
+    } else if (roleDomainMismatch) {
+      candidateContextPrefix = `Note: Role focuses on ${jobInfo.title}, which differs from your background as ${candidateContext.currentRole}${
+        candidateContext.currentCompany ? ` at ${candidateContext.currentCompany}` : ''
+      }.`;
+    }
+  }
 
+  let skillOrGeneralSentence = '';
+  if (matchingSkills.length > 0) {
+    skillOrGeneralSentence = `Strong alignment with your background in ${firstSkill}${
+      matchingSkills[1] ? ` and ${secondSkill}` : ''
+    }. Role matches your target seniority (${jobExp}) at ${comp}.`;
+  } else if (locationAligned && candidateLocation) {
+    skillOrGeneralSentence = `Position is located in your registered city of ${candidateLocation}. Upload your Master Resume to unlock technical skill matching and automated 1-click ATS tailoring.`;
+  } else {
+    skillOrGeneralSentence = `Explore opportunities at ${comp} aligned with your general engineering background.`;
+  }
+
+  let whyYouMatch = '';
+  if (candidateContextPrefix) {
+    if (matchingSkills.length > 0) {
+      whyYouMatch = `${candidateContextPrefix} Strong match for your skills in ${firstSkill}${
+        matchingSkills[1] ? ` and ${secondSkill}` : ''
+      } at ${comp}.${locationNote}`;
+    } else {
+      whyYouMatch = `${candidateContextPrefix}${locationNote}`;
+    }
+  } else {
+    whyYouMatch = `${skillOrGeneralSentence}${locationNote}`;
+  }
+
+  const roleContextPhrase = candidateContext?.currentRole
+    ? ` as ${candidateContext.currentRole}`
+    : '';
   const tailoredBulletSuggestion = {
-    original: `Contributed to ${jobInfo.title.toLowerCase()} systems and feature development.`,
+    original: `Contributed to ${jobInfo.title.toLowerCase()} systems and feature development${roleContextPhrase}.`,
     tailored:
       candidateSkills.length > 0
         ? `Architected high-throughput service components using ${firstSkill}${
@@ -822,12 +1039,19 @@ export function evaluateJobMatch(
     matchScore,
     matchBreakdown: {
       skillsScore: candidateSkills.length > 0 ? Math.min(99, matchScore + 2) : 0,
-      experienceScore: Math.max(65, matchScore - 3),
+      experienceScore: roleDomainMatch
+        ? Math.min(99, Math.max(82, matchScore + 4))
+        : roleDomainMismatch
+        ? Math.max(50, Math.min(68, matchScore - 12))
+        : Math.max(65, matchScore - 3),
       stackScore: candidateSkills.length > 0 ? Math.min(99, matchScore + 1) : 0,
     },
     whyYouMatch,
     tailoredBulletSuggestion,
-    isRecommended: (matchScore >= 88 || locationAligned) && !locationMismatch,
+    isRecommended:
+      (matchScore >= 88 || locationAligned || roleDomainMatch || isInternalMobility) &&
+      !locationMismatch &&
+      !roleDomainMismatch,
   };
 }
 
@@ -835,7 +1059,7 @@ export function evaluateJobMatch(
 // Board Fetchers
 // ============================================================================
 
-export function isRoleRelevant(title: string, candidateSkills: string[] = []): boolean {
+export function isRoleRelevant(title: string, candidateSkills: string[] = [], candidateRole = ''): boolean {
   const t = title.toLowerCase();
   const techKeywords = [
     'engineer', 'developer', 'architect', 'software', 'frontend', 'backend',
@@ -845,6 +1069,10 @@ export function isRoleRelevant(title: string, candidateSkills: string[] = []): b
   ];
   if (techKeywords.some((k) => t.includes(k))) return true;
   if (candidateSkills.some((s) => s.length >= 2 && t.includes(s.toLowerCase()))) return true;
+  if (candidateRole) {
+    const roleTokens = candidateRole.toLowerCase().split(/[\s,/-]+/).filter((tok) => tok.length >= 4);
+    if (roleTokens.some((tok) => t.includes(tok))) return true;
+  }
   return false;
 }
 
