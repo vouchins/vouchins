@@ -19,7 +19,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ available: false, error: 'Slug parameter is required.' });
     }
 
-    const result = await isSlugAvailable(slug, resumeId || undefined);
+    let userId: string | undefined;
+    try {
+      const auth = await verifyJobsAccess(request);
+      if (auth.allowed && auth.userId) userId = auth.userId;
+    } catch {}
+
+    const result = await isSlugAvailable(slug, resumeId || undefined, userId);
     return NextResponse.json(result);
   } catch (err: any) {
     console.error('Custom slug check error:', err);
@@ -62,8 +68,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Validate custom slug format and uniqueness
-    const availability = await isSlugAvailable(customSlug, resumeId);
+    // 2. Validate custom slug format and uniqueness (allow user to reassign their own slug)
+    const availability = await isSlugAvailable(customSlug, resumeId, authCheck.userId);
     if (!availability.available) {
       return NextResponse.json(
         { error: availability.reason || 'This custom resume URL is not available.' },
@@ -109,6 +115,17 @@ export async function POST(request: Request) {
         .update(updatePayload)
         .eq('id', resumeId)
         .eq('user_id', authCheck.userId);
+    }
+
+    // 4. Ensure only the primary resume holds the vanity slug by clearing it from other resumes
+    try {
+      await supabaseAdmin
+        .from('job_resumes')
+        .update({ custom_slug: null })
+        .eq('user_id', authCheck.userId)
+        .neq('id', resumeId);
+    } catch {
+      // non-fatal
     }
 
     return NextResponse.json({

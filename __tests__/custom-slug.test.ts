@@ -206,6 +206,21 @@ describe('Custom Resume Vanity Slug System', () => {
       expect(resume?.title).toBe('Competitor Resume');
     });
 
+    it('always resolves the candidate primary resume even if slug was on another resume', async () => {
+      mockResumeRows.unshift({
+        id: '22222222-3333-4444-5555-666666666666',
+        user_id: 'user-owner-123',
+        title: 'Newest Primary Resume',
+        custom_slug: null,
+        document_schema: { contact: { fullName: 'Taher Shaik' } },
+      });
+
+      const resume = await findResumeBySlugOrId('taher-dev');
+      expect(resume).not.toBeNull();
+      expect(resume?.title).toBe('Newest Primary Resume');
+      expect(resume?.custom_slug).toBe('taher-dev');
+    });
+
     it('returns null if slug does not exist', async () => {
       const resume = await findResumeBySlugOrId('non-existent-candidate-slug');
       expect(resume).toBeNull();

@@ -47,7 +47,7 @@ import {
 import { JobsSidebar } from '@/components/jobs/jobs-sidebar';
 import { JobsNavbar } from '@/components/jobs/jobs-navbar';
 import { useUser } from '@/components/user-provider';
-import { fetchCachedResumes, fetchCachedJobs } from '@/lib/jobs/client-cache';
+import { fetchCachedResumes, fetchCachedJobs, invalidateResumesCache } from '@/lib/jobs/client-cache';
 import { exportResumeAsPDF } from '@/lib/jobs/pdf-exporter';
 import { toast } from 'sonner';
 
@@ -153,7 +153,6 @@ export function JobsOverviewDashboard() {
   }, [user, hasResume, userName]);
 
   // Shareable resume link state
-  const [selectedResumeId, setSelectedResumeId] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isDownloadingDirect, setIsDownloadingDirect] = useState(false);
   const [origin, setOrigin] = useState('');
@@ -171,10 +170,14 @@ export function JobsOverviewDashboard() {
     }
   }, []);
 
-  const activeResume =
-    resumes.find((r) => r.id === selectedResumeId) || primaryResume || resumes[0];
+  // Shareable resume link state (strictly binds to the user's Primary Master Resume)
+  const activeResume = primaryResume || resumes[0];
   const activeResumeId = activeResume?.id;
-  const activeCustomSlug = activeResume?.customSlug || (activeResume?.document as any)?.customSlug || '';
+  const activeCustomSlug =
+    activeResume?.customSlug ||
+    (activeResume?.document as any)?.customSlug ||
+    resumes.find((r) => r.customSlug)?.customSlug ||
+    '';
   const effectiveSlug = activeCustomSlug || activeResumeId;
 
   const shareableUrl = effectiveSlug
@@ -263,7 +266,10 @@ export function JobsOverviewDashboard() {
         throw new Error(data.error || 'Failed to save custom resume URL');
       }
 
-      // Update in local resumes state
+      // Invalidate client cache so future page loads or tab switches reflect the updated slug
+      invalidateResumesCache();
+
+      // Update in local resumes state (only primary holds customSlug)
       setResumes((prev) =>
         prev.map((r) => {
           if (r.id === activeResumeId) {
@@ -276,7 +282,14 @@ export function JobsOverviewDashboard() {
               },
             };
           }
-          return r;
+          return {
+            ...r,
+            customSlug: null,
+            document: {
+              ...(r.document || {}),
+              customSlug: null,
+            },
+          };
         })
       );
 
@@ -318,8 +331,8 @@ export function JobsOverviewDashboard() {
     } catch (err: any) {
       console.error('Direct download error:', err);
       toast.error('Failed to generate PDF. Opening in new tab...', { id: toastId });
-      if (activeResumeId) {
-        window.open(`/resume/${activeResumeId}`, '_blank');
+      if (effectiveSlug || activeResumeId) {
+        window.open(`/resume/${effectiveSlug || activeResumeId}`, '_blank');
       }
     } finally {
       setIsDownloadingDirect(false);
@@ -654,30 +667,21 @@ export function JobsOverviewDashboard() {
                         <p className="text-xs sm:text-sm text-neutral-500 font-medium leading-relaxed">
                           Share this link directly with recruiters, hiring managers, or colleagues. Anyone with the link can view your formatted resume and download an ATS-compliant PDF.
                         </p>
-                        {resumes.length > 1 ? (
-                          <div className="flex items-center gap-2 pt-1 text-xs font-bold text-neutral-700">
-                            <span>Resume:</span>
-                            <div className="relative inline-flex items-center">
-                              <select
-                                value={activeResumeId}
-                                onChange={(e) => setSelectedResumeId(e.target.value)}
-                                className="appearance-none pl-3 pr-8 py-1 rounded-lg bg-[#0A1B5C]/10 hover:bg-[#0A1B5C]/15 text-[#0A1B5C] font-extrabold border-0 text-xs focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] cursor-pointer transition-colors"
-                              >
-                                {resumes.map((r) => (
-                                  <option key={r.id} value={r.id} className="text-neutral-900 bg-white font-medium py-1">
-                                    {r.name || 'Master Resume'} {r.isPrimary ? '(Primary)' : ''}
-                                  </option>
-                                ))}
-                              </select>
-                              <ChevronDown className="w-3.5 h-3.5 text-[#0A1B5C] absolute right-2.5 pointer-events-none" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 pt-1 text-xs font-bold text-neutral-700">
-                            <span>Direct Public Access:</span>
-                            <span className="px-2 py-0.5 rounded-md bg-[#0A1B5C]/10 text-[#0A1B5C] font-extrabold">
-                              Web & PDF Ready
+                        {resumes.length > 0 && (
+                          <div className="flex items-center gap-2 pt-1 text-xs font-bold text-neutral-700 flex-wrap">
+                            <span className="text-neutral-500">Shared Resume:</span>
+                            <span className="px-2.5 py-1 rounded-lg bg-[#0A1B5C]/10 text-[#0A1B5C] font-black flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#0A1B5C]" />
+                              {activeResume?.name || 'Primary Master Resume'} (Primary)
                             </span>
+                            {resumes.length > 1 && (
+                              <Link
+                                href="/jobs/resume"
+                                className="text-[11px] text-neutral-500 hover:text-[#0A1B5C] font-semibold underline ml-1"
+                              >
+                                Change Primary Resume
+                              </Link>
+                            )}
                           </div>
                         )}
                       </div>

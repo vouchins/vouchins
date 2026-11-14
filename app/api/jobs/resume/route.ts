@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
     const { data: resumes, error } = await supabaseAdmin
       .from('job_resumes')
-      .select('id, title, file_name, file_size, document_schema, raw_text, created_at, updated_at')
+      .select('id, title, file_name, file_size, custom_slug, document_schema, raw_text, created_at, updated_at')
       .eq('user_id', authCheck.userId)
       .order('updated_at', { ascending: false });
 
@@ -64,8 +64,15 @@ export async function GET(request: Request) {
       }
     }
 
+    // Find candidate's active custom vanity slug across all resumes
+    const candidateCustomSlug =
+      (resumes || []).find((r: any) => r.custom_slug)?.custom_slug ||
+      (resumes || []).find((r: any) => (r.document_schema as any)?.customSlug)?.document_schema?.customSlug ||
+      null;
+
     const formattedResumes = (resumes || []).map((r, index) => {
       let doc = r.document_schema;
+      const isPrimary = index === 0;
       const isTainted =
         doc?.experience?.some((e: any) => e.company === 'Leading Tech Organization') ||
         doc?.projects?.some((p: any) => p.title === 'Distributed Real-Time Processing Engine');
@@ -73,6 +80,9 @@ export async function GET(request: Request) {
       if (isTainted && r.raw_text) {
         try {
           doc = parseRawTextToDocument(r.raw_text);
+          if ((r as any).custom_slug) {
+            (doc as any).customSlug = (r as any).custom_slug;
+          }
           // Auto-heal legacy database record in background
           supabaseAdmin
             .from('job_resumes')
@@ -143,11 +153,12 @@ export async function GET(request: Request) {
       return {
         id: r.id,
         name: r.title || r.file_name || 'Master Resume',
-        customSlug: (r as any).custom_slug || (doc as any)?.customSlug || null,
+        // In Vouchins, only the Primary Master Resume holds the public shareable custom vanity slug
+        customSlug: isPrimary ? (candidateCustomSlug || (r as any).custom_slug || (doc as any)?.customSlug || null) : null,
         targetJobTitle: activeTargetRole,
         lastModified: formatTimeAgo(r.updated_at),
         created: formatTimeAgo(r.created_at),
-        isPrimary: index === 0,
+        isPrimary,
         status: 'Analysis Complete' as const,
         initialLetter: (r.title || 'R').charAt(0).toUpperCase(),
         document: doc,
@@ -218,6 +229,32 @@ export async function POST(request: Request) {
         document_schema: validatedDoc.data,
         change_summary: changeSummary || 'Manual update via interactive editor',
       });
+
+      // If user is explicitly setting this resume as primary, migrate any existing custom slug to it
+      if (changeSummary === 'Set as primary Master Resume') {
+        try {
+          const { data: previousSlugRows } = await supabaseAdmin
+            .from('job_resumes')
+            .select('id, custom_slug')
+            .eq('user_id', authCheck.userId)
+            .not('custom_slug', 'is', null);
+
+          const existingSlug = previousSlugRows?.find((r) => r.custom_slug)?.custom_slug;
+          if (existingSlug) {
+            await supabaseAdmin
+              .from('job_resumes')
+              .update({ custom_slug: null })
+              .eq('user_id', authCheck.userId);
+
+            await supabaseAdmin
+              .from('job_resumes')
+              .update({ custom_slug: existingSlug })
+              .eq('id', savedId);
+          }
+        } catch {
+          // non-fatal
+        }
+      }
     } else {
       // Insert new
       const { data: inserted, error: insertErr } = await supabaseAdmin

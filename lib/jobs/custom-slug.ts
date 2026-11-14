@@ -94,7 +94,8 @@ export function validateCustomSlug(rawSlug: string): {
  */
 export async function isSlugAvailable(
   slug: string,
-  excludeResumeId?: string
+  excludeResumeId?: string,
+  excludeUserId?: string
 ): Promise<{ available: boolean; normalized: string; reason?: string }> {
   const validation = validateCustomSlug(slug);
   if (!validation.valid) {
@@ -112,6 +113,9 @@ export async function isSlugAvailable(
 
     if (excludeResumeId) {
       query1 = query1.neq('id', excludeResumeId);
+    }
+    if (excludeUserId) {
+      query1 = query1.neq('user_id', excludeUserId);
     }
 
     const { data: matchedColumn } = await query1.limit(1);
@@ -132,6 +136,9 @@ export async function isSlugAvailable(
     if (excludeResumeId) {
       query2 = query2.neq('id', excludeResumeId);
     }
+    if (excludeUserId) {
+      query2 = query2.neq('user_id', excludeUserId);
+    }
 
     const { data: matchedJsonb } = await query2.limit(1);
     if (matchedJsonb && matchedJsonb.length > 0) {
@@ -151,21 +158,50 @@ export async function isSlugAvailable(
 }
 
 /**
- * Resolves a resume by its ID or customized URL slug.
+ * Resolves a candidate's shareable primary resume by its ID or customized URL slug.
+ * In Vouchins, only the candidate's Primary Master Resume is shareable.
  */
 export async function findResumeBySlugOrId(slugOrId: string) {
   if (!slugOrId) return null;
   const clean = slugOrId.trim();
 
+  // Helper to resolve the user's Primary Resume
+  const resolvePrimaryResume = async (userId: string, currentMatch: any) => {
+    try {
+      const { data: primaryResume } = await supabaseAdmin
+        .from('job_resumes')
+        .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, custom_slug, document_schema, created_at, updated_at')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (primaryResume) {
+        return {
+          ...primaryResume,
+          custom_slug: currentMatch.custom_slug || primaryResume.custom_slug,
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return currentMatch;
+  };
+
   // 1. Direct UUID lookup
   if (UUID_REGEX.test(clean)) {
     const { data: resumeById } = await supabaseAdmin
       .from('job_resumes')
-      .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, document_schema, created_at, updated_at')
+      .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, custom_slug, document_schema, created_at, updated_at')
       .eq('id', clean)
       .maybeSingle();
 
-    if (resumeById) return resumeById;
+    if (resumeById) {
+      if (resumeById.user_id) {
+        return await resolvePrimaryResume(resumeById.user_id, resumeById);
+      }
+      return resumeById;
+    }
   }
 
   const lowerSlug = clean.toLowerCase();
@@ -174,13 +210,18 @@ export async function findResumeBySlugOrId(slugOrId: string) {
   try {
     const { data: resumeByCol } = await supabaseAdmin
       .from('job_resumes')
-      .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, document_schema, created_at, updated_at')
+      .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, custom_slug, document_schema, created_at, updated_at')
       .ilike('custom_slug', lowerSlug)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (resumeByCol) return resumeByCol;
+    if (resumeByCol) {
+      if (resumeByCol.user_id) {
+        return await resolvePrimaryResume(resumeByCol.user_id, resumeByCol);
+      }
+      return resumeByCol;
+    }
   } catch {
     // custom_slug column might be in process of migrating
   }
@@ -189,13 +230,18 @@ export async function findResumeBySlugOrId(slugOrId: string) {
   try {
     const { data: resumeByJson } = await supabaseAdmin
       .from('job_resumes')
-      .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, document_schema, created_at, updated_at')
+      .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, custom_slug, document_schema, created_at, updated_at')
       .eq('document_schema->>customSlug', lowerSlug)
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (resumeByJson) return resumeByJson;
+    if (resumeByJson) {
+      if (resumeByJson.user_id) {
+        return await resolvePrimaryResume(resumeByJson.user_id, resumeByJson);
+      }
+      return resumeByJson;
+    }
   } catch {
     // ignore json query error
   }
@@ -204,11 +250,16 @@ export async function findResumeBySlugOrId(slugOrId: string) {
   try {
     const { data: resumeById, error: idErr } = await supabaseAdmin
       .from('job_resumes')
-      .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, document_schema, created_at, updated_at')
+      .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, custom_slug, document_schema, created_at, updated_at')
       .eq('id', clean)
       .maybeSingle();
 
-    if (!idErr && resumeById) return resumeById;
+    if (!idErr && resumeById) {
+      if (resumeById.user_id) {
+        return await resolvePrimaryResume(resumeById.user_id, resumeById);
+      }
+      return resumeById;
+    }
   } catch {
     // ignore if id is uuid and clean is invalid
   }
@@ -228,7 +279,7 @@ export async function findResumeBySlugOrId(slugOrId: string) {
         const userId = users[0].id;
         const { data: userResume } = await supabaseAdmin
           .from('job_resumes')
-          .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, document_schema, created_at, updated_at')
+          .select('id, user_id, title, file_name, file_size, storage_path, raw_text, content_hash, custom_slug, document_schema, created_at, updated_at')
           .eq('user_id', userId)
           .order('updated_at', { ascending: false })
           .limit(1)

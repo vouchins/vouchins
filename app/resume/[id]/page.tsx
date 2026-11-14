@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { parseRawTextToDocument } from '@/lib/jobs/xyz-evaluator';
 import { ResumeDocument } from '@/lib/jobs/types';
@@ -135,6 +135,13 @@ export default async function PublicResumePage({ params }: PageProps) {
   }
 
   const customSlug = (resume as any).custom_slug || (doc as any)?.customSlug;
+  const canonicalIdentifier = customSlug || resume.id;
+
+  // Canonical redirection: If visitor accessed a non-canonical path (e.g. old UUID or non-primary ID),
+  // redirect them directly to the primary resume's canonical vanity handle or primary ID
+  if (canonicalIdentifier && id.toLowerCase() !== canonicalIdentifier.toLowerCase()) {
+    redirect(`/resume/${canonicalIdentifier}`);
+  }
 
   return (
     <PublicResumeViewer
