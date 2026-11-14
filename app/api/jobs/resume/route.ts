@@ -27,13 +27,28 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: resumes, error } = await supabaseAdmin
+    // Resilient query: Try querying with custom_slug; if column is missing in DB, fallback gracefully
+    let resumes: any[] | null = null;
+    let { data: primaryData, error: primaryErr } = await supabaseAdmin
       .from('job_resumes')
       .select('id, title, file_name, file_size, custom_slug, document_schema, raw_text, created_at, updated_at')
       .eq('user_id', authCheck.userId)
       .order('updated_at', { ascending: false });
 
-    if (error) throw error;
+    if (primaryErr && (primaryErr.code === '42703' || primaryErr.message?.includes('custom_slug'))) {
+      const fallback = await supabaseAdmin
+        .from('job_resumes')
+        .select('id, title, file_name, file_size, document_schema, raw_text, created_at, updated_at')
+        .eq('user_id', authCheck.userId)
+        .order('updated_at', { ascending: false });
+
+      if (fallback.error) throw fallback.error;
+      resumes = fallback.data;
+    } else if (primaryErr) {
+      throw primaryErr;
+    } else {
+      resumes = primaryData;
+    }
 
     // Fetch latest evaluations for these resumes
     const resumeIds = (resumes || []).map((r) => r.id);
@@ -96,15 +111,16 @@ export async function GET(request: Request) {
 
       let evaluation = evaluationsMap[r.id] || null;
       if (doc) {
-        if (doc.experience) {
-          doc.experience.forEach((e: any) => {
-            if (Array.isArray(e.bullets)) {
-              e.bullets = e.bullets.map(sanitizeBulletText);
-            }
-          });
-        }
+        const expList = Array.isArray(doc.experience) ? doc.experience : [];
+        expList.forEach((e: any) => {
+          if (Array.isArray(e?.bullets)) {
+            e.bullets = e.bullets.map(sanitizeBulletText);
+          }
+        });
 
-        const docBullets = new Set((doc?.experience || []).flatMap((e: any) => e.bullets || []));
+        const docBullets = new Set(
+          expList.flatMap((e: any) => (Array.isArray(e?.bullets) ? e.bullets : []))
+        );
         const hasLegacyPlaceholder = evaluation?.suggestions?.some(
           (s: any) =>
             s.originalText?.includes('1.5M daily active requests') ||
@@ -113,37 +129,45 @@ export async function GET(request: Request) {
 
         if (hasLegacyPlaceholder || !evaluation) {
           // Stale evaluation from legacy placeholder document or empty: generate fresh
-          evaluation = evaluateResumeHeuristically(doc, r.raw_text);
+          try {
+            evaluation = evaluateResumeHeuristically(doc, r.raw_text);
+          } catch (evalErr) {
+            console.warn('Error during heuristic evaluation:', evalErr);
+          }
         } else if (evaluation) {
-          const fresh = evaluateResumeHeuristically(doc, r.raw_text);
-          if (evaluation.suggestions) {
-            // Sync applied status with current doc: if doc has suggestedRewrite, mark applied=true
-            evaluation.suggestions = evaluation.suggestions.map((s: any) => {
-              const isNowInDoc = docBullets.has(s.suggestedRewrite);
-              if (isNowInDoc) {
-                return { ...s, applied: true };
-              }
-              return s;
-            });
-          }
-          // Calibrate score with current state of document so applied suggestions maintain improved score
-          evaluation.overallScore = Math.max(evaluation.overallScore || 0, fresh.overallScore);
-          evaluation.pillarScores = {
-            impact: Math.max(evaluation.pillarScores?.impact || 0, fresh.pillarScores.impact),
-            relevance: Math.max(evaluation.pillarScores?.relevance || 0, fresh.pillarScores.relevance),
-            brevity: Math.max(evaluation.pillarScores?.brevity || 0, fresh.pillarScores.brevity),
-          };
-          if (!evaluation.strengths || evaluation.strengths.length === 0) {
-            evaluation.strengths = fresh.strengths;
-          }
-          if (fresh.targetRole) {
-            evaluation.targetRole = fresh.targetRole;
-          }
-          if (fresh.detectedSeniority) {
-            evaluation.detectedSeniority = fresh.detectedSeniority;
-          }
-          if (fresh.jobMatchVectors) {
-            evaluation.jobMatchVectors = fresh.jobMatchVectors;
+          try {
+            const fresh = evaluateResumeHeuristically(doc, r.raw_text);
+            if (evaluation.suggestions && Array.isArray(evaluation.suggestions)) {
+              // Sync applied status with current doc: if doc has suggestedRewrite, mark applied=true
+              evaluation.suggestions = evaluation.suggestions.map((s: any) => {
+                const isNowInDoc = docBullets.has(s.suggestedRewrite);
+                if (isNowInDoc) {
+                  return { ...s, applied: true };
+                }
+                return s;
+              });
+            }
+            // Calibrate score with current state of document so applied suggestions maintain improved score
+            evaluation.overallScore = Math.max(evaluation.overallScore || 0, fresh?.overallScore || 0);
+            evaluation.pillarScores = {
+              impact: Math.max(evaluation.pillarScores?.impact || 0, fresh?.pillarScores?.impact || 0),
+              relevance: Math.max(evaluation.pillarScores?.relevance || 0, fresh?.pillarScores?.relevance || 0),
+              brevity: Math.max(evaluation.pillarScores?.brevity || 0, fresh?.pillarScores?.brevity || 0),
+            };
+            if (!evaluation.strengths || evaluation.strengths.length === 0) {
+              evaluation.strengths = fresh?.strengths || [];
+            }
+            if (fresh?.targetRole) {
+              evaluation.targetRole = fresh.targetRole;
+            }
+            if (fresh?.detectedSeniority) {
+              evaluation.detectedSeniority = fresh.detectedSeniority;
+            }
+            if (fresh?.jobMatchVectors) {
+              evaluation.jobMatchVectors = fresh.jobMatchVectors;
+            }
+          } catch (freshErr) {
+            console.warn('Error during fresh evaluation sync:', freshErr);
           }
         }
       }

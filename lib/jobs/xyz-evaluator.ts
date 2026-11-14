@@ -45,16 +45,29 @@ export function evaluateResumeHeuristically(
   rawText: string = ''
 ): ResumeEvaluation {
   const suggestions: ResumeSuggestion[] = [];
+  const safeSummary = doc?.summary || '';
+  const skillsList = Array.isArray(doc?.skills) ? doc.skills : [];
+  const experienceList = Array.isArray(doc?.experience) ? doc.experience : [];
+
+  const skillsText = skillsList
+    .map((s) => (Array.isArray(s?.items) ? s.items.join(' ') : ''))
+    .join(' ');
+
+  const experienceText = experienceList
+    .map((e) => {
+      const bullets = Array.isArray(e?.bullets) ? e.bullets.join(' ') : '';
+      return `${e?.company || ''} ${e?.roleTitle || ''} ${bullets}`;
+    })
+    .join(' ');
+
   const textCorpus = (
-    rawText +
+    (rawText || '') +
     ' ' +
-    doc.summary +
+    safeSummary +
     ' ' +
-    doc.skills.map((s) => s.items.join(' ')).join(' ') +
+    skillsText +
     ' ' +
-    doc.experience
-      .map((e) => `${e.company} ${e.roleTitle} ${e.bullets.join(' ')}`)
-      .join(' ')
+    experienceText
   ).toLowerCase();
 
   let totalBullets = 0;
@@ -62,8 +75,9 @@ export function evaluateResumeHeuristically(
   let weakVerbCount = 0;
   let runOnBullets = 0;
 
-  doc.experience.forEach((role, roleIndex) => {
-    role.bullets.forEach((rawBullet, bulletIndex) => {
+  experienceList.forEach((role, roleIndex) => {
+    const bulletsList = Array.isArray(role?.bullets) ? role.bullets : [];
+    bulletsList.forEach((rawBullet, bulletIndex) => {
       totalBullets++;
       const bullet = sanitizeBulletText(rawBullet);
       const hasMetric = METRIC_PATTERNS.some((pattern) => pattern.test(bullet));
@@ -182,8 +196,8 @@ export function evaluateResumeHeuristically(
   if (impactScore >= 75) strengths.push('Strong quantitative impact with measurable metric framing');
   if (relevanceScore >= 75) strengths.push('Modern tech stack alignment with current distributed architectures');
   if (brevityScore >= 80) strengths.push('High-density, ATS-optimized layout with concise bullet cadence');
-  if (doc.experience.length >= 3) strengths.push('Demonstrated progression across multiple production software roles');
-  if (doc.experience.length === 0 && (doc.projects?.length || 0) >= 2) {
+  if (experienceList.length >= 3) strengths.push('Demonstrated progression across multiple production software roles');
+  if (experienceList.length === 0 && (doc.projects?.length || 0) >= 2) {
     strengths.push('Strong portfolio of technical projects demonstrating hands-on engineering capabilities');
   }
   if (strengths.length === 0) strengths.push('Solid core foundation with clear opportunities for metric enhancement');

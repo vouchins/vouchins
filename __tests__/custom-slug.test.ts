@@ -97,6 +97,15 @@ jest.mock('@/lib/supabase/admin', () => ({
         return chain;
       }
 
+      if (table === 'job_evaluations') {
+        const chain: any = {
+          select: jest.fn(() => chain),
+          in: jest.fn(() => chain),
+          order: jest.fn(() => Promise.resolve({ data: [], error: null })),
+        };
+        return chain;
+      }
+
       return {};
     }),
   },
@@ -104,6 +113,7 @@ jest.mock('@/lib/supabase/admin', () => ({
 
 import { validateCustomSlug, isSlugAvailable, findResumeBySlugOrId } from '@/lib/jobs/custom-slug';
 import { GET as getSlugCheck, POST as postSlugSave } from '@/app/api/resume/custom-slug/route';
+import { GET as getJobsResume } from '@/app/api/jobs/resume/route';
 
 describe('Custom Resume Vanity Slug System', () => {
   beforeEach(() => {
@@ -315,6 +325,39 @@ describe('Custom Resume Vanity Slug System', () => {
       expect(json.success).toBe(true);
       expect(json.customSlug).toBe('taher-principal-dev');
       expect(json.shareableUrl).toBe('/resume/taher-principal-dev');
+    });
+  });
+
+  describe('GET /api/jobs/resume', () => {
+    it('returns 200 with resumes list and extracts custom slug gracefully even without database column', async () => {
+      mockAuthUser = { userId: 'user-owner-123' };
+      mockResumeRows = [
+        {
+          id: '11111111-2222-3333-4444-555555555555',
+          user_id: 'user-owner-123',
+          title: 'Master Resume',
+          file_name: 'resume.pdf',
+          file_size: 1024,
+          document_schema: {
+            contact: { fullName: 'Taher Shaik' },
+            experience: [],
+            skills: [],
+            customSlug: 'taher-principal-dev',
+          },
+          raw_text: 'Engineering Leader',
+          created_at: '2026-11-09T00:00:00Z',
+          updated_at: '2026-11-14T00:00:00Z',
+        },
+      ];
+
+      const req = new Request('http://localhost:3000/api/jobs/resume');
+      const res = await getJobsResume(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.resumes.length).toBe(1);
+      expect(json.resumes[0].customSlug).toBe('taher-principal-dev');
     });
   });
 });
