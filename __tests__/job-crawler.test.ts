@@ -225,4 +225,65 @@ describe('Job Crawler Engine', () => {
       doesJobMatchCompany('Google', 'Google', 'https://careers.google.com/jobs/123')
     ).toBe(true);
   });
+
+  it('filters out restricted/excluded companies from being crawled', async () => {
+    mockFrom.mockImplementation((tableName: string) => {
+      if (tableName === 'companies') {
+        return {
+          select: () => ({
+            order: () => Promise.resolve({
+              data: [
+                { id: 'c-1', name: 'Google', domain: 'google.com' },
+                { id: 'c-2', name: 'Infosys', domain: 'infosys.com' },
+                { id: 'c-3', name: 'Microsoft', domain: 'microsoft.com' },
+              ],
+              count: 3,
+            }),
+          }),
+        };
+      }
+      if (tableName === 'recruiters') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { id: 'test-rec-id' }, error: null }),
+            }),
+            limit: () => ({
+              maybeSingle: async () => ({ data: { id: 'test-rec-id' }, error: null }),
+            }),
+          }),
+        };
+      }
+      if (tableName === 'jobs') {
+        return {
+          delete: () => ({ lt: jest.fn().mockResolvedValue({ data: null, error: null }) }),
+          select: () => ({ in: async () => ({ data: [], error: null }) }),
+          insert: jest.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      return { select: () => ({ order: () => Promise.resolve({ data: [], count: 0 }) }) };
+    });
+
+    const requestedCompanies: string[] = [];
+    global.fetch = jest.fn().mockImplementation((url: string) => {
+      const parsed = new URL(url);
+      const q = parsed.searchParams.get('q');
+      if (q) requestedCompanies.push(q);
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ data: [] }),
+      });
+    });
+
+    const result = await crawlAndSyncTechJobs({
+      batchIndex: 0,
+      batchSize: 10,
+      excludedCompanies: ['Infosys'],
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.totalCompanies).toBe(2);
+    expect(result.companiesProcessed).toEqual(['Google', 'Microsoft']);
+    expect(requestedCompanies).not.toContain('Infosys');
+  });
 });

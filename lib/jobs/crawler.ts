@@ -28,6 +28,7 @@ export interface CrawlBatchOptions {
   companyName?: string;
   country?: string; // ISO 2-letter country code (e.g. 'in', 'us', 'gb') or 'all'
   city?: string;    // City filter (e.g. 'Hyderabad', 'Bengaluru', 'San Francisco')
+  excludedCompanies?: string[]; // Names or domains of companies to restrict/exclude from crawl
 }
 
 export interface CrawlJobResult {
@@ -254,13 +255,53 @@ export async function crawlAndSyncTechJobs(
           { id: '8', name: 'Uber', domain: 'uber.com' },
         ];
 
-  const totalCompanies = dbCount || allCompanies.length;
-  const totalBatches = Math.max(1, Math.ceil(allCompanies.length / batchSize));
-  const startIndex = batchIndex * batchSize;
-  const targetCompanies = allCompanies.slice(startIndex, startIndex + batchSize);
-  const nextBatchIndex = startIndex + batchSize < allCompanies.length ? batchIndex + 1 : null;
+  // 3. Fetch restricted companies stored in Supabase database
+  let dbRestrictedNames: string[] = [];
+  try {
+    const { data: dbRestricted } = await supabaseAdmin
+      .from('crawl_restricted_companies')
+      .select('name');
+    if (Array.isArray(dbRestricted)) {
+      dbRestrictedNames = dbRestricted.map((r: { name: string }) => r.name);
+    }
+  } catch {
+    // Non-fatal if table not yet migrated
+  }
 
-  // 3. Query Freehire API concurrently in batches of 5 companies
+  // Combine client parameters with database-level persistent restrictions
+  const rawExcluded = [
+    ...(options.excludedCompanies || []),
+    ...dbRestrictedNames,
+  ];
+  const normalizedExcluded = Array.from(
+    new Set(rawExcluded.map((e) => e.toLowerCase().trim()).filter(Boolean))
+  );
+
+  const eligibleCompanies = normalizedExcluded.length === 0
+    ? allCompanies
+    : allCompanies.filter((comp) => {
+        const nameLower = comp.name.toLowerCase().trim();
+        const domainLower = (comp.domain || '').toLowerCase().trim();
+        for (const excl of normalizedExcluded) {
+          if (
+            nameLower === excl ||
+            nameLower.includes(excl) ||
+            excl.includes(nameLower) ||
+            (domainLower && (domainLower === excl || domainLower.includes(excl)))
+          ) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+  const totalCompanies = eligibleCompanies.length;
+  const totalBatches = Math.max(1, Math.ceil(eligibleCompanies.length / batchSize));
+  const startIndex = batchIndex * batchSize;
+  const targetCompanies = eligibleCompanies.slice(startIndex, startIndex + batchSize);
+  const nextBatchIndex = startIndex + batchSize < eligibleCompanies.length ? batchIndex + 1 : null;
+
+  // 4. Query Freehire API concurrently in batches of 5 companies
   const companyChunks = chunkArray(targetCompanies, 5);
   const seenBatchUrls = new Set<string>();
 
@@ -279,7 +320,7 @@ export async function crawlAndSyncTechJobs(
           const res = await fetch(url, {
             headers: { Accept: 'application/json' },
             cache: 'no-store',
-            signal: AbortSignal.timeout(6000),
+            signal: AbortSignal.timeout(3500),
           });
 
           if (!res.ok) return;
@@ -297,6 +338,15 @@ export async function crawlAndSyncTechJobs(
             // (e.g. Freehire returning 'quantela-team' when querying 'qvantel')
             if (!doesJobMatchCompany(company.name, job.company, String(applyUrl))) {
               continue;
+            }
+
+            // Excluded companies check: ensure no restricted company job is ingested
+            if (normalizedExcluded.length > 0) {
+              const jobComp = (job.company || company.name || '').toLowerCase().trim();
+              const isExcluded = normalizedExcluded.some(
+                (excl) => jobComp === excl || jobComp.includes(excl) || excl.includes(jobComp)
+              );
+              if (isExcluded) continue;
             }
 
             // Strict geographic verification
@@ -420,7 +470,8 @@ export async function crawlAndSyncTechJobs(
 
   const newJobsToInsert = crawledItems.filter((j) => !existingUrlSet.has(j.external_apply_url));
 
-  // 6. Batch Insert newly discovered jobs in chunks of 50
+  // 6. Batch Insert newly discovered jobs with individual fallback
+  let successfullyInsertedCount = 0;
   if (newJobsToInsert.length > 0) {
     const insertChunks = chunkArray(newJobsToInsert, 50);
     for (const chunk of insertChunks) {
@@ -429,8 +480,18 @@ export async function crawlAndSyncTechJobs(
         .insert(chunk);
 
       if (insertError) {
-        console.error('Error inserting crawled jobs chunk into database:', insertError);
-        throw insertError;
+        console.warn('Batch insert note, falling back to individual inserts:', insertError.message);
+        // Resilient fallback: insert individually so one invalid or duplicate row doesn't abort the entire batch
+        for (const singleJob of chunk) {
+          try {
+            const { error: singleErr } = await supabaseAdmin.from('jobs').insert(singleJob);
+            if (!singleErr) successfullyInsertedCount++;
+          } catch {
+            // Ignore single job conflict
+          }
+        }
+      } else {
+        successfullyInsertedCount += chunk.length;
       }
     }
   }
@@ -444,10 +505,10 @@ export async function crawlAndSyncTechJobs(
     nextBatchIndex,
     companiesProcessed: targetCompanies.map((c) => c.name),
     crawled: crawledItems.length,
-    inserted: newJobsToInsert.length,
-    skippedDuplicates: crawledItems.length - newJobsToInsert.length,
+    inserted: successfullyInsertedCount,
+    skippedDuplicates: crawledItems.length - successfullyInsertedCount,
     sources: sourceStats,
-    importedJobs: newJobsToInsert.map((j) => ({
+    importedJobs: newJobsToInsert.slice(0, successfullyInsertedCount).map((j) => ({
       title: j.title,
       company: j.company_name,
       location: j.location,

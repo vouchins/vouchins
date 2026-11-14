@@ -1,12 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Briefcase, Building2, CheckCircle2, Download, ExternalLink, FileSpreadsheet, Globe, Loader2, MapPin, Play, Plus, RefreshCw, SlidersHorizontal, Square, Trash2, UploadCloud, X, Zap } from "lucide-react";
+import { AlertCircle, Ban, Briefcase, Building2, Check, CheckCircle2, ChevronDown, Download, ExternalLink, FileSpreadsheet, Globe, Loader2, MapPin, Play, Plus, RefreshCw, Search, ShieldAlert, SlidersHorizontal, Square, Trash2, UploadCloud, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type Source = { id: string; name: string; url: string; enabled: boolean; cursor: { page?: number } | null; last_success_at: string | null; last_error: string | null };
 type Item = { id: string; title: string; summary: string; location: string | null; city: string | null; price_min: number | null; price_max: number | null; currency: string | null; media_urls: string[]; accommodation_type: string | null; furnishing: string | null; bhk: string | null; source_published_at: string | null; imported_at: string; source_listing_url: string; original_url: string | null; publish_error: string | null; source: { id: string; name: string } };
@@ -61,8 +73,8 @@ export function ContentImporterTab() {
   const [selectedLimit, setSelectedLimit] = useState<number>(25);
   const [batchInfo, setBatchInfo] = useState<{ totalCompanies: number; totalBatches: number; batchSize: number }>({
     totalCompanies: 457,
-    totalBatches: 19,
-    batchSize: 25,
+    totalBatches: 46,
+    batchSize: 10,
   });
   const [chainedProgress, setChainedProgress] = useState<{
     currentBatchIndex: number;
@@ -70,6 +82,7 @@ export function ContentImporterTab() {
     totalCrawled: number;
     totalInserted: number;
     totalSkipped: number;
+    failedBatches: number[];
     recentJobs: { title: string; company: string; location: string }[];
   }>({
     currentBatchIndex: 0,
@@ -77,10 +90,151 @@ export function ContentImporterTab() {
     totalCrawled: 0,
     totalInserted: 0,
     totalSkipped: 0,
+    failedBatches: [],
     recentJobs: [],
   });
 
   const abortCrawlRef = useRef<boolean>(false);
+
+  const [restrictedCompanies, setRestrictedCompanies] = useState<string[]>([]);
+  const [companySearchQuery, setCompanySearchQuery] = useState("");
+  const [isRestrictedPopoverOpen, setIsRestrictedPopoverOpen] = useState(false);
+
+  // Load initial companies and persistent database-backed restrictions
+  useEffect(() => {
+    fetch('/api/admin/jobs/crawl')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.totalCompanies && data.totalBatches) {
+          setBatchInfo({
+            totalCompanies: data.totalCompanies,
+            totalBatches: data.totalBatches,
+            batchSize: data.batchSize || 10,
+          });
+        }
+        if (Array.isArray(data.companies)) {
+          setAllCompanyNames(data.companies);
+        }
+        if (Array.isArray(data.restrictedCompanies)) {
+          setRestrictedCompanies(data.restrictedCompanies);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const toggleCompanyRestriction = async (companyName: string) => {
+    const trimmed = companyName.trim();
+    if (!trimmed) return;
+    const isCurrentlyRestricted = restrictedCompanies.some(
+      (c) => c.toLowerCase() === trimmed.toLowerCase()
+    );
+
+    // Optimistic UI update
+    setRestrictedCompanies((prev) =>
+      isCurrentlyRestricted
+        ? prev.filter((c) => c.toLowerCase() !== trimmed.toLowerCase())
+        : [...prev, trimmed]
+    );
+
+    try {
+      if (isCurrentlyRestricted) {
+        const res = await fetch("/api/admin/jobs/crawl/restrictions", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyName: trimmed }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to remove restriction");
+        if (Array.isArray(data.restrictedCompanies)) {
+          setRestrictedCompanies(data.restrictedCompanies);
+        }
+        toast.info(`Removed restriction for ${trimmed}`);
+      } else {
+        const res = await fetch("/api/admin/jobs/crawl/restrictions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyName: trimmed }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to add restriction");
+        if (Array.isArray(data.restrictedCompanies)) {
+          setRestrictedCompanies(data.restrictedCompanies);
+        }
+        toast.success(`Saved restriction for ${trimmed} to database`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update company restriction");
+      // Re-fetch to sync with true database state
+      fetch('/api/admin/jobs/crawl/restrictions')
+        .then((r) => r.json())
+        .then((d) => {
+          if (Array.isArray(d.restrictedCompanies)) setRestrictedCompanies(d.restrictedCompanies);
+        })
+        .catch(() => {});
+    }
+  };
+
+  const removeRestrictedCompany = async (companyName: string) => {
+    const trimmed = companyName.trim();
+    if (!trimmed) return;
+
+    // Optimistic update
+    setRestrictedCompanies((prev) =>
+      prev.filter((c) => c.toLowerCase() !== trimmed.toLowerCase())
+    );
+
+    try {
+      const res = await fetch("/api/admin/jobs/crawl/restrictions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyName: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to remove restriction");
+      if (Array.isArray(data.restrictedCompanies)) {
+        setRestrictedCompanies(data.restrictedCompanies);
+      }
+      toast.info(`Removed restriction for ${trimmed}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to remove company restriction");
+      fetch('/api/admin/jobs/crawl/restrictions')
+        .then((r) => r.json())
+        .then((d) => {
+          if (Array.isArray(d.restrictedCompanies)) setRestrictedCompanies(d.restrictedCompanies);
+        })
+        .catch(() => {});
+    }
+  };
+
+  const clearAllRestrictions = async () => {
+    setRestrictedCompanies([]);
+    try {
+      const res = await fetch("/api/admin/jobs/crawl/restrictions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clearAll: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to clear restrictions");
+      toast.success("Cleared all restrictions from database");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to clear restrictions");
+      fetch('/api/admin/jobs/crawl/restrictions')
+        .then((r) => r.json())
+        .then((d) => {
+          if (Array.isArray(d.restrictedCompanies)) setRestrictedCompanies(d.restrictedCompanies);
+        })
+        .catch(() => {});
+    }
+  };
+
+  const activeCompanyNames = allCompanyNames.filter(
+    (name) => !restrictedCompanies.some((r) => r.toLowerCase() === name.toLowerCase())
+  );
+
+  const filteredCompaniesForRestriction = allCompanyNames.filter((name) =>
+    name.toLowerCase().includes(companySearchQuery.toLowerCase().trim())
+  );
 
   const [crawlResult, setCrawlResult] = useState<{
     batchIndex?: number;
@@ -94,29 +248,11 @@ export function ContentImporterTab() {
     importedJobs?: { title: string; company: string; location: string }[];
   } | null>(null);
 
-  useEffect(() => {
-    fetch('/api/admin/jobs/crawl')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.totalCompanies && data.totalBatches) {
-          setBatchInfo({
-            totalCompanies: data.totalCompanies,
-            totalBatches: data.totalBatches,
-            batchSize: data.batchSize || 25,
-          });
-        }
-        if (Array.isArray(data.companies)) {
-          setAllCompanyNames(data.companies);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
   const handleRunJobCrawl = async (batchIdx = selectedBatchIndex) => {
     setIsCrawlingJobs(true);
     setCrawlResult(null);
     const startCompIdx = batchIdx * batchInfo.batchSize;
-    const currentBatchCompanies = allCompanyNames.slice(startCompIdx, startCompIdx + batchInfo.batchSize);
+    const currentBatchCompanies = activeCompanyNames.slice(startCompIdx, startCompIdx + batchInfo.batchSize);
     const compNamesSummary = currentBatchCompanies.length > 0
       ? currentBatchCompanies.slice(0, 3).join(', ') + (currentBatchCompanies.length > 3 ? ` +${currentBatchCompanies.length - 3} more` : '')
       : `Batch ${batchIdx + 1}`;
@@ -127,7 +263,11 @@ export function ContentImporterTab() {
       ? `Country: ${selectedCountry.toUpperCase()}`
       : 'Global';
 
-    setActiveJobInProgress(`Querying ATS requisitions for ${compNamesSummary} [${geoLabel}]...`);
+    const restrictedSummary = restrictedCompanies.length > 0
+      ? ` (Restricting ${restrictedCompanies.length} companies)`
+      : '';
+
+    setActiveJobInProgress(`Querying ATS requisitions for ${compNamesSummary} [${geoLabel}]${restrictedSummary}...`);
 
     try {
       const res = await fetch("/api/admin/jobs/crawl", {
@@ -139,6 +279,7 @@ export function ContentImporterTab() {
           limit: selectedLimit,
           country: selectedCountry,
           city: selectedCity,
+          excludedCompanies: restrictedCompanies,
         }),
       });
       const data = await res.json();
@@ -172,6 +313,7 @@ export function ContentImporterTab() {
     let accumulatedSkipped = 0;
     let accumulatedRecentJobs: { title: string; company: string; location: string }[] = [];
     let completedCount = 0;
+    const failedBatchesList: number[] = [];
 
     setChainedProgress({
       currentBatchIndex: currentIdx,
@@ -179,6 +321,7 @@ export function ContentImporterTab() {
       totalCrawled: 0,
       totalInserted: 0,
       totalSkipped: 0,
+      failedBatches: [],
       recentJobs: [],
     });
 
@@ -196,46 +339,87 @@ export function ContentImporterTab() {
         }
 
         const startCompIdx = currentIdx * batchInfo.batchSize;
-        const currentBatchCompanies = allCompanyNames.slice(startCompIdx, startCompIdx + batchInfo.batchSize);
+        const currentBatchCompanies = activeCompanyNames.slice(startCompIdx, startCompIdx + batchInfo.batchSize);
         const compNamesSummary = currentBatchCompanies.length > 0
           ? `${currentBatchCompanies.slice(0, 3).join(', ')}${currentBatchCompanies.length > 3 ? ` +${currentBatchCompanies.length - 3} more` : ''}`
           : `Batch ${currentIdx + 1}`;
 
-        setActiveJobInProgress(`Batch ${currentIdx + 1}/${batchInfo.totalBatches}: Scanning ${compNamesSummary} [${geoLabel}]...`);
+        const restrictedSummary = restrictedCompanies.length > 0
+          ? ` (Skipping ${restrictedCompanies.length} restricted)`
+          : '';
+
+        setActiveJobInProgress(`Batch ${currentIdx + 1}/${batchInfo.totalBatches}: Scanning ${compNamesSummary} [${geoLabel}]${restrictedSummary}...`);
         setChainedProgress((prev) => ({
           ...prev,
           currentBatchIndex: currentIdx,
         }));
 
-        const res = await fetch("/api/admin/jobs/crawl", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            batchIndex: currentIdx,
-            batchSize: batchInfo.batchSize,
-            limit: selectedLimit,
-            country: selectedCountry,
-            city: selectedCity,
-          }),
-        });
+        let attempt = 0;
+        let batchData: any = null;
+        let batchOk = false;
 
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || `Failed to crawl Batch ${currentIdx + 1}`);
+        // Auto-retry up to 2 attempts per micro-batch
+        while (attempt < 2 && !batchOk && !abortCrawlRef.current) {
+          try {
+            const res = await fetch("/api/admin/jobs/crawl", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                batchIndex: currentIdx,
+                batchSize: batchInfo.batchSize,
+                limit: selectedLimit,
+                country: selectedCountry,
+                city: selectedCity,
+                excludedCompanies: restrictedCompanies,
+              }),
+            });
+
+            const text = await res.text();
+            let parsed: any;
+            try {
+              parsed = JSON.parse(text);
+            } catch {
+              parsed = { error: `Server returned status ${res.status} (non-JSON response)` };
+            }
+
+            if (!res.ok) {
+              throw new Error(parsed?.error || `HTTP ${res.status}`);
+            }
+
+            batchData = parsed;
+            batchOk = true;
+          } catch (err: any) {
+            attempt++;
+            if (attempt < 2 && !abortCrawlRef.current) {
+              setActiveJobInProgress(`Batch ${currentIdx + 1} timed out or lagged. Retrying attempt 2...`);
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+            } else {
+              console.warn(`Batch ${currentIdx + 1} encountered an error:`, err);
+              failedBatchesList.push(currentIdx + 1);
+              toast.warning(`Batch ${currentIdx + 1} encountered an issue (${err.message || 'Timeout'}), skipping to continue crawl.`);
+            }
+          }
         }
 
-        completedCount++;
-        accumulatedCrawled += data.crawled || 0;
-        accumulatedInserted += data.inserted || 0;
-        accumulatedSkipped += data.skippedDuplicates || 0;
-        const newBatchJobs: { title: string; company: string; location: string }[] = data.importedJobs || [];
-        accumulatedRecentJobs = [...newBatchJobs, ...accumulatedRecentJobs].slice(0, 30);
+        if (batchOk && batchData) {
+          completedCount++;
+          accumulatedCrawled += batchData.crawled || 0;
+          accumulatedInserted += batchData.inserted || 0;
+          accumulatedSkipped += batchData.skippedDuplicates || 0;
+          const newBatchJobs: { title: string; company: string; location: string }[] = batchData.importedJobs || [];
+          accumulatedRecentJobs = [...newBatchJobs, ...accumulatedRecentJobs].slice(0, 30);
 
-        if (newBatchJobs.length > 0) {
-          const firstJob = newBatchJobs[0];
-          setActiveJobInProgress(`Ingested: ${firstJob.title} at ${firstJob.company}`);
+          if (newBatchJobs.length > 0) {
+            const firstJob = newBatchJobs[0];
+            setActiveJobInProgress(`Ingested: ${firstJob.title} at ${firstJob.company}`);
+          } else {
+            setActiveJobInProgress(`Batch ${currentIdx + 1} completed (${batchData.skippedDuplicates} duplicates up to date)`);
+          }
+
+          setCrawlResult(batchData);
         } else {
-          setActiveJobInProgress(`Batch ${currentIdx + 1} completed (${data.skippedDuplicates} duplicates up to date)`);
+          completedCount++;
+          setActiveJobInProgress(`Batch ${currentIdx + 1} skipped due to timeout. Proceeding to next batch...`);
         }
 
         setChainedProgress({
@@ -244,24 +428,37 @@ export function ContentImporterTab() {
           totalCrawled: accumulatedCrawled,
           totalInserted: accumulatedInserted,
           totalSkipped: accumulatedSkipped,
+          failedBatches: [...failedBatchesList],
           recentJobs: accumulatedRecentJobs,
         });
 
-        setCrawlResult(data);
-
-        if (typeof data.nextBatchIndex === 'number') {
-          setSelectedBatchIndex(data.nextBatchIndex);
-          currentIdx = data.nextBatchIndex;
+        // Determine next batch index
+        if (batchOk && typeof batchData?.nextBatchIndex === 'number') {
+          setSelectedBatchIndex(batchData.nextBatchIndex);
+          currentIdx = batchData.nextBatchIndex;
         } else {
-          break;
+          currentIdx = currentIdx + 1;
+          setSelectedBatchIndex(Math.min(currentIdx, batchInfo.totalBatches - 1));
+        }
+
+        // Brief 250ms breathing pause between micro-batches to allow UI paint and avoid rate limits
+        if (currentIdx < batchInfo.totalBatches && !abortCrawlRef.current) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
         }
       }
 
       if (!abortCrawlRef.current) {
-        toast.success(
-          `Chained crawl finished! Added ${accumulatedInserted} new jobs across all batches.`
-        );
-        setActiveJobInProgress(`All ${batchInfo.totalBatches} batches synced successfully.`);
+        if (failedBatchesList.length > 0) {
+          toast.success(
+            `Chained crawl finished! Added ${accumulatedInserted} new jobs. (${failedBatchesList.length} batch(es) had errors and were skipped).`
+          );
+          setActiveJobInProgress(`Completed with ${failedBatchesList.length} skipped batch(es).`);
+        } else {
+          toast.success(
+            `Chained crawl finished! Added ${accumulatedInserted} new jobs across all batches.`
+          );
+          setActiveJobInProgress(`All ${batchInfo.totalBatches} batches synced successfully.`);
+        }
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error during chained crawl");
@@ -386,27 +583,48 @@ export function ContentImporterTab() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Country Selector */}
           <div className="space-y-1.5">
-            <label htmlFor="countrySelect" className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
+            <label className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
               <Globe className="h-3.5 w-3.5 text-[#0A1B5C]" />
               Country:
             </label>
-            <select
-              id="countrySelect"
+            <Select
               value={selectedCountry}
-              onChange={(e) => setSelectedCountry(e.target.value)}
+              onValueChange={(val) => setSelectedCountry(val)}
               disabled={isCrawlingJobs || isChainedCrawling}
-              className="w-full text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-neutral-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all disabled:opacity-50"
             >
-              <option value="all">All Countries (Global)</option>
-              <option value="in">India (IN)</option>
-              <option value="us">United States (US)</option>
-              <option value="gb">United Kingdom (GB)</option>
-              <option value="de">Germany (DE)</option>
-              <option value="ca">Canada (CA)</option>
-              <option value="sg">Singapore (SG)</option>
-              <option value="ae">United Arab Emirates (AE)</option>
-              <option value="au">Australia (AU)</option>
-            </select>
+              <SelectTrigger className="w-full h-10 text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 py-2 text-neutral-800 shadow-2xs hover:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all">
+                <SelectValue placeholder="Select country" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border border-neutral-200 bg-white shadow-lg p-1 z-50">
+                <SelectItem value="all" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🌐 All Countries (Global)
+                </SelectItem>
+                <SelectItem value="in" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🇮🇳 India (IN)
+                </SelectItem>
+                <SelectItem value="us" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🇺🇸 United States (US)
+                </SelectItem>
+                <SelectItem value="gb" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🇬🇧 United Kingdom (GB)
+                </SelectItem>
+                <SelectItem value="de" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🇩🇪 Germany (DE)
+                </SelectItem>
+                <SelectItem value="ca" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🇨🇦 Canada (CA)
+                </SelectItem>
+                <SelectItem value="sg" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🇸🇬 Singapore (SG)
+                </SelectItem>
+                <SelectItem value="ae" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🇦🇪 United Arab Emirates (AE)
+                </SelectItem>
+                <SelectItem value="au" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  🇦🇺 Australia (AU)
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* City / Tech Hub Selector & Input */}
@@ -422,7 +640,7 @@ export function ContentImporterTab() {
                 onChange={(e) => setSelectedCity(e.target.value)}
                 placeholder="e.g. Hyderabad, Bengaluru, SF"
                 disabled={isCrawlingJobs || isChainedCrawling}
-                className="h-[39px] text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 pr-8 text-neutral-800 shadow-2xs focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C]"
+                className="h-10 text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 pr-8 text-neutral-800 shadow-2xs focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C]"
               />
               {selectedCity && (
                 <button
@@ -439,50 +657,64 @@ export function ContentImporterTab() {
 
           {/* Batch Selector */}
           <div className="space-y-1.5">
-            <label htmlFor="batchSelect" className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
+            <label className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5 text-[#0A1B5C]" />
               Select Batch:
             </label>
-            <select
-              id="batchSelect"
-              value={selectedBatchIndex}
-              onChange={(e) => setSelectedBatchIndex(Number(e.target.value))}
+            <Select
+              value={String(selectedBatchIndex)}
+              onValueChange={(val) => setSelectedBatchIndex(Number(val))}
               disabled={isCrawlingJobs || isChainedCrawling}
-              className="w-full text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-neutral-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all disabled:opacity-50"
             >
-              {Array.from({ length: batchInfo.totalBatches }).map((_, idx) => {
-                const startNum = idx * batchInfo.batchSize + 1;
-                const endNum = Math.min((idx + 1) * batchInfo.batchSize, batchInfo.totalCompanies);
-                const firstComp = allCompanyNames[idx * batchInfo.batchSize];
-                const lastComp = allCompanyNames[Math.min((idx + 1) * batchInfo.batchSize - 1, allCompanyNames.length - 1)];
-                const preview = firstComp && lastComp ? ` (${firstComp} - ${lastComp})` : '';
-                return (
-                  <option key={idx} value={idx}>
-                    Batch {idx + 1} [{startNum} - {endNum}]{preview}
-                  </option>
-                );
-              })}
-            </select>
+              <SelectTrigger className="w-full h-10 text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 py-2 text-neutral-800 shadow-2xs hover:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all">
+                <SelectValue placeholder="Select batch" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72 rounded-xl border border-neutral-200 bg-white shadow-lg p-1 z-50">
+                {Array.from({ length: batchInfo.totalBatches }).map((_, idx) => {
+                  const startNum = idx * batchInfo.batchSize + 1;
+                  const endNum = Math.min((idx + 1) * batchInfo.batchSize, batchInfo.totalCompanies);
+                  const firstComp = allCompanyNames[idx * batchInfo.batchSize];
+                  const lastComp = allCompanyNames[Math.min((idx + 1) * batchInfo.batchSize - 1, allCompanyNames.length - 1)];
+                  const preview = firstComp && lastComp ? ` (${firstComp} - ${lastComp})` : '';
+                  return (
+                    <SelectItem key={idx} value={String(idx)} className="text-xs font-medium cursor-pointer rounded-lg py-1.5">
+                      Batch {idx + 1} [{startNum} - {endNum}]{preview}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Per Company Limit */}
           <div className="space-y-1.5">
-            <label htmlFor="limitSelect" className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
+            <label className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
               <Zap className="h-3.5 w-3.5 text-[#0A1B5C]" />
               Jobs Per Company:
             </label>
-            <select
-              id="limitSelect"
-              value={selectedLimit}
-              onChange={(e) => setSelectedLimit(Number(e.target.value))}
+            <Select
+              value={String(selectedLimit)}
+              onValueChange={(val) => setSelectedLimit(Number(val))}
               disabled={isCrawlingJobs || isChainedCrawling}
-              className="w-full text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-neutral-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all disabled:opacity-50"
             >
-              <option value={10}>10 jobs per company</option>
-              <option value={25}>25 jobs per company</option>
-              <option value={50}>50 jobs per company</option>
-              <option value={100}>100 jobs per company</option>
-            </select>
+              <SelectTrigger className="w-full h-10 text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 py-2 text-neutral-800 shadow-2xs hover:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all">
+                <SelectValue placeholder="Select limit" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border border-neutral-200 bg-white shadow-lg p-1 z-50">
+                <SelectItem value="10" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ 10 jobs per company (Fastest)
+                </SelectItem>
+                <SelectItem value="25" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ 25 jobs per company (Balanced)
+                </SelectItem>
+                <SelectItem value="50" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ 50 jobs per company (Deep)
+                </SelectItem>
+                <SelectItem value="100" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ 100 jobs per company (Maximum)
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -527,6 +759,211 @@ export function ContentImporterTab() {
               {preset.label}
             </button>
           ))}
+        </div>
+
+        {/* Restricted Companies Setting */}
+        <div className="rounded-2xl border border-neutral-200/90 bg-white p-4 sm:p-5 shadow-2xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="h-7 w-7 rounded-lg bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-700">
+                <ShieldAlert className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-neutral-900">Restricted Companies</h4>
+                  {restrictedCompanies.length > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                      {restrictedCompanies.length} excluded
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-neutral-500">
+                  Selected companies will be skipped during ATS crawling and will never ingest jobs.
+                </p>
+              </div>
+            </div>
+
+            {/* Clear all action */}
+            {restrictedCompanies.length > 0 && (
+              <button
+                type="button"
+                disabled={isCrawlingJobs || isChainedCrawling}
+                onClick={clearAllRestrictions}
+                className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline flex items-center gap-1 self-start sm:self-center"
+              >
+                <Trash2 className="h-3 w-3" />
+                Clear all ({restrictedCompanies.length})
+              </button>
+            )}
+          </div>
+
+          {/* Searchable Multi-Select Combobox Dropdown */}
+          <Popover open={isRestrictedPopoverOpen} onOpenChange={setIsRestrictedPopoverOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                disabled={isCrawlingJobs || isChainedCrawling}
+                className="w-full min-h-[42px] flex items-center justify-between rounded-xl border border-neutral-300 bg-neutral-50/50 hover:bg-white px-3.5 py-2 text-xs text-neutral-800 shadow-2xs hover:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all disabled:opacity-50"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Ban className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  {restrictedCompanies.length === 0 ? (
+                    <span className="text-neutral-500 font-medium">Click to search and restrict companies...</span>
+                  ) : (
+                    <span className="font-bold text-neutral-800 truncate">
+                      {restrictedCompanies.length} {restrictedCompanies.length === 1 ? 'company' : 'companies'} restricted from crawl
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[11px] font-semibold text-neutral-400">
+                    {allCompanyNames.length} total
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-neutral-400 opacity-70" />
+                </div>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="w-[320px] sm:w-[420px] p-3 bg-white border border-neutral-200 shadow-xl rounded-2xl z-50 space-y-2.5"
+            >
+              {/* Popover Header */}
+              <div className="flex items-center justify-between pb-1 border-b border-neutral-100">
+                <span className="text-xs font-bold text-neutral-800">
+                  Exclude Companies from Crawl
+                </span>
+                <span className="text-[11px] text-neutral-400 font-medium">
+                  {restrictedCompanies.length} selected
+                </span>
+              </div>
+
+              {/* Search Box */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-neutral-400" />
+                <Input
+                  placeholder="Search company catalog..."
+                  value={companySearchQuery}
+                  onChange={(e) => setCompanySearchQuery(e.target.value)}
+                  className="h-8 pl-8 pr-7 text-xs bg-neutral-50/80 border-neutral-200 rounded-lg focus:bg-white"
+                />
+                {companySearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setCompanySearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 p-0.5"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Company Checkbox List */}
+              <div className="max-h-[220px] overflow-y-auto space-y-0.5 pr-1">
+                {filteredCompaniesForRestriction.length === 0 ? (
+                  <div className="py-4 text-center space-y-2">
+                    <p className="text-xs text-neutral-500">No matching company found in catalog.</p>
+                    {companySearchQuery.trim() && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          toggleCompanyRestriction(companySearchQuery.trim());
+                          setCompanySearchQuery("");
+                        }}
+                        className="bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold h-7 px-3 rounded-lg"
+                      >
+                        Restrict "{companySearchQuery.trim()}"
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  filteredCompaniesForRestriction.map((compName) => {
+                    const isRestricted = restrictedCompanies.some(
+                      (c) => c.toLowerCase() === compName.toLowerCase()
+                    );
+                    return (
+                      <button
+                        key={compName}
+                        type="button"
+                        onClick={() => toggleCompanyRestriction(compName)}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left ${
+                          isRestricted
+                            ? "bg-amber-50 text-amber-900 font-bold border border-amber-200/60"
+                            : "text-neutral-700 hover:bg-neutral-100"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <div
+                            className={`h-4 w-4 rounded flex items-center justify-center border transition-all shrink-0 ${
+                              isRestricted
+                                ? "bg-amber-600 border-amber-600 text-white"
+                                : "border-neutral-300 bg-white"
+                            }`}
+                          >
+                            {isRestricted && <Check className="h-3 w-3" />}
+                          </div>
+                          <span className="truncate">{compName}</span>
+                        </div>
+                        {isRestricted && (
+                          <span className="text-[10px] uppercase font-bold text-amber-700 shrink-0 ml-2">
+                            Restricted
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Add Custom Company Button */}
+              {companySearchQuery.trim() &&
+                !filteredCompaniesForRestriction.some(
+                  (c) => c.toLowerCase() === companySearchQuery.trim().toLowerCase()
+                ) && (
+                  <div className="pt-1.5 border-t border-neutral-100">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        toggleCompanyRestriction(companySearchQuery.trim());
+                        setCompanySearchQuery("");
+                      }}
+                      className="w-full bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold h-8 rounded-lg flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                      Restrict "{companySearchQuery.trim()}"
+                    </Button>
+                  </div>
+                )}
+            </PopoverContent>
+          </Popover>
+
+          {/* Active Restricted Tags */}
+          {restrictedCompanies.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mr-1">
+                Restricted Chips:
+              </span>
+              {restrictedCompanies.map((comp) => (
+                <span
+                  key={comp}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-900 border border-amber-200/80 shadow-2xs group"
+                >
+                  <Ban className="h-3 w-3 text-amber-600 shrink-0" />
+                  <span className="truncate max-w-[160px]">{comp}</span>
+                  <button
+                    type="button"
+                    disabled={isCrawlingJobs || isChainedCrawling}
+                    onClick={() => removeRestrictedCompany(comp)}
+                    className="text-amber-500 hover:text-red-700 hover:bg-amber-100 rounded-full p-0.5 transition-colors"
+                    title={`Remove restriction for ${comp}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons Bar */}
@@ -589,6 +1026,11 @@ export function ContentImporterTab() {
               <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-[#0A1B5C]/10 text-[#0A1B5C]">
                 Batch {Math.min(chainedProgress.currentBatchIndex + 1, batchInfo.totalBatches)} of {batchInfo.totalBatches}
               </span>
+              {chainedProgress.failedBatches.length > 0 && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                  {chainedProgress.failedBatches.length} skipped
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
