@@ -853,6 +853,40 @@ export function JobRecommendationsDashboard() {
   // Search & Filter State
   const initialSearchQuery = searchParams.get('q') || searchParams.get('search') || '';
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(initialSearchQuery);
+  const searchAbortControllerRef = React.useRef<AbortController | null>(null);
+
+  // Debounce search query to prevent multiple API requests per keystroke
+  useEffect(() => {
+    // If the input was cleared, update immediately without debounce delay
+    if (!searchQuery.trim()) {
+      setDebouncedSearchQuery('');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Synchronize URL query parameter (?q=) with debounced search query
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const currentParams = new URLSearchParams(window.location.search);
+    const currentQ = currentParams.get('q') || '';
+    if (debouncedSearchQuery !== currentQ) {
+      if (debouncedSearchQuery) {
+        currentParams.set('q', debouncedSearchQuery);
+      } else {
+        currentParams.delete('q');
+      }
+      const newQuery = currentParams.toString() ? `?${currentParams.toString()}` : '';
+      const newUrl = `${window.location.pathname}${newQuery}`;
+      window.history.replaceState(null, '', newUrl);
+    }
+  }, [debouncedSearchQuery]);
   const initialTab = searchParams.get('tab') === 'recommended' || pathname === '/jobs/recommend' ? 'recommended' : 'all';
   const [activeChip, setActiveChip] = useState<'all' | 'high_match' | 'insiders' | 'remote' | 'tier1' | 'high_salary'>('all');
   const [activeListTab, setActiveListTab] = useState<'all' | 'recommended' | 'saved' | 'applied'>(initialTab);
@@ -1037,6 +1071,14 @@ export function JobRecommendationsDashboard() {
     } else {
       setIsLoadingJobs(true);
     }
+
+    // Cancel previous in-flight request to prevent race conditions
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    searchAbortControllerRef.current = controller;
+
     try {
       const locQuery =
         selectedCity && selectedCity.toLowerCase() !== 'all' && isValidGeographicLocation(selectedCity)
@@ -1044,20 +1086,21 @@ export function JobRecommendationsDashboard() {
           : '';
       const workModeQuery = workModeFilter !== 'all' ? `&work_mode=${workModeFilter}` : '';
       const skillsQuery =
-        candidateProfileSkills.length > 0
+        candidateProfileSkills.length > 0 && !debouncedSearchQuery.trim()
           ? `&skills=${encodeURIComponent(candidateProfileSkills.slice(0, 10).join(','))}`
           : '';
       const companiesQuery =
         selectedCompanies.length > 0 && !selectedCompanies.includes('all')
           ? `&companies=${encodeURIComponent(selectedCompanies.join(','))}`
           : '';
-      const roleQuery = candidateCurrentRole ? `&current_role=${encodeURIComponent(candidateCurrentRole)}` : '';
+      const roleQuery = candidateCurrentRole && !debouncedSearchQuery.trim() ? `&current_role=${encodeURIComponent(candidateCurrentRole)}` : '';
       const compQuery = candidateCurrentCompany ? `&current_company=${encodeURIComponent(candidateCurrentCompany)}` : '';
       const workingQuery = `&is_working=${isCurrentlyWorking ? 'true' : 'false'}`;
-      const searchParam = searchQuery.trim() ? `&q=${encodeURIComponent(searchQuery.trim())}` : '';
+      const searchParam = debouncedSearchQuery.trim() ? `&q=${encodeURIComponent(debouncedSearchQuery.trim())}` : '';
 
       const res = await fetch(
-        `/api/jobs?page=${targetPage}&limit=50${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${roleQuery}${compQuery}${workingQuery}${searchParam}`
+        `/api/jobs?page=${targetPage}&limit=50${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${roleQuery}${compQuery}${workingQuery}${searchParam}`,
+        { signal: controller.signal }
       );
       if (res.ok) {
         const json = await res.json();
@@ -1078,7 +1121,8 @@ export function JobRecommendationsDashboard() {
           setHasMore(Boolean(json.hasMore));
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
       console.error('Failed to load live jobs:', err);
     } finally {
       setIsLoadingJobs(false);
@@ -1092,7 +1136,7 @@ export function JobRecommendationsDashboard() {
     candidateCurrentRole,
     candidateCurrentCompany,
     isCurrentlyWorking,
-    searchQuery,
+    debouncedSearchQuery,
   ]);
 
   useEffect(() => {
@@ -1132,9 +1176,11 @@ export function JobRecommendationsDashboard() {
   // Company management helpers
   const allAvailableCompanies = useMemo(() => {
     const set = new Set<string>();
-    const sourceJobs = dbJobs.length > 0 ? dbJobs : CURATED_RECOMMENDED_JOBS;
-    for (const j of sourceJobs) {
+    for (const j of dbJobs) {
       if (j.companyName?.trim()) set.add(j.companyName.trim());
+    }
+    for (const cj of CURATED_RECOMMENDED_JOBS) {
+      if (cj.companyName?.trim()) set.add(cj.companyName.trim());
     }
     for (const c of customCompanies) {
       if (c.trim()) set.add(c.trim());
@@ -1178,13 +1224,31 @@ export function JobRecommendationsDashboard() {
     toast.info('Showing jobs from all companies');
   };
 
-  // Combined master job list (Prioritizes live database and live ATS jobs exclusively when available)
-  // Falls back to curated showcase only if dbJobs is empty (e.g. offline/initial state).
-  // Filters out external jobs that lack external job IDs / direct valid requisition URLs,
-  // while preserving internal recruiter jobs posted on Vouchins.
-  // Ranked by location alignment and candidate match score descending.
+  // Combined master job list
+  // Merges live database jobs with premier curated roles (Microsoft, Uber, ServiceNow, Salesforce, Oracle)
+  // Deduplicated by id and company-title, ranked by candidate match score and location alignment.
   const allJobs = useMemo(() => {
-    const sourceJobs = dbJobs.length > 0 ? dbJobs : CURATED_RECOMMENDED_JOBS;
+    const seenSourceIds = new Set<string>();
+    const seenSourceTitles = new Set<string>();
+    const sourceJobs: RecommendedJob[] = [];
+
+    for (const j of dbJobs) {
+      const key = `${(j.companyName || '').toLowerCase()}-${(j.title || '').toLowerCase()}`;
+      if (!seenSourceIds.has(j.id) && !seenSourceTitles.has(key)) {
+        seenSourceIds.add(j.id);
+        seenSourceTitles.add(key);
+        sourceJobs.push(j);
+      }
+    }
+
+    for (const cj of CURATED_RECOMMENDED_JOBS) {
+      const key = `${(cj.companyName || '').toLowerCase()}-${(cj.title || '').toLowerCase()}`;
+      if (!seenSourceIds.has(cj.id) && !seenSourceTitles.has(key)) {
+        seenSourceIds.add(cj.id);
+        seenSourceTitles.add(key);
+        sourceJobs.push(cj);
+      }
+    }
 
     const list = sourceJobs.map((j) => {
       // Real database jobs already contain full-corpus server evaluation (including complete description and requirements).
@@ -1274,8 +1338,17 @@ export function JobRecommendationsDashboard() {
   }, [dbJobs, selectedCity, candidateProfileSkills, candidateSeniority, workModeFilter]);
 
   const recommendedJobs = useMemo(() => {
-    return allJobs.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 90);
-  }, [allJobs]);
+    let list = allJobs.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 90);
+    if (debouncedSearchQuery.trim()) {
+      const q = debouncedSearchQuery.toLowerCase().trim();
+      const qWords = q.split(/\s+/).filter(Boolean);
+      list = list.filter((j) => {
+        const full = `${j.title} ${j.companyName} ${j.location} ${(j.matchingSkills || []).join(' ')} ${typeof j.description === 'string' ? j.description : j.description?.about || ''}`.toLowerCase();
+        return full.includes(q) || (qWords.length > 1 && qWords.every((w) => full.includes(w)));
+      });
+    }
+    return list;
+  }, [allJobs, debouncedSearchQuery]);
 
   // Interactive Modals
   const [tailorModalOpen, setTailorModalOpen] = useState(false);
@@ -1378,8 +1451,8 @@ export function JobRecommendationsDashboard() {
   const filteredJobs = useMemo(() => {
     let list = allJobs;
 
-    // Filter by list tab
-    if (activeListTab === 'recommended') {
+    // Filter by list tab (only constrain by recommendation threshold if not actively searching with a keyword)
+    if (activeListTab === 'recommended' && !debouncedSearchQuery.trim()) {
       list = list.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 90);
     } else if (activeListTab === 'saved') {
       list = list.filter((j) => savedJobIds.includes(j.id));
@@ -1428,15 +1501,49 @@ export function JobRecommendationsDashboard() {
     }
 
     // Filter by search query
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (j) =>
-          j.title.toLowerCase().includes(q) ||
-          j.companyName.toLowerCase().includes(q) ||
-          j.location.toLowerCase().includes(q) ||
-          j.matchingSkills.some((s) => s.toLowerCase().includes(q))
-      );
+    if (debouncedSearchQuery.trim()) {
+      const q = debouncedSearchQuery.toLowerCase().trim();
+      const qWords = q.split(/\s+/).filter(Boolean);
+      list = list.filter((j) => {
+        const title = (j.title || '').toLowerCase();
+        const company = (j.companyName || '').toLowerCase();
+        const location = (j.location || '').toLowerCase();
+        const skills = (j.matchingSkills || []).map((s) => s.toLowerCase()).join(' ');
+        const about = (typeof j.description === 'string' ? j.description : j.description?.about || '').toLowerCase();
+        const reqs = Array.isArray(j.description?.qualifications)
+          ? j.description.qualifications.join(' ').toLowerCase()
+          : (typeof (j as any).requirements === 'string' ? (j as any).requirements.toLowerCase() : '');
+        const resps = Array.isArray(j.description?.responsibilities)
+          ? j.description.responsibilities.join(' ').toLowerCase()
+          : '';
+        const techStack = Array.isArray(j.description?.techStack)
+          ? j.description.techStack.join(' ').toLowerCase()
+          : '';
+        const fullJobContent = `${title} ${company} ${location} ${skills} ${about} ${reqs} ${resps} ${techStack}`;
+
+        // Match full phrase or all search words
+        return fullJobContent.includes(q) || (qWords.length > 1 && qWords.every((w) => fullJobContent.includes(w)));
+      });
+    }
+
+    // When user searches with a keyword, prioritize exact title/company matches, then content matches
+    if (debouncedSearchQuery.trim()) {
+      const q = debouncedSearchQuery.toLowerCase().trim();
+      const sorted = [...list];
+      sorted.sort((a, b) => {
+        const aTitle = (a.title || '').toLowerCase().includes(q);
+        const bTitle = (b.title || '').toLowerCase().includes(q);
+        if (aTitle && !bTitle) return -1;
+        if (!aTitle && bTitle) return 1;
+
+        const aComp = (a.companyName || '').toLowerCase().includes(q);
+        const bComp = (b.companyName || '').toLowerCase().includes(q);
+        if (aComp && !bComp) return -1;
+        if (!aComp && bComp) return 1;
+
+        return (b.matchScore || 0) - (a.matchScore || 0);
+      });
+      return sorted;
     }
 
     // Unified sorting: Relevant to profile first, ordered recently posted first
@@ -1477,16 +1584,23 @@ export function JobRecommendationsDashboard() {
     });
 
     return sorted;
-  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies, workModeFilter]);
+  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, debouncedSearchQuery, selectedCity, selectedCompanies, workModeFilter]);
 
   const selectedJob = useMemo(() => {
+    if (filteredJobs.length === 0) return null;
     return (
-      (selectedJobId ? allJobs.find((j) => j.id === selectedJobId) : null) ||
+      (selectedJobId ? filteredJobs.find((j) => j.id === selectedJobId) : null) ||
       filteredJobs[0] ||
-      allJobs[0] ||
-      (CURATED_RECOMMENDED_JOBS.length > 0 ? CURATED_RECOMMENDED_JOBS[0] : null)
+      null
     );
-  }, [selectedJobId, allJobs, filteredJobs]);
+  }, [selectedJobId, filteredJobs]);
+
+  // Always reset detail pane scroll to top whenever selected job changes
+  useEffect(() => {
+    if (selectedJob?.id) {
+      detailScrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [selectedJob?.id]);
 
   const selectedJobApplyUrl = useMemo(() => {
     if (selectedJob?.isInternal) return '';
@@ -1629,13 +1743,14 @@ export function JobRecommendationsDashboard() {
 
   const handleApplyNow = (id: string) => {
     const jobToApply = allJobs.find((j) => j.id === id) || selectedJob;
-    if (jobToApply?.isInternal) {
+    if (!jobToApply) return;
+    if (jobToApply.isInternal) {
       setSelectedJobId(jobToApply.id);
       setIsApplyModalOpen(true);
       return;
     }
 
-    const url = jobToApply?.externalApplyUrl?.trim();
+    const url = jobToApply.externalApplyUrl?.trim();
     if (!url || !hasValidExternalJobId(url)) {
       toast.error('Exact requisition URL is not available for this role.');
       return;
@@ -1652,6 +1767,9 @@ export function JobRecommendationsDashboard() {
 
   const handleInternalApply = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedJob) return;
+    const currentJob = selectedJob;
+
     if (!user) {
       toast.error('Please sign in to apply for this position.');
       router.push('/login');
@@ -1669,7 +1787,7 @@ export function JobRecommendationsDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          jobId: selectedJob.id,
+          jobId: currentJob.id,
           resumeUrl: applyResumeUrl.trim(),
           coverLetter: applyCoverLetter.trim() || undefined,
         }),
@@ -1680,8 +1798,8 @@ export function JobRecommendationsDashboard() {
       if (!res.ok) {
         if (res.status === 409) {
           toast.info('You have already applied to this job.');
-          if (!appliedJobIds.includes(selectedJob.id)) {
-            setAppliedJobIds((prev) => [...prev, selectedJob.id]);
+          if (!appliedJobIds.includes(currentJob.id)) {
+            setAppliedJobIds((prev) => [...prev, currentJob.id]);
           }
           setIsApplyModalOpen(false);
           return;
@@ -1693,9 +1811,9 @@ export function JobRecommendationsDashboard() {
         throw new Error(data.error || 'Failed to submit application');
       }
 
-      toast.success(`Application submitted directly to ${selectedJob.companyName}!`);
-      if (!appliedJobIds.includes(selectedJob.id)) {
-        setAppliedJobIds((prev) => [...prev, selectedJob.id]);
+      toast.success(`Application submitted directly to ${currentJob.companyName}!`);
+      if (!appliedJobIds.includes(currentJob.id)) {
+        setAppliedJobIds((prev) => [...prev, currentJob.id]);
       }
       setIsApplyModalOpen(false);
     } catch (err: any) {
@@ -1708,7 +1826,8 @@ export function JobRecommendationsDashboard() {
   // 1-Click Tailor Studio: Ingest missing keywords & tailored bullet into Master Resume
   const handleApplyMissingKeywords = async () => {
     if (!selectedJob) return;
-    const missing = selectedJob.missingSkills;
+    const currentJob = selectedJob;
+    const missing = currentJob.missingSkills;
     if (!missing || missing.length === 0) {
       toast.info('No missing keywords detected for this role.');
       return;
@@ -1843,14 +1962,14 @@ export function JobRecommendationsDashboard() {
 
       // Update selectedJob in place: move missing skills to matching skills!
       const newlyMatched = [...missing];
-      selectedJob.matchingSkills = Array.from(new Set([...selectedJob.matchingSkills, ...newlyMatched]));
-      selectedJob.missingSkills = [];
-      selectedJob.matchScore = Math.min(99, Math.max(95, (selectedJob.matchScore || 85) + 8));
-      if (selectedJob.matchBreakdown) {
-        selectedJob.matchBreakdown.skillsScore = Math.min(99, Math.max(96, selectedJob.matchBreakdown.skillsScore + 10));
-        selectedJob.matchBreakdown.stackScore = Math.min(99, Math.max(96, selectedJob.matchBreakdown.stackScore + 8));
+      currentJob.matchingSkills = Array.from(new Set([...currentJob.matchingSkills, ...newlyMatched]));
+      currentJob.missingSkills = [];
+      currentJob.matchScore = Math.min(99, Math.max(95, (currentJob.matchScore || 85) + 8));
+      if (currentJob.matchBreakdown) {
+        currentJob.matchBreakdown.skillsScore = Math.min(99, Math.max(96, currentJob.matchBreakdown.skillsScore + 10));
+        currentJob.matchBreakdown.stackScore = Math.min(99, Math.max(96, currentJob.matchBreakdown.stackScore + 8));
       }
-      selectedJob.isRecommended = true;
+      currentJob.isRecommended = true;
 
       setTailorSuccess(true);
       toast.success(
@@ -1937,6 +2056,9 @@ export function JobRecommendationsDashboard() {
   };
 
   const handleSendReferralRequest = async () => {
+    if (!selectedJob) return;
+    const currentJob = selectedJob;
+
     if (!user?.is_verified && !user?.is_admin) {
       toast.error('Connecting with company insiders requires a verified corporate account.');
       setReferralModalOpen(false);
@@ -1964,20 +2086,20 @@ export function JobRecommendationsDashboard() {
           : 'there';
 
       const topSkills =
-        selectedJob?.matchingSkills && selectedJob.matchingSkills.length > 0
-          ? selectedJob.matchingSkills.slice(0, 2).join(' and ')
+        currentJob.matchingSkills && currentJob.matchingSkills.length > 0
+          ? currentJob.matchingSkills.slice(0, 2).join(' and ')
           : 'relevant technologies';
 
-      const fallbackNote = `Hi ${insiderFirstName}, I noticed your work at ${selectedJob?.companyName}. My Master Resume matches ${selectedJob?.matchScore || 90}% of the ${selectedJob?.title} hiring bar with quantified achievements in ${topSkills}. Would you be open to an internal referral?`;
+      const fallbackNote = `Hi ${insiderFirstName}, I noticed your work at ${currentJob.companyName}. My Master Resume matches ${currentJob.matchScore || 90}% of the ${currentJob.title} hiring bar with quantified achievements in ${topSkills}. Would you be open to an internal referral?`;
 
       const res = await fetch('/api/jobs/referrals', {
         method: 'POST',
         headers: authHeader,
         body: JSON.stringify({
           insiderId: selectedInsider?.id,
-          jobId: selectedJob.id,
-          jobTitle: selectedJob.title,
-          companyName: selectedJob.companyName,
+          jobId: currentJob.id,
+          jobTitle: currentJob.title,
+          companyName: currentJob.companyName,
           resumeId: masterResumeId || selectedResumeId,
           note: referralNote || fallbackNote,
         }),
@@ -2008,21 +2130,24 @@ export function JobRecommendationsDashboard() {
   };
 
   const handleRunCopilotPrompt = (promptText: string) => {
+    if (!selectedJob) return;
+    const currentJob = selectedJob;
+
     setCopilotLoading(true);
     setCopilotPrompt(promptText);
     setTimeout(() => {
       setCopilotLoading(false);
       if (promptText.includes('cover letter')) {
         setCopilotResponse(
-          `Dear ${selectedJob.companyName} Hiring Team,\n\nI am writing to express my strong enthusiasm for the ${selectedJob.title} role. With over 6 years of experience scaling low-latency event-driven infrastructure, my background aligns seamlessly with your requirements.\n\nRecently, I re-architected high-throughput Kafka streaming pipelines handling 18M+ daily events, cutting p99 consumer latency by 43% with zero data loss. Furthermore, my hands-on production expertise across ${selectedJob.matchingSkills.slice(0, 4).join(', ')} directly matches your current stack initiatives.\n\nI look forward to discussing how my experience can deliver immediate impact.\n\nBest regards,\n${displayName}`
+          `Dear ${currentJob.companyName} Hiring Team,\n\nI am writing to express my strong enthusiasm for the ${currentJob.title} role. With over 6 years of experience scaling low-latency event-driven infrastructure, my background aligns seamlessly with your requirements.\n\nRecently, I re-architected high-throughput Kafka streaming pipelines handling 18M+ daily events, cutting p99 consumer latency by 43% with zero data loss. Furthermore, my hands-on production expertise across ${currentJob.matchingSkills.slice(0, 4).join(', ')} directly matches your current stack initiatives.\n\nI look forward to discussing how my experience can deliver immediate impact.\n\nBest regards,\n${displayName}`
         );
       } else if (promptText.includes('interview questions')) {
         setCopilotResponse(
-          `Top 5 Interview Questions for ${selectedJob.title} at ${selectedJob.companyName}:\n\n1. How would you design a distributed event log that guarantees exactly-once processing across partitioned Kafka consumers?\n2. What strategies do you employ when tuning p99 tail latency for high-concurrency gRPC microservices?\n3. Describe an outage where distributed locks failed under high contention, and how you resolved the race condition.\n4. How would you handle cross-region multi-master data replication with minimal eventual consistency lag?\n5. Walk through your approach to architectural capacity planning during sudden 10x traffic surges.`
+          `Top 5 Interview Questions for ${currentJob.title} at ${currentJob.companyName}:\n\n1. How would you design a distributed event log that guarantees exactly-once processing across partitioned Kafka consumers?\n2. What strategies do you employ when tuning p99 tail latency for high-concurrency gRPC microservices?\n3. Describe an outage where distributed locks failed under high contention, and how you resolved the race condition.\n4. How would you handle cross-region multi-master data replication with minimal eventual consistency lag?\n5. Walk through your approach to architectural capacity planning during sudden 10x traffic surges.`
         );
       } else {
         setCopilotResponse(
-          `ATS Keyword Analysis for ${selectedJob.title}:\n\n• High-Priority Technical Keywords: ${selectedJob.matchingSkills.join(', ')}\n• Recommended Additions: ${selectedJob.missingSkills.join(', ')}\n• ATS Screening Compatibility: 96% match against Workday, Greenhouse, and Lever scrapers.`
+          `ATS Keyword Analysis for ${currentJob.title}:\n\n• High-Priority Technical Keywords: ${currentJob.matchingSkills.join(', ')}\n• Recommended Additions: ${currentJob.missingSkills.join(', ')}\n• ATS Screening Compatibility: 96% match against Workday, Greenhouse, and Lever scrapers.`
         );
       }
     }, 700);
@@ -2039,6 +2164,7 @@ export function JobRecommendationsDashboard() {
         <JobsNavbar
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          onSearchSubmit={(val) => setDebouncedSearchQuery(val.trim())}
           atsScore={atsScore}
         >
           {/* Quick Filter Chips (Jobright Style) */}
@@ -2501,7 +2627,7 @@ export function JobRecommendationsDashboard() {
                 <Briefcase className="h-3.5 w-3.5 shrink-0" />
                 <span>
                   <span className="hidden xl:inline">All Jobs</span>
-                  <span className="xl:hidden">All</span> ({totalRolesCount ?? allJobs.length})
+                  <span className="xl:hidden">All</span> ({debouncedSearchQuery.trim() || activeChip !== 'all' ? filteredJobs.length : (totalRolesCount ?? allJobs.length)})
                 </span>
               </button>
 
@@ -2656,7 +2782,15 @@ export function JobRecommendationsDashboard() {
             {/* Unified Roles Count & Ranking Helper Bar */}
             <div className="flex items-center justify-between mb-2 px-1 text-xs text-neutral-500 shrink-0">
               <span className="font-medium text-neutral-600">
-                Found <strong className="text-neutral-900 font-bold">{totalRolesCount ?? filteredJobs.length}</strong> {(totalRolesCount ?? filteredJobs.length) === 1 ? 'role' : 'roles'}
+                Found <strong className="text-neutral-900 font-bold">{
+                  (debouncedSearchQuery.trim() || activeChip !== 'all' || activeListTab !== 'all' || (selectedCompanies.length > 0 && !selectedCompanies.includes('all')) || filteredJobs.length === 0)
+                    ? filteredJobs.length
+                    : (totalRolesCount ?? filteredJobs.length)
+                }</strong> {
+                  ((debouncedSearchQuery.trim() || activeChip !== 'all' || activeListTab !== 'all' || (selectedCompanies.length > 0 && !selectedCompanies.includes('all')) || filteredJobs.length === 0)
+                    ? filteredJobs.length
+                    : (totalRolesCount ?? filteredJobs.length)) === 1 ? 'role' : 'roles'
+                }
               </span>
               <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-500 bg-neutral-100/80 px-2.5 py-1 rounded-full border border-neutral-200/60">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#4FD1C5]" />
@@ -2700,6 +2834,7 @@ export function JobRecommendationsDashboard() {
                     type="button"
                     onClick={() => {
                       setSearchQuery('');
+                      setDebouncedSearchQuery('');
                       setActiveChip('all');
                       setSelectedCity('');
                       setSelectedCompanies([]);
@@ -2712,7 +2847,7 @@ export function JobRecommendationsDashboard() {
               ) : (
                 <>
                   {filteredJobs.map((job) => {
-                    const isSelected = selectedJob.id === job.id;
+                    const isSelected = selectedJob?.id === job.id;
                     const isSaved = savedJobIds.includes(job.id);
                     const isApplied = appliedJobIds.includes(job.id);
 
@@ -2834,7 +2969,7 @@ export function JobRecommendationsDashboard() {
                     );
                   })}
 
-                  {hasMore && (
+                  {hasMore && filteredJobs.length > 0 && (!totalRolesCount || totalRolesCount > filteredJobs.length) && (
                     <div className="pt-2 pb-6 text-center">
                       <button
                         type="button"
@@ -2849,7 +2984,7 @@ export function JobRecommendationsDashboard() {
                           </>
                         ) : (
                           <span>
-                            Load more roles ({totalRolesCount ? Math.max(0, totalRolesCount - filteredJobs.length) : 'more'} remaining)
+                            Load more roles {totalRolesCount && totalRolesCount > filteredJobs.length ? `(${totalRolesCount - filteredJobs.length} remaining)` : ''}
                           </span>
                         )}
                       </button>
@@ -2863,25 +2998,58 @@ export function JobRecommendationsDashboard() {
           {/* Right Column (62% on desktop): Deep-Dive Job & Copilot Action Pane */}
           <div className={`lg:col-span-7 bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-sm flex-1 lg:flex-initial flex flex-col h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'flex' : 'hidden lg:flex'
             }`}>
-            {/* 1. Mobile Back to List Header */}
-            <div className="lg:hidden px-3.5 py-2.5 bg-white border-b border-neutral-200 flex items-center justify-between shrink-0 z-20 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setMobileView('list')}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0A1B5C] bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-xl border border-neutral-200 shadow-xs active:scale-95 transition-all"
-              >
-                <ChevronLeft className="h-4 w-4 text-[#0A1B5C]" />
-                <span>Back to Jobs</span>
-              </button>
-              <div className="text-right min-w-0 pl-2">
-                <span className="text-xs font-semibold text-neutral-900 truncate block max-w-[170px]">
-                  {selectedJob.companyName}
-                </span>
-                <span className="text-[10px] text-neutral-500 font-medium truncate block max-w-[170px]">
-                  {selectedJob.title}
-                </span>
+            {!selectedJob ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-neutral-50/50 to-white">
+                <div className="w-16 h-16 rounded-2xl bg-neutral-100 flex items-center justify-center mb-4 text-[#0A1B5C]/60 border border-neutral-200/60 shadow-xs">
+                  <Briefcase className="w-8 h-8 text-[#0A1B5C]" />
+                </div>
+                <h3 className="text-base font-bold text-neutral-900 mb-1.5">
+                  {debouncedSearchQuery.trim() ? 'No Matching Roles Found' : 'Select a Role'}
+                </h3>
+                <p className="text-xs text-neutral-500 max-w-sm leading-relaxed mb-4">
+                  {debouncedSearchQuery.trim()
+                    ? `No verified positions match "${debouncedSearchQuery.trim()}" in ${selectedCity || 'the selected location'}. Try adjusting your keywords or clearing filters.`
+                    : 'Choose a role from the list on the left to inspect hiring requirements, match breakdown, and request employee referrals.'}
+                </p>
+                {debouncedSearchQuery.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setDebouncedSearchQuery('');
+                      setSelectedCity('');
+                      setSelectedCompanies([]);
+                      setWorkModeFilter('all');
+                      setActiveChip('all');
+                      setActiveListTab('all');
+                    }}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-[#0A1B5C] rounded-xl hover:bg-[#11287e] transition-all shadow-xs"
+                  >
+                    Clear Search & Filters
+                  </button>
+                )}
               </div>
-            </div>
+            ) : (
+              <>
+                {/* 1. Mobile Back to List Header */}
+                <div className="lg:hidden px-3.5 py-2.5 bg-white border-b border-neutral-200 flex items-center justify-between shrink-0 z-20 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setMobileView('list')}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0A1B5C] bg-neutral-100 hover:bg-neutral-200 px-3 py-1.5 rounded-xl border border-neutral-200 shadow-xs active:scale-95 transition-all"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-[#0A1B5C]" />
+                    <span>Back to Jobs</span>
+                  </button>
+                  <div className="text-right min-w-0 pl-2">
+                    <span className="text-xs font-semibold text-neutral-900 truncate block max-w-[170px]">
+                      {selectedJob.companyName}
+                    </span>
+                    <span className="text-[10px] text-neutral-500 font-medium truncate block max-w-[170px]">
+                      {selectedJob.title}
+                    </span>
+                  </div>
+                </div>
 
             {/* 2. Unified Scroll Container (Scrolls header, tabs, and details seamlessly) */}
             <div ref={detailScrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] touch-pan-y pb-6">
@@ -3858,23 +4026,25 @@ export function JobRecommendationsDashboard() {
                 </a>
               )}
             </div>
+            </>
+            )}
           </div>
         </main>
 
         {/* TAILOR RESUME MODAL */}
-        <Dialog open={tailorModalOpen} onOpenChange={setTailorModalOpen}>
+        <Dialog open={tailorModalOpen && Boolean(selectedJob)} onOpenChange={setTailorModalOpen}>
           <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-neutral-900 flex items-center gap-2">
                 <SlidersHorizontal className="h-5 w-5 text-[#0A1B5C]" />
-                Tailor Resume for {selectedJob.title}
+                Tailor Resume for {selectedJob?.title || 'Selected Role'}
               </DialogTitle>
               <DialogDescription className="text-xs text-neutral-500">
-                Align your Master Resume with {selectedJob.companyName}&apos;s target keywords in 1-click without manual rewriting.
+                Align your Master Resume with {selectedJob?.companyName || 'Target Company'}&apos;s target keywords in 1-click without manual rewriting.
               </DialogDescription>
             </DialogHeader>
 
-            {tailorSuccess ? (
+            {selectedJob && (tailorSuccess ? (
               <div className="py-6 px-4 text-center space-y-4">
                 <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
                   <CheckCircle2 className="h-7 w-7 text-emerald-600" />
@@ -3995,12 +4165,12 @@ export function JobRecommendationsDashboard() {
                   </div>
                 </div>
               </>
-            )}
+            ))}
           </DialogContent>
         </Dialog>
 
         {/* REQUEST REFERRAL MODAL */}
-        <Dialog open={referralModalOpen} onOpenChange={setReferralModalOpen}>
+        <Dialog open={referralModalOpen && Boolean(selectedJob)} onOpenChange={setReferralModalOpen}>
           <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-neutral-900 flex items-center gap-2">
@@ -4008,7 +4178,7 @@ export function JobRecommendationsDashboard() {
                 Request Corporate Referral
               </DialogTitle>
               <DialogDescription className="text-xs text-neutral-500">
-                Connect directly with verified employees at {selectedJob.companyName}.
+                Connect directly with verified employees at {selectedJob?.companyName || 'Target Company'}.
               </DialogDescription>
             </DialogHeader>
 
@@ -4047,7 +4217,7 @@ export function JobRecommendationsDashboard() {
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-semibold text-neutral-600">Job ID / Requisition:</span>
                     <span className="font-mono font-bold text-neutral-900 bg-neutral-200/60 px-2 py-0.5 rounded text-[11px]">
-                      {selectedJob.id}
+                      {selectedJob?.id}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-[11px] pt-1 border-t border-neutral-200/60">
@@ -4102,7 +4272,7 @@ export function JobRecommendationsDashboard() {
                 Corporate Verification Required
               </DialogTitle>
               <DialogDescription className="text-xs text-neutral-500 mt-1">
-                Connecting with verified insiders at <strong className="text-neutral-800">{selectedJob.companyName}</strong> requires an active verified corporate account.
+                Connecting with verified insiders at <strong className="text-neutral-800">{selectedJob?.companyName || 'this company'}</strong> requires an active verified corporate account.
               </DialogDescription>
             </DialogHeader>
 
@@ -4111,7 +4281,7 @@ export function JobRecommendationsDashboard() {
                 <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-semibold text-neutral-900 block">Protecting Insider Privacy</span>
-                  <span>Employees at {selectedJob.companyName} only receive outreach from verified professionals in the Vouchins network.</span>
+                  <span>Employees at {selectedJob?.companyName || 'this company'} only receive outreach from verified professionals in the Vouchins network.</span>
                 </div>
               </div>
               <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200">
@@ -4153,7 +4323,7 @@ export function JobRecommendationsDashboard() {
         </Dialog>
 
         {/* APPLY ON VOUCHINS MODAL (FOR INTERNAL RECRUITER POSTINGS) */}
-        <Dialog open={isApplyModalOpen} onOpenChange={setIsApplyModalOpen}>
+        <Dialog open={isApplyModalOpen && Boolean(selectedJob)} onOpenChange={setIsApplyModalOpen}>
           <DialogContent className="max-w-xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-neutral-900 flex items-center gap-2">
@@ -4161,7 +4331,7 @@ export function JobRecommendationsDashboard() {
                 Apply on Vouchins
               </DialogTitle>
               <DialogDescription className="text-xs text-neutral-500">
-                Direct application to <strong className="text-neutral-800">{selectedJob.companyName}</strong> for <strong className="text-neutral-800">{selectedJob.title}</strong>. The hiring team reviews your verified profile and candidate materials directly on Vouchins.
+                Direct application to <strong className="text-neutral-800">{selectedJob?.companyName || 'Company'}</strong> for <strong className="text-neutral-800">{selectedJob?.title || 'Selected Role'}</strong>. The hiring team reviews your verified profile and candidate materials directly on Vouchins.
               </DialogDescription>
             </DialogHeader>
 
@@ -4172,7 +4342,7 @@ export function JobRecommendationsDashboard() {
                     Verified Candidate Fast-Track
                   </span>
                   <span className="text-xs text-neutral-600 font-medium">
-                    Your application is prioritized directly in the {selectedJob.companyName} recruiter dashboard.
+                    Your application is prioritized directly in the {selectedJob?.companyName || 'recruiter'} dashboard.
                   </span>
                 </div>
                 <ShieldCheck className="h-6 w-6 text-emerald-600 shrink-0 ml-3" />
@@ -4302,7 +4472,7 @@ export function JobRecommendationsDashboard() {
                 </label>
                 <textarea
                   rows={4}
-                  placeholder={`Hi ${selectedJob.companyName} Recruiting Team, I am excited to apply for the ${selectedJob.title} position...`}
+                  placeholder={selectedJob ? `Hi ${selectedJob.companyName} Recruiting Team, I am excited to apply for the ${selectedJob.title} position...` : 'Hi Recruiting Team, I am excited to apply for this position...'}
                   value={applyCoverLetter}
                   onChange={(e) => setApplyCoverLetter(e.target.value)}
                   className="w-full p-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20"

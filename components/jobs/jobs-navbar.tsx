@@ -32,6 +32,7 @@ import posthog from 'posthog-js';
 export interface JobsNavbarProps {
   searchQuery?: string;
   onSearchChange?: (val: string) => void;
+  onSearchSubmit?: (val: string) => void;
   searchPlaceholder?: string;
   showSearch?: boolean;
   atsScore?: number | null;
@@ -41,6 +42,7 @@ export interface JobsNavbarProps {
 export function JobsNavbar({
   searchQuery: externalSearchQuery,
   onSearchChange: externalOnSearchChange,
+  onSearchSubmit: externalOnSearchSubmit,
   searchPlaceholder = 'Search job title, company, or skills (e.g. Kafka, ServiceNow, Go)...',
   showSearch = true,
   atsScore: externalAtsScore,
@@ -138,7 +140,9 @@ export function JobsNavbar({
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isSearchControlled && currentSearchValue.trim()) {
+    if (typeof externalOnSearchSubmit === 'function') {
+      externalOnSearchSubmit(currentSearchValue);
+    } else if (!isSearchControlled && currentSearchValue.trim()) {
       router.push(`/jobs/list?q=${encodeURIComponent(currentSearchValue.trim())}`);
     }
   };

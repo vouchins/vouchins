@@ -46,7 +46,14 @@ const KNOWN_COMPANY_DOMAINS: Record<string, string> = {
   nexus: 'nexus.io',
   'nexus enterprise ai': 'nexus.io',
   adobe: 'adobe.com',
+  opentext: 'opentext.com',
+  'open text': 'opentext.com',
+  nxtwave: 'nxtwave.tech',
+  'nxt wave': 'nxtwave.tech',
+  experian: 'experian.com',
   twitter: 'x.com',
+  'x corp': 'x.com',
+  'x (twitter)': 'x.com',
   x: 'x.com',
   bytedance: 'bytedance.com',
   tiktok: 'tiktok.com',
@@ -202,8 +209,23 @@ export function getCompanyDomain(
     return KNOWN_COMPANY_DOMAINS[cleanName];
   }
 
+  // 2. Tokenized word-boundary / whole-word matching (never match arbitrary single/double character substrings)
   for (const [key, domain] of Object.entries(KNOWN_COMPANY_DOMAINS)) {
-    if (cleanName.includes(key) || key.includes(cleanName)) {
+    if (key.length <= 3) {
+      if (key === 'x') continue; // only exact match for single-letter 'x'
+      // Short abbreviations/acronyms (e.g. 'ey', 'tcs', 'jnj', 'pwc', 'ibm', 'hcl', 'amd')
+      // MUST match as whole standalone words, never as a substring of another word (e.g. 'ey' in 'Honeywell')
+      const regex = new RegExp(`(^|\\s|[.,&/-])${key}(\\s|[.,&/-]|$)`, 'i');
+      if (regex.test(cleanName)) {
+        return domain;
+      }
+      continue;
+    }
+
+    // For longer keys (length >= 4), match as whole word or when cleanName starts/ends with the key
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const wordRegex = new RegExp(`(^|\\s|[.,&/-])${escapedKey}(\\s|[.,&/-]|$)`, 'i');
+    if (wordRegex.test(cleanName) || cleanName.startsWith(`${key} `) || cleanName.endsWith(` ${key}`)) {
       return domain;
     }
   }

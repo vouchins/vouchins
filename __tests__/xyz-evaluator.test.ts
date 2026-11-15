@@ -228,6 +228,60 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
       expect(result.targetRole).toBe('Senior Backend Engineer');
     });
 
+    it('derives L3 for a Project Lead / Lead Frontend Engineer with ~10 years experience', () => {
+      const leadResume = {
+        contact: {
+          fullName: 'Shaik Taher',
+          email: 'taher@example.com',
+          location: 'Hyderabad, India',
+        },
+        summary: 'Lead Frontend Developer with ~10 years experience in React, Redux, Node.js, and modern web architectures.',
+        skills: [
+          { category: 'Frontend', items: ['React', 'Redux', 'JavaScript', 'TypeScript', 'HTML5', 'CSS3'] },
+          { category: 'Backend', items: ['Node.js', 'Express', 'REST APIs'] },
+        ],
+        experience: [
+          {
+            id: 'exp-1',
+            company: 'Oracle',
+            roleTitle: 'Project Lead',
+            startDate: '2021',
+            endDate: 'Present',
+            isCurrent: true,
+            bullets: ['Led frontend engineering team delivering scalable cloud applications.'],
+          },
+          {
+            id: 'exp-2',
+            company: 'Tech Solutions',
+            roleTitle: 'Senior Frontend Developer',
+            startDate: '2017',
+            endDate: '2021',
+            isCurrent: false,
+            bullets: ['Developed high-traffic responsive storefronts using React and Redux.'],
+          },
+          {
+            id: 'exp-3',
+            company: 'Web Innovations',
+            roleTitle: 'Software Engineer',
+            startDate: '2014',
+            endDate: '2017',
+            isCurrent: false,
+            bullets: ['Engineered interactive web interfaces using JavaScript, HTML5, and CSS3.'],
+          },
+        ],
+        projects: [],
+        education: [
+          { degree: 'B.Tech in Computer Science', institution: 'JNTU', year: '2014' },
+        ],
+      };
+
+      const result = evaluateResumeHeuristically(leadResume as any);
+
+      expect(result.detectedSeniority).toBe('Senior Software Engineer (L3)');
+      expect(result.targetRole).toBe('Project Lead');
+      expect(result.detectedSeniority).not.toBe('Staff Software Engineer (L4)');
+    });
+
     it('derives L4 for a Staff Software Engineer / Lead Architect', () => {
       const staffResume = {
         contact: {

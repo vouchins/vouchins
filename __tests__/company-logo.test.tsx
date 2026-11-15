@@ -16,6 +16,15 @@ describe('CompanyLogo & Favicon Engine', () => {
     expect(getCompanyDomain('Synchrony Financial')).toBe('synchrony.com');
     expect(getCompanyDomain('Quantela')).toBe('quantela.com');
     expect(getCompanyDomain('Qvantel')).toBe('qvantel.com');
+    expect(getCompanyDomain('OpenText')).toBe('opentext.com');
+    expect(getCompanyDomain('NxtWave')).toBe('nxtwave.tech');
+    expect(getCompanyDomain('Experian')).toBe('experian.com');
+    expect(getCompanyDomain('Netflix')).toBe('netflix.com');
+    expect(getCompanyDomain('Dropbox')).toBe('dropbox.com');
+    // Ensure none of them accidentally resolved to Twitter / X (x.com)
+    expect(getCompanyDomain('OpenText')).not.toBe('x.com');
+    expect(getCompanyDomain('NxtWave')).not.toBe('x.com');
+    expect(getCompanyDomain('Experian')).not.toBe('x.com');
   });
 
   it('constructs Google Favicon service URL conforming to requested spec with HTTPS protocol', () => {

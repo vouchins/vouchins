@@ -564,7 +564,7 @@ export function detectSeniority(
   const isTechDomain =
     !isHealthcareDomain &&
     (domain === 'tech' ||
-      /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system architect|machine learning|data scientist|data engineer)\b/i.test(
+      /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system architect|machine learning|data scientist|data engineer|project lead|team lead|tech lead|lead developer|lead engineer)\b/i.test(
         latestTitle
       ));
 
@@ -588,7 +588,7 @@ export function detectSeniority(
         return 'Engineering Intern (L0)';
       }
 
-      // L5+: Principal, Distinguished Engineer, Director, Fellow, VP (13+ yrs)
+      // L5+: Principal, Distinguished Engineer, Director, Fellow, VP (15+ yrs)
       if (
         /\b(principal|distinguished|fellow|director|vp|vice president)\b/i.test(latestTitle) ||
         /\b(l5\+|ic5\+|l[5-9]\b|l1[0-9]\b|ic[5-9]\b|ic1[0-9]\b)\b/i.test(latestTitle)
@@ -596,17 +596,17 @@ export function detectSeniority(
         return 'Principal Engineer (L5+)';
       }
 
-      // L4: Staff, Lead Architect, Chief Architect (9-13 yrs)
+      // L4: Staff, Lead Architect, Chief Architect (Requires explicit Staff title or L4/IC4 marker)
       if (
-        /\b(staff|lead architect|chief architect)\b/i.test(latestTitle) ||
+        /\b(staff|lead architect|chief architect|principal architect)\b/i.test(latestTitle) ||
         /\b(l4|ic4)\b/i.test(latestTitle)
       ) {
         return 'Staff Software Engineer (L4)';
       }
 
-      // L3: Senior, Tech Lead, SDE-3 (5-9 yrs)
+      // L3: Senior, Tech Lead, Team Lead, Project Lead, Lead Developer, Lead Engineer, SDE-3 (5-11 yrs)
       if (
-        /\b(senior|sr\.?|tech lead|technical lead|team lead|sde[-_ ]?3\b|sde[-_ ]?iii\b)\b/i.test(latestTitle) ||
+        /\b(senior|sr\.?|tech lead|technical lead|team lead|project lead|lead\b|lead developer|lead engineer|lead frontend|lead backend|lead fullstack|lead software|sde[-_ ]?3\b|sde[-_ ]?iii\b)\b/i.test(latestTitle) ||
         /\b(l3|ic3)\b/i.test(latestTitle)
       ) {
         return 'Senior Software Engineer (L3)';
@@ -627,9 +627,9 @@ export function detectSeniority(
 
       // Title without explicit seniority marker (e.g. "Software Engineer", "Full Stack Developer", "Backend Developer")
       // Map using typical experience brackets:
-      // 0 yrs -> L1, 2-5 yrs -> L2, 5-9 yrs -> L3, 9-13 yrs -> L4, 13+ yrs -> L5+
-      if (expYears >= 13) return 'Principal Engineer (L5+)';
-      if (expYears >= 9) return 'Staff Software Engineer (L4)';
+      // 0 yrs -> L1, 2-4 yrs -> L2, 5-11 yrs -> L3, 12-14 yrs -> L4, 15+ yrs -> L5+
+      if (expYears >= 15) return 'Principal Engineer (L5+)';
+      if (expYears >= 12) return 'Staff Software Engineer (L4)';
       if (expYears >= 5) return 'Senior Software Engineer (L3)';
       if (expYears >= 2) return 'Software Engineer (L2)';
       if (expYears === 0 && roleCount <= 1) return 'Associate Software Engineer (L1)';
@@ -664,13 +664,13 @@ export function detectSeniority(
     }
 
     // 4. Multi-role experience years / role count heuristics
-    if (expYears >= 13 || /\b(principal engineer|distinguished engineer|director of engineering)\b/i.test(corpus)) {
+    if (expYears >= 15 || /\b(principal engineer|distinguished engineer|director of engineering)\b/i.test(corpus)) {
       return 'Principal Engineer (L5+)';
     }
-    if (expYears >= 9 || roleCount >= 5 || /\b(staff software engineer|chief architect|principal architect|lead architect)\b/i.test(corpus)) {
+    if (expYears >= 12 || /\b(staff software engineer|chief architect|principal architect|lead architect)\b/i.test(corpus)) {
       return 'Staff Software Engineer (L4)';
     }
-    if (expYears >= 5 || roleCount >= 3 || /\b(senior software engineer|senior developer|tech lead)\b/i.test(corpus)) {
+    if (expYears >= 5 || roleCount >= 3 || /\b(senior software engineer|senior developer|tech lead|project lead|lead developer|lead engineer)\b/i.test(corpus)) {
       return 'Senior Software Engineer (L3)';
     }
 
@@ -695,13 +695,13 @@ export function detectSeniority(
   if (isAssociate || expYears === 0) {
     return `Associate ${cleanRole} (L1)`;
   }
-  if (expYears >= 13 || /\b(director|principal|chief|vp)\b/i.test(latestTitle)) {
+  if (expYears >= 15 || /\b(director|principal|chief|vp)\b/i.test(latestTitle)) {
     return `Director / Principal ${cleanRole} (L5+)`;
   }
-  if (expYears >= 9 || /\b(staff|lead|head)\b/i.test(latestTitle)) {
+  if (expYears >= 12 || /\b(staff|chief architect|principal architect)\b/i.test(latestTitle)) {
     return `Lead ${cleanRole} (L4)`;
   }
-  if (expYears >= 5 || isSenior) {
+  if (expYears >= 5 || isSenior || /\b(lead|head)\b/i.test(latestTitle)) {
     return `Senior ${cleanRole} (L3)`;
   }
 

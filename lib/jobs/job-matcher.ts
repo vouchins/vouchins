@@ -154,13 +154,11 @@ export async function matchJobsForProfile(
     const seenIds = new Set(dbMatched.map((j) => j.id));
     const combined = [...dbMatched];
 
-    // Fall back to curated tech roles only if database returns no matched jobs
-    if (combined.length === 0) {
-      for (const curated of curatedMatched) {
-        if (!seenIds.has(curated.id)) {
-          combined.push(curated);
-          seenIds.add(curated.id);
-        }
+    // Merge curated tech roles with db-matched listings (deduplicated by id)
+    for (const curated of curatedMatched) {
+      if (!seenIds.has(curated.id)) {
+        combined.push(curated);
+        seenIds.add(curated.id);
       }
     }
 

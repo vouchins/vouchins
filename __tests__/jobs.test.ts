@@ -500,6 +500,28 @@ Castletown high school
       expect(typeof matched[0].isInternal).toBe('boolean');
     });
 
+    it('should match top-tier Hyderabad Lead Frontend roles for a React/Redux candidate', async () => {
+      const frontendVectors = {
+        detectedRole: 'Project Lead',
+        seniority: 'Senior Software Engineer (L3)',
+        primarySkills: ['React', 'Redux', 'JavaScript', 'TypeScript', 'Node.js', 'Jest'],
+        secondarySkills: ['HTML5', 'CSS3', 'REST APIs', 'Webpack'],
+        estimatedYearsExperience: 10,
+        targetCompanyTier: ['Tier 1 Tech (Google / Meta / Uber / Amazon)', 'High-Growth Tech Unicorns'],
+        preferredLocations: ['Hyderabad, India', 'Remote'],
+      };
+
+      const matched = await matchJobsForProfile(frontendVectors);
+      expect(matched.length).toBeGreaterThan(0);
+      const topJob = matched[0];
+      expect(topJob.matchScore).toBeGreaterThanOrEqual(85);
+      expect(topJob.matchingSkills).toEqual(expect.arrayContaining(['React']));
+
+      // Confirm relevant company names appear in matched results
+      const companies = matched.map((m) => m.companyName);
+      expect(companies.some((c) => ['Microsoft', 'Uber', 'ServiceNow', 'Salesforce', 'Oracle'].includes(c))).toBe(true);
+    });
+
     it('should never return "Vouchins" as the hiring company name in matched jobs', async () => {
       const vectors = SAMPLE_STAFF_EVALUATION.jobMatchVectors;
       const matched = await matchJobsForProfile(vectors);

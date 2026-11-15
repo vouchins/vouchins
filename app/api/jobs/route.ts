@@ -285,9 +285,25 @@ export async function GET(request: Request) {
 
       if (queryStr.trim()) {
         const cleanQ = queryStr.trim().replace(/["%,]/g, "");
-        q = q.or(
-          `title.ilike."%${cleanQ}%",company_name.ilike."%${cleanQ}%",description.ilike."%${cleanQ}%"`
-        );
+        const words = cleanQ.split(/\s+/).filter((w) => w.length > 1);
+        const searchParts: string[] = [
+          `title.ilike."%${cleanQ}%"`,
+          `company_name.ilike."%${cleanQ}%"`,
+          `category.ilike."%${cleanQ}%"`,
+          `description.ilike."%${cleanQ}%"`,
+          `requirements.ilike."%${cleanQ}%"`,
+        ];
+
+        if (words.length > 1) {
+          const orderedWildcard = words.join("%");
+          const reversedWildcard = [...words].reverse().join("%");
+          searchParts.push(`title.ilike."%${orderedWildcard}%"`);
+          searchParts.push(`title.ilike."%${reversedWildcard}%"`);
+          searchParts.push(`description.ilike."%${orderedWildcard}%"`);
+          searchParts.push(`requirements.ilike."%${orderedWildcard}%"`);
+        }
+
+        q = q.or(searchParts.join(","));
       }
 
       return q;
@@ -330,6 +346,11 @@ export async function GET(request: Request) {
       skillOrFilter = parts.join(',');
     }
 
+    // When the user explicitly searches by keyword, respect the keyword as the primary directive.
+    // Do not restrict keyword search results by background resume skills.
+    const isKeywordSearch = Boolean(queryStr.trim());
+    const effectiveSkillFilter = isKeywordSearch ? '' : skillOrFilter;
+
     const activeLocation = (locationParam && locationParam !== 'all')
       ? locationParam.trim()
       : (candidateLocation && candidateLocation.toLowerCase() !== 'all')
@@ -344,8 +365,8 @@ export async function GET(request: Request) {
     let totalCount = 0;
 
     if (locFilterWithRemote) {
-      if (!skillOrFilter) {
-        // Candidate has no resume or skill filter: Paginated location query with exact total count
+      if (!effectiveSkillFilter) {
+        // Keyword search or browsing without skill constraint: Paginated location query with exact total count
         const { data, count, error } = await buildBaseDbQuery(true)
           .or(locFilterWithRemote)
           .order("created_at", { ascending: false })
@@ -359,7 +380,7 @@ export async function GET(request: Request) {
         const [poolRes, countRes] = await Promise.all([
           buildBaseDbQuery(false)
             .or(locFilterWithRemote)
-            .or(skillOrFilter)
+            .or(effectiveSkillFilter)
             .order("created_at", { ascending: false })
             .range(from, to),
           buildBaseDbQuery(true)
@@ -373,7 +394,7 @@ export async function GET(request: Request) {
       }
     } else {
       // General browsing without specific location preference
-      if (!skillOrFilter) {
+      if (!effectiveSkillFilter) {
         const { data, count, error } = await buildBaseDbQuery(true)
           .order("created_at", { ascending: false })
           .range(from, to);
@@ -384,7 +405,7 @@ export async function GET(request: Request) {
       } else {
         const [poolRes, countRes] = await Promise.all([
           buildBaseDbQuery(false)
-            .or(skillOrFilter)
+            .or(effectiveSkillFilter)
             .order("created_at", { ascending: false })
             .range(from, to),
           buildBaseDbQuery(true)
@@ -633,68 +654,80 @@ export async function GET(request: Request) {
     }
     */
 
-    // Fallback: Curated Premier Tech Hub Catalog
-    // Only used when database query returns zero listings (e.g. offline dev or unit tests)
-    if (combined.length === 0) {
-      const nowIso = new Date().toISOString();
-      const filteredCurated = CURATED_TECH_JOBS.filter((cj) => {
-        if (activeLocation && !isLocationMatch(cj.location, activeLocation, cj.workplaceType)) {
-          return false;
-        }
-        return true;
-      });
-      totalCount = filteredCurated.length;
+    // Curated Premier Tech Hub Catalog
+    // Premier verified company roles (Microsoft, Uber, ServiceNow, Salesforce, Oracle) are always merged and deduplicated
+    const nowIso = new Date().toISOString();
+    const filteredCurated = CURATED_TECH_JOBS.filter((cj) => {
+      if (activeLocation && !isLocationMatch(cj.location, activeLocation, cj.workplaceType)) {
+        return false;
+      }
+      if (workModeParam !== "all" && cj.workplaceType.toLowerCase() !== workModeParam) {
+        return false;
+      }
+      if (queryStr.trim()) {
+        const qLower = queryStr.trim().toLowerCase();
+        const qWords = qLower.split(/\s+/).filter((w) => w.length > 2);
+        const text = `${cj.title} ${cj.companyName} ${cj.description.about} ${cj.description.qualifications.join(" ")} ${cj.matchingSkills.join(" ")}`.toLowerCase();
+        const matchesQuery = text.includes(qLower) || (qWords.length > 1 && qWords.every((w) => text.includes(w)));
+        if (!matchesQuery) return false;
+      }
+      return true;
+    });
 
-      const pagedCurated = filteredCurated.slice(from, to + 1);
-      for (const cj of pagedCurated) {
-        const matchEvaluation = evaluateJobMatch(
-          {
-            title: cj.title,
-            description: cj.description.about,
-            requirements: cj.description.qualifications.join("\n"),
-            experienceLevel: cj.experienceLevel,
-            workplaceType: cj.workplaceType,
-            location: cj.location,
-            companyName: cj.companyName,
-          },
-          candidateSkills,
-          detectedSeniority,
-          candidateLocation,
-          {
-            currentRole: candidateCurrentRole,
-            currentCompany: candidateCurrentCompany,
-            isStillWorking: isCurrentlyWorking,
-          }
-        );
-
-        const count = getInsiderCount(cj.companyName);
-
-        addJobIfUnique({
-          id: cj.id,
+    for (const cj of filteredCurated) {
+      const matchEvaluation = evaluateJobMatch(
+        {
           title: cj.title,
-          company_name: cj.companyName,
-          company_logo: cj.companyLogo,
-          location: cj.location,
-          workplace_type: cj.workplaceType,
-          job_type: cj.jobType,
-          experience_level: cj.experienceLevel,
-          category: cj.category,
-          salary_range: cj.salaryRange,
           description: cj.description.about,
           requirements: cj.description.qualifications.join("\n"),
-          external_apply_url: cj.externalApplyUrl,
-          is_internal: cj.isInternal,
-          match_score: matchEvaluation.matchScore,
-          match_breakdown: matchEvaluation.matchBreakdown,
-          why_you_match: matchEvaluation.whyYouMatch,
-          matching_skills: matchEvaluation.matchingSkills.length > 0 ? matchEvaluation.matchingSkills : cj.matchingSkills,
-          missing_skills: matchEvaluation.missingSkills.length > 0 ? matchEvaluation.missingSkills : cj.missingSkills,
-          tailored_bullet_suggestion: matchEvaluation.tailoredBulletSuggestion,
-          insider_count: count > 0 ? count : cj.insiderCount,
-          is_recommended: matchEvaluation.isRecommended,
-          created_at: nowIso,
-        });
-      }
+          experienceLevel: cj.experienceLevel,
+          workplaceType: cj.workplaceType,
+          location: cj.location,
+          companyName: cj.companyName,
+        },
+        candidateSkills,
+        detectedSeniority,
+        candidateLocation,
+        {
+          currentRole: candidateCurrentRole,
+          currentCompany: candidateCurrentCompany,
+          isStillWorking: isCurrentlyWorking,
+        }
+      );
+
+      const count = getInsiderCount(cj.companyName);
+
+      addJobIfUnique({
+        id: cj.id,
+        title: cj.title,
+        company_name: cj.companyName,
+        company_logo: cj.companyLogo,
+        location: cj.location,
+        workplace_type: cj.workplaceType,
+        job_type: cj.jobType,
+        experience_level: cj.experienceLevel,
+        category: cj.category,
+        salary_range: cj.salaryRange,
+        description: cj.description.about,
+        requirements: cj.description.qualifications.join("\n"),
+        external_apply_url: cj.externalApplyUrl,
+        is_internal: cj.isInternal,
+        match_score: matchEvaluation.matchScore,
+        match_breakdown: matchEvaluation.matchBreakdown,
+        why_you_match: matchEvaluation.whyYouMatch,
+        matching_skills: matchEvaluation.matchingSkills.length > 0 ? matchEvaluation.matchingSkills : cj.matchingSkills,
+        missing_skills: matchEvaluation.missingSkills.length > 0 ? matchEvaluation.missingSkills : cj.missingSkills,
+        tailored_bullet_suggestion: matchEvaluation.tailoredBulletSuggestion,
+        insider_count: count > 0 ? count : cj.insiderCount,
+        is_recommended: matchEvaluation.isRecommended,
+        created_at: nowIso,
+      });
+    }
+
+    if (totalCount === 0) {
+      totalCount = combined.length;
+    } else {
+      totalCount = Math.max(totalCount, combined.length);
     }
 
     // 9. Prune stale jobs (> 90 days) and apply workplace mode & location matching
@@ -726,6 +759,23 @@ export async function GET(request: Request) {
 
     // 10. Unified Ranking: Relevant to profile first, ordered recently posted first
     freshCombined.sort((a, b) => {
+      if (queryStr.trim()) {
+        const q = queryStr.trim().toLowerCase();
+        const aTitle = (a.title || "").toLowerCase();
+        const bTitle = (b.title || "").toLowerCase();
+        const aTitleMatch = aTitle.includes(q);
+        const bTitleMatch = bTitle.includes(q);
+        if (aTitleMatch && !bTitleMatch) return -1;
+        if (!aTitleMatch && bTitleMatch) return 1;
+
+        const aComp = (a.company_name || "").toLowerCase();
+        const bComp = (b.company_name || "").toLowerCase();
+        const aCompMatch = aComp.includes(q);
+        const bCompMatch = bComp.includes(q);
+        if (aCompMatch && !bCompMatch) return -1;
+        if (!aCompMatch && bCompMatch) return 1;
+      }
+
       if (sortParam === "date") {
         const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
         const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -866,14 +916,18 @@ export async function GET(request: Request) {
     }
 
     const finalJobs = finalCombined.slice(0, limit);
+    const hasMore = rawDbJobs.length >= limit && totalCount > to + 1;
+    const effectiveTotalCount = (page === 1 && rawDbJobs.length < limit)
+      ? finalCombined.length
+      : Math.max(totalCount, finalJobs.length);
 
     return NextResponse.json({
       success: true,
       jobs: finalJobs,
-      totalCount: Math.max(totalCount, finalJobs.length),
+      totalCount: effectiveTotalCount,
       page,
       limit,
-      hasMore: totalCount > to + 1,
+      hasMore,
       sourceBreakdown: {
         database: totalCount,
         ats: 0,
