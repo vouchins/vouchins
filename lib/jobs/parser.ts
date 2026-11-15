@@ -1,5 +1,5 @@
-import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
+import zlib from 'zlib';
 
 export interface ExtractionResult {
   rawText: string;
@@ -10,48 +10,125 @@ export interface ExtractionResult {
 }
 
 /**
- * Fallback parser to extract text strings from PDF streams if pdf-parse fails in restricted serverless runtimes.
+ * Robust pure JavaScript PDF text parser using pdfjs-dist legacy build.
+ * Does NOT require native C++ bindings (@napi-rs/canvas) or external workers,
+ * making it 100% resilient across serverless environments (Vercel, Netlify, Docker).
+ */
+async function parsePdfBuffer(buffer: Buffer): Promise<{ rawText: string; pageCount: number }> {
+  // Use new Function to guarantee native dynamic ESM import across all runtimes
+  // (prevents test runners and legacy CJS compilers from transpiling dynamic import to require)
+  const importEsm = new Function('specifier', 'return import(specifier)');
+  const pdfjs = await importEsm('pdfjs-dist/legacy/build/pdf.mjs');
+  const uint8Data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const loadingTask = pdfjs.getDocument({
+    data: uint8Data,
+    useSystemFonts: true,
+    disableFontFace: true,
+    verbosity: 0,
+  });
+
+  const doc = await loadingTask.promise;
+  const pageCount = doc.numPages;
+  const pagesText: string[] = [];
+
+  for (let i = 1; i <= pageCount; i++) {
+    const page = await doc.getPage(i);
+    const textContent = await page.getTextContent();
+    const items = textContent.items;
+
+    // Group items by vertical position (Y) to preserve natural line layout
+    const lines: string[] = [];
+    let currentY: number | null = null;
+    let currentLine: string[] = [];
+
+    for (const item of items) {
+      if (!('str' in item)) continue;
+      const str = item.str;
+      if (!str) continue;
+      const y = Math.round(item.transform[5]);
+      if (currentY === null || Math.abs(y - currentY) > 4) {
+        if (currentLine.length > 0) {
+          lines.push(currentLine.join(' ').trim());
+        }
+        currentY = y;
+        currentLine = [str];
+      } else {
+        currentLine.push(str);
+      }
+    }
+    if (currentLine.length > 0) {
+      lines.push(currentLine.join(' ').trim());
+    }
+    pagesText.push(lines.join('\n'));
+    page.cleanup();
+  }
+
+  await doc.destroy();
+  return {
+    rawText: pagesText.join('\n\n'),
+    pageCount,
+  };
+}
+
+/**
+ * Resilient fallback parser that decompresses FlateDecode (zlib) streams and extracts raw text
+ * if standard PDF parsing fails in restricted environments.
  */
 function extractPdfStreamText(buffer: Buffer): string {
   try {
-    const content = buffer.toString('latin1');
+    const content = buffer.toString('binary');
     const chunks: string[] = [];
-    
-    // Match text blocks inside BT (Begin Text) and ET (End Text)
-    const btEtRegex = /BT[\s\S]*?ET/g;
+
+    const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
     let match: RegExpExecArray | null;
-    
-    while ((match = btEtRegex.exec(content)) !== null) {
-      const block = match[0];
-      
-      // Match text strings inside parentheses followed by Tj, TJ, ', or "
-      const tjRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|'|")/g;
-      let tjMatch: RegExpExecArray | null;
-      while ((tjMatch = tjRegex.exec(block)) !== null) {
-        const clean = tjMatch[1]
-          .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
-          .replace(/\\(.)/g, '$1')
-          .trim();
-        if (clean) chunks.push(clean);
+
+    while ((match = streamRegex.exec(content)) !== null) {
+      const rawStream = Buffer.from(match[1], 'binary');
+      let decompressed: Buffer;
+      try {
+        decompressed = zlib.inflateSync(rawStream);
+      } catch {
+        try {
+          decompressed = zlib.inflateRawSync(rawStream);
+        } catch {
+          decompressed = rawStream;
+        }
       }
-      
-      // Match text arrays in TJ operators: [(str) 20 (str)] TJ
-      const arrayRegex = /\[([\s\S]*?)\]\s*TJ/g;
-      let arrMatch: RegExpExecArray | null;
-      while ((arrMatch = arrayRegex.exec(block)) !== null) {
-        const innerStr = arrMatch[1];
-        const innerRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)/g;
-        let sMatch: RegExpExecArray | null;
-        while ((sMatch = innerRegex.exec(innerStr)) !== null) {
-          const clean = sMatch[1]
-            .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
-            .replace(/\\(.)/g, '$1')
-            .trim();
-          if (clean) chunks.push(clean);
+
+      const streamText = decompressed.toString('latin1');
+      if (streamText.includes('BT') && streamText.includes('ET')) {
+        const btEtRegex = /BT[\s\S]*?ET/g;
+        let btMatch: RegExpExecArray | null;
+        while ((btMatch = btEtRegex.exec(streamText)) !== null) {
+          const block = btMatch[0];
+          const tjRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|'|")/g;
+          let tjMatch: RegExpExecArray | null;
+          while ((tjMatch = tjRegex.exec(block)) !== null) {
+            const clean = tjMatch[1]
+              .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+              .replace(/\\(.)/g, '$1')
+              .trim();
+            if (clean) chunks.push(clean);
+          }
+
+          const arrayRegex = /\[([\s\S]*?)\]\s*TJ/g;
+          let arrMatch: RegExpExecArray | null;
+          while ((arrMatch = arrayRegex.exec(block)) !== null) {
+            const innerStr = arrMatch[1];
+            const innerRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)/g;
+            let sMatch: RegExpExecArray | null;
+            while ((sMatch = innerRegex.exec(innerStr)) !== null) {
+              const clean = sMatch[1]
+                .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+                .replace(/\\(.)/g, '$1')
+                .trim();
+              if (clean) chunks.push(clean);
+            }
+          }
         }
       }
     }
-    
+
     return chunks.join(' ');
   } catch {
     return '';
@@ -91,17 +168,13 @@ export async function extractResumeText(
   } else {
     // Default to PDF parsing
     detectedFormat = 'pdf';
-    let parser: any;
     try {
-      const uint8Data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-      parser = new PDFParse({ data: uint8Data });
-      const data = await parser.getText();
-      rawText = data.text || '';
-      pageCount = data.total;
+      const parsed = await parsePdfBuffer(buffer);
+      rawText = parsed.rawText || '';
+      pageCount = parsed.pageCount;
     } catch (pdfErr: any) {
-      console.warn('[PDF Extraction Warning]: PDFParse failed, trying fallbacks...', pdfErr?.message);
-      
-      // Try fallback stream text extraction
+      console.warn('[PDF Extraction Warning]: parsePdfBuffer failed, trying stream fallbacks...', pdfErr?.message);
+
       const fallbackText = extractPdfStreamText(buffer);
       if (fallbackText && fallbackText.trim().length >= 50) {
         rawText = fallbackText;
@@ -116,18 +189,9 @@ export async function extractResumeText(
             throw pdfErr;
           }
         } catch {
-          // If still no text, throw friendly message
           throw new Error(
             'Failed to extract text from PDF document. Please ensure the file contains selectable text and is not an image-only scan or password-protected.'
           );
-        }
-      }
-    } finally {
-      if (parser && typeof parser.destroy === 'function') {
-        try {
-          await parser.destroy();
-        } catch {
-          // ignore cleanup errors
         }
       }
     }
@@ -142,6 +206,18 @@ export async function extractResumeText(
     .replace(/[\x00\u0000]/g, ' ')
     .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // remove non-printable control chars
     .replace(/\u00AD/g, '') // remove soft hyphens inserted by PDF typesetting
+    // Heal PDF kerning in phones (e.g. +1   ( 347 )   686 - 2993 -> +1 (347) 686-2993)
+    .replace(/\+\s*(\d{1,3})\s*\(\s*(\d{3})\s*\)\s*(\d{3})\s*-\s*(\d{4})/g, '+$1 ($2) $3-$4')
+    // Heal PDF kerning in email addresses (e.g. U mmufarwah .fm @gmail.com -> Ummufarwah.fm@gmail.com)
+    .replace(/\b([a-zA-Z0-9._%+-]+(?:\s+[a-zA-Z0-9._%+-]+)*)\s*@\s*([a-zA-Z0-9.\s-]+)\s*\.\s*([a-zA-Z]{2,})\b/g, (match, local, domain, tld) => {
+      return `${local.replace(/\s+/g, '')}@${domain.replace(/\s+/g, '')}.${tld}`;
+    })
+    // Heal PDF spacing before commas (e.g. "Jersey City ,   NJ" -> "Jersey City, NJ")
+    .replace(/\s+,\s*/g, ', ')
+    // Heal PDF kerning in common broken words
+    .replace(/\bPharmacis\s+t\b/gi, 'Pharmacist')
+    .replace(/\bdocumentatio\s+n\b/gi, 'documentation')
+    .replace(/\bi\s+nteractions?\b/gi, 'interactions')
     // Re-join words broken across line wraps (e.g. "ori-\nented" -> "oriented", "distrib-\nuted" -> "distributed")
     .replace(/(\b[a-zA-Z]{2,})-(?:[ \t]*\n[ \t]*|[ \t]+)([a-zA-Z]{2,}\b)/g, (match, prefix, suffix) => {
       const lowerSuffix = suffix.toLowerCase();

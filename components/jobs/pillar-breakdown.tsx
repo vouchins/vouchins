@@ -6,24 +6,46 @@ import { PillarScores } from '@/lib/jobs/types';
 
 interface PillarBreakdownProps {
   pillars: PillarScores;
+  targetRole?: string;
 }
 
-export function PillarBreakdown({ pillars }: PillarBreakdownProps) {
+export function PillarBreakdown({ pillars, targetRole }: PillarBreakdownProps) {
+  const roleText = (targetRole || '').toLowerCase();
+  const isTechRole =
+    !roleText.trim() ||
+    /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer)\b/i.test(
+      roleText
+    );
+  const isHealthcare =
+    /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory|healthcare|hospital|medical|nurse|nursing|doctor|physician)\b/i.test(
+      roleText
+    );
+
   const items = [
     {
       key: 'impact',
       label: 'Impact & Metrics',
       score: pillars.impact,
       icon: Target,
-      desc: 'Google XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]")',
+      desc: isHealthcare
+        ? 'Clinical XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]")'
+        : 'Google XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]")',
       barColor: 'bg-emerald-600',
     },
     {
       key: 'relevance',
-      label: 'Stack Relevance',
+      label: isHealthcare
+        ? 'Domain & Regulatory Alignment'
+        : isTechRole
+        ? 'Stack Relevance'
+        : 'Domain & Core Skills Alignment',
       score: pillars.relevance,
       icon: Layers,
-      desc: 'Modern tech stack alignment (TypeScript, Next.js, Distributed DBs, Caching)',
+      desc: isHealthcare
+        ? 'Clinical pharmacology, regulatory compliance (FDA/GCP), and patient care protocols'
+        : isTechRole
+        ? 'Modern tech stack alignment (TypeScript, Next.js, Distributed DBs, Caching)'
+        : 'Core industry competencies, business tools, and specialized expertise',
       barColor: 'bg-[#0A1B5C]',
     },
     {

@@ -41,12 +41,15 @@ export function EvaluationDashboard({
   const unappliedSuggestions = evaluation.suggestions.filter((s) => !s.applied);
   const unappliedCount = unappliedSuggestions.length;
 
+  const activeRole = experience?.[0]?.roleTitle || evaluation.targetRole;
+
   return (
     <div className="flex flex-col h-full bg-neutral-50/60 border-r border-neutral-200 overflow-y-auto p-4 sm:p-5 gap-6">
       {/* 1. Readiness Score Gauge */}
       <ScoreGauge
         score={evaluation.overallScore}
         seniority={evaluation.detectedSeniority}
+        targetRole={activeRole}
       />
 
       {/* 2. Detected Seniority & Strengths */}
@@ -56,7 +59,7 @@ export function EvaluationDashboard({
             Target Benchmark
           </span>
           <span className="text-xs font-bold text-[#0A1B5C]">
-            {experience?.[0]?.roleTitle || evaluation.targetRole}
+            {activeRole}
           </span>
         </div>
 
@@ -93,7 +96,7 @@ export function EvaluationDashboard({
       </div>
 
       {/* 3. Pillar Breakdown */}
-      <PillarBreakdown pillars={evaluation.pillarScores} />
+      <PillarBreakdown pillars={evaluation.pillarScores} targetRole={activeRole} />
 
       {/* 4. Actionable Suggestions Section */}
       <div className="flex flex-col gap-3">

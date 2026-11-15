@@ -12,6 +12,7 @@ export const ContactInfoSchema = z.object({
   linkedinUrl: z.string().optional().default(''),
   githubUrl: z.string().optional().default(''),
   portfolioUrl: z.string().optional().default(''),
+  leetcodeUrl: z.string().optional(),
 });
 
 export const WorkExperienceItemSchema = z.object({
@@ -198,6 +199,7 @@ export function createDefaultResumeDocument(partial?: Partial<ResumeDocument>): 
       linkedinUrl: '',
       githubUrl: '',
       portfolioUrl: '',
+      leetcodeUrl: '',
       ...(partial?.contact || {}),
     },
     summary: partial?.summary || '',

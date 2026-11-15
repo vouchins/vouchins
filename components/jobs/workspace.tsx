@@ -138,6 +138,8 @@ export function Workspace({
           pillarScores: calibratedPillars,
           suggestions: syncedSuggestions,
           strengths: initialEvaluation.strengths?.length ? initialEvaluation.strengths : fresh.strengths,
+          detectedSeniority: fresh.detectedSeniority,
+          targetRole: fresh.targetRole,
         });
       }
     } else if (initialEvaluation) {

@@ -6,6 +6,7 @@ import {
   DEFAULT_EXPORT_CONFIG,
   ResumeDateFormat,
 } from '@/lib/jobs/types';
+import { partitionResumePages, PaginatedRoleSegment } from '@/lib/jobs/pagination';
 
 /**
  * Format resume date strings based on selected user preference.
@@ -115,14 +116,62 @@ export function ResumePDFDocument({
   // Dynamic Stylesheet based on user configuration
   const dynamicStyles = StyleSheet.create({
     page: {
-      paddingTop: isCompact ? 24 : isStructured ? 26 : 36,
-      paddingBottom: isCompact ? 24 : isStructured ? 26 : 36,
-      paddingLeft: isCompact ? 28 : isStructured ? 30 : 36,
-      paddingRight: isCompact ? 28 : isStructured ? 30 : 36,
+      paddingTop: isCompact ? 24 : isStructured ? 26 : 30,
+      paddingBottom: isCompact ? 28 : isStructured ? 30 : 36,
+      paddingLeft: isCompact ? 28 : isStructured ? 30 : 32,
+      paddingRight: isCompact ? 28 : isStructured ? 30 : 32,
       fontFamily: fontRegular,
       fontSize: fontSizes.bodyText,
-      lineHeight: isCompact || isStructured ? 1.25 : 1.35,
+      lineHeight: isCompact || isStructured ? 1.25 : 1.32,
       color: '#111827',
+      position: 'relative',
+    },
+    pageContinuationHeader: {
+      borderBottomWidth: 0.75,
+      borderBottomColor: '#E5E7EB',
+      paddingBottom: isCompact ? 2 : 3,
+      marginBottom: isCompact ? 6 : 8,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    pageContinuationTitle: {
+      fontSize: fontSizes.bodyText * 0.75,
+      fontFamily: fontBold,
+      color: headingColor,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    pageContinuationNumber: {
+      fontSize: fontSizes.bodyText * 0.75,
+      color: '#9CA3AF',
+    },
+    continuedRoleHeader: {
+      borderBottomWidth: 0.5,
+      borderBottomColor: '#F3F4F6',
+      paddingBottom: 2,
+      marginBottom: 3,
+    },
+    continuedRoleTitle: {
+      fontSize: fontSizes.bodyText * 0.9,
+      fontFamily: fontBold,
+      color: '#374151',
+    },
+    footer: {
+      position: 'absolute',
+      bottom: isCompact ? 12 : 16,
+      left: isCompact ? 28 : isStructured ? 30 : 32,
+      right: isCompact ? 28 : isStructured ? 30 : 32,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderTopWidth: 0.5,
+      borderTopColor: '#E5E7EB',
+      paddingTop: 3,
+    },
+    footerText: {
+      fontSize: 8,
+      color: '#9CA3AF',
     },
     header: {
       borderBottomWidth: 1,
@@ -228,19 +277,19 @@ export function ResumePDFDocument({
       lineHeight: isCompact || isStructured ? 1.25 : 1.32,
       color: '#1F2937',
     },
-    skillRow: {
-      flexDirection: 'row',
+    skillLine: {
+      fontSize: fontSizes.bodyText * 0.9,
+      lineHeight: isCompact || isStructured ? 1.18 : 1.24,
       marginBottom: isCompact ? 1.5 : 2.5,
     },
     skillCategory: {
-      width: 125,
       fontSize: fontSizes.bodyText * 0.9,
       fontFamily: fontBold,
       color: '#111827',
     },
     skillItems: {
-      flex: 1,
       fontSize: fontSizes.bodyText * 0.88,
+      fontFamily: fontRegular,
       color: '#374151',
     },
     structuredSkillGroup: {
@@ -319,6 +368,12 @@ export function ResumePDFDocument({
     document.contact.githubUrl
       ? document.contact.githubUrl.replace(/^https?:\/\//, '')
       : '',
+    document.contact.leetcodeUrl
+      ? document.contact.leetcodeUrl.replace(/^https?:\/\//, '')
+      : '',
+    document.contact.portfolioUrl
+      ? document.contact.portfolioUrl.replace(/^https?:\/\//, '')
+      : '',
   ].filter(Boolean);
 
   // Common Sections: Summary, Experience, Skills, Education, Projects
@@ -342,40 +397,58 @@ export function ResumePDFDocument({
               </View>
             ))
           : document.skills.map((skillGroup, idx) => (
-              <View key={idx} style={dynamicStyles.skillRow}>
-                <Text style={dynamicStyles.skillCategory}>{skillGroup.category}:</Text>
+              <Text key={idx} style={dynamicStyles.skillLine}>
+                <Text style={dynamicStyles.skillCategory}>{skillGroup.category}: </Text>
                 <Text style={dynamicStyles.skillItems}>{skillGroup.items.join(', ')}</Text>
-              </View>
+              </Text>
             ))}
       </View>
     ) : null;
 
-  const renderExperienceSection = () =>
-    document.experience && document.experience.length > 0 ? (
+  const renderExperienceSection = (roles: PaginatedRoleSegment[], isContinuationPage = false) =>
+    roles && roles.length > 0 ? (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Work Experience</Text>
-        {document.experience.map((role, roleIdx) => (
-          <View key={roleIdx} style={dynamicStyles.roleContainer} wrap={false}>
-            <View style={dynamicStyles.roleHeader}>
-              <View style={dynamicStyles.roleTitleContainer}>
-                <Text style={dynamicStyles.roleTitle}>
-                  {role.roleTitle}{' '}
-                  <Text style={dynamicStyles.companyName}>• {role.company}</Text>
-                </Text>
-              </View>
-              <Text style={dynamicStyles.dateLocation}>
-                {formatDateRange(role.startDate, role.endDate, dateFormat)}{' '}
-                {role.location ? `| ${role.location}` : ''}
-              </Text>
+        <Text style={dynamicStyles.sectionTitle}>
+          Work Experience {isContinuationPage ? '(Continued)' : ''}
+        </Text>
+        {roles.map((roleSegment, idx) => {
+          const { role, bulletStartIndex = 0, bulletEndIndex, isContinuation } = roleSegment;
+          const bulletsToRender = role.bullets.slice(
+            bulletStartIndex,
+            bulletEndIndex !== undefined ? bulletEndIndex : role.bullets.length
+          );
+
+          return (
+            <View key={idx} style={dynamicStyles.roleContainer}>
+              {isContinuation ? (
+                <View style={dynamicStyles.continuedRoleHeader}>
+                  <Text style={dynamicStyles.continuedRoleTitle}>
+                    {role.roleTitle} • {role.company} (Continued)
+                  </Text>
+                </View>
+              ) : (
+                <View style={dynamicStyles.roleHeader} wrap={false}>
+                  <View style={dynamicStyles.roleTitleContainer}>
+                    <Text style={dynamicStyles.roleTitle}>
+                      {role.roleTitle}{' '}
+                      <Text style={dynamicStyles.companyName}>• {role.company}</Text>
+                    </Text>
+                  </View>
+                  <Text style={dynamicStyles.dateLocation}>
+                    {formatDateRange(role.startDate, role.endDate, dateFormat)}{' '}
+                    {role.location ? `| ${role.location}` : ''}
+                  </Text>
+                </View>
+              )}
+              {bulletsToRender.map((bullet, bulletIdx) => (
+                <View key={bulletIdx} style={dynamicStyles.bulletRow} wrap={false}>
+                  <Text style={dynamicStyles.bulletPoint}>{bulletStyle}</Text>
+                  <Text style={dynamicStyles.bulletText}>{bullet}</Text>
+                </View>
+              ))}
             </View>
-            {role.bullets.map((bullet, bulletIdx) => (
-              <View key={bulletIdx} style={dynamicStyles.bulletRow}>
-                <Text style={dynamicStyles.bulletPoint}>{bulletStyle}</Text>
-                <Text style={dynamicStyles.bulletText}>{bullet}</Text>
-              </View>
-            ))}
-          </View>
-        ))}
+          );
+        })}
       </View>
     ) : null;
 
@@ -394,7 +467,10 @@ export function ResumePDFDocument({
                 <Text style={dynamicStyles.structuredEduInstitution}>{edu.institution}</Text>
                 <Text style={dynamicStyles.structuredEduDegree}>
                   {edu.degree}
-                  {edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : ''}
+                  {edu.fieldOfStudy &&
+                  !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
+                    ? ` in ${edu.fieldOfStudy}`
+                    : ''}
                   {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
                 </Text>
                 {edu.endDate ? (
@@ -413,7 +489,10 @@ export function ResumePDFDocument({
                 </View>
                 <Text style={dynamicStyles.eduDegree}>
                   {edu.degree}
-                  {edu.fieldOfStudy ? ` in ${edu.fieldOfStudy}` : ''}
+                  {edu.fieldOfStudy &&
+                  !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
+                    ? ` in ${edu.fieldOfStudy}`
+                    : ''}
                   {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
                 </Text>
               </>
@@ -428,8 +507,8 @@ export function ResumePDFDocument({
       <View style={dynamicStyles.section}>
         <Text style={dynamicStyles.sectionTitle}>Key Technical Projects</Text>
         {document.projects.map((proj, projIdx) => (
-          <View key={projIdx} style={dynamicStyles.roleContainer} wrap={false}>
-            <View style={dynamicStyles.roleHeader}>
+          <View key={projIdx} style={dynamicStyles.roleContainer}>
+            <View style={dynamicStyles.roleHeader} wrap={false}>
               <View style={dynamicStyles.roleTitleContainer}>
                 <Text style={dynamicStyles.roleTitle}>{proj.title}</Text>
               </View>
@@ -440,7 +519,7 @@ export function ResumePDFDocument({
               )}
             </View>
             {proj.bullets.map((b, bIdx) => (
-              <View key={bIdx} style={dynamicStyles.bulletRow}>
+              <View key={bIdx} style={dynamicStyles.bulletRow} wrap={false}>
                 <Text style={dynamicStyles.bulletPoint}>{bulletStyle}</Text>
                 <Text style={dynamicStyles.bulletText}>{b}</Text>
               </View>
@@ -450,47 +529,84 @@ export function ResumePDFDocument({
       </View>
     ) : null;
 
+  const pages = partitionResumePages(document, pageSize);
+
   return (
     <Document title={`${document.contact.fullName || 'Candidate'} - Resume`}>
-      <Page size={pageSize} style={dynamicStyles.page}>
-        {/* Header Block */}
-        <View style={dynamicStyles.header}>
-          <Text style={dynamicStyles.fullName}>
-            {document.contact.fullName || 'Candidate Profile'}
-          </Text>
-          <View style={dynamicStyles.contactLine}>
-            {contactParts.map((part, idx) => (
-              <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                {idx > 0 && <Text style={dynamicStyles.contactSeparator}>•</Text>}
-                <Text style={dynamicStyles.contactItem}>{part}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
+      {pages.map((page, pageIdx) => (
+        <Page key={pageIdx} size={pageSize} style={dynamicStyles.page}>
+          {/* Page Continuation Header (Page 2+) */}
+          {pageIdx > 0 && (
+            <View style={dynamicStyles.pageContinuationHeader}>
+              <Text style={dynamicStyles.pageContinuationTitle}>
+                {document.contact.fullName || 'Candidate'} -{' '}
+                {page.roles.length > 0 && page.showEducation
+                  ? 'Professional Experience & Education (Continued)'
+                  : page.roles.length > 0
+                  ? 'Professional Experience (Continued)'
+                  : page.showEducation && page.showProjects
+                  ? 'Education & Technical Projects'
+                  : page.showProjects
+                  ? 'Key Technical Projects & Research'
+                  : 'Education (Continued)'}
+              </Text>
+              <Text style={dynamicStyles.pageContinuationNumber}>
+                Page {pageIdx + 1}
+              </Text>
+            </View>
+          )}
 
-        {/* Structured (2-Column) vs Linear Templates */}
-        {isStructured ? (
-          <View style={dynamicStyles.structuredColumns}>
-            <View style={dynamicStyles.structuredMainCol}>
-              {renderSummarySection()}
-              {renderExperienceSection()}
-              {renderProjectsSection()}
+          {/* Header Block (Page 1) */}
+          {page.showContact && (
+            <View style={dynamicStyles.header}>
+              <Text style={dynamicStyles.fullName}>
+                {document.contact.fullName || 'Candidate Profile'}
+              </Text>
+              <View style={dynamicStyles.contactLine}>
+                {contactParts.map((part, idx) => (
+                  <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {idx > 0 && <Text style={dynamicStyles.contactSeparator}>•</Text>}
+                    <Text style={dynamicStyles.contactItem}>{part}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
-            <View style={dynamicStyles.structuredSideCol}>
-              {renderSkillsSection()}
-              {renderEducationSection()}
+          )}
+
+          {/* Structured (2-Column) vs Linear Templates */}
+          {isStructured ? (
+            <View style={dynamicStyles.structuredColumns}>
+              <View style={dynamicStyles.structuredMainCol}>
+                {page.showSummary && renderSummarySection()}
+                {page.roles.length > 0 && renderExperienceSection(page.roles, pageIdx > 0)}
+                {page.showProjects && renderProjectsSection()}
+              </View>
+              <View style={dynamicStyles.structuredSideCol}>
+                {page.showSkills && renderSkillsSection()}
+                {page.showEducation && renderEducationSection()}
+              </View>
             </View>
+          ) : (
+            <>
+              {page.showSummary && renderSummarySection()}
+              {page.showSkills && renderSkillsSection()}
+              {page.roles.length > 0 && renderExperienceSection(page.roles, pageIdx > 0)}
+              {page.showEducation && renderEducationSection()}
+              {page.showProjects && renderProjectsSection()}
+            </>
+          )}
+
+          {/* Authentic Document Page Footer */}
+          <View style={dynamicStyles.footer} fixed>
+            <Text style={dynamicStyles.footerText}>
+              {document.contact.fullName || 'Candidate'} - Resume
+            </Text>
+            <Text style={dynamicStyles.footerText}>
+              Page {pageIdx + 1} of {pages.length}
+            </Text>
           </View>
-        ) : (
-          <>
-            {renderSummarySection()}
-            {renderSkillsSection()}
-            {renderExperienceSection()}
-            {renderEducationSection()}
-            {renderProjectsSection()}
-          </>
-        )}
-      </Page>
+        </Page>
+      ))}
     </Document>
   );
 }

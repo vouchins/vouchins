@@ -8,14 +8,47 @@ import {
 } from './types';
 import { isValidGeographicLocation } from './ats-client';
 
+export type ResumeDomain = 'tech' | 'healthcare' | 'business' | 'general';
+
+export function detectResumeDomain(corpus: string, doc?: ResumeDocument | null): ResumeDomain {
+  const latestTitle = (doc?.experience?.[0]?.roleTitle || '').toLowerCase();
+  const summary = (doc?.summary || '').toLowerCase();
+  const skills = (doc?.skills || []).flatMap((s) => s.items).join(' ').toLowerCase();
+  const education = (doc?.education || []).map((e) => `${e.degree || ''} ${e.fieldOfStudy || ''}`).join(' ').toLowerCase();
+  const combined = `${latestTitle} ${summary} ${skills} ${education} ${corpus}`.toLowerCase();
+
+  // Healthcare / Clinical / Pharma / Regulatory / Medicine / Nursing
+  const healthcareHits = (combined.match(/\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory affairs|healthcare|hospital|medical|patient|physician|nurse|nursing|doctor|biotech|pharmacology|pharmacokinetics|pharmacodynamics|pharmacovigilance|fda|gcp|ind|nda|meddra|ehr|emr|therapeutics|toxicology|dosage|medication)\b/gi) || []).length;
+
+  // Tech / Software Engineering / IT / Data Science
+  const techHits = (combined.match(/\b(software|developer|engineer|sde|frontend|backend|fullstack|web|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer|qa|tester|microservices|kubernetes|docker|react|typescript|python|java|c\+\+|node\.js)\b/gi) || []).length;
+
+  // Business / Finance / Marketing / Sales / HR
+  const businessHits = (combined.match(/\b(accountant|accounting|finance|financial|auditor|audit|marketing|sales|business analyst|human resources|recruiter|operations manager|legal|compliance officer)\b/gi) || []).length;
+
+  if (healthcareHits >= 2 || /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory affairs|patient care|nurse|physician|hospital)\b/i.test(latestTitle)) {
+    return 'healthcare';
+  }
+
+  if (techHits >= 2 || /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning)\b/i.test(latestTitle)) {
+    return 'tech';
+  }
+
+  if (businessHits >= 2 || /\b(accountant|finance|auditor|marketing|sales|hr|operations)\b/i.test(latestTitle)) {
+    return 'business';
+  }
+
+  return 'general';
+}
+
 // Metric detection patterns for Google XYZ formula (stateless regexes without g flag)
 const METRIC_PATTERNS = [
   /\b\d+(\.\d+)?%/, // Percentages: 45%, 99.9%
-  /\b\d+\s*(ms|milliseconds|seconds|min|mins|hours)\b/i, // Latency / Time
+  /\b\d+\s*(ms|milliseconds|seconds|min|mins|hours|days|weeks)\b/i, // Latency / Time
   /\b\d+[kM]?\s*(rps|qps|req\/s|tps)\b/i, // Throughput
   /\b\d+\s*(PB|TB|GB|MB)\b/i, // Data scale
   /\b\$\d+[\d,]*(\.\d+)?[kKmMbB]?\b/i, // Financials ($100k, $2.5M)
-  /\b\d+[kKmMbB]?\+?\s*([a-zA-Z-]+\s+)?(users|clients|customers|subscribers|tenants|engineers|microservices|nodes|queries|events|vulnerabilities|accounts|endpoints)\b/i, // Volume scale e.g. 500k+ mobile users, 30+ critical vulnerabilities
+  /\b\d+[kKmMbB]?\+?\s*([a-zA-Z-]+\s+)?(users|clients|customers|subscribers|tenants|engineers|microservices|nodes|queries|events|vulnerabilities|accounts|endpoints|patients|cases|records|consultations|profiles|regimens|protocols|trials|samples|audits)\b/i, // Volume scale e.g. 500k+ mobile users, 30+ critical vulnerabilities, 350+ patient records
   /\b\d+(\.\d+)?-star\b/i, // App rating e.g. 4.8-star
   /\b(reduced|reducing|improved|improving|increased|increasing|boosted|boosting|accelerated|accelerating|slashed|slashing|doubled|tripled|streamlined|streamlining|expanded|expanding|scaled|scaling)\b/i,
 ];
@@ -35,6 +68,12 @@ const MODERN_TECH_TAXONOMY = {
   distributedBackends: ['node.js', 'nodejs', 'postgresql', 'postgres', 'redis', 'kafka', 'grpc', 'graphql', 'rest', 'api', 'mongodb', 'prisma', 'express'],
   infraAndCloud: ['aws', 'gcp', 'azure', 'docker', 'kubernetes', 'k8s', 'terraform', 'ci/cd', 'datadog', 'prometheus', 'git', 'github'],
   engineeringPractices: ['system design', 'microservices', 'caching', 'concurrency', 'unit testing', 'observability', 'zero downtime', 'accessibility', 'a11y', 'performance', 'responsive'],
+};
+
+const HEALTHCARE_TAXONOMY = {
+  regulatoryAndCompliance: ['fda', 'gcp', 'gmp', 'ich', 'ind', 'nda', 'regulatory affairs', 'compliance', 'audit', 'pharmacovigilance', 'rems'],
+  clinicalAndPharma: ['pharmacology', 'pharmacokinetics', 'pharmacodynamics', 'clinical trials', 'drug safety', 'patient care', 'medication therapy', 'drug interaction', 'therapeutic monitoring', 'ehr', 'emr', 'clinical research', 'patient outcome'],
+  documentationAndPractices: ['clinical documentation', 'sop', 'data integrity', 'healthcare operations', 'cross-functional', 'meddra', 'who-drug', 'adverse drug'],
 };
 
 /**
@@ -70,6 +109,9 @@ export function evaluateResumeHeuristically(
     experienceText
   ).toLowerCase();
 
+  const domain = detectResumeDomain(textCorpus, doc);
+  const isHealthcare = domain === 'healthcare';
+
   let totalBullets = 0;
   let metricRichBullets = 0;
   let weakVerbCount = 0;
@@ -79,17 +121,17 @@ export function evaluateResumeHeuristically(
     const bulletsList = Array.isArray(role?.bullets) ? role.bullets : [];
     bulletsList.forEach((rawBullet, bulletIndex) => {
       totalBullets++;
-      const bullet = sanitizeBulletText(rawBullet);
+      const bullet = sanitizeBulletText(rawBullet, domain);
       const hasMetric = METRIC_PATTERNS.some((pattern) => pattern.test(bullet));
       if (hasMetric) metricRichBullets++;
 
       // Check weak verbs
       let foundWeak = false;
-      for (const { regex, strong } of WEAK_VERB_PATTERNS) {
+      for (const { regex } of WEAK_VERB_PATTERNS) {
         if (regex.test(bullet)) {
           foundWeak = true;
           weakVerbCount++;
-          const rewrite = generateXYZRewrite(bullet, role.roleTitle);
+          const rewrite = generateXYZRewrite(bullet, role.roleTitle, domain);
           if (rewrite && rewrite !== bullet && suggestions.length < 20) {
             suggestions.push({
               id: `sug-impact-${roleIndex}-${bulletIndex}`,
@@ -99,7 +141,9 @@ export function evaluateResumeHeuristically(
               severity: 'critical',
               originalText: bullet,
               suggestedRewrite: rewrite,
-              rationale: `Replaced passive phrasing with the Google XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]") to emphasize concrete business impact for top-tier tech recruiters.`,
+              rationale: isHealthcare
+                ? `Replaced passive phrasing with the Google XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]") to emphasize clinical impact, patient safety, and regulatory compliance.`
+                : `Replaced passive phrasing with the Google XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]") to emphasize concrete business impact for top-tier recruiters.`,
               applied: false,
             });
           }
@@ -110,7 +154,7 @@ export function evaluateResumeHeuristically(
       // If no metric found and not already flagged for weak verb
       let hasMetricSuggestion = false;
       if (!hasMetric && !foundWeak && suggestions.length < 20) {
-        const rewrite = injectQuantifiableMetrics(bullet);
+        const rewrite = injectQuantifiableMetrics(bullet, domain);
         if (rewrite && rewrite !== bullet) {
           suggestions.push({
             id: `sug-metric-${roleIndex}-${bulletIndex}`,
@@ -120,7 +164,9 @@ export function evaluateResumeHeuristically(
             severity: 'recommended',
             originalText: bullet,
             suggestedRewrite: rewrite,
-            rationale: `Lacks measurable metrics. Top-tier engineering bars (Google, Meta, Uber) look for quantifiable scope (e.g. % latency improvement, user scale, or throughput).`,
+            rationale: isHealthcare
+              ? `Lacks measurable metrics. Top clinical and healthcare employers look for quantifiable patient care scope, adverse event mitigation, or regulatory compliance rates.`
+              : `Lacks measurable metrics. Top-tier engineering bars (Google, Meta, Uber) look for quantifiable scope (e.g. % latency improvement, user scale, or throughput).`,
             applied: false,
           });
           hasMetricSuggestion = true;
@@ -159,24 +205,39 @@ export function evaluateResumeHeuristically(
     : 60;
   const impactScore = Math.min(100, Math.max(30, rawImpact));
 
-  // Keyword relevance check
-  const allKeywords = [
-    ...MODERN_TECH_TAXONOMY.tier1Languages,
-    ...MODERN_TECH_TAXONOMY.modernFrontend,
-    ...MODERN_TECH_TAXONOMY.distributedBackends,
-    ...MODERN_TECH_TAXONOMY.infraAndCloud,
-    ...MODERN_TECH_TAXONOMY.engineeringPractices,
-  ];
+  // Keyword relevance check (domain-aware)
+  const allKeywords = isHealthcare
+    ? [
+        ...HEALTHCARE_TAXONOMY.regulatoryAndCompliance,
+        ...HEALTHCARE_TAXONOMY.clinicalAndPharma,
+        ...HEALTHCARE_TAXONOMY.documentationAndPractices,
+      ]
+    : [
+        ...MODERN_TECH_TAXONOMY.tier1Languages,
+        ...MODERN_TECH_TAXONOMY.modernFrontend,
+        ...MODERN_TECH_TAXONOMY.distributedBackends,
+        ...MODERN_TECH_TAXONOMY.infraAndCloud,
+        ...MODERN_TECH_TAXONOMY.engineeringPractices,
+      ];
 
   const matchedKeywords = allKeywords.filter((kw) => textCorpus.includes(kw));
-  const missingKeywords = [
-    'TypeScript',
-    'Next.js / SSR',
-    'System Design & Microservices',
-    'Distributed Caching (Redis)',
-    'Observability & Metrics',
-    'Zero-Downtime CI/CD',
-  ].filter((kw) => !textCorpus.includes(kw.toLowerCase().split(' ')[0]));
+  const missingKeywords = isHealthcare
+    ? [
+        'FDA / GCP Compliance',
+        'IND / NDA Submissions',
+        'Pharmacovigilance (PV) Protocols',
+        'Medication Therapy Management (MTM)',
+        'Clinical Trial Data Integrity',
+        'Electronic Health Records (EHR)',
+      ].filter((kw) => !textCorpus.includes(kw.toLowerCase().split(' ')[0]))
+    : [
+        'TypeScript',
+        'Next.js / SSR',
+        'System Design & Microservices',
+        'Distributed Caching (Redis)',
+        'Observability & Metrics',
+        'Zero-Downtime CI/CD',
+      ].filter((kw) => !textCorpus.includes(kw.toLowerCase().split(' ')[0]));
 
   const relevanceRatio = matchedKeywords.length / Math.min(18, allKeywords.length);
   const relevanceScore = Math.min(100, Math.max(40, Math.round(relevanceRatio * 90 + 10)));
@@ -194,11 +255,27 @@ export function evaluateResumeHeuristically(
 
   const strengths: string[] = [];
   if (impactScore >= 75) strengths.push('Strong quantitative impact with measurable metric framing');
-  if (relevanceScore >= 75) strengths.push('Modern tech stack alignment with current distributed architectures');
+  if (relevanceScore >= 75) {
+    strengths.push(
+      isHealthcare
+        ? 'High alignment with clinical pharmacy and regulatory compliance standards'
+        : 'Modern tech stack alignment with current distributed architectures'
+    );
+  }
   if (brevityScore >= 80) strengths.push('High-density, ATS-optimized layout with concise bullet cadence');
-  if (experienceList.length >= 3) strengths.push('Demonstrated progression across multiple production software roles');
+  if (experienceList.length >= 3) {
+    strengths.push(
+      isHealthcare
+        ? 'Demonstrated clinical and healthcare progression across multiple roles'
+        : 'Demonstrated progression across multiple production software roles'
+    );
+  }
   if (experienceList.length === 0 && (doc.projects?.length || 0) >= 2) {
-    strengths.push('Strong portfolio of technical projects demonstrating hands-on engineering capabilities');
+    strengths.push(
+      isHealthcare
+        ? 'Strong portfolio of research projects and clinical studies demonstrating domain mastery'
+        : 'Strong portfolio of technical projects demonstrating hands-on engineering capabilities'
+    );
   }
   if (strengths.length === 0) strengths.push('Solid core foundation with clear opportunities for metric enhancement');
 
@@ -208,7 +285,9 @@ export function evaluateResumeHeuristically(
     primarySkills: matchedKeywords.slice(0, 6).map((k) => k.charAt(0).toUpperCase() + k.slice(1)),
     secondarySkills: matchedKeywords.slice(6, 12).map((k) => k.charAt(0).toUpperCase() + k.slice(1)),
     estimatedYearsExperience: estimateYears(doc),
-    targetCompanyTier: ['Tier 1 Tech (Google / Meta / Uber / Amazon)', 'High-Growth Tech Unicorns'],
+    targetCompanyTier: isHealthcare
+      ? ['Top Academic Medical Centers & Hospitals', 'Global Pharmaceutical & Biotech Leaders', 'Clinical Research Organizations (CROs)']
+      : ['Tier 1 Tech (Google / Meta / Uber / Amazon)', 'High-Growth Tech Unicorns'],
     preferredLocations: ['Remote', 'San Francisco, CA', 'New York, NY', 'Bangalore, India', 'Hyderabad, India'],
   };
 
@@ -238,11 +317,25 @@ export function evaluateResumeHeuristically(
  * Sanitizes a bullet text by deduplicating repeating suffixes or fragments
  * caused by multiple heuristic rewrite applications.
  */
-export function sanitizeBulletText(bullet: string): string {
+export function sanitizeBulletText(bullet: string, domain?: ResumeDomain | any): string {
   if (!bullet) return '';
   let text = bullet.trim();
   // Remove broken fragments like ", expan," or ", expan"
   text = text.replace(/,\s*expan\b/gi, '');
+
+  const activeDomain = typeof domain === 'string' ? (domain as ResumeDomain) : undefined;
+
+  // If in healthcare domain, remove mismatched tech phrase fragments
+  if (activeDomain === 'healthcare') {
+    text = text
+      .replace(/,\s*expanding active user adoption to 500k\+ mobile users with a 4\.8-star app store rating[.]?/gi, '.')
+      .replace(/,\s*cutting query compute latency by 40% and processing 500k\+ events daily[.]?/gi, '.')
+      .replace(/,\s*improving system delivery efficiency by 30% across production workloads[.]?/gi, '.')
+      .replace(/,\s*reducing API response latency by 32% and supporting 1\.2M\+ active daily requests[.]?/gi, '.')
+      .replace(/,\s*boosting page performance scores by 35% and accelerating user task completion by 22%[.]?/gi, '.')
+      .replace(/,\s*boosting automated test coverage from 60% to 92% and preventing regression bugs[.]?/gi, '.')
+      .replace(/,\s*remediating 30\+ critical vulnerabilities and achieving 100% security compliance[.]?/gi, '.');
+  }
 
   const repeatingPhrases = [
     'expanding active user adoption to 500k+ mobile users with a 4.8-star app store rating',
@@ -255,6 +348,11 @@ export function sanitizeBulletText(bullet: string): string {
     'boosting page performance scores by 35% and accelerating user task completion by 22%',
     'cutting query compute latency by 40% and processing 500k+ events daily',
     'improving operational throughput by 28% and eliminating production blockers across teams',
+    'optimizing medication counseling protocols and improving patient therapy adherence rates by 28% across 350+ consultations',
+    'reducing adverse drug event (ADE) risk exposure by 24% and maintaining 100% compliance with pharmacovigilance safety standards',
+    'analyzing clinical outcome metrics across 300+ patient data records with 99.4% data integrity and audit readiness',
+    'accelerating regulatory documentation review timelines by 32% while ensuring 100% audit compliance under FDA/GCP guidelines',
+    'improving clinical workflow efficiency by 25% and eliminating documentation discrepancies across multidisciplinary teams',
   ];
 
   for (const phrase of repeatingPhrases) {
@@ -291,23 +389,40 @@ export function sanitizeBulletText(bullet: string): string {
   return text;
 }
 
-function generateXYZRewrite(bullet: string, roleTitle: string): string {
-  const cleaned = sanitizeBulletText(bullet)
+function generateXYZRewrite(bullet: string, roleTitle: string, domain: ResumeDomain = 'tech'): string {
+  const cleaned = sanitizeBulletText(bullet, domain)
     .replace(/^[-•*]\s*/, '')
     .replace(/^(worked on|helped with|assisted with|responsible for|tasked with|participated in|handled)\s+/i, '')
     .replace(/[.,;]+$/, '')
     .trim();
 
   // Guard against appending if already enriched with outcomes
-  if (/reducing API response latency|boosting page performance|cutting query compute latency|improving operational throughput|improving system delivery efficiency|expanding active user adoption/i.test(cleaned)) {
+  if (/reducing API response latency|boosting page performance|cutting query compute latency|improving operational throughput|improving system delivery efficiency|expanding active user adoption|improving patient therapy adherence|reducing adverse drug event|analyzing clinical outcome metrics|accelerating regulatory documentation|improving clinical workflow efficiency/i.test(cleaned)) {
     return cleaned;
   }
 
+  if (domain === 'healthcare') {
+    if (/patient|counsel|consult|prescri|therap/i.test(cleaned)) {
+      return `${cleaned}, optimizing medication counseling protocols and improving patient therapy adherence rates by 28% across 350+ consultations.`;
+    }
+    if (/safety|adverse|pharmacovigilance|monitoring|toxic/i.test(cleaned)) {
+      return `${cleaned}, reducing adverse drug event (ADE) risk exposure by 24% and maintaining 100% compliance with pharmacovigilance safety standards.`;
+    }
+    if (/trial|study|research|data|analysis|protocol|outcome/i.test(cleaned)) {
+      return `${cleaned}, analyzing clinical outcome metrics across 300+ patient data records with 99.4% data integrity and audit readiness.`;
+    }
+    if (/regulatory|compliance|gcp|fda|document|ind|nda|sop/i.test(cleaned)) {
+      return `${cleaned}, accelerating regulatory documentation review timelines by 32% while ensuring 100% audit compliance under FDA/GCP guidelines.`;
+    }
+    return `${cleaned}, improving clinical workflow efficiency by 25% and eliminating documentation discrepancies across multidisciplinary teams.`;
+  }
+
+  // Tech domain
   if (/api|service|backend|server|commerce/i.test(cleaned)) {
     return `${cleaned}, reducing API response latency by 32% and supporting 1.2M+ active daily requests.`;
   }
 
-  if (/ui|frontend|component|page|react|storefront|web/i.test(cleaned)) {
+  if (/ui|frontend|component|page|react|storefront|web\b/i.test(cleaned)) {
     return `${cleaned}, boosting page performance scores by 35% and accelerating user task completion by 22%.`;
   }
 
@@ -318,19 +433,36 @@ function generateXYZRewrite(bullet: string, roleTitle: string): string {
   return `${cleaned}, improving operational throughput by 28% and eliminating production blockers across teams.`;
 }
 
-function injectQuantifiableMetrics(bullet: string): string {
-  const clean = sanitizeBulletText(bullet).replace(/^[-•*]\s*/, '').replace(/[.,;]+$/, '').trim();
+function injectQuantifiableMetrics(bullet: string, domain: ResumeDomain = 'tech'): string {
+  const clean = sanitizeBulletText(bullet, domain).replace(/^[-•*]\s*/, '').replace(/[.,;]+$/, '').trim();
 
   // Guard against duplicate metric injection
-  if (/500k\+|4\.8-star|user adoption|vulnerabilities|compliance|automated test coverage|delivery efficiency|boosted|reduced|accelerated/i.test(clean)) {
+  if (/500k\+|4\.8-star|user adoption|vulnerabilities|compliance|automated test coverage|delivery efficiency|boosted|reduced|accelerated|patient safety|medication adherence|documentation accuracy|inspection readiness|workflow throughput/i.test(clean)) {
     return clean;
   }
 
+  if (domain === 'healthcare') {
+    if (/safety|adverse|pharmacovigilance|risk|interaction/i.test(clean)) {
+      return `${clean}, identifying and mitigating 40+ drug interaction risks to achieve 100% patient safety compliance.`;
+    }
+    if (/patient|counsel|therapy|care|dispens|medicat/i.test(clean)) {
+      return `${clean}, supporting 250+ patient therapy regimens and elevating medication adherence by 26%.`;
+    }
+    if (/trial|research|data|study|evaluat|outcome/i.test(clean)) {
+      return `${clean}, evaluating clinical data across 200+ patient profiles with 99% documentation accuracy.`;
+    }
+    if (/regulatory|gcp|audit|fda|review|document/i.test(clean)) {
+      return `${clean}, achieving 100% regulatory inspection readiness across active clinical study files.`;
+    }
+    return `${clean}, boosting clinical review throughput by 30% while maintaining strict data integrity.`;
+  }
+
+  // Tech domain
   if (/security|vulnerability|compliance|librar/i.test(clean)) {
     return `${clean}, remediating 30+ critical vulnerabilities and achieving 100% security compliance.`;
   }
 
-  if (/mobile|app|store/i.test(clean)) {
+  if (/\b(mobile|ios|android)\b|\bapp\s+(store|download|install|user)/i.test(clean)) {
     return `${clean}, expanding active user adoption to 500k+ mobile users with a 4.8-star app store rating.`;
   }
 
@@ -422,112 +554,151 @@ export function detectSeniority(
   const latestTitle = rawLatestTitle.trim().toLowerCase();
   const expYears = parseExperienceYears(doc);
 
-  // 1. Evaluate candidate's latest work title if present
-  if (latestTitle) {
-    // L1: Associate, Junior, Fresher, SDE-1, Graduate Engineer Trainee (0 yrs freshers)
-    if (
-      /\b(associate|junior|jr\.?|fresher|sde[-_ ]?1\b|sde[-_ ]?i\b|graduate engineer trainee|graduate trainee|engineer trainee|grad|entry)\b/i.test(latestTitle) ||
-      /\b(l1|ic1)\b/i.test(latestTitle)
-    ) {
-      return 'Associate Software Engineer (L1)';
-    }
+  const domain = doc ? detectResumeDomain(corpus, doc) : 'general';
+  const isTechDomain =
+    domain === 'tech' ||
+    /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer)\b/i.test(
+      `${latestTitle} ${corpus}`
+    );
 
-    // Intern (L0): Intern, Trainee, Apprentice, Student, Co-op (Currently interning)
-    if (
-      /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(latestTitle) ||
-      /\b(l0|ic0)\b/i.test(latestTitle)
-    ) {
-      return 'Engineering Intern (L0)';
-    }
+  // If candidate is in tech domain, map to the industry standard engineering ladder
+  if (isTechDomain) {
+    // 1. Evaluate candidate's latest work title if present
+    if (latestTitle) {
+      // L1: Associate, Junior, Fresher, SDE-1, Graduate Engineer Trainee (0 yrs freshers)
+      if (
+        /\b(associate|junior|jr\.?|fresher|sde[-_ ]?1\b|sde[-_ ]?i\b|graduate engineer trainee|graduate trainee|engineer trainee|grad|entry)\b/i.test(latestTitle) ||
+        /\b(l1|ic1)\b/i.test(latestTitle)
+      ) {
+        return 'Associate Software Engineer (L1)';
+      }
 
-    // L5+: Principal, Distinguished Engineer, Director, Fellow, VP (13+ yrs)
-    if (
-      /\b(principal|distinguished|fellow|director|vp|vice president)\b/i.test(latestTitle) ||
-      /\b(l5\+|ic5\+|l[5-9]\b|l1[0-9]\b|ic[5-9]\b|ic1[0-9]\b)\b/i.test(latestTitle)
-    ) {
-      return 'Principal Engineer (L5+)';
-    }
+      // Intern (L0): Intern, Trainee, Apprentice, Student, Co-op (Currently interning)
+      if (
+        /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(latestTitle) ||
+        /\b(l0|ic0)\b/i.test(latestTitle)
+      ) {
+        return 'Engineering Intern (L0)';
+      }
 
-    // L4: Staff, Lead Architect, Chief Architect (9-13 yrs)
-    if (
-      /\b(staff|lead architect|chief architect)\b/i.test(latestTitle) ||
-      /\b(l4|ic4)\b/i.test(latestTitle)
-    ) {
-      return 'Staff Software Engineer (L4)';
-    }
+      // L5+: Principal, Distinguished Engineer, Director, Fellow, VP (13+ yrs)
+      if (
+        /\b(principal|distinguished|fellow|director|vp|vice president)\b/i.test(latestTitle) ||
+        /\b(l5\+|ic5\+|l[5-9]\b|l1[0-9]\b|ic[5-9]\b|ic1[0-9]\b)\b/i.test(latestTitle)
+      ) {
+        return 'Principal Engineer (L5+)';
+      }
 
-    // L3: Senior, Tech Lead, SDE-3 (5-9 yrs)
-    if (
-      /\b(senior|sr\.?|tech lead|technical lead|team lead|sde[-_ ]?3\b|sde[-_ ]?iii\b)\b/i.test(latestTitle) ||
-      /\b(l3|ic3)\b/i.test(latestTitle)
-    ) {
-      return 'Senior Software Engineer (L3)';
-    }
+      // L4: Staff, Lead Architect, Chief Architect (9-13 yrs)
+      if (
+        /\b(staff|lead architect|chief architect)\b/i.test(latestTitle) ||
+        /\b(l4|ic4)\b/i.test(latestTitle)
+      ) {
+        return 'Staff Software Engineer (L4)';
+      }
 
-    // L2: Software Engineer, Full Stack Developer, SDE-2, MTS (2-5 yrs)
-    if (
-      /\b(sde[-_ ]?2\b|sde[-_ ]?ii\b|mts\b|member of technical staff)\b/i.test(latestTitle) ||
-      /\b(l2|ic2)\b/i.test(latestTitle)
-    ) {
+      // L3: Senior, Tech Lead, SDE-3 (5-9 yrs)
+      if (
+        /\b(senior|sr\.?|tech lead|technical lead|team lead|sde[-_ ]?3\b|sde[-_ ]?iii\b)\b/i.test(latestTitle) ||
+        /\b(l3|ic3)\b/i.test(latestTitle)
+      ) {
+        return 'Senior Software Engineer (L3)';
+      }
+
+      // L2: Software Engineer, Full Stack Developer, SDE-2, MTS (2-5 yrs)
+      if (
+        /\b(sde[-_ ]?2\b|sde[-_ ]?ii\b|mts\b|member of technical staff)\b/i.test(latestTitle) ||
+        /\b(l2|ic2)\b/i.test(latestTitle)
+      ) {
+        return 'Software Engineer (L2)';
+      }
+
+      // Architect without explicit lead or staff prefix
+      if (/\barchitect\b/i.test(latestTitle)) {
+        return 'Staff Software Engineer (L4)';
+      }
+
+      // Title without explicit seniority marker (e.g. "Software Engineer", "Full Stack Developer", "Backend Developer")
+      // Map using typical experience brackets:
+      // 0 yrs -> L1, 2-5 yrs -> L2, 5-9 yrs -> L3, 9-13 yrs -> L4, 13+ yrs -> L5+
+      if (expYears >= 13) return 'Principal Engineer (L5+)';
+      if (expYears >= 9) return 'Staff Software Engineer (L4)';
+      if (expYears >= 5) return 'Senior Software Engineer (L3)';
+      if (expYears >= 2) return 'Software Engineer (L2)';
+      if (expYears === 0 && roleCount <= 1) return 'Associate Software Engineer (L1)';
       return 'Software Engineer (L2)';
     }
 
-    // Architect without explicit lead or staff prefix
-    if (/\barchitect\b/i.test(latestTitle)) {
-      return 'Staff Software Engineer (L4)';
+    // 2. Candidate has NO work experience (0 yrs freshers or students)
+    if (roleCount === 0) {
+      if (/\b(intern|internship|student|pursuing|undergraduate)\b/i.test(corpus)) {
+        return 'Engineering Intern (L0)';
+      }
+      return 'Associate Software Engineer (L1)';
     }
 
-    // Title without explicit seniority marker (e.g. "Software Engineer", "Full Stack Developer", "Backend Developer")
-    // Map using typical experience brackets:
-    // 0 yrs -> L1, 2-5 yrs -> L2, 5-9 yrs -> L3, 9-13 yrs -> L4, 13+ yrs -> L5+
-    if (expYears >= 13) return 'Principal Engineer (L5+)';
-    if (expYears >= 9) return 'Staff Software Engineer (L4)';
-    if (expYears >= 5) return 'Senior Software Engineer (L3)';
-    if (expYears >= 2) return 'Software Engineer (L2)';
-    if (expYears === 0 && roleCount <= 1) return 'Associate Software Engineer (L1)';
+    // 3. Inspect experience history if available
+    if (doc?.experience && doc.experience.length > 0) {
+      // If all experiences are internships or trainee programs -> Intern (L0)
+      const allInternships = doc.experience.every((e) =>
+        /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(e.roleTitle)
+      );
+      if (allInternships) {
+        return 'Engineering Intern (L0)';
+      }
+
+      // If all experiences are entry or associate level -> L1
+      const allEntry = doc.experience.every((e) =>
+        /\b(associate|junior|jr\.?|entry|graduate|fresher|intern|trainee|sde[-_ ]?1\b|sde[-_ ]?i\b)\b/i.test(e.roleTitle)
+      );
+      if (allEntry) {
+        return 'Associate Software Engineer (L1)';
+      }
+    }
+
+    // 4. Multi-role experience years / role count heuristics
+    if (expYears >= 13 || /\b(principal engineer|distinguished engineer|director of engineering)\b/i.test(corpus)) {
+      return 'Principal Engineer (L5+)';
+    }
+    if (expYears >= 9 || roleCount >= 5 || /\b(staff software engineer|chief architect|principal architect|lead architect)\b/i.test(corpus)) {
+      return 'Staff Software Engineer (L4)';
+    }
+    if (expYears >= 5 || roleCount >= 3 || /\b(senior software engineer|senior developer|tech lead)\b/i.test(corpus)) {
+      return 'Senior Software Engineer (L3)';
+    }
+
+    // Default to L2 for regular software engineers
     return 'Software Engineer (L2)';
   }
 
-  // 2. Candidate has NO work experience (0 yrs freshers or students)
-  if (roleCount === 0) {
-    if (/\b(intern|internship|student|pursuing|undergraduate)\b/i.test(corpus)) {
-      return 'Engineering Intern (L0)';
-    }
-    return 'Associate Software Engineer (L1)';
+  // Non-tech domain (Healthcare, Clinical, Business): Derive seniority dynamically from candidate's actual profession
+  const targetRole = doc ? detectTargetRole(corpus, doc) : (rawLatestTitle || 'Professional');
+  const cleanRole = targetRole
+    .replace(/\s*\((l\d\+?|ic\d\+?)\)/i, '')
+    .trim() || 'Professional';
+
+  // Check for explicit seniority keywords in latestTitle
+  const isIntern = /\b(intern|internship|trainee|apprentice|student|co-op|coop)\b/i.test(latestTitle || corpus);
+  const isAssociate = /\b(associate|junior|jr\.?|entry|graduate|fresher)\b/i.test(latestTitle);
+  const isSenior = /\b(senior|sr\.?|lead|head|principal|director|manager)\b/i.test(latestTitle);
+
+  if (isIntern || (roleCount === 0 && /\b(intern|student|undergraduate)\b/i.test(corpus))) {
+    return `${cleanRole} Intern (L0)`;
+  }
+  if (isAssociate || expYears === 0) {
+    return `Associate ${cleanRole} (L1)`;
+  }
+  if (expYears >= 13 || /\b(director|principal|chief|vp)\b/i.test(latestTitle)) {
+    return `Director / Principal ${cleanRole} (L5+)`;
+  }
+  if (expYears >= 9 || /\b(staff|lead|head)\b/i.test(latestTitle)) {
+    return `Lead ${cleanRole} (L4)`;
+  }
+  if (expYears >= 5 || isSenior) {
+    return `Senior ${cleanRole} (L3)`;
   }
 
-  // 3. Inspect experience history if available
-  if (doc?.experience && doc.experience.length > 0) {
-    // If all experiences are internships or trainee programs -> Intern (L0)
-    const allInternships = doc.experience.every((e) =>
-      /\b(intern|internship|trainee|apprentice|co-op|coop|student)\b/i.test(e.roleTitle)
-    );
-    if (allInternships) {
-      return 'Engineering Intern (L0)';
-    }
-
-    // If all experiences are entry or associate level -> L1
-    const allEntry = doc.experience.every((e) =>
-      /\b(associate|junior|jr\.?|entry|graduate|fresher|intern|trainee|sde[-_ ]?1\b|sde[-_ ]?i\b)\b/i.test(e.roleTitle)
-    );
-    if (allEntry) {
-      return 'Associate Software Engineer (L1)';
-    }
-  }
-
-  // 4. Multi-role experience years / role count heuristics
-  if (expYears >= 13 || /\b(principal engineer|distinguished engineer|director of engineering)\b/i.test(corpus)) {
-    return 'Principal Engineer (L5+)';
-  }
-  if (expYears >= 9 || roleCount >= 5 || /\b(staff software engineer|chief architect|principal architect|lead architect)\b/i.test(corpus)) {
-    return 'Staff Software Engineer (L4)';
-  }
-  if (expYears >= 5 || roleCount >= 3 || /\b(senior software engineer|senior developer|tech lead)\b/i.test(corpus)) {
-    return 'Senior Software Engineer (L3)';
-  }
-
-  // Default to L2 for regular software engineers
-  return 'Software Engineer (L2)';
+  return `${cleanRole} (L2)`;
 }
 
 export function detectTargetRole(corpus: string, doc: ResumeDocument): string {
@@ -546,8 +717,21 @@ export function detectTargetRole(corpus: string, doc: ResumeDocument): string {
   }
 
   // 2. Candidate is a fresher or entry-level with 0 experience
-  // Derive a relevant entry-level title from their technical stack and projects
   if (!doc.experience || doc.experience.length === 0) {
+    const domain = detectResumeDomain(corpus, doc);
+    if (domain === 'healthcare') {
+      if (/\b(pharm-d|pharmd|pharmacy|pharmacist)\b/i.test(corpus)) {
+        return 'Clinical Pharmacist';
+      }
+      if (/\b(regulatory affairs|regulatory documentation|gcp|ind|nda)\b/i.test(corpus)) {
+        return 'Regulatory Affairs Specialist';
+      }
+      if (/\b(nurse|nursing)\b/i.test(corpus)) {
+        return 'Registered Nurse';
+      }
+      return 'Clinical Healthcare Specialist';
+    }
+
     if (/\b(fullstack|full-stack|full stack|mern|mean)\b/i.test(corpus)) {
       return 'Junior Full-Stack Engineer';
     }
@@ -635,6 +819,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   const phoneMatch = rawText.match(/(?:\+?91[\s-]*)?[6789]\d{9}|\b\d{10}\b|(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/);
   const linkedinMatch = rawText.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/i) || rawText.match(/(?:https?:\/\/)?(?:www\.)?linkedin\/in\/[a-zA-Z0-9_-]+/i);
   const githubMatch = rawText.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[a-zA-Z0-9_-]+/i);
+  const leetcodeMatch = rawText.match(/(?:https?:\/\/)?(?:www\.)?leetcode\.com\/(?:u\/)?[a-zA-Z0-9_-]+/i);
 
   // Extract candidate name from top lines
   let fullName = 'Candidate Profile';
@@ -693,7 +878,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     { type: 'summary', regex: /^(professional summary|summary|about me|profile|overview|objective)$/i },
     { type: 'experience', regex: /^(work experience|professional experience|experience|employment history|work history)$/i },
     { type: 'achievements', regex: /^(key achievements|achievements|honors|awards|accomplishments)$/i },
-    { type: 'skills', regex: /^(top skills|technical skills|skills|technologies|core competencies|tools & technologies)$/i },
+    { type: 'skills', regex: /^(core skills|top skills|technical skills|key skills|skills|technologies|core competencies|competencies|areas of expertise|professional skills|clinical skills|regulatory skills|tools & technologies)$/i },
     { type: 'languages', regex: /^(languages)$/i },
     { type: 'education', regex: /^(education|academic background|academics)$/i },
     { type: 'projects', regex: /^(key technical projects|technical projects|projects|personal projects)$/i },
@@ -736,13 +921,20 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   const expBlock = sectionBlocks.find((b) => b.type === 'experience');
 
   const DATE_RANGE_REGEX = /(?:(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4})\s*[\s\-–—to]+\s*(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4}|Present|Current))/i;
-  const ACTION_VERB_REGEX = /^(?:[•\-*–—\u2022\u25E6\u25AA\u2043\s]*)(?:developed|built|engineered|architected|spearheaded|implemented|designed|created|led|managed|collaborated|maintained|optimized|automated|delivered|integrated|authored|executed|established|configured|deployed|mentored|resolved|streamlined|formulated|directed|oversaw|constructed|standardized|refactored|efactoring|upgraded|scaled|reduced|increased|improved|headed|drove)/i;
+  const ACTION_VERB_REGEX = /^(?:[•\-*–—\u2022\u25E6\u25AA\u2043\s]*)(?:developed|built|engineered|architected|spearheaded|implemented|designed|created|led|managed|collaborated|maintained|optimized|automated|delivered|integrated|authored|executed|established|configured|deployed|mentored|resolved|streamlined|formulated|directed|oversaw|constructed|standardized|refactored|efactoring|upgraded|scaled|reduced|increased|improved|headed|drove|reviewed|evaluated|assessed|monitored|provided|supported|studied|assisted|participated|educated|strengthened|applied|conducted|prepared|collected)/i;
   const BULLET_SYMBOL_REGEX = /^[\s]*[•\-*–—\u2022\u25E6\u25AA\u2043]/;
-  const TITLE_KEYWORD_REGEX = /(?:engineer|developer|lead|architect|manager|director|analyst|specialist|consultant|intern|officer|head|administrator|designer|trainee|associate|fresher|fellow|scientist|programmer|sde|researcher|apprentice)/i;
+  const TITLE_KEYWORD_REGEX = /(?:engineer|developer|lead|architect|manager|director|analyst|specialist|consultant|intern|officer|head|administrator|designer|trainee|associate|fresher|fellow|scientist|programmer|sde|researcher|apprentice|pharmacist|pharmacology|pharmacy|clinician|physician|nurse|practitioner|therapist|chemist|coordinator|auditor|investigator|advisor|executive)/i;
 
   if (expBlock) {
     const elines = expBlock.lines;
-    const roleStarts: { index: number; startDate: string; endDate: string; isCurrent: boolean; location?: string }[] = [];
+    const roleStarts: {
+      index: number;
+      startDate: string;
+      endDate: string;
+      isCurrent: boolean;
+      company?: string;
+      location?: string;
+    }[] = [];
 
     for (let i = 0; i < elines.length; i++) {
       const match = elines[i].match(DATE_RANGE_REGEX);
@@ -750,13 +942,42 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         const startDate = match[1] || '';
         const endDate = match[2] || 'Present';
         const isCurrent = /present|current/i.test(endDate);
+
+        let lineCompany: string | undefined;
+        let lineLocation: string | undefined;
+
+        // Check if company and/or location precedes the date range on the same line
+        const prefix = elines[i].slice(0, match.index).trim();
+        if (prefix) {
+          if (prefix.includes('|')) {
+            const parts = prefix.split('|').map((s) => s.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+              lineCompany = parts[0];
+              lineLocation = parts.slice(1).join(', ');
+            } else if (parts.length === 1) {
+              lineCompany = parts[0];
+            }
+          } else if (prefix.includes(',')) {
+            const parts = prefix.split(',').map((s) => s.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+              lineCompany = parts[0];
+              lineLocation = parts.slice(1).join(', ');
+            } else if (parts.length === 1) {
+              lineCompany = parts[0];
+            }
+          } else if (prefix.length >= 2) {
+            lineCompany = prefix;
+          }
+        }
+
         const locPart = elines[i].replace(match[0], '').replace(/[•·\-–—|]/g, ' ').trim();
         roleStarts.push({
           index: i,
           startDate,
           endDate,
           isCurrent,
-          location: locPart.length > 2 ? locPart : undefined,
+          company: lineCompany,
+          location: lineLocation || (locPart.length > 2 && locPart !== lineCompany ? locPart : undefined),
         });
       }
     }
@@ -767,23 +988,37 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         const nextRoleStart = roleStarts[r + 1] ? roleStarts[r + 1].index : elines.length;
 
         let roleTitle = 'Software Engineer';
-        let company = 'Enterprise Tech';
+        let company = startInfo.company || 'Enterprise Tech';
 
         const lineBefore = elines[startInfo.index - 1] || '';
         const lineTwoBefore = elines[startInfo.index - 2] || '';
 
-        if (TITLE_KEYWORD_REGEX.test(lineBefore) && !TITLE_KEYWORD_REGEX.test(lineTwoBefore)) {
-          roleTitle = lineBefore;
-          company = lineTwoBefore || 'Enterprise Tech';
-        } else if (TITLE_KEYWORD_REGEX.test(lineTwoBefore) && !TITLE_KEYWORD_REGEX.test(lineBefore)) {
-          roleTitle = lineTwoBefore;
-          company = lineBefore || 'Enterprise Tech';
-        } else {
-          if (lineBefore && lineBefore.length < 50 && !lineBefore.endsWith('.')) {
-            company = lineBefore;
+        const cleanLineBefore = lineBefore.replace(/^[\s•\-*–—\u2022\u25E6\u25AA\u2043|·]+/, '').trim();
+        const cleanLineTwoBefore = lineTwoBefore.replace(/^[\s•\-*–—\u2022\u25E6\u25AA\u2043|·]+/, '').trim();
+
+        if (startInfo.company) {
+          // Company was already parsed from date line -> lineBefore is the job title!
+          if (cleanLineBefore && !BULLET_SYMBOL_REGEX.test(lineBefore)) {
+            roleTitle = cleanLineBefore;
           }
-          if (lineTwoBefore && lineTwoBefore.length < 50 && !lineTwoBefore.endsWith('.')) {
-            roleTitle = lineTwoBefore;
+        } else if (TITLE_KEYWORD_REGEX.test(cleanLineBefore) && !TITLE_KEYWORD_REGEX.test(cleanLineTwoBefore)) {
+          roleTitle = cleanLineBefore;
+          company = cleanLineTwoBefore && !BULLET_SYMBOL_REGEX.test(lineTwoBefore) ? cleanLineTwoBefore : 'Enterprise Tech';
+        } else if (TITLE_KEYWORD_REGEX.test(cleanLineTwoBefore) && !TITLE_KEYWORD_REGEX.test(cleanLineBefore)) {
+          roleTitle = cleanLineTwoBefore;
+          company = cleanLineBefore && !BULLET_SYMBOL_REGEX.test(lineBefore) ? cleanLineBefore : 'Enterprise Tech';
+        } else {
+          if (cleanLineBefore && cleanLineBefore.length < 50 && !cleanLineBefore.endsWith('.') && !BULLET_SYMBOL_REGEX.test(lineBefore)) {
+            if (startInfo.company) {
+              roleTitle = cleanLineBefore;
+            } else {
+              company = cleanLineBefore;
+            }
+          }
+          if (cleanLineTwoBefore && cleanLineTwoBefore.length < 50 && !cleanLineTwoBefore.endsWith('.') && !BULLET_SYMBOL_REGEX.test(lineTwoBefore)) {
+            if (!startInfo.company) {
+              roleTitle = cleanLineTwoBefore;
+            }
           }
         }
 
@@ -792,13 +1027,20 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
 
         let bulletEndIndex = nextRoleStart;
         if (r < roleStarts.length - 1) {
+          const nextStart = roleStarts[r + 1];
+          let headerCount = 0;
           const nextLineBefore = elines[nextRoleStart - 1];
           const nextLineTwoBefore = elines[nextRoleStart - 2];
-          let headerCount = 0;
-          if (nextLineBefore && nextLineBefore.length < 50 && !nextLineBefore.endsWith('.')) {
+
+          if (nextLineBefore && !BULLET_SYMBOL_REGEX.test(nextLineBefore) && !ACTION_VERB_REGEX.test(nextLineBefore)) {
             headerCount++;
           }
-          if (nextLineTwoBefore && nextLineTwoBefore.length < 50 && !nextLineTwoBefore.endsWith('.')) {
+          if (
+            !nextStart.company &&
+            nextLineTwoBefore &&
+            !BULLET_SYMBOL_REGEX.test(nextLineTwoBefore) &&
+            !ACTION_VERB_REGEX.test(nextLineTwoBefore)
+          ) {
             headerCount++;
           }
           bulletEndIndex = nextRoleStart - headerCount;
@@ -839,7 +1081,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
           startDate: startInfo.startDate,
           endDate: startInfo.endDate,
           isCurrent: startInfo.isCurrent,
-          bullets: roleBullets.length > 0 ? roleBullets : ['Contributed to engineering deliverables and platform features.'],
+          bullets: roleBullets.length > 0 ? roleBullets : ['Demonstrated hands-on professional contributions and responsibilities.'],
         });
       }
     } else {
@@ -873,15 +1115,15 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   // 3. Education
   const education: ResumeDocument['education'] = [];
   const eduBlock = sectionBlocks.find((b) => b.type === 'education');
-  const DEGREE_KEYWORD_REGEX = /(?:bachelor|master|phd|b\.tech|m\.tech|b\.e|b\.s|m\.s|degree|diploma|associate|intermediate|ssc|high school)/i;
+  const DEGREE_KEYWORD_REGEX = /(?:bachelor|master|phd|pharm|pharmd|doctor|b\.tech|m\.tech|b\.e|b\.s|m\.s|degree|diploma|associate|intermediate|ssc|high school)/i;
 
   if (eduBlock) {
     const elines = eduBlock.lines.filter((l) => !/^[«»"'`\s]+$/.test(l) && !/^[Eéqòåb\s]{1,10}$/i.test(l));
     let i = 0;
     while (i < elines.length) {
-      const line1 = elines[i];
-      const line2 = elines[i + 1] || '';
-      const line3 = elines[i + 2] || '';
+      let line1 = elines[i]?.replace(/^[▪•\-\*\u25AA\s]+/, '').trim() || '';
+      let line2 = elines[i + 1]?.replace(/^[▪•\-\*\u25AA\s]+/, '').trim() || '';
+      let line3 = elines[i + 2]?.replace(/^[▪•\-\*\u25AA\s]+/, '').trim() || '';
 
       if (!line1) {
         i++;
@@ -909,6 +1151,18 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
       } else if (dateMatch2) {
         let degree = line1;
         let institution = 'Accredited Institution';
+        const instFromLine2 = line2
+          .replace(/(?:(\d{1,2}\/\d{4}|\d{4})\s*[\s\-–—to]+\s*(\d{1,2}\/\d{4}|\d{4}|Present)).*$/i, '')
+          .replace(/[|,\s]+$/, '')
+          .trim();
+        if (instFromLine2.length > 2) {
+          institution = instFromLine2;
+        }
+        if (DEGREE_KEYWORD_REGEX.test(institution) && !DEGREE_KEYWORD_REGEX.test(degree)) {
+          const temp = degree;
+          degree = institution;
+          institution = temp || 'Accredited Institution';
+        }
         education.push({
           id: `edu-${education.length + 1}`,
           degree,
@@ -972,41 +1226,76 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         }
       }
     } else {
-      // In LinkedIn PDFs, each line under "Top Skills" is a distinct skill item
-      const directSkills = skillsBlock.lines
-        .map((l) => l.replace(/^[•\-*·]\s*/, '').trim())
-        .filter((l) => l.length >= 2 && l.length <= 40 && !l.includes('(') && !/^page\s+\d+/i.test(l));
-
-      if (directSkills.length > 0 && directSkills.length <= 25) {
-        skills.push({
-          category: 'Top Skills',
-          items: Array.from(new Set(directSkills)),
-        });
-      } else {
-        let combinedSkillsText = skillsBlock.lines.join(' ');
-        const extractedSkills: string[] = [];
-
-        for (const phrase of knownMultiWords) {
-          const pRegex = new RegExp(`\\b${phrase}\\b`, 'gi');
-          if (pRegex.test(combinedSkillsText)) {
-            const titleCase = phrase.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-            extractedSkills.push(titleCase);
-            combinedSkillsText = combinedSkillsText.replace(pRegex, ' ');
+      // Check if skills lines use bullets (▪, •, -, *, ·) or multi-line wrap
+      const hasBullets = skillsBlock.lines.some((l) => /^[•\-*·▪\u25AA]/.test(l.trim()));
+      if (hasBullets) {
+        const bulletItems: string[] = [];
+        let currentItem = '';
+        for (const rawLine of skillsBlock.lines) {
+          const l = rawLine.trim();
+          if (!l) continue;
+          if (/^[•\-*·▪\u25AA]/.test(l)) {
+            if (currentItem) {
+              bulletItems.push(currentItem.trim());
+            }
+            currentItem = l.replace(/^[•\-*·▪\u25AA\s]+/, '').trim();
+          } else if (currentItem) {
+            currentItem += ' ' + l;
+          } else {
+            currentItem = l;
           }
         }
-
-        const singleTokens = combinedSkillsText.split(/[\s,|•·\n\r]+/).map((w) => w.trim()).filter(Boolean);
-        for (const token of singleTokens) {
-          if (token.length > 1 && token.length < 25 && !/^(proficient|advanced|intermediate|skills|languages)$/i.test(token)) {
-            extractedSkills.push(token);
-          }
+        if (currentItem) {
+          bulletItems.push(currentItem.trim());
         }
 
-        if (extractedSkills.length > 0) {
+        const validBulletItems = bulletItems
+          .map((item) => item.replace(/\s+/g, ' ').trim())
+          .filter((item) => item.length >= 2 && item.length <= 60 && !/^page\s+\d+/i.test(item));
+
+        if (validBulletItems.length > 0) {
           skills.push({
-            category: 'Technical Skills',
-            items: Array.from(new Set(extractedSkills)),
+            category: 'Core Skills',
+            items: Array.from(new Set(validBulletItems)),
           });
+        }
+      } else {
+        // In LinkedIn PDFs, each line under "Top Skills" is a distinct skill item
+        const directSkills = skillsBlock.lines
+          .map((l) => l.replace(/^[•\-*·▪\u25AA\s]+/, '').trim())
+          .filter((l) => l.length >= 2 && l.length <= 60 && !l.includes('(') && !/^page\s+\d+/i.test(l));
+
+        if (directSkills.length > 0) {
+          skills.push({
+            category: 'Top Skills',
+            items: Array.from(new Set(directSkills)),
+          });
+        } else {
+          let combinedSkillsText = skillsBlock.lines.join(' ');
+          const extractedSkills: string[] = [];
+
+          for (const phrase of knownMultiWords) {
+            const pRegex = new RegExp(`\\b${phrase}\\b`, 'gi');
+            if (pRegex.test(combinedSkillsText)) {
+              const titleCase = phrase.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+              extractedSkills.push(titleCase);
+              combinedSkillsText = combinedSkillsText.replace(pRegex, ' ');
+            }
+          }
+
+          const singleTokens = combinedSkillsText.split(/[\s,|•·\n\r]+/).map((w) => w.trim()).filter(Boolean);
+          for (const token of singleTokens) {
+            if (token.length > 1 && token.length < 25 && !/^(proficient|advanced|intermediate|skills|languages)$/i.test(token)) {
+              extractedSkills.push(token);
+            }
+          }
+
+          if (extractedSkills.length > 0) {
+            skills.push({
+              category: 'Technical Skills',
+              items: Array.from(new Set(extractedSkills)),
+            });
+          }
         }
       }
     }
@@ -1035,16 +1324,35 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   if (projBlock) {
     let currentProj: any = null;
     for (const l of projBlock.lines) {
-      if (l.length < 50 && !l.startsWith('•') && !l.startsWith('-')) {
-        if (currentProj) projects.push(currentProj);
-        currentProj = {
-          id: `proj-${projects.length + 1}`,
-          title: l,
-          techStack: [],
-          bullets: [],
-        };
+      const trimmed = l.trim();
+      if (!trimmed) continue;
+      const isBullet = /^[•\-*▪\u25AA]/.test(trimmed);
+      if (!isBullet) {
+        if (currentProj && currentProj.bullets.length === 0) {
+          currentProj.title = `${currentProj.title} ${trimmed}`.trim();
+          if (currentProj.title.includes('|')) {
+            const parts = currentProj.title.split('|').map((s: string) => s.trim());
+            currentProj.title = parts[0];
+            currentProj.techStack = parts.slice(1).filter(Boolean);
+          }
+        } else {
+          if (currentProj) projects.push(currentProj);
+          let title = trimmed;
+          let techStack: string[] = [];
+          if (title.includes('|')) {
+            const parts = title.split('|').map((s) => s.trim());
+            title = parts[0];
+            techStack = parts.slice(1).filter(Boolean);
+          }
+          currentProj = {
+            id: `proj-${projects.length + 1}`,
+            title,
+            techStack,
+            bullets: [],
+          };
+        }
       } else if (currentProj) {
-        currentProj.bullets.push(l.replace(/^[•\-*]\s*/, ''));
+        currentProj.bullets.push(trimmed.replace(/^[•\-*▪\u25AA\s]+/, '').trim());
       }
     }
     if (currentProj) projects.push(currentProj);
@@ -1100,6 +1408,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
       linkedinUrl: linkedinMatch ? (linkedinMatch[0].startsWith('http') ? linkedinMatch[0] : `https://${linkedinMatch[0]}`) : '',
       githubUrl: githubMatch ? (githubMatch[0].startsWith('http') ? githubMatch[0] : `https://${githubMatch[0]}`) : '',
       portfolioUrl: '',
+      leetcodeUrl: leetcodeMatch ? (leetcodeMatch[0].startsWith('http') ? leetcodeMatch[0] : `https://${leetcodeMatch[0]}`) : '',
     },
     summary,
     skills,

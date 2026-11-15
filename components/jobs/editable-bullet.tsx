@@ -31,20 +31,20 @@ export function EditableBullet({
   // Scroll into view if highlighted by suggestion application
   useEffect(() => {
     if (isHighlighted && textareaRef.current) {
-      textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      textareaRef.current.focus();
+      textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      textareaRef.current.focus({ preventScroll: true });
     }
   }, [isHighlighted]);
 
   return (
     <div
-      className={`group relative flex items-start gap-2 rounded-md p-1 transition-all duration-500 ${
+      className={`group relative flex items-start gap-1.5 rounded-md py-0.5 px-1 transition-all duration-300 scroll-my-4 ${
         isHighlighted
           ? 'ring-2 ring-[#4FD1C5] bg-[#4FD1C5]/15 shadow-sm'
           : 'hover:bg-neutral-50/80'
       }`}
     >
-      <span className="text-neutral-500 font-bold select-none leading-relaxed shrink-0">
+      <span className="text-neutral-500 font-bold select-none leading-snug text-xs shrink-0 pt-0.5">
         •
       </span>
 
@@ -53,7 +53,7 @@ export function EditableBullet({
         rows={1}
         value={bullet}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] rounded px-1 [hyphens:none] break-words [word-break:normal]"
+        className="w-full resize-none overflow-hidden bg-transparent text-[13px] leading-snug text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] rounded px-1 [hyphens:none] break-words [word-break:normal]"
         placeholder="Describe your achievement using the Google XYZ formula..."
       />
 

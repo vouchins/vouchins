@@ -322,11 +322,20 @@ export function ResumePageClient() {
       });
 
       if (!extractRes.ok) {
-        const errData = await extractRes.json();
-        throw new Error(errData.error || 'Failed to extract text from resume');
+        const errData = await extractRes.json().catch(() => ({}));
+        let fallbackMsg = 'Failed to extract text from resume.';
+        if (extractRes.status === 413) {
+          fallbackMsg = 'Resume file exceeds the upload size limit (max 10MB).';
+        } else if (extractRes.status >= 500) {
+          fallbackMsg = 'The resume extraction server is temporarily busy. Please try again.';
+        }
+        throw new Error(errData.error || fallbackMsg);
       }
 
-      const extractData = await extractRes.json();
+      const extractData = await extractRes.json().catch(() => null);
+      if (!extractData || !extractData.rawText) {
+        throw new Error('Failed to parse text from the uploaded document.');
+      }
       setUploadStatus('Auditing and persisting to database...');
 
       const evalRes = await fetch('/api/jobs/evaluate', {
@@ -342,16 +351,22 @@ export function ResumePageClient() {
       });
 
       if (!evalRes.ok) {
-        const errData = await evalRes.json();
+        const errData = await evalRes.json().catch(() => ({}));
         if (evalRes.status === 403 || errData.code === 'PRO_PLAN_REQUIRED') {
           setAddResumeOpen(false);
           setShowSubscriptionGate(true);
           throw new Error(errData.error || 'Upgrade to Jobs Pro to evaluate additional resumes.');
         }
-        throw new Error(errData.error || 'Evaluation failed');
+        let fallbackMsg = 'Evaluation failed.';
+        if (evalRes.status === 413) {
+          fallbackMsg = 'Resume text is too large to evaluate.';
+        } else if (evalRes.status >= 500) {
+          fallbackMsg = 'The evaluation service encountered a temporary error. Please try again.';
+        }
+        throw new Error(errData.error || fallbackMsg);
       }
 
-      const evalData = await evalRes.json();
+      const evalData = await evalRes.json().catch(() => ({}));
       const newResumeId = evalData.resumeId || `resume-${Date.now()}`;
 
       const newResumeItem: SavedResumeItem = {
@@ -479,7 +494,7 @@ export function ResumePageClient() {
         }
         return { document: updatedDoc, evaluation: updatedEval };
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (res.status === 403 || data.code === 'PRO_PLAN_REQUIRED') {
           setShowSubscriptionGate(true);
         }

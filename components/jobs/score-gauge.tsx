@@ -6,14 +6,26 @@ import { Award, TrendingUp } from 'lucide-react';
 interface ScoreGaugeProps {
   score: number;
   seniority?: string;
+  targetRole?: string;
   size?: number;
 }
 
-export function ScoreGauge({ score, seniority, size = 130 }: ScoreGaugeProps) {
+export function ScoreGauge({ score, seniority, targetRole, size = 130 }: ScoreGaugeProps) {
   const strokeWidth = 10;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (score / 100) * circumference;
+
+  const roleText = `${targetRole || ''} ${seniority || ''}`.toLowerCase();
+  const isTechRole =
+    !roleText.trim() ||
+    /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer)\b/i.test(
+      roleText
+    );
+  const isHealthcareRole =
+    /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory|healthcare|hospital|medical|nurse|nursing|doctor|physician)\b/i.test(
+      roleText
+    );
 
   let color = '#4FD1C5'; // Vouchins accent teal
   let tierLabel = 'Strong Contender';
@@ -82,7 +94,11 @@ export function ScoreGauge({ score, seniority, size = 130 }: ScoreGaugeProps) {
         </h3>
 
         <p className="text-xs leading-relaxed text-neutral-600">
-          Benchmarked against engineering hiring bars at Google, Meta, Amazon, and top tech companies.
+          {isHealthcareRole
+            ? 'Benchmarked against top-tier clinical and regulatory standards across leading medical institutions.'
+            : isTechRole
+            ? 'Benchmarked against engineering hiring bars at Google, Meta, Amazon, and top tech companies.'
+            : 'Benchmarked against competitive industry hiring bars and executive screening standards.'}
         </p>
       </div>
     </div>

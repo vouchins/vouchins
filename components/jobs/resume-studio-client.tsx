@@ -264,7 +264,7 @@ export function ResumeStudioClient() {
         toast.success(`Score updated: ${updatedEval?.overallScore ?? 85}/100!`, { id: toastId });
         return { document: updatedDoc, evaluation: updatedEval };
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (res.status === 403 || data.code === 'PRO_PLAN_REQUIRED') {
           setShowSubscriptionGate(true);
         }

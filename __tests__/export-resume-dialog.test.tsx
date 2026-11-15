@@ -108,5 +108,18 @@ describe('ExportResumeDialog Component', () => {
     expect(container).toHaveTextContent('Education');
     expect(container).toHaveTextContent(SAMPLE_STAFF_RESUME.education[0].institution);
   });
+
+  it('renders multi-page sheets with continuation header and footer in live preview', () => {
+    render(
+      <ExportResumeDialog
+        isOpen={true}
+        onClose={jest.fn()}
+        document={SAMPLE_STAFF_RESUME}
+      />
+    );
+
+    const pageFooters = screen.getAllByText(/Page \d+ of \d+/);
+    expect(pageFooters.length).toBeGreaterThan(0);
+  });
 });
 

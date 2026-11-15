@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { evaluateResumeHeuristically, sanitizeBulletText } from '@/lib/jobs/xyz-evaluator';
+import { evaluateResumeHeuristically, sanitizeBulletText, parseRawTextToDocument } from '@/lib/jobs/xyz-evaluator';
 import { SAMPLE_STAFF_RESUME } from '@/components/jobs/sample-resumes';
 import { computeResumeContentHash } from '@/lib/jobs/cost-guard';
 
@@ -347,6 +347,109 @@ describe('Deterministic ATS Resume Evaluator & Hash Guard', () => {
         expect(sug.suggestedRewrite.length).toBeGreaterThan(10);
         expect(sug.originalText).toBeDefined();
       });
+    });
+  });
+
+  describe('Healthcare & Clinical Resume Domain Awareness', () => {
+    const clinicalResume = {
+      contact: {
+        fullName: 'Ummu Farwah',
+        email: 'ummu@example.com',
+        phone: '1234567890',
+        location: 'Hyderabad, India',
+        linkedinUrl: 'https://linkedin.com/in/ummu-farwah',
+      },
+      summary: 'Licensed Clinical Pharmacist (Pharm-D) with expertise in Drug Regulatory Affairs, Pharmacovigilance, and Clinical Documentation.',
+      skills: [
+        {
+          category: 'Core Skills',
+          items: [
+            'Regulatory Affairs',
+            'Drug Safety & Pharmacovigilance Awareness',
+            'Regulatory Documentation Support',
+            'Compliance Review',
+            'Clinical Pharmacology',
+            'Pharmacokinetics',
+            'Pharmacodynamics',
+            'Medication Therapy Management',
+            'Drug Interaction Evaluation',
+          ],
+        },
+      ],
+      experience: [
+        {
+          id: 'exp-1',
+          company: 'Tuffah Hospital',
+          roleTitle: 'Clinical Pharmacist',
+          startDate: '2023',
+          endDate: '2025',
+          isCurrent: false,
+          bullets: [
+            'Worked alongside clinical pharmacists and healthcare professionals to understand evidence-based treatment approaches.',
+            'Educated patients on appropriate medication administration, treatment adherence, possible side effects, and precautions.',
+            'clinical research-related activities, including reviewing medical information, collecting relevant data, and supporting the analysis of treatment outcomes.',
+            'Strengthened understanding of drug safety principles, therapeutic monitoring, and the importance of accurate clinical documentation.',
+            'Applied foundational knowledge of pharmacology and therapeutics to support clinical assessments.',
+          ],
+        },
+      ],
+      education: [
+        { degree: 'Doctor of Pharmacy (Pharm-D)', institution: 'MESCO College of Pharmacy', endDate: '2023' },
+      ],
+      projects: [],
+      certifications: [],
+    };
+
+    it('accurately identifies domain as healthcare and detectedSeniority as Clinical Pharmacist (L2)', () => {
+      const result = evaluateResumeHeuristically(clinicalResume as any);
+
+      expect(result.detectedSeniority).toBe('Clinical Pharmacist (L2)');
+      expect(result.detectedSeniority).not.toContain('Software');
+      expect(result.detectedSeniority).not.toContain('Engineer');
+      expect(result.targetRole).toBe('Clinical Pharmacist');
+    });
+
+    it('evaluates healthcare relevance score with domain taxonomy instead of penalizing for tech stack', () => {
+      const result = evaluateResumeHeuristically(clinicalResume as any);
+
+      // Candidate has 9+ relevant clinical/pharmacology skills, should score high in relevance
+      expect(result.pillarScores.relevance).toBeGreaterThanOrEqual(70);
+    });
+
+    it('generates clinical and regulatory metrics and never generates software tech metrics', () => {
+      const result = evaluateResumeHeuristically(clinicalResume as any);
+
+      expect(result.suggestions.length).toBeGreaterThan(0);
+      result.suggestions.forEach((sug) => {
+        // Must NOT suggest mobile app store ratings, query compute latency, or production workloads
+        expect(sug.suggestedRewrite).not.toContain('mobile users');
+        expect(sug.suggestedRewrite).not.toContain('app store rating');
+        expect(sug.suggestedRewrite).not.toContain('query compute latency');
+        expect(sug.suggestedRewrite).not.toContain('production workloads');
+        expect(sug.suggestedRewrite).not.toContain('API response latency');
+
+        // Rationales must NOT reference engineering bars like Google, Meta, Uber
+        expect(sug.rationale).not.toContain('engineering bars (Google, Meta, Uber)');
+      });
+    });
+
+    it('extracts LeetCode URLs in parseRawTextToDocument', () => {
+      const rawText = `
+Jane Doe
+jane@example.com
++1 555-123-4567
+San Francisco, CA
+https://linkedin.com/in/janedoe
+https://github.com/janedoe
+https://leetcode.com/u/janedoe
+
+PROFESSIONAL SUMMARY
+Experienced Software Engineer.
+`;
+      const doc = parseRawTextToDocument(rawText);
+      expect(doc.contact.leetcodeUrl).toBe('https://leetcode.com/u/janedoe');
+      expect(doc.contact.linkedinUrl).toBe('https://linkedin.com/in/janedoe');
+      expect(doc.contact.githubUrl).toBe('https://github.com/janedoe');
     });
   });
 });

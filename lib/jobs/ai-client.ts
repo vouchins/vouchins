@@ -8,6 +8,8 @@ import {
 import {
   evaluateResumeHeuristically,
   parseRawTextToDocument,
+  detectResumeDomain,
+  ResumeDomain,
 } from './xyz-evaluator';
 import { recordAIUsage, checkAILlmRateLimit } from './cost-guard';
 
@@ -21,9 +23,49 @@ export interface AIEvaluationOptions {
 }
 
 /**
- * Top-Tier Tech System Prompt enforcing Google's XYZ formula and high-bar standards.
+ * Dynamic System Prompt enforcing domain-appropriate XYZ formula and high-bar standards.
  */
-const SYSTEM_PROMPT = `
+function getDomainSystemPrompt(domain: ResumeDomain, targetRole: string): string {
+  if (domain === 'healthcare') {
+    return `
+You are a Senior Healthcare & Clinical Hiring Bar Raiser (top hospital systems, academic medical centers, and FDA-regulated pharmaceutical leaders).
+Evaluate the candidate's resume strictly against high-bar clinical practice, patient care, and regulatory standards.
+
+Scoring Criteria:
+1. Impact & Metrics (XYZ formula: "Accomplished [X], as measured by [Y], by doing [Z]"):
+   - Heavily penalize passive/weak language ("worked on", "assisted", "responsible for").
+   - Reward quantifiable patient care, clinical research, protocol adherence, and regulatory compliance metrics (e.g. adverse event reduction %, patient cohort size, audit compliance %, trial data records).
+   - NEVER suggest tech/software engineering metrics (such as query latency, mobile app ratings, or production systems).
+2. Domain & Competency Relevance:
+   - Identify clinical, pharmaceutical, and regulatory expertise (FDA/GCP compliance, pharmacovigilance, clinical pharmacology, pharmacokinetics, medication therapy management, EHR/EMR, clinical trials).
+3. Brevity & Readability:
+   - ATS scan efficiency, bullet density (1-2 lines per bullet, strong clinical action verbs).
+
+Provide targeted rewrite suggestions with exact roleIndex and bulletIndex coordinates.
+You MUST output strictly valid JSON conforming to the requested schema.
+`;
+  }
+
+  if (domain === 'business') {
+    return `
+You are an Executive Hiring Director and Talent Bar Raiser at leading global enterprises.
+Evaluate the candidate's resume strictly against high-bar professional and business standards.
+
+Scoring Criteria:
+1. Impact & Metrics (XYZ formula: "Accomplished [X], as measured by [Y], by doing [Z]"):
+   - Heavily penalize passive language.
+   - Reward quantifiable business outcomes (% revenue increase, cost savings $, turnaround time reduction, operational throughput).
+2. Domain Relevance:
+   - Industry-specific tools, methodologies, and business competencies.
+3. Brevity & Readability:
+   - ATS scan efficiency, concise bullets, strong action verbs.
+
+Provide targeted rewrite suggestions with exact roleIndex and bulletIndex coordinates.
+You MUST output strictly valid JSON conforming to the requested schema.
+`;
+  }
+
+  return `
 You are a Principal Staff Engineer and Technical Bar Raiser at top-tier companies (Google, Meta, Uber, Amazon, Salesforce).
 Evaluate the candidate's resume strictly against high-bar engineering hiring standards.
 
@@ -39,6 +81,7 @@ Scoring Criteria:
 Provide targeted rewrite suggestions with exact roleIndex and bulletIndex coordinates.
 You MUST output strictly valid JSON conforming to the requested schema.
 `;
+}
 
 const GEMINI_MODELS = [
   process.env.GEMINI_MODEL,
@@ -296,14 +339,25 @@ CRITICAL INSTRUCTIONS FOR RE-ANALYZING THIS RESUME:
 `
     : '';
 
+  const domain = detectResumeDomain(rawText, doc);
+  const systemPrompt = getDomainSystemPrompt(domain, heuristic.targetRole);
+  const targetCompanies = domain === 'healthcare'
+    ? 'Top Healthcare Systems, Clinical Research Organizations, and Pharmaceutical Leaders'
+    : domain === 'business'
+    ? 'Top Global Enterprise & Consulting Organizations'
+    : 'Google, Meta, Amazon, Uber, Salesforce';
+
   const prompt = `
 Evaluate this structured resume JSON.
-Target companies: Google, Meta, Amazon, Uber, Salesforce.
+Target companies / employers: ${targetCompanies}.
+Domain context: ${domain.toUpperCase()}.
+Candidate target role: ${heuristic.targetRole}.
+Candidate career stage: ${heuristic.detectedSeniority}.
 Scoring requirements:
 - overallScore (0-100)
 - pillarScores: { impact (0-100), relevance (0-100), brevity (0-100) }
-- detectedSeniority (string, accurately reflecting candidate career stage: "Engineering Intern (L0)", "Associate Software Engineer (L1)", "Software Engineer (L2)", "Senior Software Engineer (L3)", "Staff Software Engineer (L4)", "Principal Engineer (L5+)")
-- targetRole (string, strictly derived from candidate's latest work title or target focus, without forcing Senior or Staff if candidate is an intern, junior, or entry-level fresher)
+- detectedSeniority (string, accurately reflecting candidate career stage for their profession, e.g. "${heuristic.detectedSeniority}")
+- targetRole (string, strictly derived from candidate's latest work title or target focus: "${heuristic.targetRole}")
 - strengths (array of strings)
 - missingKeywords (array of strings)
 - suggestions (array of { id, roleIndex, bulletIndex, pillar: 'impact'|'relevance'|'brevity', severity: 'critical'|'recommended'|'optional', originalText, suggestedRewrite, rationale, applied: false })
@@ -313,6 +367,7 @@ CRITICAL SUGGESTION AUDIT RULES:
 - Perform a comprehensive, complete audit of ALL experience roles and bullet points in this single pass.
 - Do NOT stop at 2 or 3 suggestions. Evaluate every single bullet point across all roles.
 - For EVERY bullet point that lacks measurable metrics, uses passive phrasing, or can be improved with the Google XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]"), provide a high-impact rewrite with exact roleIndex, bulletIndex, and originalText.
+${domain === 'healthcare' ? '- For healthcare/pharma, focus on clinical outcomes, patient safety, therapy adherence, protocol compliance, or adverse event reduction. NEVER generate software tech metrics like latency, mobile app ratings, or database queries.' : ''}
 - Aim to provide all actionable rewrite suggestions (typically 6-12 suggestions across all roles) at once, so the candidate can elevate their resume and boost their ATS score in one single pass without multiple re-analyses.
 
 ${reanalysisPromptAddition}
@@ -330,7 +385,7 @@ ${JSON.stringify(doc)}
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: `${SYSTEM_PROMPT}\n\n${prompt}` }] }],
+            contents: [{ parts: [{ text: `${systemPrompt}\n\n${prompt}` }] }],
             generationConfig: {
               responseMimeType: 'application/json',
               temperature: 0.2,

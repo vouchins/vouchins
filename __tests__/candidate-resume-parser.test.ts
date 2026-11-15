@@ -1,0 +1,171 @@
+/**
+ * @jest-environment node
+ */
+import { parseRawTextToDocument, evaluateResumeHeuristically } from '@/lib/jobs/xyz-evaluator';
+
+const UMMU_FARWAH_RESUME_TEXT = `
+Ummu Farwah
++1   ( 347 )   686 - 2993   |   U mmufarwah .fm @gmail.com   |   Jersey City ,   NJ
+PROFESSIONAL SUMMARY
+Doctor of Pharmacy graduate   and master's candidate in Drug Regulatory Affairs (Long Island University, expected 2026) with
+approximately   1 year of hands - on clinical pharmacy and clinical pharmacology experience   in a hospital setting. Combines a strong
+foundation in drug therapy, pharmacokinetics, pharmacodynamics, and drug safety with graduate - level training in regulatory affairs.
+Experienced in reviewing prescriptions against safety standards, evaluating drug i nteractions, maintaining clinical documentation, and
+upholding patient confidentiality. Detail - oriented and analytical, with a clear focus on supporting compliant, safe, and effective use of
+medicines and the preparation of accurate regulatory documentatio n.
+CORE SKILLS
+▪   Regulatory Affairs
+▪   Drug Safety &
+Pharmacovigilance
+Awareness
+▪   Regulatory
+Documentation
+Support
+▪   Compliance Review
+▪   Research Analysis
+▪   Microsoft Office
+▪   Confidentiality &
+Data Integrity
+▪   Clinical
+Pharmacology
+▪   Pharmacokinetics
+▪   Pharmacodynamics
+▪   Drug Therapy
+Knowledge
+▪   Healthcare
+Operations
+▪   Medication Therapy
+Management
+▪   Drug Interaction
+Evaluation
+▪   Research & Data
+Analysis
+▪   Clinical
+Documentation
+▪   Cross - Functional
+Collaboration
+▪   Written & Verbal
+Communication
+▪   Attention to Detail
+▪   Multitasking
+▪   Microsoft Office
+▪   Drug Therapy
+Knowledge
+▪   Pharmacokinetics
+▪   Pharmacodynamics
+▪   Clinical Documentation
+EXPERIENCE
+Clinical Pharmacis t
+Tuffah Hospital | Hyderabad, India   Mar 2023   –   Aug 2023
+▪   Reviewed and evaluated physician - prescribed medications to ensure appropriate drug selection, dosage, frequency, and
+administration based on patients' clinical conditions and established treatment guidelines.
+▪   Assessed medication regimens for potential drug - drug interactions, contraindications, adverse effects, and medication - related
+risks, supporting safe and effective pharmaceutical care.
+▪   Collaborated with physicians, nurses, and other healthcare professionals to review treatment plans, identify medication -
+related concerns, and provide evidence - based recommendations for optimizing therapeutic outcomes.
+▪   Monitored patients' medication therapy and evaluated treatment effectiveness, identifying potential safety concerns and
+communicating relevant observations to the healthcare team.
+▪   Provided patient counseling on prescription medications, including dosage instructions, administration methods, potential
+side effects, precautions, and medication adherence.
+▪   Maintained accurate and organized clinical documentation, including medication - related information and patient records,
+while ensuring confidentiality and adherence to hospital documentation standards.
+▪   Applied clinical pharmacology and drug therapy knowledge to support appropriate medication use and contribute to patient
+safety initiatives.
+▪   Supported medication - related decision - making by reviewing clinical information, interpreting drug therapy requirements, and
+communicating findings clearly to healthcare professionals.
+Clinical Pharmacology Intern
+Tuffah Hospital | Hyderabad, India   Sept 2022   –   Feb 2023
+▪   Developed practical knowledge of clinical pharmacology through exposure to patient treatment plans, medication reviews,
+and therapeutic decision - making in a hospital environment.
+▪   Studied drug mechanisms of action, pharmacokinetics, pharmacodynamics, therapeutic indications, contraindications, and
+potential adverse drug reactions to understand medication safety and effectiveness.
+▪   Assisted in evaluating prescribed medications for potential drug interactions, dosage - related concerns, contraindications, and
+possible medication - related complications.
+▪   Reviewed relevant patient information and clinical data to support the assessment of medication effectiveness and identify
+potential drug therapy concerns.
+▪   Worked alongside clinical pharmacists and healthcare professionals to understand evidence - based treatment approaches and
+contribute to medication - related clinical discussions.
+▪   Educated patients on appropriate medication administration, treatment adherence, possible side effects, and precautions
+associated with prescribed therapies.
+▪   Participated in clinical research - related activities, including reviewing medical information, collecting relevant data, and
+supporting the analysis of treatment outcomes.
+▪   Strengthened understanding of drug safety principles, therapeutic monitoring, and the importance of accurate clinical
+documentation in supporting safe pharmaceutical practices.
+▪   Applied foundational knowledge of pharmacology and therapeutics to support clinical assessments and improve
+understanding of patient - centered medication management.
+PROJECTS
+A Prospective Observational Study on Hepatoprotective Agents Used in Alcoholic Liver Disease at a Tertiary Care Teaching
+Hospital   | Osmania University
+▪   Conducted a prospective research study on hepatoprotective agents used in the treatment of alcoholic liver disease.
+▪   Collected and analyzed patient data to assess treatment outcomes and therapeutic effectiveness.
+▪   Prepared and submitted a formal dissertation to Osmania University as partial fulfillment of the Pharm - D degree.
+EDUCATION
+▪   Masters   in Drug Regulatory Affairs
+Long Island University, Brooklyn, New York   |   2024   –   2026
+▪   Doctor of Pharmacy ( Pharm - D )
+MESCO College of Pharmacy, affiliated with Osmania University, Hyderabad, India   |   2017   –   2023
+`;
+
+describe('Heuristic Evaluation for Specialized Healthcare Resume', () => {
+  it('correctly parses structured candidate details from extracted text', () => {
+    let rawText = UMMU_FARWAH_RESUME_TEXT;
+
+    // Apply the text healing from parser.ts
+    rawText = rawText
+      .replace(/\b([a-zA-Z0-9._%+-]+(?:\s+[a-zA-Z0-9._%+-]+)*)\s*@\s*([a-zA-Z0-9.\s-]+)\s*\.\s*([a-zA-Z]{2,})\b/g, (match, local, domain, tld) => {
+        return `${local.replace(/\s+/g, '')}@${domain.replace(/\s+/g, '')}.${tld}`;
+      })
+      .replace(/(\+\d{1,3})\s*\(\s*(\d{3})\s*\)\s*(\d{3})\s*-\s*(\d{4})/g, '$1 ($2) $3-$4')
+      .replace(/,\s*,+/g, ', ')
+      .replace(/([A-Za-z]+)\s*,\s*([A-Za-z]{2,})/g, '$1, $2')
+      .replace(/Pharmacis\s+t/gi, 'Pharmacist');
+
+    const doc = parseRawTextToDocument(rawText);
+
+    expect(doc.contact.fullName).toBe('Ummu Farwah');
+    expect(doc.contact.email).toBe('Ummufarwah.fm@gmail.com');
+    expect(doc.contact.phone).toBe('+1 (347) 686-2993');
+    expect(doc.contact.location).toBe('Jersey City, NJ');
+
+    // Experience parsing
+    expect(doc.experience.length).toBe(2);
+    expect(doc.experience[0].roleTitle).toBe('Clinical Pharmacist');
+    expect(doc.experience[0].company).toBe('Tuffah Hospital');
+    expect(doc.experience[0].location).toBe('Hyderabad, India');
+    expect(doc.experience[0].startDate).toBe('Mar 2023');
+    expect(doc.experience[0].endDate).toBe('Aug 2023');
+
+    expect(doc.experience[1].roleTitle).toBe('Clinical Pharmacology Intern');
+    expect(doc.experience[1].company).toBe('Tuffah Hospital');
+    expect(doc.experience[1].location).toBe('Hyderabad, India');
+    expect(doc.experience[1].startDate).toBe('Sept 2022');
+    expect(doc.experience[1].endDate).toBe('Feb 2023');
+
+    // Education parsing
+    expect(doc.education.length).toBe(2);
+    expect(doc.education[0].degree).toContain('Masters   in Drug Regulatory Affairs');
+    expect(doc.education[0].institution).toBe('Long Island University, Brooklyn, New York');
+    expect(doc.education[0].startDate).toBe('2024');
+    expect(doc.education[0].endDate).toBe('2026');
+
+    expect(doc.education[1].degree).toContain('Doctor of Pharmacy');
+    expect(doc.education[1].institution).toBe('MESCO College of Pharmacy, affiliated with Osmania University, Hyderabad, India');
+    expect(doc.education[1].startDate).toBe('2017');
+    expect(doc.education[1].endDate).toBe('2023');
+
+    // Skills parsing
+    const totalSkills = doc.skills.flatMap((s) => s.items);
+    expect(totalSkills.length).toBeGreaterThanOrEqual(20);
+    expect(totalSkills).toContain('Clinical Pharmacology');
+    expect(totalSkills).toContain('Regulatory Affairs');
+
+    // Projects parsing
+    expect(doc.projects?.length).toBe(1);
+    expect(doc.projects?.[0].title).toContain('A Prospective Observational Study');
+    expect(doc.projects?.[0].bullets.length).toBe(3);
+
+    // Target role identification (healthcare/clinical rather than defaulting to tech)
+    const evaluation = evaluateResumeHeuristically(doc, rawText);
+    expect(evaluation.targetRole).toBe('Clinical Pharmacist');
+  });
+});

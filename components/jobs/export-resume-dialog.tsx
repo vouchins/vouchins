@@ -19,6 +19,7 @@ import {
   ResumeDateFormat,
   ResumeBulletStyle,
 } from '@/lib/jobs/types';
+import { partitionResumePages, PaginatedRoleSegment } from '@/lib/jobs/pagination';
 import {
   CheckCircle2,
   Download,
@@ -167,6 +168,15 @@ export function ExportResumeDialog({
   const isCentered = config.template === 'centered';
   const isStructured = config.template === 'structured';
 
+  const previewFontBold =
+    config.fontFamily === 'Times-Roman'
+      ? '"Times New Roman Bold", Times, serif'
+      : config.fontFamily === 'Courier'
+      ? 'Courier, monospace'
+      : 'Helvetica, Arial, sans-serif';
+
+  const pages = partitionResumePages(document, config.pageSize);
+
   const contactParts = [
     document.contact.email,
     document.contact.phone,
@@ -177,7 +187,270 @@ export function ExportResumeDialog({
     document.contact.githubUrl
       ? document.contact.githubUrl.replace(/^https?:\/\//, '')
       : '',
+    document.contact.leetcodeUrl
+      ? document.contact.leetcodeUrl.replace(/^https?:\/\//, '')
+      : '',
+    document.contact.portfolioUrl
+      ? document.contact.portfolioUrl.replace(/^https?:\/\//, '')
+      : '',
   ].filter(Boolean);
+
+  const renderPreviewSummary = () =>
+    document.summary ? (
+      <div>
+        <h2
+          style={{
+            fontSize: `${config.fontSizes.sectionHeaders}pt`,
+            color: headingColor,
+          }}
+          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
+            isCentered && !isStructured ? 'text-center' : 'text-left'
+          }`}
+        >
+          Professional Summary
+        </h2>
+        <p
+          style={{ fontSize: `${config.fontSizes.bodyText * 0.95}pt` }}
+          className="text-neutral-700 leading-relaxed font-normal"
+        >
+          {document.summary}
+        </p>
+      </div>
+    ) : null;
+
+  const renderPreviewSkills = (inSidebar = false) =>
+    document.skills && document.skills.length > 0 ? (
+      <div>
+        <h2
+          style={{
+            fontSize: `${config.fontSizes.sectionHeaders}pt`,
+            color: headingColor,
+          }}
+          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
+            isCentered && !inSidebar ? 'text-center' : 'text-left'
+          }`}
+        >
+          Technical Skills
+        </h2>
+        {inSidebar ? (
+          <div className="space-y-2">
+            {document.skills.map((s, idx) => (
+              <div key={idx} className="space-y-0.5">
+                <span className="font-bold text-[11px] text-neutral-900 block">
+                  {s.category}
+                </span>
+                <span className="text-neutral-700 text-[10.5px] leading-tight block">
+                  {s.items.join(', ')}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {document.skills.map((s, idx) => (
+              <div key={idx} className="text-xs leading-snug text-neutral-700">
+                <span className="font-bold text-neutral-900 mr-1.5">
+                  {s.category}:
+                </span>
+                <span>{s.items.join(', ')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    ) : null;
+
+  const renderPreviewExperience = (roles: PaginatedRoleSegment[], isContinuationPage = false) =>
+    roles && roles.length > 0 ? (
+      <div>
+        <h2
+          style={{
+            fontSize: `${config.fontSizes.sectionHeaders}pt`,
+            color: headingColor,
+          }}
+          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
+            isCentered && !isStructured ? 'text-center' : 'text-left'
+          }`}
+        >
+          Work Experience {isContinuationPage ? '(Continued)' : ''}
+        </h2>
+        <div className="space-y-3">
+          {roles.map((roleSegment, idx) => {
+            const { role, bulletStartIndex = 0, bulletEndIndex, isContinuation } = roleSegment;
+            const bulletsToRender = role.bullets.slice(
+              bulletStartIndex,
+              bulletEndIndex !== undefined ? bulletEndIndex : role.bullets.length
+            );
+
+            return (
+              <div key={idx} className="space-y-1">
+                {isContinuation ? (
+                  <div className="border-b border-neutral-100 pb-1 mb-1">
+                    <span
+                      style={{ fontSize: `${config.fontSizes.subHeaders * 0.95}pt` }}
+                      className="font-bold text-neutral-700 text-xs"
+                    >
+                      {role.roleTitle} • {role.company} (Continued)
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-baseline justify-between">
+                    <div>
+                      <span
+                        style={{ fontSize: `${config.fontSizes.subHeaders}pt` }}
+                        className="font-bold text-neutral-900"
+                      >
+                        {role.roleTitle}
+                      </span>
+                      <span className="text-neutral-500 text-xs ml-1 font-medium">
+                        • {role.company}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-neutral-500 font-medium">
+                      {formatPreviewDate(role.startDate, config.dateFormat)} -{' '}
+                      {formatPreviewDate(role.endDate, config.dateFormat)}{' '}
+                      {role.location ? `| ${role.location}` : ''}
+                    </span>
+                  </div>
+                )}
+                <ul className="space-y-1 pl-2">
+                  {bulletsToRender.map((b, bIdx) => (
+                    <li
+                      key={bIdx}
+                      style={{ fontSize: `${config.fontSizes.bodyText * 0.92}pt` }}
+                      className="flex items-start gap-1.5 text-neutral-800 leading-snug font-normal"
+                    >
+                      <span
+                        style={{ color: headingColor }}
+                        className="font-bold shrink-0"
+                      >
+                        {config.bulletStyle}
+                      </span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    ) : null;
+
+  const renderPreviewEducation = (inSidebar = false) =>
+    document.education && document.education.length > 0 ? (
+      <div>
+        <h2
+          style={{
+            fontSize: `${config.fontSizes.sectionHeaders}pt`,
+            color: headingColor,
+          }}
+          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
+            isCentered && !inSidebar ? 'text-center' : 'text-left'
+          }`}
+        >
+          Education
+        </h2>
+        {inSidebar ? (
+          <div className="space-y-2">
+            {document.education.map((edu, idx) => (
+              <div key={idx} className="space-y-0.5">
+                <span className="font-bold text-[11px] text-neutral-900 block">
+                  {edu.institution}
+                </span>
+                <span className="text-neutral-600 text-[10.5px] block">
+                  {edu.degree}
+                  {edu.fieldOfStudy &&
+                  !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
+                    ? ` in ${edu.fieldOfStudy}`
+                    : ''}
+                </span>
+                {edu.endDate && (
+                  <span className="text-neutral-400 text-[10px] block">
+                    {formatPreviewDate(edu.endDate, config.dateFormat)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {document.education.map((edu, idx) => (
+              <div key={idx} className="flex items-baseline justify-between">
+                <div>
+                  <span className="font-bold text-neutral-900 text-xs">
+                    {edu.institution}
+                  </span>
+                  <span className="text-neutral-600 text-xs ml-1">
+                    {edu.degree}
+                    {edu.fieldOfStudy &&
+                    !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
+                      ? ` in ${edu.fieldOfStudy}`
+                      : ''}
+                    {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
+                  </span>
+                </div>
+                {edu.endDate && (
+                  <span className="text-neutral-400 text-[11px]">
+                    {formatPreviewDate(edu.endDate, config.dateFormat)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    ) : null;
+
+  const renderPreviewProjects = () =>
+    document.projects && document.projects.length > 0 ? (
+      <div>
+        <h2
+          style={{
+            fontSize: `${config.fontSizes.sectionHeaders}pt`,
+            color: headingColor,
+          }}
+          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
+            isCentered && !isStructured ? 'text-center' : 'text-left'
+          }`}
+        >
+          Key Technical Projects
+        </h2>
+        <div className="space-y-2">
+          {document.projects.map((proj, idx) => (
+            <div key={idx} className="space-y-0.5">
+              <div className="flex items-baseline justify-between">
+                <span className="font-bold text-neutral-900 text-xs">
+                  {proj.title}
+                </span>
+                {proj.techStack && (
+                  <span className="text-[11px] text-neutral-500">
+                    {proj.techStack.join(' • ')}
+                  </span>
+                )}
+              </div>
+              <ul className="space-y-0.5 pl-2">
+                {proj.bullets.map((b, bIdx) => (
+                  <li
+                    key={bIdx}
+                    style={{ fontSize: `${config.fontSizes.bodyText * 0.9}pt` }}
+                    className="flex items-start gap-1.5 text-neutral-700 leading-snug"
+                  >
+                    <span
+                      style={{ color: headingColor }}
+                      className="font-bold shrink-0"
+                    >
+                      {config.bulletStyle}
+                    </span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -591,6 +864,10 @@ export function ExportResumeDialog({
                 </span>
                 <span>·</span>
                 <span className="capitalize">{config.template} Layout</span>
+                <span>·</span>
+                <span className="text-neutral-500 font-bold">
+                  {pages.length} {pages.length === 1 ? 'Page' : 'Pages'}
+                </span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -629,441 +906,118 @@ export function ExportResumeDialog({
 
             {/* Scrollable Canvas Container */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex items-start justify-center">
-              {/* Scaled White Paper Sheet */}
+              {/* Scaled Multi-Sheet Paper Canvas */}
               <div
                 style={{
                   transform: `scale(${previewZoom})`,
                   transformOrigin: 'top center',
                   fontFamily: previewFontFamily,
                 }}
-                className="w-[790px] min-h-[1020px] bg-white rounded-sm shadow-[0_4px_30px_rgba(0,0,0,0.12)] p-10 transition-all select-text shrink-0 mb-12 relative text-[#111827]"
+                className="flex flex-col items-center gap-8 shrink-0 mb-12"
               >
-                {/* Header */}
-                <div
-                  className={`border-b pb-3 mb-4 ${
-                    isCentered ? 'text-center border-transparent' : 'border-neutral-200 text-left'
-                  }`}
-                >
-                  <h1
-                    style={{
-                      fontSize: `${config.fontSizes.name}pt`,
-                      color: nameColor,
-                    }}
-                    className="font-black tracking-tight leading-tight mb-1"
-                  >
-                    {document.contact.fullName || 'Candidate Profile'}
-                  </h1>
+                {pages.map((page, pageIdx) => (
                   <div
-                    className={`flex flex-wrap items-center gap-2 text-xs text-neutral-500 font-medium ${
-                      isCentered ? 'justify-center' : 'justify-start'
-                    }`}
+                    key={pageIdx}
+                    className={`w-[790px] ${
+                      config.pageSize === 'A4' ? 'min-h-[1115px]' : 'min-h-[1022px]'
+                    } bg-white rounded-sm shadow-[0_4px_30px_rgba(0,0,0,0.12)] p-10 transition-all select-text shrink-0 relative text-[#111827] flex flex-col justify-between`}
                   >
-                    {contactParts.map((part, idx) => (
-                      <span key={idx} className="flex items-center gap-1.5">
-                        {idx > 0 && <span className="text-neutral-300">•</span>}
-                        <span>{part}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Structured vs Linear Layout */}
-                {isStructured ? (
-                  <div className="flex gap-6">
-                    {/* Left Column (65%) */}
-                    <div className="flex-[65] space-y-4">
-                      {/* Summary */}
-                      {document.summary && (
-                        <div>
-                          <h2
-                            style={{
-                              fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                              color: headingColor,
-                            }}
-                            className="font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2"
+                    <div>
+                      {/* Page Continuation Header (Page 2+) */}
+                      {pageIdx > 0 && (
+                        <div className="border-b border-neutral-200 pb-2 mb-4 flex items-center justify-between text-xs text-neutral-500 select-none">
+                          <span
+                            style={{ color: headingColor }}
+                            className="font-bold uppercase tracking-wider text-[11px]"
                           >
-                            Professional Summary
-                          </h2>
-                          <p
-                            style={{ fontSize: `${config.fontSizes.bodyText * 0.95}pt` }}
-                            className="text-neutral-700 leading-relaxed font-normal"
-                          >
-                            {document.summary}
-                          </p>
+                            {document.contact.fullName || 'Candidate'} -{' '}
+                            {page.roles.length > 0 && page.showEducation
+                              ? 'Professional Experience & Education (Continued)'
+                              : page.roles.length > 0
+                              ? 'Professional Experience (Continued)'
+                              : page.showEducation && page.showProjects
+                              ? 'Education & Technical Projects'
+                              : page.showProjects
+                              ? 'Key Technical Projects & Research'
+                              : 'Education (Continued)'}
+                          </span>
+                          <span className="text-[11px] text-neutral-400">
+                            Page {pageIdx + 1}
+                          </span>
                         </div>
                       )}
 
-                      {/* Work Experience */}
-                      {document.experience && document.experience.length > 0 && (
-                        <div>
-                          <h2
-                            style={{
-                              fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                              color: headingColor,
-                            }}
-                            className="font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2"
-                          >
-                            Work Experience
-                          </h2>
-                          <div className="space-y-3">
-                            {document.experience.map((role, idx) => (
-                              <div key={idx} className="space-y-1">
-                                <div className="flex items-baseline justify-between">
-                                  <div>
-                                    <span
-                                      style={{ fontSize: `${config.fontSizes.subHeaders}pt` }}
-                                      className="font-bold text-neutral-900"
-                                    >
-                                      {role.roleTitle}
-                                    </span>
-                                    <span className="text-neutral-500 text-xs ml-1 font-medium">
-                                      • {role.company}
-                                    </span>
-                                  </div>
-                                  <span className="text-[11px] text-neutral-500 font-medium">
-                                    {formatPreviewDate(role.startDate, config.dateFormat)} -{' '}
-                                    {formatPreviewDate(role.endDate, config.dateFormat)}{' '}
-                                    {role.location ? `| ${role.location}` : ''}
-                                  </span>
-                                </div>
-                                <ul className="space-y-1 pl-2">
-                                  {role.bullets.map((b, bIdx) => (
-                                    <li
-                                      key={bIdx}
-                                      style={{ fontSize: `${config.fontSizes.bodyText * 0.92}pt` }}
-                                      className="flex items-start gap-1.5 text-neutral-800 leading-snug font-normal"
-                                    >
-                                      <span
-                                        style={{ color: headingColor }}
-                                        className="font-bold shrink-0"
-                                      >
-                                        {config.bulletStyle}
-                                      </span>
-                                      <span>{b}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Projects */}
-                      {document.projects && document.projects.length > 0 && (
-                        <div>
-                          <h2
-                            style={{
-                              fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                              color: headingColor,
-                            }}
-                            className="font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2"
-                          >
-                            Key Technical Projects
-                          </h2>
-                          <div className="space-y-2">
-                            {document.projects.map((proj, idx) => (
-                              <div key={idx} className="space-y-0.5">
-                                <div className="flex items-baseline justify-between">
-                                  <span className="font-bold text-neutral-900 text-xs">
-                                    {proj.title}
-                                  </span>
-                                  {proj.techStack && (
-                                    <span className="text-[11px] text-neutral-500">
-                                      {proj.techStack.join(' • ')}
-                                    </span>
-                                  )}
-                                </div>
-                                <ul className="space-y-0.5 pl-2">
-                                  {proj.bullets.map((b, bIdx) => (
-                                    <li
-                                      key={bIdx}
-                                      style={{ fontSize: `${config.fontSizes.bodyText * 0.9}pt` }}
-                                      className="flex items-start gap-1.5 text-neutral-700 leading-snug"
-                                    >
-                                      <span
-                                        style={{ color: headingColor }}
-                                        className="font-bold shrink-0"
-                                      >
-                                        {config.bulletStyle}
-                                      </span>
-                                      <span>{b}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Right Column (35%) */}
-                    <div className="flex-[35] border-l border-neutral-200 pl-5 space-y-4">
-                      {/* Skills */}
-                      {document.skills && document.skills.length > 0 && (
-                        <div>
-                          <h2
-                            style={{
-                              fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                              color: headingColor,
-                            }}
-                            className="font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2"
-                          >
-                            Technical Skills
-                          </h2>
-                          <div className="space-y-2">
-                            {document.skills.map((s, idx) => (
-                              <div key={idx} className="space-y-0.5">
-                                <span className="font-bold text-[11px] text-neutral-900 block">
-                                  {s.category}
-                                </span>
-                                <span className="text-neutral-700 text-[10.5px] leading-tight block">
-                                  {s.items.join(', ')}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Education */}
-                      {document.education && document.education.length > 0 && (
-                        <div>
-                          <h2
-                            style={{
-                              fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                              color: headingColor,
-                            }}
-                            className="font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2"
-                          >
-                            Education
-                          </h2>
-                          <div className="space-y-2">
-                            {document.education.map((edu, idx) => (
-                              <div key={idx} className="space-y-0.5">
-                                <span className="font-bold text-[11px] text-neutral-900 block">
-                                  {edu.institution}
-                                </span>
-                                <span className="text-neutral-600 text-[10.5px] block">
-                                  {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
-                                </span>
-                                {edu.endDate && (
-                                  <span className="text-neutral-400 text-[10px] block">
-                                    {formatPreviewDate(edu.endDate, config.dateFormat)}
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  /* Standard / Compact / Centered Linear Layout */
-                  <div className={`space-y-${isCompact ? '3' : '4'}`}>
-                    {/* Summary */}
-                    {document.summary && (
-                      <div>
-                        <h2
-                          style={{
-                            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                            color: headingColor,
-                          }}
-                          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-                            isCentered ? 'text-center' : 'text-left'
+                      {/* Header (Page 1) */}
+                      {page.showContact && (
+                        <div
+                          className={`border-b pb-3 mb-4 ${
+                            isCentered ? 'text-center border-transparent' : 'border-neutral-200 text-left'
                           }`}
                         >
-                          Professional Summary
-                        </h2>
-                        <p
-                          style={{ fontSize: `${config.fontSizes.bodyText * 0.95}pt` }}
-                          className="text-neutral-700 leading-relaxed font-normal"
-                        >
-                          {document.summary}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Technical Skills */}
-                    {document.skills && document.skills.length > 0 && (
-                      <div>
-                        <h2
-                          style={{
-                            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                            color: headingColor,
-                          }}
-                          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-                            isCentered ? 'text-center' : 'text-left'
-                          }`}
-                        >
-                          Technical Skills
-                        </h2>
-                        <div className="space-y-1">
-                          {document.skills.map((s, idx) => (
-                            <div key={idx} className="flex items-start text-xs">
-                              <span className="font-bold text-neutral-900 w-36 shrink-0">
-                                {s.category}:
+                          <h1
+                            style={{
+                              fontSize: `${config.fontSizes.name}pt`,
+                              color: nameColor,
+                              fontFamily: previewFontBold,
+                            }}
+                            className="font-black tracking-tight leading-tight mb-1"
+                          >
+                            {document.contact.fullName || 'Candidate Profile'}
+                          </h1>
+                          <div
+                            className={`flex flex-wrap items-center gap-2 text-xs text-neutral-500 font-medium ${
+                              isCentered ? 'justify-center' : 'justify-start'
+                            }`}
+                          >
+                            {contactParts.map((part, idx) => (
+                              <span key={idx} className="flex items-center gap-1.5">
+                                {idx > 0 && <span className="text-neutral-300">•</span>}
+                                <span>{part}</span>
                               </span>
-                              <span className="text-neutral-700 flex-1">{s.items.join(', ')}</span>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Work Experience */}
-                    {document.experience && document.experience.length > 0 && (
-                      <div>
-                        <h2
-                          style={{
-                            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                            color: headingColor,
-                          }}
-                          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-                            isCentered ? 'text-center' : 'text-left'
-                          }`}
-                        >
-                          Work Experience
-                        </h2>
-                        <div className="space-y-3">
-                          {document.experience.map((role, idx) => (
-                            <div key={idx} className="space-y-1">
-                              <div className="flex items-baseline justify-between">
-                                <div>
-                                  <span
-                                    style={{ fontSize: `${config.fontSizes.subHeaders}pt` }}
-                                    className="font-bold text-neutral-900"
-                                  >
-                                    {role.roleTitle}
-                                  </span>
-                                  <span className="text-neutral-500 text-xs ml-1 font-medium">
-                                    • {role.company}
-                                  </span>
-                                </div>
-                                <span className="text-[11px] text-neutral-500 font-medium">
-                                  {formatPreviewDate(role.startDate, config.dateFormat)} -{' '}
-                                  {formatPreviewDate(role.endDate, config.dateFormat)}{' '}
-                                  {role.location ? `| ${role.location}` : ''}
-                                </span>
-                              </div>
-                              <ul className="space-y-1 pl-2">
-                                {role.bullets.map((b, bIdx) => (
-                                  <li
-                                    key={bIdx}
-                                    style={{ fontSize: `${config.fontSizes.bodyText * 0.92}pt` }}
-                                    className="flex items-start gap-1.5 text-neutral-800 leading-snug font-normal"
-                                  >
-                                    <span
-                                      style={{ color: headingColor }}
-                                      className="font-bold shrink-0"
-                                    >
-                                      {config.bulletStyle}
-                                    </span>
-                                    <span>{b}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                      {/* Structured vs Linear Layout */}
+                      {isStructured ? (
+                        <div className="flex gap-6">
+                          {/* Left Column (65%) */}
+                          <div className="flex-[65] space-y-4">
+                            {page.showSummary && renderPreviewSummary()}
+                            {page.roles.length > 0 && renderPreviewExperience(page.roles, pageIdx > 0)}
+                            {page.showProjects && renderPreviewProjects()}
+                          </div>
 
-                    {/* Education */}
-                    {document.education && document.education.length > 0 && (
-                      <div>
-                        <h2
-                          style={{
-                            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                            color: headingColor,
-                          }}
-                          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-                            isCentered ? 'text-center' : 'text-left'
-                          }`}
-                        >
-                          Education
-                        </h2>
-                        <div className="space-y-1.5">
-                          {document.education.map((edu, idx) => (
-                            <div key={idx} className="flex items-baseline justify-between">
-                              <div>
-                                <span className="font-bold text-neutral-900 text-xs">
-                                  {edu.institution}
-                                </span>
-                                <span className="text-neutral-600 text-xs ml-1">
-                                  {edu.degree} {edu.fieldOfStudy ? `in ${edu.fieldOfStudy}` : ''}
-                                  {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
-                                </span>
-                              </div>
-                              {edu.endDate && (
-                                <span className="text-neutral-400 text-[11px]">
-                                  {formatPreviewDate(edu.endDate, config.dateFormat)}
-                                </span>
-                              )}
-                            </div>
-                          ))}
+                          {/* Right Column (35%) */}
+                          <div className="flex-[35] border-l border-neutral-200 pl-5 space-y-4">
+                            {page.showSkills && renderPreviewSkills(true)}
+                            {page.showEducation && renderPreviewEducation(true)}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      ) : (
+                        /* Standard / Compact / Centered Linear Layout */
+                        <div className={`space-y-${isCompact ? '3' : '4'}`}>
+                          {page.showSummary && renderPreviewSummary()}
+                          {page.showSkills && renderPreviewSkills(false)}
+                          {page.roles.length > 0 && renderPreviewExperience(page.roles, pageIdx > 0)}
+                          {page.showEducation && renderPreviewEducation(false)}
+                          {page.showProjects && renderPreviewProjects()}
+                        </div>
+                      )}
+                    </div>
 
-                    {/* Key Projects */}
-                    {document.projects && document.projects.length > 0 && (
-                      <div>
-                        <h2
-                          style={{
-                            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-                            color: headingColor,
-                          }}
-                          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-                            isCentered ? 'text-center' : 'text-left'
-                          }`}
-                        >
-                          Key Technical Projects
-                        </h2>
-                        <div className="space-y-2">
-                          {document.projects.map((proj, idx) => (
-                            <div key={idx} className="space-y-0.5">
-                              <div className="flex items-baseline justify-between">
-                                <span className="font-bold text-neutral-900 text-xs">
-                                  {proj.title}
-                                </span>
-                                {proj.techStack && (
-                                  <span className="text-[11px] text-neutral-500">
-                                    {proj.techStack.join(' • ')}
-                                  </span>
-                                )}
-                              </div>
-                              <ul className="space-y-0.5 pl-2">
-                                {proj.bullets.map((b, bIdx) => (
-                                  <li
-                                    key={bIdx}
-                                    style={{ fontSize: `${config.fontSizes.bodyText * 0.9}pt` }}
-                                    className="flex items-start gap-1.5 text-neutral-700 leading-snug"
-                                  >
-                                    <span
-                                      style={{ color: headingColor }}
-                                      className="font-bold shrink-0"
-                                    >
-                                      {config.bulletStyle}
-                                    </span>
-                                    <span>{b}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    {/* Authentic Document Page Footer */}
+                    <div className="pt-3 mt-4 border-t border-neutral-200 flex items-center justify-between text-[11px] text-neutral-400 select-none">
+                      <span className="font-medium text-neutral-500">
+                        {document.contact.fullName || 'Candidate'} - Resume
+                      </span>
+                      <span className="font-semibold px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200/80">
+                        Page {pageIdx + 1} of {pages.length}
+                      </span>
+                    </div>
                   </div>
-                )}
-
-                {/* Floating Page Counter Badge (Like Jobright screenshot) */}
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-neutral-900/90 text-white text-[11px] font-black shadow-md flex items-center gap-1 select-none pointer-events-none">
-                  <span>1 / {isCompact ? '1' : '2'}</span>
-                </div>
+                ))}
               </div>
             </div>
 
