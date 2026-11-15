@@ -719,7 +719,7 @@ export async function GET(request: Request) {
       return true;
     });
 
-    // 10. Sort by Date or Relevance (Match Score & Role Alignment descending)
+    // 10. Unified Ranking: Relevant to profile first, ordered recently posted first
     freshCombined.sort((a, b) => {
       if (sortParam === "date") {
         const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -728,13 +728,34 @@ export async function GET(request: Request) {
         return (b.match_score || 0) - (a.match_score || 0);
       }
 
-      // 1. Primary: Significant Match Score difference (>= 4%)
-      const scoreDiff = (b.match_score || 0) - (a.match_score || 0);
-      if (Math.abs(scoreDiff) >= 4) {
-        return scoreDiff;
+      // Relevance Tiers:
+      // Tier 1: Highly aligned to candidate profile (is_recommended or match_score >= 84)
+      // Tier 2: Moderately aligned (match_score >= 74)
+      // Tier 3: Domain mismatch / low alignment (< 74)
+      const getTier = (job: any): number => {
+        if (job.is_recommended || (job.match_score || 0) >= 84) return 1;
+        if ((job.match_score || 0) >= 74) return 2;
+        return 3;
+      };
+
+      const tierA = getTier(a);
+      const tierB = getTier(b);
+
+      if (tierA !== tierB) {
+        return tierA - tierB;
       }
 
-      // 2. Title & Domain Role Relevance
+      // Within the same relevance tier: order by recently posted first
+      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      const timeDiff = timeB - timeA;
+
+      // If postings differ by more than 1 hour, newer posting takes precedence
+      if (Math.abs(timeDiff) > 3600 * 1000) {
+        return timeDiff;
+      }
+
+      // Within the same hour / batch: evaluate title & domain role relevance
       const computeTitleRelevance = (title: string, compName: string): number => {
         const t = (title || "").toLowerCase();
         let weight = 0;
@@ -798,19 +819,20 @@ export async function GET(request: Request) {
         return bWeight - aWeight;
       }
 
-      // 3. Number of Matched Competencies
+      // Match Score tie-breaker
+      const scoreDiff = (b.match_score || 0) - (a.match_score || 0);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+
+      // Number of Matched Competencies
       const aMatchedCount = Array.isArray(a.matching_skills) ? a.matching_skills.length : 0;
       const bMatchedCount = Array.isArray(b.matching_skills) ? b.matching_skills.length : 0;
       if (bMatchedCount !== aMatchedCount) {
         return bMatchedCount - aMatchedCount;
       }
 
-      // 4. Exact score difference if close
-      if (scoreDiff !== 0) {
-        return scoreDiff;
-      }
-
-      // 5. Location preference: Candidate home city over generic remote
+      // Location preference: Candidate home city over generic remote
       if (candidateLocation && candidateLocation.toLowerCase() !== "all") {
         const aLoc = (a.location || "").toLowerCase();
         const bLoc = (b.location || "").toLowerCase();
@@ -826,10 +848,7 @@ export async function GET(request: Request) {
         if (!aSpecific && bSpecific) return 1;
       }
 
-      // 6. Recency descending
-      const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return timeB - timeA;
+      return timeDiff;
     });
 
     let finalCombined = freshCombined;

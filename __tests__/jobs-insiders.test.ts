@@ -91,6 +91,7 @@ jest.mock('@/lib/supabase/admin', () => ({
 
 import { GET as getInsiders, formatPartialName } from '@/app/api/jobs/insiders/route';
 import { POST as postReferral } from '@/app/api/jobs/referrals/route';
+import { getCuratedInsiders } from '@/lib/jobs/corporate-insiders';
 
 describe('Jobs: Verified Insiders & Verification Gated Connection', () => {
   beforeEach(() => {
@@ -99,6 +100,30 @@ describe('Jobs: Verified Insiders & Verification Gated Connection', () => {
     mockCompaniesData = [];
     mockUsersData = [];
     mockInsertedMessage = null;
+  });
+
+  describe('getCuratedInsiders precision matching', () => {
+    it('returns empty array for empty, generic suffix, or short non-matching strings', () => {
+      expect(getCuratedInsiders('')).toEqual([]);
+      expect(getCuratedInsiders('Services Ltd')).toEqual([]);
+      expect(getCuratedInsiders('Solutions Inc')).toEqual([]);
+      expect(getCuratedInsiders('On')).toEqual([]);
+      expect(getCuratedInsiders('In')).toEqual([]);
+    });
+
+    it('accurately resolves premier tech employers', () => {
+      const deShaw = getCuratedInsiders('DE Shaw');
+      expect(deShaw.length).toBeGreaterThanOrEqual(1);
+      expect(deShaw[0].companyName).toBe('DE Shaw');
+
+      const oracle = getCuratedInsiders('Oracle');
+      expect(oracle.length).toBeGreaterThanOrEqual(1);
+      expect(oracle[0].companyName).toBe('Oracle');
+
+      const msft = getCuratedInsiders('Microsoft Corporation');
+      expect(msft.length).toBeGreaterThanOrEqual(1);
+      expect(msft[0].companyName).toBe('Microsoft');
+    });
   });
 
   describe('formatPartialName helper', () => {
@@ -261,6 +286,49 @@ describe('Jobs: Verified Insiders & Verification Gated Connection', () => {
       expect(json.insiders[0].name).toBe('V**** M****');
       expect(json.insiders[0].isMasked).toBe(true);
       expect(json.insiders[0].avatarUrl).toBeNull();
+    });
+
+    it('should safely sanitize company names with special characters (commas, parentheses) without failing', async () => {
+      mockAuthUser = null;
+      mockUserData = null;
+      mockCompaniesData = [];
+      mockUsersData = [];
+
+      // Company name with commas, parentheses, and ampersand
+      const req = new Request('http://localhost:3000/api/jobs/insiders?company=Meta%20(Facebook)%2C%20Inc.');
+      const res = await getInsiders(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(Array.isArray(json.insiders)).toBe(true);
+    });
+
+    it('should prevent leaking random DB users when company name is a stripped generic suffix', async () => {
+      mockAuthUser = null;
+      mockUserData = null;
+      mockCompaniesData = [];
+      // DB has users, but they belong to other companies
+      mockUsersData = [
+        {
+          id: 'user-random-1',
+          full_name: 'Random User',
+          email: 'random@othercompany.com',
+          is_verified: true,
+          is_active: true,
+        },
+      ];
+
+      // "Services Ltd" strips cleanCompanyName down to empty
+      const req = new Request('http://localhost:3000/api/jobs/insiders?company=Services%20Ltd');
+      const res = await getInsiders(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      // Must NOT leak random users from other companies
+      expect(json.insiders).toEqual([]);
+      expect(json.totalCount).toBe(0);
     });
   });
 

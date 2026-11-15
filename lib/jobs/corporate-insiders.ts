@@ -631,24 +631,38 @@ export const CORPORATE_DIRECTORY: Record<string, DirectoryInsider[]> = {
 export function getCuratedInsiders(companyName?: string, domain?: string): DirectoryInsider[] {
   const normName = (companyName || '').toLowerCase().trim();
   const cleanName = normName
-    .replace(/\b(inc|llc|corp|corporation|technologies|technology|solutions|services|ltd|limited|india|pvt)\b/gi, '')
+    .replace(/\b(inc|llc|corp|corporation|technologies|technology|solutions|services|ltd|limited|india|pvt|co|company)\b/gi, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 
-  for (const [key, list] of Object.entries(CORPORATE_DIRECTORY)) {
-    if (
-      normName === key ||
-      cleanName === key ||
-      normName.includes(key) ||
-      key.includes(cleanName)
-    ) {
-      return list;
+  if (normName || cleanName) {
+    for (const [key, list] of Object.entries(CORPORATE_DIRECTORY)) {
+      if (
+        (normName && normName === key) ||
+        (cleanName && cleanName === key) ||
+        (normName && normName.length >= 4 && normName.includes(key)) ||
+        (cleanName && cleanName.length >= 3 && key.includes(cleanName))
+      ) {
+        return list;
+      }
     }
   }
 
   if (domain) {
     const dLower = domain.toLowerCase().trim();
+    const domainRoot = dLower.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
     for (const list of Object.values(CORPORATE_DIRECTORY)) {
-      if (list.some((insider) => dLower.includes(insider.domain) || insider.domain.includes(dLower))) {
+      if (
+        list.some((insider) => {
+          const insiderDomain = insider.domain.toLowerCase();
+          return (
+            domainRoot === insiderDomain ||
+            domainRoot.endsWith(`.${insiderDomain}`) ||
+            insiderDomain.endsWith(`.${domainRoot}`)
+          );
+        })
+      ) {
         return list;
       }
     }

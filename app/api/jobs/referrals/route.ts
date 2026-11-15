@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { verifyJobsAccess } from "@/lib/jobs/auth-guard";
 
 export async function POST(request: Request) {
   try {
@@ -15,26 +16,43 @@ export async function POST(request: Request) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
+    let callingUserId: string | null = null;
+
+    // 1. Authenticate user via cookies
+    try {
+      const cookieStore = await cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            get(name: string) {
+              return cookieStore.get(name)?.value;
+            },
           },
-        },
+        }
+      );
+
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+
+      if (authUser?.id) {
+        callingUserId = authUser.id;
       }
-    );
+    } catch {
+      // Cookie read fallback
+    }
 
-    // 1. Authenticate user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    // Fallback to Bearer token / auth guard if cookie auth is unpopulated
+    if (!callingUserId) {
+      const guard = await verifyJobsAccess(request);
+      if (guard.userId) {
+        callingUserId = guard.userId;
+      }
+    }
 
-    if (authError || !user) {
+    if (!callingUserId) {
       return NextResponse.json(
         {
           error: "You must be signed in to connect with insiders.",
@@ -48,8 +66,8 @@ export async function POST(request: Request) {
     const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
       .select("id, full_name, email, is_verified, is_admin, company:companies(name)")
-      .eq("id", user.id)
-      .single();
+      .eq("id", callingUserId)
+      .maybeSingle();
 
     if (userError || (!userData?.is_verified && !userData?.is_admin)) {
       return NextResponse.json(
@@ -66,7 +84,7 @@ export async function POST(request: Request) {
     if (isUuid) {
       try {
         await supabaseAdmin.from("messages").insert({
-          sender_id: user.id,
+          sender_id: callingUserId,
           receiver_id: insiderId,
           text: `[Internal Referral Request · ${companyName}]\n\n${note || "Hi, I noticed the open role at your company and would love to connect regarding an internal referral."}`,
         });

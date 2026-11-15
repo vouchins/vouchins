@@ -36,6 +36,8 @@ import {
   RotateCw,
   Check,
   Plus,
+  GraduationCap,
+  BookOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnterpriseBuildingIcon } from '@/components/icons/enterprise-building-icon';
@@ -65,6 +67,9 @@ import { cleanJobApplyUrl } from '@/lib/jobs/url-cleaner';
 import { CompanyLogo } from './company-logo';
 import { getGoogleFaviconUrl } from '@/lib/utils';
 import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
+import { SkillResource } from '@/lib/skills/types';
+import { DEFAULT_SKILL_RESOURCES } from '@/lib/skills/default-resources';
+import { ResumeDocument } from '@/lib/jobs/types';
 
 export interface RecommendedJob {
   id: string;
@@ -370,6 +375,145 @@ function getJobTimestamp(job: RecommendedJob): number {
   return now - 3 * 86400000;
 }
 
+/**
+ * Returns stylish color classes for coaching tutorial category badges
+ */
+export function getCoachingCategoryBadge(category: string) {
+  switch (category.toLowerCase()) {
+    case 'dsa':
+      return {
+        badge: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+        dot: 'bg-indigo-600',
+      };
+    case 'system design':
+      return {
+        badge: 'bg-blue-50 text-blue-700 border-blue-200',
+        dot: 'bg-blue-600',
+      };
+    case 'javascript':
+      return {
+        badge: 'bg-amber-50 text-amber-800 border-amber-200',
+        dot: 'bg-amber-600',
+      };
+    case 'css':
+      return {
+        badge: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        dot: 'bg-emerald-600',
+      };
+    case 'java':
+      return {
+        badge: 'bg-orange-50 text-orange-800 border-orange-200',
+        dot: 'bg-orange-600',
+      };
+    case 'ai':
+      return {
+        badge: 'bg-purple-50 text-purple-700 border-purple-200',
+        dot: 'bg-purple-600',
+      };
+    default:
+      return {
+        badge: 'bg-neutral-100 text-neutral-700 border-neutral-200',
+        dot: 'bg-neutral-600',
+      };
+  }
+}
+
+/**
+ * Extracts and ranks the most relevant tutorial links from the coaching catalog for a given job
+ */
+export function getRelevantCoachingResources(job: RecommendedJob | null, resources: SkillResource[]): SkillResource[] {
+  if (!job || !resources || resources.length === 0) return (resources || []).slice(0, 4);
+
+  const titleLower = (job.title || '').toLowerCase();
+  const allSkills = [
+    ...(job.matchingSkills || []),
+    ...(job.missingSkills || []),
+    ...(job.description?.techStack || []),
+  ].map((s) => s.toLowerCase());
+
+  const fullJobText = `${job.title} ${job.description?.about || ''} ${allSkills.join(' ')}`.toLowerCase();
+
+  const isFrontend =
+    titleLower.includes('front') ||
+    titleLower.includes('react') ||
+    titleLower.includes('ui') ||
+    titleLower.includes('web') ||
+    allSkills.some((s) => s.includes('react') || s.includes('vue') || s.includes('angular') || s.includes('css') || s.includes('tailwind') || s.includes('frontend'));
+
+  const isJava =
+    (titleLower.includes('java') && !titleLower.includes('javascript')) ||
+    allSkills.some((s) => (s.includes('java') && !s.includes('javascript')) || s.includes('spring'));
+
+  const isAi =
+    titleLower.includes('ai') ||
+    titleLower.includes('machine learning') ||
+    titleLower.includes('ml') ||
+    titleLower.includes('data') ||
+    allSkills.some((s) => s.includes('python') || s.includes('llm') || s.includes('ai') || s.includes('tensor') || s.includes('pytorch'));
+
+  const isBackend =
+    titleLower.includes('backend') ||
+    titleLower.includes('back-end') ||
+    titleLower.includes('server') ||
+    titleLower.includes('distributed') ||
+    titleLower.includes('microservice') ||
+    allSkills.some((s) => s.includes('node') || s.includes('go') || s.includes('sql') || s.includes('postgres') || s.includes('redis'));
+
+  const isFullstack =
+    titleLower.includes('fullstack') ||
+    titleLower.includes('full-stack') ||
+    titleLower.includes('software engineer') ||
+    titleLower.includes('sde');
+
+  const scored = resources.map((r) => {
+    let score = 0;
+    const cat = (r.category || '').toLowerCase();
+    const tags = (r.tags || []).map((t) => t.toLowerCase());
+
+    // Role-specific category weights
+    if (isFrontend) {
+      if (cat === 'javascript') score += 10;
+      if (cat === 'css') score += 8;
+      if (cat === 'dsa') score += 6;
+      if (cat === 'system design') score += 3;
+    } else if (isJava) {
+      if (cat === 'java') score += 12;
+      if (cat === 'system design') score += 8;
+      if (cat === 'dsa') score += 6;
+    } else if (isAi) {
+      if (cat === 'ai') score += 12;
+      if (cat === 'system design') score += 6;
+      if (cat === 'dsa') score += 5;
+    } else if (isBackend) {
+      if (cat === 'system design') score += 10;
+      if (cat === 'dsa') score += 7;
+      if (isJava && cat === 'java') score += 8;
+      if (cat === 'javascript' && allSkills.some((s) => s.includes('node'))) score += 5;
+    } else if (isFullstack) {
+      if (cat === 'javascript') score += 8;
+      if (cat === 'system design') score += 8;
+      if (cat === 'dsa') score += 7;
+      if (cat === 'css') score += 5;
+    } else {
+      if (cat === 'dsa') score += 8;
+      if (cat === 'system design') score += 7;
+    }
+
+    // Direct tag & skill keyword match
+    for (const tag of tags) {
+      if (fullJobText.includes(tag)) score += 4;
+    }
+
+    // Boost featured courses
+    if (r.featured) score += 2;
+
+    return { resource: r, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 4).map((s) => s.resource);
+}
+
 function transformDbJobToRecommendedJob(job: any): RecommendedJob {
   try {
     const company = job.company_name || 'Tech Innovator';
@@ -536,7 +680,10 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       externalJobId: extractJobId(cleanJobApplyUrl(job.external_apply_url)),
       externalApplyUrl: cleanJobApplyUrl(job.external_apply_url) || null,
       isCurated: false,
-      isRecommended: (job.match_score || matchScore) >= 88,
+      isRecommended:
+        typeof job.is_recommended === 'boolean'
+          ? job.is_recommended
+          : (job.match_score || matchScore) >= 88,
     };
   } catch {
     return {
@@ -669,7 +816,6 @@ export function JobRecommendationsDashboard() {
   const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [activeDetailTab, setActiveDetailTab] = useState<'match' | 'insiders' | 'description' | 'copilot'>('match');
-  const [sortBy, setSortBy] = useState<'relevance' | 'date'>('relevance');
 
   // Location & City Filter State (Prioritizes user's home city)
   const [selectedCity, setSelectedCity] = useState<string>(() => {
@@ -707,6 +853,12 @@ export function JobRecommendationsDashboard() {
   const [isCustomResumeUrl, setIsCustomResumeUrl] = useState(false);
   const [isLoadingResumes, setIsLoadingResumes] = useState(false);
 
+  // Master resume document & Tailor Studio state
+  const [candidateDocument, setCandidateDocument] = useState<ResumeDocument | null>(null);
+  const [masterResumeId, setMasterResumeId] = useState<string | null>(null);
+  const [isTailoring, setIsTailoring] = useState(false);
+  const [tailorSuccess, setTailorSuccess] = useState(false);
+
   // Fetch candidate profile & master resume skills
   useEffect(() => {
     let isMounted = true;
@@ -716,7 +868,11 @@ export function JobRecommendationsDashboard() {
         if (res.ok) {
           const data = await res.json();
           if (isMounted) {
+            if (data.resumeId) {
+              setMasterResumeId(data.resumeId);
+            }
             if (data.document) {
+              setCandidateDocument(data.document);
               const skills: string[] = [];
               if (Array.isArray(data.document.skills)) {
                 data.document.skills.forEach((cat: any) => {
@@ -851,11 +1007,13 @@ export function JobRecommendationsDashboard() {
         selectedCompanies.length > 0 && !selectedCompanies.includes('all')
           ? `&companies=${encodeURIComponent(selectedCompanies.join(','))}`
           : '';
-      const sortQuery = `&sort=${sortBy}`;
+      const roleQuery = candidateCurrentRole ? `&current_role=${encodeURIComponent(candidateCurrentRole)}` : '';
+      const compQuery = candidateCurrentCompany ? `&current_company=${encodeURIComponent(candidateCurrentCompany)}` : '';
+      const workingQuery = `&is_working=${isCurrentlyWorking ? 'true' : 'false'}`;
       const searchParam = searchQuery.trim() ? `&q=${encodeURIComponent(searchQuery.trim())}` : '';
 
       const res = await fetch(
-        `/api/jobs?page=${targetPage}&limit=50${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${sortQuery}${searchParam}`
+        `/api/jobs?page=${targetPage}&limit=50${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${roleQuery}${compQuery}${workingQuery}${searchParam}`
       );
       if (res.ok) {
         const json = await res.json();
@@ -882,7 +1040,16 @@ export function JobRecommendationsDashboard() {
       setIsLoadingJobs(false);
       setIsLoadingMore(false);
     }
-  }, [selectedCity, workModeFilter, candidateProfileSkills, selectedCompanies, sortBy, searchQuery]);
+  }, [
+    selectedCity,
+    workModeFilter,
+    candidateProfileSkills,
+    selectedCompanies,
+    candidateCurrentRole,
+    candidateCurrentCompany,
+    isCurrentlyWorking,
+    searchQuery,
+  ]);
 
   useEffect(() => {
     setPage(1);
@@ -1115,6 +1282,33 @@ export function JobRecommendationsDashboard() {
   const [copilotResponse, setCopilotResponse] = useState<string | null>(null);
   const [copilotLoading, setCopilotLoading] = useState(false);
 
+  // Coaching Tab resources for AI Copilot & Prep
+  const [coachingResources, setCoachingResources] = useState<SkillResource[]>(DEFAULT_SKILL_RESOURCES);
+  const [isLoadingCoaching, setIsLoadingCoaching] = useState(false);
+
+  const fetchCoachingResources = React.useCallback(async () => {
+    setIsLoadingCoaching(true);
+    try {
+      const res = await fetch('/api/skills-courses');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.courses) && data.courses.length > 0) {
+          setCoachingResources(data.courses);
+        }
+      }
+    } catch (err) {
+      console.warn('Coaching resources loading note:', err);
+    } finally {
+      setIsLoadingCoaching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeDetailTab === 'copilot') {
+      fetchCoachingResources();
+    }
+  }, [activeDetailTab, fetchCoachingResources]);
+
   // Sync selected job with searchParams or initial allJobs
   useEffect(() => {
     if (initialJobId && allJobs.some((j) => j.id === initialJobId)) {
@@ -1201,16 +1395,45 @@ export function JobRecommendationsDashboard() {
       );
     }
 
-    // Sort according to selected sort option (Relevance vs Date Posted)
+    // Unified sorting: Relevant to profile first, ordered recently posted first
+    const getRelevanceTier = (job: RecommendedJob): number => {
+      // Tier 1: Highly aligned to candidate profile / recommended (score >= 84 or isRecommended)
+      if (job.isRecommended || (job.matchScore || 0) >= 84) return 1;
+      // Tier 2: Moderately aligned (74 - 83)
+      if ((job.matchScore || 0) >= 74) return 2;
+      // Tier 3: Low match / cross-domain mismatch (< 74)
+      return 3;
+    };
+
     const sorted = [...list];
-    if (sortBy === 'date') {
-      sorted.sort((a, b) => getJobTimestamp(b) - getJobTimestamp(a));
-    } else {
-      sorted.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0));
-    }
+    sorted.sort((a, b) => {
+      const tierA = getRelevanceTier(a);
+      const tierB = getRelevanceTier(b);
+      // Group by relevance tier first: profile-relevant roles always take priority
+      if (tierA !== tierB) {
+        return tierA - tierB;
+      }
+
+      // Within the same relevance tier: order by recently posted first
+      const timeA = getJobTimestamp(a);
+      const timeB = getJobTimestamp(b);
+      const timeDiff = timeB - timeA;
+
+      // If postings differ by more than 1 hour, newer posting takes precedence
+      if (Math.abs(timeDiff) > 3600 * 1000) {
+        return timeDiff;
+      }
+
+      // Within the same hour / batch: higher match score first
+      const scoreDiff = (b.matchScore || 0) - (a.matchScore || 0);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+      return timeDiff;
+    });
 
     return sorted;
-  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies, workModeFilter, sortBy]);
+  }, [allJobs, activeListTab, activeChip, savedJobIds, appliedJobIds, searchQuery, selectedCity, selectedCompanies, workModeFilter]);
 
   const selectedJob = useMemo(() => {
     return (
@@ -1231,6 +1454,11 @@ export function JobRecommendationsDashboard() {
     }
     return cleaned;
   }, [selectedJob]);
+
+  // Relevant Tutorial Links from Coaching Tab matching selected role
+  const relevantTutorials = useMemo(() => {
+    return getRelevantCoachingResources(selectedJob, coachingResources);
+  }, [selectedJob, coachingResources]);
 
   // Effective Verified Insiders Count for Selected Job
   const effectiveInsiderCount = isLoadingInsiders
@@ -1282,7 +1510,39 @@ export function JobRecommendationsDashboard() {
       setCompanyInsiders([]);
       setIsLoadingInsiders(true);
       try {
-        const cleanDomain = compKey.replace(/[^a-z0-9]/g, '') + '.com';
+        // Derive clean company domain from external apply URL if available, or clean company name
+        let cleanDomain = '';
+        if (selectedJob.externalApplyUrl) {
+          try {
+            const host = new URL(
+              selectedJob.externalApplyUrl.startsWith('http')
+                ? selectedJob.externalApplyUrl
+                : `https://${selectedJob.externalApplyUrl}`
+            ).hostname.toLowerCase();
+            const parts = host.replace(/^(www\.|careers\.|jobs\.|work\.|apply\.|boards\.)+/i, '').split('.');
+            if (parts.length >= 2) {
+              cleanDomain = parts.slice(-2).join('.');
+            }
+          } catch {
+            cleanDomain = '';
+          }
+        }
+
+        if (
+          !cleanDomain ||
+          cleanDomain.includes('workday') ||
+          cleanDomain.includes('greenhouse') ||
+          cleanDomain.includes('lever') ||
+          cleanDomain.includes('smartrecruiters') ||
+          cleanDomain.includes('icims') ||
+          cleanDomain.includes('myworkdayjobs')
+        ) {
+          const stripped = compKey
+            .replace(/\b(inc|llc|corp|corporation|technologies|technology|solutions|services|ltd|limited|india|pvt|co|company)\b/gi, '')
+            .replace(/[^a-z0-9]/g, '');
+          cleanDomain = stripped.length >= 2 ? `${stripped}.com` : `${compKey.replace(/[^a-z0-9]/g, '')}.com`;
+        }
+
         const res = await fetch(
           `/api/jobs/insiders?company=${encodeURIComponent(selectedJob.companyName)}&domain=${cleanDomain}`
         );
@@ -1399,14 +1659,193 @@ export function JobRecommendationsDashboard() {
     }
   };
 
+  // 1-Click Tailor Studio: Ingest missing keywords & tailored bullet into Master Resume
+  const handleApplyMissingKeywords = async () => {
+    if (!selectedJob) return;
+    const missing = selectedJob.missingSkills;
+    if (!missing || missing.length === 0) {
+      toast.info('No missing keywords detected for this role.');
+      return;
+    }
+
+    if (!user) {
+      toast.error('Please sign in to tailor your Master Resume.');
+      router.push(`/login?returnTo=${encodeURIComponent(pathname || '/jobs/recommend')}`);
+      return;
+    }
+
+    setIsTailoring(true);
+    try {
+      // 1. Obtain current document from state or fetch freshly
+      let doc = candidateDocument;
+      let activeResId = masterResumeId;
+      if (!doc) {
+        const profileRes = await fetch('/api/jobs/profile');
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          doc = profileData.document || null;
+          if (profileData.resumeId) {
+            activeResId = profileData.resumeId;
+            setMasterResumeId(profileData.resumeId);
+          }
+        }
+      }
+
+      // If still no document, create a clean default document schema for user
+      if (!doc) {
+        doc = {
+          contact: {
+            fullName: user.full_name || '',
+            email: user.email || '',
+            phone: (user as any).phone_number || '',
+            location: user.city || selectedCity || '',
+            linkedinUrl: (user as any).linkedin_url || '',
+            githubUrl: '',
+            portfolioUrl: '',
+          },
+          summary: `Experienced ${candidateCurrentRole || selectedJob.title} specialized in scalable software architecture and high-impact engineering solutions.`,
+          skills: [
+            {
+              category: 'Core Technical Competencies',
+              items: Array.from(new Set([...candidateProfileSkills, ...selectedJob.matchingSkills])),
+            },
+          ],
+          experience: candidateCurrentRole
+            ? [
+                {
+                  id: `exp-${Date.now()}`,
+                  company: candidateCurrentCompany || 'Technology Company',
+                  roleTitle: candidateCurrentRole,
+                  location: selectedCity || 'Remote',
+                  startDate: '2022',
+                  endDate: isCurrentlyWorking ? 'Present' : '2024',
+                  isCurrent: isCurrentlyWorking,
+                  bullets: [
+                    selectedJob.tailoredBulletSuggestion?.tailored ||
+                      'Architected and optimized high-performance systems utilizing modern engineering standards.',
+                  ],
+                },
+              ]
+            : [],
+          education: [],
+          projects: [],
+          certifications: [],
+        };
+      }
+
+      // 2. Clone document and inject missing skills into skills array
+      const updatedDoc: ResumeDocument = JSON.parse(JSON.stringify(doc));
+      if (!Array.isArray(updatedDoc.skills)) {
+        updatedDoc.skills = [];
+      }
+
+      // Add missing keywords into the first category or create one
+      if (updatedDoc.skills.length === 0) {
+        updatedDoc.skills.push({
+          category: 'Core Technical Competencies',
+          items: [...missing],
+        });
+      } else {
+        const targetCategory = updatedDoc.skills[0];
+        if (!Array.isArray(targetCategory.items)) {
+          targetCategory.items = [];
+        }
+        const existingItemsLower = new Set(targetCategory.items.map((i: string) => i.toLowerCase()));
+        for (const kw of missing) {
+          if (!existingItemsLower.has(kw.toLowerCase())) {
+            targetCategory.items.push(kw);
+            existingItemsLower.add(kw.toLowerCase());
+          }
+        }
+      }
+
+      // 3. Inject tailored bullet into experience if available
+      if (
+        selectedJob.tailoredBulletSuggestion?.tailored &&
+        Array.isArray(updatedDoc.experience) &&
+        updatedDoc.experience.length > 0
+      ) {
+        const currentOrFirstExp = updatedDoc.experience[0];
+        if (Array.isArray(currentOrFirstExp.bullets)) {
+          const newBullet = selectedJob.tailoredBulletSuggestion.tailored;
+          if (!currentOrFirstExp.bullets.includes(newBullet)) {
+            currentOrFirstExp.bullets.unshift(newBullet);
+          }
+        }
+      }
+
+      // 4. Save to server via /api/jobs/profile
+      const saveRes = await fetch('/api/jobs/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document: updatedDoc }),
+      });
+
+      if (!saveRes.ok) {
+        throw new Error('Failed to save tailored resume to profile');
+      }
+
+      const saveJson = await saveRes.json();
+      if (saveJson.resumeId && !activeResId) {
+        setMasterResumeId(saveJson.resumeId);
+      }
+
+      // 5. Update local state
+      setCandidateDocument(updatedDoc);
+      const newSkills = Array.from(new Set([...candidateProfileSkills, ...missing]));
+      setCandidateProfileSkills(newSkills);
+
+      // Update selectedJob in place: move missing skills to matching skills!
+      const newlyMatched = [...missing];
+      selectedJob.matchingSkills = Array.from(new Set([...selectedJob.matchingSkills, ...newlyMatched]));
+      selectedJob.missingSkills = [];
+      selectedJob.matchScore = Math.min(99, Math.max(95, (selectedJob.matchScore || 85) + 8));
+      if (selectedJob.matchBreakdown) {
+        selectedJob.matchBreakdown.skillsScore = Math.min(99, Math.max(96, selectedJob.matchBreakdown.skillsScore + 10));
+        selectedJob.matchBreakdown.stackScore = Math.min(99, Math.max(96, selectedJob.matchBreakdown.stackScore + 8));
+      }
+      selectedJob.isRecommended = true;
+
+      setTailorSuccess(true);
+      toast.success(
+        `Added ${missing.length} ${missing.length === 1 ? 'keyword' : 'keywords'} to your Master Resume!`
+      );
+    } catch (err: any) {
+      console.error('Tailor resume error:', err);
+      toast.error('Failed to update Master Resume. Please try again.');
+    } finally {
+      setIsTailoring(false);
+    }
+  };
+
   const handleInitiateReferral = (insider: any) => {
     if (!insider) {
       if (companyInsiders.length === 0) {
+        if (isLoadingInsiders) {
+          toast.info(`Loading verified insiders from ${selectedJob?.companyName}...`);
+          setActiveDetailTab('insiders');
+          return;
+        }
         setIsInviteOpen(true);
         return;
       }
       insider = companyInsiders[0];
     }
+
+    const insiderFirstName =
+      insider?.name && !insider.name.includes('*')
+        ? insider.name.trim().split(' ')[0]
+        : 'there';
+
+    const topSkills =
+      selectedJob?.matchingSkills && selectedJob.matchingSkills.length > 0
+        ? selectedJob.matchingSkills.slice(0, 2).join(' and ')
+        : 'relevant technologies';
+
+    const defaultNote = `Hi ${insiderFirstName}, I noticed your work at ${selectedJob?.companyName}. My Master Resume matches ${selectedJob?.matchScore || 90}% of the ${selectedJob?.title} hiring bar with quantified achievements in ${topSkills}. Would you be open to an internal referral?`;
+
+    setReferralNote(defaultNote);
+
     // Strict verification requirement: user must be verified or admin to connect
     if (!user || (!user.is_verified && !user.is_admin)) {
       setSelectedInsider(insider);
@@ -1427,16 +1866,38 @@ export function JobRecommendationsDashboard() {
 
     setIsSendingReferral(true);
     try {
+      let authHeader: Record<string, string> = { 'Content-Type': 'application/json' };
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          authHeader['Authorization'] = `Bearer ${session.access_token}`;
+        }
+      } catch {
+        // Fallback to cookie auth
+      }
+
+      const insiderFirstName =
+        selectedInsider?.name && !selectedInsider.name.includes('*')
+          ? selectedInsider.name.trim().split(' ')[0]
+          : 'there';
+
+      const topSkills =
+        selectedJob?.matchingSkills && selectedJob.matchingSkills.length > 0
+          ? selectedJob.matchingSkills.slice(0, 2).join(' and ')
+          : 'relevant technologies';
+
+      const fallbackNote = `Hi ${insiderFirstName}, I noticed your work at ${selectedJob?.companyName}. My Master Resume matches ${selectedJob?.matchScore || 90}% of the ${selectedJob?.title} hiring bar with quantified achievements in ${topSkills}. Would you be open to an internal referral?`;
+
       const res = await fetch('/api/jobs/referrals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeader,
         body: JSON.stringify({
           insiderId: selectedInsider?.id,
           jobId: selectedJob.id,
           companyName: selectedJob.companyName,
-          note:
-            referralNote ||
-            `Hi ${selectedInsider?.name?.split(' ')[0] || 'there'}, I noticed your work at ${selectedJob.companyName}. My Master Resume matches the ${selectedJob.title} hiring bar with quantified achievements. Would you be open to an internal referral?`,
+          note: referralNote || fallbackNote,
         }),
       });
 
@@ -2110,35 +2571,14 @@ export function JobRecommendationsDashboard() {
               </div>
             )}
 
-            {/* Sort & Count Header Bar */}
+            {/* Unified Roles Count & Ranking Helper Bar */}
             <div className="flex items-center justify-between mb-2 px-1 text-xs text-neutral-500 shrink-0">
               <span className="font-medium text-neutral-600">
                 Found <strong className="text-neutral-900 font-bold">{totalRolesCount ?? filteredJobs.length}</strong> {(totalRolesCount ?? filteredJobs.length) === 1 ? 'role' : 'roles'}
               </span>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-semibold text-neutral-500">Sort by:</span>
-                <div className="inline-flex rounded-xl border border-neutral-200/90 bg-white p-0.5 shadow-xs">
-                  <button
-                    type="button"
-                    onClick={() => setSortBy('relevance')}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${sortBy === 'relevance'
-                      ? 'bg-[#0A1B5C] text-white shadow-xs'
-                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                      }`}
-                  >
-                    Relevance
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSortBy('date')}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${sortBy === 'date'
-                      ? 'bg-[#0A1B5C] text-white shadow-xs'
-                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                      }`}
-                  >
-                    Date Posted
-                  </button>
-                </div>
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-500 bg-neutral-100/80 px-2.5 py-1 rounded-full border border-neutral-200/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#4FD1C5]" />
+                <span>Profile Matched - Latest First</span>
               </div>
             </div>
 
@@ -2462,6 +2902,11 @@ export function JobRecommendationsDashboard() {
                     <button
                       onClick={() => {
                         const target = companyInsiders[0] || selectedJob.verifiedInsiders[0];
+                        if (!target && isLoadingInsiders) {
+                          toast.info(`Loading verified insiders from ${selectedJob.companyName}...`);
+                          setActiveDetailTab('insiders');
+                          return;
+                        }
                         handleInitiateReferral(target);
                       }}
                       className="px-5 py-2.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all active:scale-95"
@@ -2543,7 +2988,10 @@ export function JobRecommendationsDashboard() {
                 </button>
 
                 <button
-                  onClick={() => setActiveDetailTab('copilot')}
+                  onClick={() => {
+                    setActiveDetailTab('copilot');
+                    fetchCoachingResources();
+                  }}
                   className={`py-3 sm:py-3.5 border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${activeDetailTab === 'copilot'
                     ? 'border-[#0A1B5C] text-[#0A1B5C] font-semibold'
                     : 'border-transparent hover:text-neutral-900'
@@ -2676,13 +3124,34 @@ export function JobRecommendationsDashboard() {
                             ✓ Great alignment - No missing core keywords detected.
                           </p>
                         )}
-                        {/* <button
-                          onClick={() => setTailorModalOpen(true)}
-                          className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1 pt-1"
-                        >
-                          <span>1-Click add missing keywords via Tailor Studio</span>
-                          <ArrowRight className="h-3 w-3" />
-                        </button> */}
+                        <div className="flex items-center gap-3 pt-1 flex-wrap">
+                          {selectedJob.missingSkills.length > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTailorSuccess(false);
+                                setTailorModalOpen(true);
+                              }}
+                              className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1"
+                            >
+                              <SlidersHorizontal className="h-3 w-3 text-[#0A1B5C]" />
+                              <span>1-Click add missing keywords via Tailor Studio</span>
+                              <ArrowRight className="h-3 w-3" />
+                            </button>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              <span>All target keywords matched</span>
+                            </span>
+                          )}
+                          <Link
+                            href={`/jobs/resume/studio${masterResumeId ? `?id=${masterResumeId}` : ''}`}
+                            className="text-[11px] font-medium text-neutral-500 hover:text-[#0A1B5C] hover:underline flex items-center gap-1"
+                          >
+                            <span>Open Tailor Studio</span>
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </Link>
+                        </div>
                       </div>
                     </div>
 
@@ -3001,35 +3470,172 @@ export function JobRecommendationsDashboard() {
 
                 {/* TAB 4: AI COPILOT & PREP */}
                 {activeDetailTab === 'copilot' && (
-                  <div className="space-y-5">
-                    <div className="p-4 rounded-2xl bg-[#0A1B5C] text-white flex items-center justify-between">
+                  <div className="space-y-6">
+                    {/* Header Banner with Direct Navigation to Coaching Tab */}
+                    <div className="p-4 rounded-2xl bg-[#0A1B5C] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
                       <div>
                         <h4 className="font-semibold text-xs text-white uppercase tracking-wider flex items-center gap-1.5">
                           <Bot className="h-3.5 w-3.5 text-amber-400" />
-                          Jobs Career Copilot
+                          Jobs Career Copilot & Prep
                         </h4>
                         <p className="text-xs text-neutral-300 mt-0.5">
-                          Tailor application materials and simulate hiring manager questions for {selectedJob.title}.
+                          Review targeted coaching tutorials, tailor application materials, and simulate hiring questions for {selectedJob.title}.
                         </p>
+                      </div>
+                      <Link
+                        href="/jobs/skills-development"
+                        className="px-3.5 py-2 rounded-xl bg-[#4FD1C5] hover:bg-[#38b2ac] text-[#0A1B5C] text-xs font-bold shrink-0 transition-colors shadow-xs flex items-center justify-center gap-1.5 active:scale-95"
+                      >
+                        <GraduationCap className="h-4 w-4" />
+                        <span>Go to Coaching Tab</span>
+                      </Link>
+                    </div>
+
+                    {/* Relevant Tutorial Links from Coaching Tab */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-[#0A1B5C] text-white">
+                            <GraduationCap className="h-4 w-4 text-[#4FD1C5]" />
+                          </span>
+                          <div>
+                            <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
+                              Relevant Tutorials from Coaching Tab
+                            </h4>
+                            <p className="text-[11px] text-neutral-500">
+                              Curated learning paths and prep guides tailored for {selectedJob.title}
+                            </p>
+                          </div>
+                        </div>
+
+                        <Link
+                          href="/jobs/skills-development"
+                          className="inline-flex items-center gap-1 text-xs font-bold text-[#0A1B5C] hover:underline shrink-0"
+                        >
+                          <span>View All in Coaching</span>
+                          <ArrowRight className="h-3 w-3" />
+                        </Link>
+                      </div>
+
+                      {/* Tutorial Cards Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {relevantTutorials.map((tutorial) => {
+                          const catBadge = getCoachingCategoryBadge(tutorial.category);
+                          return (
+                            <div
+                              key={tutorial.id}
+                              className="p-3.5 rounded-xl border border-neutral-200/90 bg-white hover:border-[#0A1B5C]/40 hover:shadow-xs transition-all flex flex-col justify-between group"
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${catBadge.badge}`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${catBadge.dot}`} />
+                                    {tutorial.category}
+                                  </span>
+                                  <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-medium">
+                                    {tutorial.difficulty && (
+                                      <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 font-medium">
+                                        {tutorial.difficulty}
+                                      </span>
+                                    )}
+                                    {tutorial.isFree && (
+                                      <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200/60">
+                                        Free
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <h5 className="font-bold text-xs sm:text-sm text-neutral-900 group-hover:text-[#0A1B5C] transition-colors leading-snug">
+                                    {tutorial.title}
+                                  </h5>
+                                  <p className="text-[11px] text-neutral-600 line-clamp-2 mt-1 leading-relaxed">
+                                    {tutorial.description}
+                                  </p>
+                                </div>
+
+                                {tutorial.tags && tutorial.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 pt-0.5">
+                                    {tutorial.tags.slice(0, 3).map((tag, tIdx) => (
+                                      <span
+                                        key={tIdx}
+                                        className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 font-medium"
+                                      >
+                                        #{tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="pt-3 mt-3 border-t border-neutral-100 flex items-center justify-between gap-2">
+                                <span className="text-[11px] font-medium text-neutral-400 truncate">
+                                  {tutorial.domain || 'Coaching Guide'}
+                                </span>
+                                <a
+                                  href={tutorial.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-all shadow-xs shrink-0 active:scale-95"
+                                >
+                                  <span>Open Tutorial</span>
+                                  <ExternalLink className="h-3 w-3 text-[#4FD1C5]" />
+                                </a>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Navigation Callout to Coaching Tab */}
+                      <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#0A1B5C]/5 to-[#4FD1C5]/10 border border-[#0A1B5C]/15 flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 text-center sm:text-left">
+                          <div className="w-8 h-8 rounded-lg bg-[#0A1B5C] text-white flex items-center justify-center shrink-0">
+                            <BookOpen className="h-4 w-4 text-[#4FD1C5]" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-[#0A1B5C]">Looking for full interview roadmaps and problem sheets?</p>
+                            <p className="text-[11px] text-neutral-600">
+                              Visit the Coaching Tab for comprehensive DSA roadmaps, interactive visualizers, and system design case studies.
+                            </p>
+                          </div>
+                        </div>
+                        <Link
+                          href="/jobs/skills-development"
+                          className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-all shadow-xs shrink-0 flex items-center justify-center gap-1.5 active:scale-95"
+                        >
+                          <GraduationCap className="h-4 w-4 text-[#4FD1C5]" />
+                          <span>Explore Coaching Tab</span>
+                          <ArrowRight className="h-3.5 w-3.5 text-neutral-300" />
+                        </Link>
                       </div>
                     </div>
 
-                    {/* One-Click Action Prompts */}
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        'Generate role-tailored cover letter',
-                        'Top 5 interview questions for this role',
-                        'Analyze hiring manager keywords',
-                      ].map((prompt, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => handleRunCopilotPrompt(prompt)}
-                          className="px-3.5 py-2 rounded-xl border border-neutral-200 bg-white hover:border-[#0A1B5C] hover:bg-neutral-50 text-xs font-bold text-neutral-800 transition-all flex items-center gap-1.5"
-                        >
-                          <ArrowRight className="h-3 w-3 text-[#0A1B5C]" />
-                          <span>{prompt}</span>
-                        </button>
-                      ))}
+                    {/* Role Tailoring & Simulation Prompts */}
+                    <div className="space-y-2 pt-2 border-t border-neutral-100">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-xs text-[#0A1B5C] uppercase tracking-wider">
+                          Instant Role Simulations & Tailoring
+                        </h4>
+                        <span className="text-[11px] text-neutral-400">Click a prompt to generate</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          'Generate role-tailored cover letter',
+                          'Top 5 interview questions for this role',
+                          'Analyze hiring manager keywords',
+                        ].map((prompt, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleRunCopilotPrompt(prompt)}
+                            className="px-3.5 py-2 rounded-xl border border-neutral-200 bg-white hover:border-[#0A1B5C] hover:bg-neutral-50 text-xs font-bold text-neutral-800 transition-all flex items-center gap-1.5 shadow-2xs"
+                          >
+                            <ArrowRight className="h-3 w-3 text-[#0A1B5C]" />
+                            <span>{prompt}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* AI Output Response Box */}
@@ -3063,7 +3669,7 @@ export function JobRecommendationsDashboard() {
                         </pre>
                       </div>
                     ) : (
-                      <div className="p-8 rounded-2xl bg-neutral-50 border border-neutral-200 text-center text-xs text-neutral-500">
+                      <div className="p-6 rounded-2xl bg-neutral-50 border border-neutral-200 text-center text-xs text-neutral-500">
                         Click any prompt chip above to generate instant role-tailored materials.
                       </div>
                     )}
@@ -3100,6 +3706,11 @@ export function JobRecommendationsDashboard() {
                   type="button"
                   onClick={() => {
                     const target = companyInsiders[0] || selectedJob.verifiedInsiders[0];
+                    if (!target && isLoadingInsiders) {
+                      toast.info(`Loading verified insiders from ${selectedJob.companyName}...`);
+                      setActiveDetailTab('insiders');
+                      return;
+                    }
                     handleInitiateReferral(target);
                   }}
                   className="h-11 px-2.5 sm:px-3.5 rounded-xl bg-[#4FD1C5] hover:bg-[#3ebcb0] text-[#0A1B5C] text-xs font-semibold shadow-xs flex items-center justify-center gap-1 shrink-0 active:scale-95"
@@ -3181,53 +3792,119 @@ export function JobRecommendationsDashboard() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-3">
-              <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs space-y-1.5">
-                <span className="font-semibold text-neutral-700 block">Target Role Keyword Ingestion</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedJob.matchingSkills.map((s, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-medium">
-                      ✓ {s}
-                    </span>
-                  ))}
-                  {selectedJob.missingSkills.map((s, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-medium">
-                      + {s}
-                    </span>
-                  ))}
+            {tailorSuccess ? (
+              <div className="py-6 px-4 text-center space-y-4">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-xs">
+                  <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-neutral-900">
+                    Keywords Ingested Successfully!
+                  </h3>
+                  <p className="text-xs text-neutral-600 mt-1 max-w-md mx-auto leading-relaxed">
+                    Your Master Resume has been updated with {selectedJob.title}&apos;s target keywords and the Google XYZ tailored bullet point.
+                  </p>
+                </div>
+
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl max-w-sm mx-auto flex items-center justify-between text-xs">
+                  <span className="font-medium text-emerald-900">New ATS Readiness Score:</span>
+                  <span className="font-bold text-emerald-700 text-base">
+                    {selectedJob.matchScore}% Match
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+                  <Link
+                    href={`/jobs/resume/studio${masterResumeId ? `?id=${masterResumeId}` : ''}`}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95"
+                  >
+                    <span>Open in Tailor Studio</span>
+                    <ExternalLink className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setTailorModalOpen(false)}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    Done
+                  </button>
                 </div>
               </div>
+            ) : (
+              <>
+                <div className="space-y-4 py-3">
+                  <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs space-y-1.5">
+                    <span className="font-semibold text-neutral-700 block">Target Role Keyword Ingestion</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selectedJob.matchingSkills.map((s, idx) => (
+                        <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-medium">
+                          ✓ {s}
+                        </span>
+                      ))}
+                      {selectedJob.missingSkills.map((s, idx) => (
+                        <span key={idx} className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-medium">
+                          + {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <span className="text-xs font-semibold text-neutral-800 block">
-                  Targeted Bullet Point Transformation:
-                </span>
-                <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 font-medium leading-relaxed">
-                  &ldquo;{selectedJob.tailoredBulletSuggestion.tailored}&rdquo;
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-neutral-800 block">
+                      Targeted Bullet Point Transformation:
+                    </span>
+                    <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 font-medium leading-relaxed">
+                      &ldquo;{selectedJob.tailoredBulletSuggestion.tailored}&rdquo;
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-neutral-100 text-xs text-neutral-600 flex items-center justify-between">
+                    <span>Predicted ATS Score Increase:</span>
+                    <span className="font-bold text-emerald-700 text-sm">
+                      {selectedJob.matchScore || 85}% ➔ {Math.min(99, (selectedJob.matchScore || 85) + 8)}% / 100
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <div className="p-3.5 rounded-xl bg-neutral-100 text-xs text-neutral-600 flex items-center justify-between">
-                <span>Predicted ATS Score Increase:</span>
-                <span className="font-bold text-emerald-700 text-sm">94 ➔ 99 / 100</span>
-              </div>
-            </div>
+                <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-2 border-t border-neutral-100">
+                  <Link
+                    href={`/jobs/resume/studio${masterResumeId ? `?id=${masterResumeId}` : ''}`}
+                    className="text-xs font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1 self-start sm:self-center"
+                  >
+                    <span>Or customize manually in Tailor Studio</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => setTailorModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50"
-              >
-                Cancel
-              </button>
-              <Link
-                href="/jobs/resume"
-                className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold flex items-center gap-1.5"
-              >
-                <span>Apply to Master Resume</span>
-                <ArrowRight className="h-3.5 w-3.5 text-white" />
-              </Link>
-            </div>
+                  <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setTailorModalOpen(false)}
+                      className="px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyMissingKeywords}
+                      disabled={isTailoring || selectedJob.missingSkills.length === 0}
+                      className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95 disabled:opacity-50"
+                    >
+                      {isTailoring ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin text-[#4FD1C5]" />
+                          <span>Ingesting Keywords...</span>
+                        </>
+                      ) : (
+                        <>
+                          <SlidersHorizontal className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                          <span>1-Click Apply to Master Resume</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </DialogContent>
         </Dialog>
 
@@ -3267,11 +3944,9 @@ export function JobRecommendationsDashboard() {
                   </label>
                   <textarea
                     rows={4}
-                    value={
-                      referralNote ||
-                      `Hi ${selectedInsider.name.split(' ')[0]}, I noticed your work at ${selectedJob.companyName}. My Master Resume matches 96% of the ${selectedJob.title} hiring bar with quantified achievements in Kafka and Go. Would you be open to an internal referral?`
-                    }
+                    value={referralNote}
                     onChange={(e) => setReferralNote(e.target.value)}
+                    placeholder="Briefly introduce yourself and highlight why you match this role..."
                     className="w-full p-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20"
                   />
                 </div>

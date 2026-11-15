@@ -82,91 +82,119 @@ export async function GET(request: Request) {
       isViewerVerified = false;
     }
 
-    // Clean common corporate suffixes (Inc, LLC, Corp, Technologies, etc.) for fuzzy matching
-    const cleanCompanyName = company
-      .replace(/\b(inc|llc|corp|corporation|technologies|technology|solutions|services|ltd|limited|india|pvt)\b/gi, "")
+    // Clean common corporate suffixes and sanitize characters that break PostgREST syntax (, ( ) : & %)
+    const sanitizedRaw = company
+      .replace(/[(),:;%&]/g, " ")
+      .replace(/\s+/g, " ")
       .trim();
 
-    // 1. Search for matching companies in database
+    const cleanCompanyName = sanitizedRaw
+      .replace(/\b(inc|llc|corp|corporation|technologies|technology|solutions|services|ltd|limited|india|pvt|co|company)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const cleanDomain = domain ? domain.replace(/[^a-z0-9.-]/gi, "").toLowerCase() : "";
+    const domainGuess = cleanCompanyName ? cleanCompanyName.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+
+    // 1. Search for matching companies in database using sanitized terms
     let matchedCompanyIds: string[] = [];
     let matchedDomains: string[] = [];
 
-    if (cleanCompanyName || domain) {
-      let companyQuery = supabaseAdmin
-        .from("companies")
-        .select("id, name, domain");
+    const companyOrClauses: string[] = [];
+    const searchTerms = new Set<string>();
 
-      const domainGuess = cleanCompanyName.toLowerCase().replace(/[^a-z0-9]/g, "");
-      const spacedName = cleanCompanyName.replace(/([a-z])([A-Z])/g, "$1 $2");
+    if (cleanCompanyName && cleanCompanyName.length >= 2) {
+      searchTerms.add(cleanCompanyName);
+      const spacedName = cleanCompanyName.replace(/([a-z])([A-Z])/g, "$1 $2").trim();
+      if (spacedName && spacedName !== cleanCompanyName) searchTerms.add(spacedName);
       const unspacedName = cleanCompanyName.replace(/\s+/g, "");
+      if (unspacedName.length >= 3) searchTerms.add(unspacedName);
+    } else if (sanitizedRaw && sanitizedRaw.length >= 2) {
+      searchTerms.add(sanitizedRaw);
+    }
 
-      if (domain) {
-        companyQuery = companyQuery.or(
-          `name.ilike.%${cleanCompanyName}%,name.ilike.%${spacedName}%,name.ilike.%${unspacedName}%,domain.ilike.%${domain}%,domain.ilike.%${domainGuess}%`
-        );
-      } else {
-        companyQuery = companyQuery.or(
-          `name.ilike.%${cleanCompanyName}%,name.ilike.%${spacedName}%,name.ilike.%${unspacedName}%,domain.ilike.%${domainGuess}%`
-        );
+    searchTerms.forEach((term) => {
+      const safeTerm = term.replace(/[^a-zA-Z0-9\s]/g, "").trim();
+      if (safeTerm.length >= 2) {
+        companyOrClauses.push(`name.ilike.%${safeTerm}%`);
       }
+    });
 
-      const { data: companiesData } = await companyQuery.limit(5);
+    if (cleanDomain && cleanDomain.includes(".")) {
+      companyOrClauses.push(`domain.ilike.%${cleanDomain}%`);
+    }
+    if (domainGuess && domainGuess.length >= 3) {
+      companyOrClauses.push(`domain.ilike.%${domainGuess}%`);
+    }
 
-      if (companiesData && companiesData.length > 0) {
-        matchedCompanyIds = companiesData.map((c) => c.id).filter(Boolean);
-        matchedDomains = companiesData.map((c) => c.domain?.toLowerCase()).filter(Boolean);
+    if (companyOrClauses.length > 0) {
+      try {
+        const { data: companiesData } = await supabaseAdmin
+          .from("companies")
+          .select("id, name, domain")
+          .or(companyOrClauses.join(","))
+          .limit(5);
+
+        if (companiesData && companiesData.length > 0) {
+          matchedCompanyIds = companiesData.map((c) => c.id).filter(Boolean);
+          matchedDomains = companiesData.map((c) => c.domain?.toLowerCase()).filter(Boolean);
+        }
+      } catch (companyQueryErr) {
+        console.warn("Company search error in /api/jobs/insiders:", companyQueryErr);
       }
     }
 
-    if (domain && !matchedDomains.includes(domain)) {
-      matchedDomains.push(domain);
+    if (cleanDomain && cleanDomain.includes(".") && !matchedDomains.includes(cleanDomain)) {
+      matchedDomains.push(cleanDomain);
     }
 
     // 2. Query users matching company_id or corporate email domain
     let users: any[] = [];
     try {
-      let userQuery = supabaseAdmin
-        .from("users")
-        .select(`
-          id,
-          full_name,
-          email,
-          secondary_email,
-          city,
-          avatar_url,
-          bio,
-          is_verified,
-          is_active,
-          company_id,
-          company:companies(id, name, domain)
-        `)
-        .eq("is_active", true);
-
       const orConditions: string[] = [];
       if (matchedCompanyIds.length > 0) {
         orConditions.push(`company_id.in.(${matchedCompanyIds.join(",")})`);
       }
 
       for (const dom of matchedDomains) {
-        if (dom && dom.includes(".")) {
-          orConditions.push(`email.ilike.%@${dom}`);
-          orConditions.push(`secondary_email.ilike.%@${dom}`);
+        const safeDom = dom.replace(/[^a-z0-9.-]/gi, "").toLowerCase();
+        if (safeDom && safeDom.includes(".")) {
+          orConditions.push(`email.ilike.%@${safeDom}`);
+          orConditions.push(`secondary_email.ilike.%@${safeDom}`);
         }
       }
 
-      if (orConditions.length > 0) {
-        userQuery = userQuery.or(orConditions.join(","));
-      } else if (cleanCompanyName) {
-        const fallbackDomain = cleanCompanyName.toLowerCase().replace(/[^a-z0-9]/g, "");
-        userQuery = userQuery.or(`email.ilike.%@${fallbackDomain}.%,secondary_email.ilike.%@${fallbackDomain}.%`);
+      if (orConditions.length === 0 && domainGuess && domainGuess.length >= 3) {
+        orConditions.push(`email.ilike.%@${domainGuess}.%`);
+        orConditions.push(`secondary_email.ilike.%@${domainGuess}.%`);
       }
 
-      const { data: dbUsers, error: usersError } = await userQuery
-        .order("is_verified", { ascending: false })
-        .limit(15);
+      // Safeguard: Only execute user query when specific company or domain criteria are present.
+      // This strictly prevents querying random database users if company name was stripped.
+      if (orConditions.length > 0) {
+        const { data: dbUsers, error: usersError } = await supabaseAdmin
+          .from("users")
+          .select(`
+            id,
+            full_name,
+            email,
+            secondary_email,
+            city,
+            avatar_url,
+            bio,
+            is_verified,
+            is_active,
+            company_id,
+            company:companies(id, name, domain)
+          `)
+          .eq("is_active", true)
+          .or(orConditions.join(","))
+          .order("is_verified", { ascending: false })
+          .limit(15);
 
-      if (!usersError && dbUsers) {
-        users = dbUsers;
+        if (!usersError && dbUsers) {
+          users = dbUsers;
+        }
       }
     } catch (err) {
       console.warn("Could not query DB users for insiders:", err);
@@ -212,7 +240,7 @@ export async function GET(request: Request) {
     // 4. Fallback to curated corporate directory if DB has 0 registered insiders for company
     let finalInsiders = formattedDbInsiders;
     if (finalInsiders.length === 0) {
-      const curated = getCuratedInsiders(cleanCompanyName || company, domain);
+      const curated = getCuratedInsiders(cleanCompanyName || sanitizedRaw || company, cleanDomain || domain);
       finalInsiders = curated.map((c) => ({
         id: c.id,
         name: isViewerVerified ? c.name : formatPartialName(c.name),
