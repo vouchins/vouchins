@@ -60,3 +60,31 @@ export function hasTrackingParam(url: string | null | undefined): boolean {
   if (!url) return false;
   return /[?&#]utm_[a-zA-Z0-9_-]+=/i.test(url);
 }
+
+/**
+ * Validates whether a job application URL is non-empty, well-formed,
+ * uses HTTP/HTTPS protocol, has a valid domain name, and is not a local or dummy URL.
+ */
+export function isValidJobUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (trimmed.length < 10) return false;
+  if (/^(javascript:|mailto:|tel:|#|about:|data:)/i.test(trimmed)) return false;
+
+  try {
+    const hasScheme = trimmed.startsWith('http://') || trimmed.startsWith('https://');
+    if (!hasScheme) return false;
+
+    const parsed = new URL(trimmed);
+    if (!parsed.hostname || parsed.hostname === 'localhost' || parsed.hostname.endsWith('.invalid') || parsed.hostname.endsWith('.example')) {
+      return false;
+    }
+    // Must contain at least one period in hostname (valid TLD)
+    if (!parsed.hostname.includes('.')) return false;
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+

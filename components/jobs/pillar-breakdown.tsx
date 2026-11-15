@@ -11,15 +11,16 @@ interface PillarBreakdownProps {
 
 export function PillarBreakdown({ pillars, targetRole }: PillarBreakdownProps) {
   const roleText = (targetRole || '').toLowerCase();
-  const isTechRole =
-    !roleText.trim() ||
-    /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer)\b/i.test(
-      roleText
-    );
   const isHealthcare =
     /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory|healthcare|hospital|medical|nurse|nursing|doctor|physician)\b/i.test(
       roleText
     );
+  const isTechRole =
+    !isHealthcare &&
+    (!roleText.trim() ||
+      /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer)\b/i.test(
+        roleText
+      ));
 
   const items = [
     {

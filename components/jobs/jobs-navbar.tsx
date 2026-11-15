@@ -58,7 +58,7 @@ export function JobsNavbar({
     ? externalSearchQuery ?? ''
     : internalSearchQuery;
 
-  // Resolve ATS score: use external if provided, otherwise fetch cached score
+  // Resolve ATS score of Primary Master Resume: use external if provided, otherwise fetch cached score
   useEffect(() => {
     if (externalAtsScore !== undefined) {
       setDynamicAtsScore(externalAtsScore);
@@ -67,38 +67,64 @@ export function JobsNavbar({
 
     let isMounted = true;
     async function loadAtsScore() {
+      // 1. Primary path: Fetch from cached resumes API which resolves the Primary Master Resume score with live calibration
+      try {
+        const data = await fetchCachedResumes();
+        const primary = data.resumes?.find((r: any) => r.isPrimary) || data.resumes?.[0];
+        const resolvedScore = primary?.evaluation?.overallScore ?? data.latestScore;
+        if (isMounted && typeof resolvedScore === 'number') {
+          setDynamicAtsScore(resolvedScore);
+          return;
+        }
+      } catch {
+        // Fallback
+      }
+
+      // 2. Direct Supabase query fallback for active user's primary resume
       if (user?.id) {
         try {
-          const { data, error } = await supabase
-            .from('job_evaluations')
-            .select('overall_score')
+          const { data: primaryResume } = await supabase
+            .from('job_resumes')
+            .select('id')
             .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
+            .order('updated_at', { ascending: false })
             .limit(1)
             .maybeSingle();
 
-          if (!error && data && typeof data.overall_score === 'number') {
-            if (isMounted) setDynamicAtsScore(data.overall_score);
-            return;
+          if (primaryResume?.id) {
+            const { data, error } = await supabase
+              .from('job_evaluations')
+              .select('overall_score')
+              .eq('resume_id', primaryResume.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (!error && data && typeof data.overall_score === 'number') {
+              if (isMounted) setDynamicAtsScore(data.overall_score);
+              return;
+            }
           }
         } catch {
-          // Fallback to cached resumes
+          // Fallback / guest mode
         }
-      }
-
-      try {
-        const data = await fetchCachedResumes();
-        if (isMounted && typeof data.latestScore === 'number') {
-          setDynamicAtsScore(data.latestScore);
-        }
-      } catch {
-        // Fallback / guest mode
       }
     }
 
     loadAtsScore();
+
+    // Listen for live ATS score update events (e.g. from Resume Studio edits or saves)
+    const handleLiveAtsUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<{ score?: number }>;
+      if (typeof customEvent.detail?.score === 'number' && isMounted) {
+        setDynamicAtsScore(customEvent.detail.score);
+      }
+    };
+    window.addEventListener('ats-score-updated', handleLiveAtsUpdate);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('ats-score-updated', handleLiveAtsUpdate);
     };
   }, [externalAtsScore, user?.id]);
 

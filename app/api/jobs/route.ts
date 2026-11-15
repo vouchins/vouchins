@@ -19,7 +19,7 @@ import {
 } from "@/lib/jobs/ats-client";
 import { CURATED_TECH_JOBS } from "@/lib/jobs/curated-tech-jobs";
 import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
-import { cleanJobApplyUrl } from "@/lib/jobs/url-cleaner";
+import { cleanJobApplyUrl, isValidJobUrl } from "@/lib/jobs/url-cleaner";
 
 export const dynamic = "force-dynamic";
 
@@ -248,15 +248,15 @@ export async function GET(request: Request) {
       candidateSkills = ["TypeScript", "React", "Node.js", "Python", "Go", "PostgreSQL", "Kafka"];
     }
 
-    // 2. Fetch active jobs from Supabase database within 90 days (3 months)
-    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    // 2. Fetch active jobs from Supabase database within 30 days (1 month)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const buildBaseDbQuery = (withCount = false) => {
       let q = supabaseAdmin
         .from("jobs")
         .select("*", withCount ? { count: "exact" } : undefined)
         .eq("is_active", true)
-        .gte("created_at", ninetyDaysAgo);
+        .gte("created_at", thirtyDaysAgo);
 
       if (category !== "all") {
         q = q.ilike("category", `%${category}%`);
@@ -601,6 +601,11 @@ export async function GET(request: Request) {
     const addJobIfUnique = (job: any) => {
       const url = job.external_apply_url?.trim();
       const titleKey = `${(job.company_name || "").toLowerCase()}-${(job.title || "").toLowerCase()}`;
+
+      // Filter out invalid application URLs
+      if (url && !isValidJobUrl(url)) {
+        return;
+      }
 
       if (!seenTitles.has(titleKey) && (!url || !seenUrls.has(url))) {
         seenTitles.add(titleKey);

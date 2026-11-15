@@ -451,5 +451,45 @@ Experienced Software Engineer.
       expect(doc.contact.linkedinUrl).toBe('https://linkedin.com/in/janedoe');
       expect(doc.contact.githubUrl).toBe('https://github.com/janedoe');
     });
+
+    it('cleanses contaminated tech metric fragments from clinical bullets', () => {
+      const dirtyBullet1 =
+        'Educated patients on appropriate medication administration, treatment adherence, possible side effects, and precautions associated with prescribed therapies, expanding active user adoption to 500k+ mobile users with a 4.8-star app store rating.';
+      const cleaned1 = sanitizeBulletText(dirtyBullet1, 'healthcare');
+      expect(cleaned1).not.toContain('mobile users');
+      expect(cleaned1).not.toContain('app store rating');
+      expect(cleaned1).toBe(
+        'Educated patients on appropriate medication administration, treatment adherence, possible side effects, and precautions associated with prescribed therapies.'
+      );
+
+      const dirtyBullet2 =
+        'Strengthened understanding of drug safety principles, therapeutic monitoring, and the importance of accurate clinical documentation in supporting safe pharmaceutical practices, improving system delivery efficiency by 30% across production workloads.';
+      const cleaned2 = sanitizeBulletText(dirtyBullet2, 'healthcare');
+      expect(cleaned2).not.toContain('production workloads');
+      expect(cleaned2).not.toContain('delivery efficiency');
+      expect(cleaned2).toBe(
+        'Strengthened understanding of drug safety principles, therapeutic monitoring, and the importance of accurate clinical documentation in supporting safe pharmaceutical practices.'
+      );
+    });
+
+    it('protects healthcare candidates from tech seniority hallucination even if bullets contain workloads or system', () => {
+      const resumeWithDirtyBullets = {
+        ...clinicalResume,
+        experience: [
+          {
+            ...clinicalResume.experience[0],
+            bullets: [
+              'Strengthened understanding of drug safety principles, improving system delivery efficiency by 30% across production workloads.',
+              'Educated patients on medication administration, expanding active user adoption to 500k+ mobile users with a 4.8-star app store rating.',
+            ],
+          },
+        ],
+      };
+
+      const result = evaluateResumeHeuristically(resumeWithDirtyBullets as any);
+      expect(result.detectedSeniority).toBe('Clinical Pharmacist (L2)');
+      expect(result.targetRole).toBe('Clinical Pharmacist');
+      expect(result.detectedSeniority).not.toContain('Software');
+    });
   });
 });

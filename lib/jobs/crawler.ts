@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { cleanJobApplyUrl } from './url-cleaner';
+import { cleanJobApplyUrl, isValidJobUrl } from './url-cleaner';
 import { getGoogleFaviconUrl } from '@/lib/utils';
 
 export interface CrawledJobItem {
@@ -379,6 +379,34 @@ export async function crawlAndSyncTechJobs(
             if (!cleanedUrl || seenBatchUrls.has(cleanedUrl)) continue;
             seenBatchUrls.add(cleanedUrl);
 
+            // Filter out malformed, broken, or unreachable external URLs
+            if (!isValidJobUrl(cleanedUrl)) {
+              continue;
+            }
+
+            // Derive authentic published/posted date from source ATS listing
+            const rawPostedDate =
+              job.posted_at ||
+              job.published_at ||
+              job.date_posted ||
+              job.created_at ||
+              job.postedDate ||
+              job.enrichment?.posted_at;
+
+            let authenticPostedAt = nowIso;
+            if (rawPostedDate) {
+              const parsed = new Date(rawPostedDate);
+              if (!isNaN(parsed.getTime()) && parsed.getTime() <= Date.now()) {
+                authenticPostedAt = parsed.toISOString();
+              }
+            }
+
+            // Filter out expired jobs older than 30 days
+            const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+            if (Date.now() - new Date(authenticPostedAt).getTime() > thirtyDaysMs) {
+              continue;
+            }
+
             const descText = cleanHtmlToText(job.description || job.title).slice(0, 3000);
             const locationStr =
               job.location ||
@@ -405,7 +433,7 @@ export async function crawlAndSyncTechJobs(
               category: detectCategory(job.title, job.enrichment?.category),
               external_apply_url: cleanedUrl,
               is_active: true,
-              created_at: nowIso,
+              created_at: authenticPostedAt,
               updated_at: nowIso,
             });
 
@@ -422,10 +450,10 @@ export async function crawlAndSyncTechJobs(
     );
   }
 
-  // 4. Prune stale jobs older than 90 days from database
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  // 4. Prune stale jobs older than 30 days from database
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   try {
-    await supabaseAdmin.from('jobs').delete().lt('created_at', ninetyDaysAgo);
+    await supabaseAdmin.from('jobs').delete().lt('created_at', thirtyDaysAgo);
   } catch (pruneErr) {
     console.warn('Crawler stale jobs pruning note:', pruneErr);
   }

@@ -42,6 +42,10 @@ export function EvaluationDashboard({
   const unappliedCount = unappliedSuggestions.length;
 
   const activeRole = experience?.[0]?.roleTitle || evaluation.targetRole;
+  const isHealthcareRole =
+    /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory|healthcare|hospital|medical|nurse|nursing|doctor|physician)\b/i.test(
+      activeRole || ''
+    );
 
   return (
     <div className="flex flex-col h-full bg-neutral-50/60 border-r border-neutral-200 overflow-y-auto p-4 sm:p-5 gap-6">
@@ -159,7 +163,7 @@ export function EvaluationDashboard({
               filter === 'relevance' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
             }`}
           >
-            Stack
+            {isHealthcareRole ? 'Domain' : 'Stack'}
           </button>
           <button
             onClick={() => setFilter('brevity')}

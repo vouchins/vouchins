@@ -324,17 +324,22 @@ export function sanitizeBulletText(bullet: string, domain?: ResumeDomain | any):
   text = text.replace(/,\s*expan\b/gi, '');
 
   const activeDomain = typeof domain === 'string' ? (domain as ResumeDomain) : undefined;
+  const hasClinicalContext =
+    activeDomain === 'healthcare' ||
+    /\b(patient|medication|pharmacology|clinical|pharmaceutical|therapeutic|pharmacist|pharmacy|pharm-d|prescrib|physician|hospital|adverse|drug safety|dosage|treatment adherence|toxicology|regulatory documentation)\b/i.test(
+      text
+    );
 
-  // If in healthcare domain, remove mismatched tech phrase fragments
-  if (activeDomain === 'healthcare') {
+  // If in healthcare domain or bullet has clinical context, remove mismatched tech phrase fragments
+  if (hasClinicalContext) {
     text = text
-      .replace(/,\s*expanding active user adoption to 500k\+ mobile users with a 4\.8-star app store rating[.]?/gi, '.')
-      .replace(/,\s*cutting query compute latency by 40% and processing 500k\+ events daily[.]?/gi, '.')
-      .replace(/,\s*improving system delivery efficiency by 30% across production workloads[.]?/gi, '.')
-      .replace(/,\s*reducing API response latency by 32% and supporting 1\.2M\+ active daily requests[.]?/gi, '.')
-      .replace(/,\s*boosting page performance scores by 35% and accelerating user task completion by 22%[.]?/gi, '.')
-      .replace(/,\s*boosting automated test coverage from 60% to 92% and preventing regression bugs[.]?/gi, '.')
-      .replace(/,\s*remediating 30\+ critical vulnerabilities and achieving 100% security compliance[.]?/gi, '.');
+      .replace(/(?:,\s*|\s+)?expanding active user adoption to 500k\+ mobile users with a 4\.8-star app store rating[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?cutting query compute latency by 40% and processing 500k\+ events daily[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?improving system delivery efficiency by 30% across production workloads[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?reducing API response latency by 32% and supporting 1\.2M\+ active daily requests[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?boosting page performance scores by 35% and accelerating user task completion by 22%[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?boosting automated test coverage from 60% to 92% and preventing regression bugs[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?remediating 30\+ critical vulnerabilities and achieving 100% security compliance[.]?/gi, '.');
   }
 
   const repeatingPhrases = [
@@ -555,11 +560,13 @@ export function detectSeniority(
   const expYears = parseExperienceYears(doc);
 
   const domain = doc ? detectResumeDomain(corpus, doc) : 'general';
+  const isHealthcareDomain = domain === 'healthcare';
   const isTechDomain =
-    domain === 'tech' ||
-    /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer)\b/i.test(
-      `${latestTitle} ${corpus}`
-    );
+    !isHealthcareDomain &&
+    (domain === 'tech' ||
+      /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system architect|machine learning|data scientist|data engineer)\b/i.test(
+        latestTitle
+      ));
 
   // If candidate is in tech domain, map to the industry standard engineering ladder
   if (isTechDomain) {
@@ -754,6 +761,17 @@ export function detectTargetRole(corpus: string, doc: ResumeDocument): string {
   }
 
   // 3. Fallback when experience array exists but latest role title was blank or generic
+  const domain = detectResumeDomain(corpus, doc);
+  if (domain === 'healthcare') {
+    if (/\b(pharm-d|pharmd|pharmacy|pharmacist)\b/i.test(corpus)) {
+      return 'Clinical Pharmacist';
+    }
+    if (/\b(regulatory affairs|regulatory documentation|gcp|ind|nda)\b/i.test(corpus)) {
+      return 'Regulatory Affairs Specialist';
+    }
+    return 'Clinical Healthcare Specialist';
+  }
+
   if (/\b(fullstack|full-stack|full stack)\b/i.test(corpus)) return 'Full-Stack Engineer';
   if (/\b(backend|platform|distributed systems)\b/i.test(corpus)) return 'Backend & Distributed Systems Engineer';
   if (/\b(frontend|react|next\.js|web)\b/i.test(corpus)) return 'Frontend Engineer';

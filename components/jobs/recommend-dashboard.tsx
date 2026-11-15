@@ -38,6 +38,7 @@ import {
   Plus,
   GraduationCap,
   BookOpen,
+  Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnterpriseBuildingIcon } from '@/components/icons/enterprise-building-icon';
@@ -858,6 +859,7 @@ export function JobRecommendationsDashboard() {
   const [masterResumeId, setMasterResumeId] = useState<string | null>(null);
   const [isTailoring, setIsTailoring] = useState(false);
   const [tailorSuccess, setTailorSuccess] = useState(false);
+  const [isDownloadingTailoredPdf, setIsDownloadingTailoredPdf] = useState(false);
 
   // Fetch candidate profile & master resume skills
   useEffect(() => {
@@ -1818,6 +1820,40 @@ export function JobRecommendationsDashboard() {
     }
   };
 
+  const handleDownloadTailoredResume = async () => {
+    if (!candidateDocument) {
+      toast.error('No candidate resume document available to download.');
+      return;
+    }
+    setIsDownloadingTailoredPdf(true);
+    const toastId = toast.loading('Generating updated resume PDF...');
+    try {
+      const { pdf } = await import('@react-pdf/renderer');
+      const { ResumePDFDocument } = await import('./pdf-document');
+      const blob = await pdf(<ResumePDFDocument document={candidateDocument} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const cleanName = candidateDocument.contact?.fullName
+        ? candidateDocument.contact.fullName.replace(/\s+/g, '_')
+        : 'Candidate';
+      const cleanJobTitle = selectedJob?.title
+        ? selectedJob.title.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30)
+        : 'Tailored';
+      link.download = `${cleanName}_${cleanJobTitle}_Resume.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast.success('Updated resume downloaded successfully!', { id: toastId });
+    } catch (err: any) {
+      console.error('Failed to generate tailored resume PDF:', err);
+      toast.error('Failed to download resume PDF. Please try again.', { id: toastId });
+    } finally {
+      setIsDownloadingTailoredPdf(false);
+    }
+  };
+
   const handleInitiateReferral = (insider: any) => {
     if (!insider) {
       if (companyInsiders.length === 0) {
@@ -1896,7 +1932,9 @@ export function JobRecommendationsDashboard() {
         body: JSON.stringify({
           insiderId: selectedInsider?.id,
           jobId: selectedJob.id,
+          jobTitle: selectedJob.title,
           companyName: selectedJob.companyName,
+          resumeId: masterResumeId || selectedResumeId,
           note: referralNote || fallbackNote,
         }),
       });
@@ -3814,12 +3852,21 @@ export function JobRecommendationsDashboard() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadTailoredResume}
+                    disabled={isDownloadingTailoredPdf}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95 disabled:opacity-50"
+                  >
+                    <Download className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                    <span>{isDownloadingTailoredPdf ? 'Generating PDF...' : 'Download Updated Resume'}</span>
+                  </button>
                   <Link
                     href={`/jobs/resume/studio${masterResumeId ? `?id=${masterResumeId}` : ''}`}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95"
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-neutral-300 hover:bg-neutral-50 text-neutral-800 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
                   >
                     <span>Open in Tailor Studio</span>
-                    <ExternalLink className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                    <ExternalLink className="h-3.5 w-3.5 text-neutral-500" />
                   </Link>
                   <button
                     type="button"
@@ -3949,6 +3996,23 @@ export function JobRecommendationsDashboard() {
                     placeholder="Briefly introduce yourself and highlight why you match this role..."
                     className="w-full p-3 rounded-xl border border-neutral-200 text-xs font-medium text-neutral-800 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20"
                   />
+                </div>
+
+                {/* Job Requisition ID & Candidate Resume Attachment Details */}
+                <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200/80 flex flex-col gap-2 text-xs">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-semibold text-neutral-600">Job ID / Requisition:</span>
+                    <span className="font-mono font-bold text-neutral-900 bg-neutral-200/60 px-2 py-0.5 rounded text-[11px]">
+                      {selectedJob.id}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-neutral-200/60">
+                    <span className="font-semibold text-neutral-600">Attached Candidate Profile:</span>
+                    <span className="text-[#0A1B5C] font-bold flex items-center gap-1.5">
+                      <FileText className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                      Verified Master Resume
+                    </span>
+                  </div>
                 </div>
 
                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-[11px] text-emerald-800 font-semibold flex items-center gap-2">

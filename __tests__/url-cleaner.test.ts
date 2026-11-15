@@ -1,4 +1,4 @@
-import { cleanJobApplyUrl, hasTrackingParam } from '@/lib/jobs/url-cleaner';
+import { cleanJobApplyUrl, hasTrackingParam, isValidJobUrl } from '@/lib/jobs/url-cleaner';
 
 describe('Job URL Sanitizer (cleanJobApplyUrl)', () => {
   it('strips utm_source from company career URLs that fail on extra parameters', () => {
@@ -72,6 +72,24 @@ describe('Job URL Sanitizer (cleanJobApplyUrl)', () => {
       expect(hasTrackingParam('https://example.com?utm_source=vouchins')).toBe(true);
       expect(hasTrackingParam('https://example.com/jobs/123')).toBe(false);
       expect(hasTrackingParam(null)).toBe(false);
+    });
+  });
+
+  describe('isValidJobUrl', () => {
+    it('approves legitimate corporate career portal URLs', () => {
+      expect(isValidJobUrl('https://careers.google.com/jobs/results/12345')).toBe(true);
+      expect(isValidJobUrl('https://oracle.wd5.myworkdayjobs.com/External/job/123')).toBe(true);
+      expect(isValidJobUrl('http://careers.microsoft.com/job/456')).toBe(true);
+    });
+
+    it('rejects malformed, javascript, anchor, or localhost URLs', () => {
+      expect(isValidJobUrl('')).toBe(false);
+      expect(isValidJobUrl(null)).toBe(false);
+      expect(isValidJobUrl(undefined)).toBe(false);
+      expect(isValidJobUrl('javascript:void(0)')).toBe(false);
+      expect(isValidJobUrl('#apply')).toBe(false);
+      expect(isValidJobUrl('http://localhost:3000/job/1')).toBe(false);
+      expect(isValidJobUrl('not-a-valid-url')).toBe(false);
     });
   });
 });

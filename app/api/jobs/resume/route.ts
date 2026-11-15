@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyJobsAccess } from '@/lib/jobs/auth-guard';
 import { ResumeDocumentSchema } from '@/lib/jobs/types';
 import { computeContentHash } from '@/lib/jobs/cost-guard';
-import { evaluateResumeHeuristically, parseRawTextToDocument, sanitizeBulletText } from '@/lib/jobs/xyz-evaluator';
+import { evaluateResumeHeuristically, parseRawTextToDocument, sanitizeBulletText, detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
@@ -111,10 +111,13 @@ export async function GET(request: Request) {
 
       let evaluation = evaluationsMap[r.id] || null;
       if (doc) {
+        const docDomain = detectResumeDomain(r.raw_text || '', doc);
+        const isHealthcareDoc = docDomain === 'healthcare';
+
         const expList = Array.isArray(doc.experience) ? doc.experience : [];
         expList.forEach((e: any) => {
           if (Array.isArray(e?.bullets)) {
-            e.bullets = e.bullets.map(sanitizeBulletText);
+            e.bullets = e.bullets.map((b: string) => sanitizeBulletText(b, docDomain));
           }
         });
 
@@ -127,8 +130,21 @@ export async function GET(request: Request) {
             s.originalText?.includes('Spearheaded frontend migration to Next.js and TypeScript, reducing page load latency by 45%')
         );
 
-        if (hasLegacyPlaceholder || !evaluation) {
-          // Stale evaluation from legacy placeholder document or empty: generate fresh
+        // Check if a healthcare candidate has stale/hallucinated tech suggestions or tech seniority
+        const hasMismatchedTechSuggestions = isHealthcareDoc && (
+          evaluation?.suggestions?.some(
+            (s: any) =>
+              s.suggestedRewrite?.includes('mobile users') ||
+              s.suggestedRewrite?.includes('compute latency') ||
+              s.suggestedRewrite?.includes('production workloads') ||
+              s.suggestedRewrite?.includes('API response latency') ||
+              s.rationale?.includes('engineering bars (Google, Meta, Uber)')
+          ) ||
+          evaluation?.detectedSeniority?.includes('Software Engineer')
+        );
+
+        if (hasLegacyPlaceholder || hasMismatchedTechSuggestions || !evaluation) {
+          // Stale evaluation from legacy placeholder document or domain mismatch: generate fresh
           try {
             evaluation = evaluateResumeHeuristically(doc, r.raw_text);
           } catch (evalErr) {
@@ -191,10 +207,11 @@ export async function GET(request: Request) {
       };
     });
 
-    // Latest overall ATS score for the user
+    // Overall ATS score of the user's Primary Master Resume
+    const primaryResume = formattedResumes.find((r) => r.isPrimary) || formattedResumes[0];
     const latestScore =
-      formattedResumes.length > 0 && formattedResumes[0].evaluation
-        ? formattedResumes[0].evaluation.overallScore
+      primaryResume && primaryResume.evaluation
+        ? primaryResume.evaluation.overallScore
         : null;
 
     return NextResponse.json({

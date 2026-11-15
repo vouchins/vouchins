@@ -11,7 +11,7 @@ import {
   isUserProOrElite,
   JobMatchVectors,
 } from '@/lib/jobs/types';
-import { evaluateResumeHeuristically } from '@/lib/jobs/xyz-evaluator';
+import { evaluateResumeHeuristically, detectResumeDomain, sanitizeBulletText } from '@/lib/jobs/xyz-evaluator';
 import { invalidateResumesCache } from '@/lib/jobs/client-cache';
 import { formatLocalizedSalary } from './recommend-dashboard';
 import { cleanJobApplyUrl } from '@/lib/jobs/url-cleaner';
@@ -106,6 +106,9 @@ export function Workspace({
   // Synchronize state when parent triggers an updated evaluation or document (e.g. via Re-analyze)
   useEffect(() => {
     if (initialEvaluation && initialDocument) {
+      const docDomain = detectResumeDomain('', initialDocument);
+      const isHealthcare = docDomain === 'healthcare';
+
       const docBullets = new Set((initialDocument.experience || []).flatMap((e) => e.bullets || []));
       const hasLegacyPlaceholder = initialEvaluation.suggestions?.some(
         (s) =>
@@ -113,9 +116,33 @@ export function Workspace({
           s.originalText?.includes('Spearheaded frontend migration to Next.js and TypeScript, reducing page load latency by 45%')
       );
 
-      if (hasLegacyPlaceholder) {
-        const fresh = evaluateResumeHeuristically(initialDocument);
+      const hasMismatchedTechSuggestions = isHealthcare && (
+        initialEvaluation.suggestions?.some(
+          (s) =>
+            s.suggestedRewrite?.includes('mobile users') ||
+            s.suggestedRewrite?.includes('compute latency') ||
+            s.suggestedRewrite?.includes('production workloads') ||
+            s.suggestedRewrite?.includes('API response latency') ||
+            s.rationale?.includes('engineering bars (Google, Meta, Uber)')
+        ) ||
+        initialEvaluation.detectedSeniority?.includes('Software Engineer')
+      );
+
+      if (hasLegacyPlaceholder || hasMismatchedTechSuggestions) {
+        // Automatically cleanse contaminated bullets from document
+        const cleanedDoc: ResumeDocument = {
+          ...initialDocument,
+          experience: (initialDocument.experience || []).map((exp) => ({
+            ...exp,
+            bullets: (exp.bullets || []).map((b) => sanitizeBulletText(b, docDomain)),
+          })),
+        };
+        setDocument(cleanedDoc);
+        const fresh = evaluateResumeHeuristically(cleanedDoc);
         setEvaluation(fresh);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: fresh.overallScore } }));
+        }
       } else {
         const fresh = evaluateResumeHeuristically(initialDocument);
         const syncedSuggestions = (initialEvaluation.suggestions || []).map((s) => {
@@ -125,8 +152,8 @@ export function Workspace({
           return s;
         });
 
-        const calibratedScore = Math.max(initialEvaluation.overallScore || 0, fresh.overallScore);
-        const calibratedPillars = {
+        const calibratedScore = isHealthcare ? fresh.overallScore : Math.max(initialEvaluation.overallScore || 0, fresh.overallScore);
+        const calibratedPillars = isHealthcare ? fresh.pillarScores : {
           impact: Math.max(initialEvaluation.pillarScores?.impact || 0, fresh.pillarScores.impact),
           relevance: Math.max(initialEvaluation.pillarScores?.relevance || 0, fresh.pillarScores.relevance),
           brevity: Math.max(initialEvaluation.pillarScores?.brevity || 0, fresh.pillarScores.brevity),
@@ -137,10 +164,14 @@ export function Workspace({
           overallScore: calibratedScore,
           pillarScores: calibratedPillars,
           suggestions: syncedSuggestions,
-          strengths: initialEvaluation.strengths?.length ? initialEvaluation.strengths : fresh.strengths,
+          strengths: fresh.strengths,
           detectedSeniority: fresh.detectedSeniority,
           targetRole: fresh.targetRole,
         });
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: calibratedScore } }));
+        }
       }
     } else if (initialEvaluation) {
       setEvaluation(initialEvaluation);
@@ -216,6 +247,10 @@ export function Workspace({
         jobMatchVectors: fresh.jobMatchVectors,
       });
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: fresh.overallScore } }));
+      }
+
       // Trigger visual pulse highlight on the target bullet in canvas
       setHighlightedCoordinate({ roleIndex, bulletIndex });
       setTimeout(() => {
@@ -263,6 +298,10 @@ export function Workspace({
         suggestions: updatedSuggestions,
         jobMatchVectors: fresh.jobMatchVectors,
       });
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: fresh.overallScore } }));
+      }
 
       toast.info('Suggestion reverted to original phrasing.');
     }
@@ -317,6 +356,10 @@ export function Workspace({
       suggestions: updatedSuggestions,
       jobMatchVectors: fresh.jobMatchVectors,
     });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: newScore } }));
+    }
 
     toast.success(
       `Applied ${appliedIds.size} rewrites! ATS readiness boosted from ${oldScore} to ${newScore}/100.`
@@ -419,6 +462,9 @@ export function Workspace({
           onSave(savedId, document, savedEvaluation);
         }
         invalidateResumesCache();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: currentEval.overallScore } }));
+        }
         toast.success(`Resume draft and readiness score (${currentEval.overallScore}/100) saved!`, { id: toastId });
       } else {
         const data = await res.json();

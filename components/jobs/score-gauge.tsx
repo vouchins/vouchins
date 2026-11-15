@@ -16,16 +16,23 @@ export function ScoreGauge({ score, seniority, targetRole, size = 130 }: ScoreGa
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
-  const roleText = `${targetRole || ''} ${seniority || ''}`.toLowerCase();
-  const isTechRole =
-    !roleText.trim() ||
-    /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer)\b/i.test(
-      roleText
-    );
+  const rawTargetRole = (targetRole || '').trim();
   const isHealthcareRole =
     /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory|healthcare|hospital|medical|nurse|nursing|doctor|physician)\b/i.test(
-      roleText
+      `${rawTargetRole} ${seniority || ''}`
     );
+  const isTechRole =
+    !isHealthcareRole &&
+    (!rawTargetRole ||
+      /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer)\b/i.test(
+        `${rawTargetRole} ${seniority || ''}`
+      ));
+
+  // If role is healthcare, sanitize away any accidental software engineer seniority badge
+  const displaySeniority =
+    isHealthcareRole && seniority && /software|developer|engineer/i.test(seniority)
+      ? (rawTargetRole ? `${rawTargetRole} (L2)` : 'Clinical Pharmacist (L2)')
+      : seniority;
 
   let color = '#4FD1C5'; // Vouchins accent teal
   let tierLabel = 'Strong Contender';
@@ -81,10 +88,10 @@ export function ScoreGauge({ score, seniority, targetRole, size = 130 }: ScoreGa
             <TrendingUp className="h-3 w-3" />
             {tierLabel}
           </span>
-          {seniority && (
+          {displaySeniority && (
             <span className="hidden md:inline-flex items-center gap-1 text-xs text-neutral-600 font-medium">
               <Award className="h-3 w-3 text-neutral-400" />
-              {seniority}
+              {displaySeniority}
             </span>
           )}
         </div>

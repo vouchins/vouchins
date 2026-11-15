@@ -75,6 +75,24 @@ jest.mock('@/lib/supabase/admin', () => ({
         };
       }
 
+      if (table === 'job_resumes') {
+        const createResumeChain = () => {
+          const chain: any = {
+            eq: jest.fn(() => chain),
+            order: jest.fn(() => chain),
+            limit: jest.fn(() => chain),
+            maybeSingle: jest.fn().mockResolvedValue({
+              data: { id: 'resume-mock-uuid', custom_slug: 'ummu-farwah' },
+              error: null,
+            }),
+          };
+          return chain;
+        };
+        return {
+          select: jest.fn(() => createResumeChain()),
+        };
+      }
+
       if (table === 'messages') {
         return {
           insert: jest.fn((msg: any) => {
@@ -409,11 +427,11 @@ describe('Jobs: Verified Insiders & Verification Gated Connection', () => {
 
       expect(res.status).toBe(200);
       expect(json.success).toBe(true);
-      expect(mockInsertedMessage).toEqual({
-        sender_id: 'verified-candidate-1',
-        receiver_id: insiderUuid,
-        text: expect.stringContaining('[Internal Referral Request · Oracle]'),
-      });
+      expect(mockInsertedMessage.sender_id).toBe('verified-candidate-1');
+      expect(mockInsertedMessage.receiver_id).toBe(insiderUuid);
+      expect(mockInsertedMessage.text).toContain('[Internal Referral Request · Oracle]');
+      expect(mockInsertedMessage.text).toContain('Job ID / Requisition: job-123');
+      expect(mockInsertedMessage.text).toContain('Candidate Resume: https://www.vouchins.com/resume/ummu-farwah');
     });
 
     it('should permit platform admin users to request referrals even if is_verified is false', async () => {

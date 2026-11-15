@@ -7,7 +7,7 @@ import { verifyJobsAccess } from "@/lib/jobs/auth-guard";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { insiderId, jobId, companyName, note } = body;
+    const { insiderId, jobId, jobTitle, companyName, resumeId, note } = body;
 
     if (!insiderId || !companyName) {
       return NextResponse.json(
@@ -79,14 +79,49 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Dispatch connection / message to insider if registered
+    // 3. Resolve candidate's verified resume URL
+    let resumeUrl = '';
+    try {
+      let query = supabaseAdmin
+        .from('job_resumes')
+        .select('id, custom_slug, is_primary')
+        .eq('user_id', callingUserId);
+
+      if (resumeId) {
+        query = query.eq('id', resumeId);
+      } else {
+        query = query.order('is_primary', { ascending: false }).order('updated_at', { ascending: false });
+      }
+
+      const { data: resumeRecord } = await query.limit(1).maybeSingle();
+      if (resumeRecord) {
+        const slugOrId = resumeRecord.custom_slug || resumeRecord.id;
+        resumeUrl = `https://www.vouchins.com/resume/${slugOrId}`;
+      }
+    } catch (resErr) {
+      console.warn("Could not fetch candidate resume link for referral:", resErr);
+    }
+
+    // Format comprehensive internal referral payload with Job ID and Candidate Resume
+    const messageLines = [
+      `[Internal Referral Request · ${companyName}]`,
+      jobTitle ? `Target Role: ${jobTitle}` : null,
+      jobId ? `Job ID / Requisition: ${jobId}` : null,
+      resumeUrl ? `Candidate Resume: ${resumeUrl}` : null,
+      '',
+      note || "Hi, I noticed the open role at your company and would love to connect regarding an internal referral.",
+    ].filter((line) => line !== null);
+
+    const fullMessageText = messageLines.join('\n');
+
+    // 4. Dispatch connection / message to insider if registered
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(insiderId);
     if (isUuid) {
       try {
         await supabaseAdmin.from("messages").insert({
           sender_id: callingUserId,
           receiver_id: insiderId,
-          text: `[Internal Referral Request · ${companyName}]\n\n${note || "Hi, I noticed the open role at your company and would love to connect regarding an internal referral."}`,
+          text: fullMessageText,
         });
       } catch (msgErr) {
         console.warn("Could not insert message directly into messages table:", msgErr);
