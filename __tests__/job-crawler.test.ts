@@ -50,6 +50,7 @@ describe('Job Crawler Engine', () => {
         return {
           delete: () => ({
             lt: jest.fn().mockResolvedValue({ data: null, error: null }),
+            or: jest.fn().mockResolvedValue({ data: null, error: null }),
           }),
           select: () => ({
             in: async () => ({

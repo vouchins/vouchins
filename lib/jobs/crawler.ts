@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { cleanJobApplyUrl, isValidJobUrl } from './url-cleaner';
+import { cleanJobApplyUrl, isValidJobUrl, BLOCKED_AGGREGATOR_DOMAINS } from './url-cleaner';
 import { getGoogleFaviconUrl } from '@/lib/utils';
 
 export interface CrawledJobItem {
@@ -349,18 +349,60 @@ export async function crawlAndSyncTechJobs(
               if (isExcluded) continue;
             }
 
+            // Filter out closed or expired requisitions from source ATS
+            if (
+              job.is_expired ||
+              job.is_active === false ||
+              job.status === 'closed' ||
+              job.status === 'expired' ||
+              job.expired === true
+            ) {
+              continue;
+            }
+
             // Strict geographic verification
             if (options.country && options.country.toLowerCase() !== 'all') {
               const targetCountry = options.country.trim().toLowerCase();
+              const isIndiaTarget = targetCountry === 'in' || targetCountry === 'india';
+              const isUsTarget = targetCountry === 'us' || targetCountry === 'usa' || targetCountry === 'united states';
               const jobCountries = Array.isArray(job.countries)
                 ? job.countries.map((c: any) => String(c).toLowerCase())
                 : [];
               const locText = String(job.location || '').toLowerCase();
-              const matchesCountry =
-                jobCountries.includes(targetCountry) ||
-                (targetCountry === 'in' && /india|bengaluru|bangalore|hyderabad|pune|mumbai|delhi|gurgaon|noida|chennai|telangana|karnataka/i.test(locText)) ||
-                (targetCountry === 'us' && /usa|united states|california|texas|new york|washington|seattle|austin|san francisco/i.test(locText));
-              if (!matchesCountry && jobCountries.length > 0) continue;
+
+              const foreignMarkers = /london|united kingdom|\buk\b|germany|berlin|poland|warsaw|france|paris|singapore|australia|sydney|canada|toronto|netherlands|amsterdam|switzerland|zurich|ireland|dublin|japan|tokyo/i;
+              const usMarkers = /usa|united states|california|texas|new york|washington|seattle|austin|san francisco|chicago|boston/i;
+              const indianMarkers = /india|\bin\b|bengaluru|bangalore|hyderabad|pune|mumbai|delhi|gurgaon|gurugram|noida|chennai|kolkata|ahmedabad|telangana|karnataka|maharashtra|tamil nadu/i;
+
+              if (isIndiaTarget) {
+                // Strictly reject jobs with foreign or US city/country markers
+                if (foreignMarkers.test(locText) || usMarkers.test(locText)) {
+                  continue;
+                }
+                const matchesIndia =
+                  jobCountries.includes('in') ||
+                  jobCountries.includes('india') ||
+                  indianMarkers.test(locText);
+                if (!matchesIndia) {
+                  continue;
+                }
+              } else if (isUsTarget) {
+                if (foreignMarkers.test(locText) || indianMarkers.test(locText)) {
+                  continue;
+                }
+                const matchesUs =
+                  jobCountries.includes('us') ||
+                  jobCountries.includes('usa') ||
+                  usMarkers.test(locText);
+                if (!matchesUs) {
+                  continue;
+                }
+              } else {
+                const matchesCountry = jobCountries.includes(targetCountry) || locText.includes(targetCountry);
+                if (!matchesCountry) {
+                  continue;
+                }
+              }
             }
 
             if (options.city && options.city.trim() && options.city.toLowerCase() !== 'all') {
@@ -450,10 +492,16 @@ export async function crawlAndSyncTechJobs(
     );
   }
 
-  // 4. Prune stale jobs older than 30 days from database
+  // 4. Prune stale jobs older than 30 days and dead aggregators from database
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   try {
     await supabaseAdmin.from('jobs').delete().lt('created_at', thirtyDaysAgo);
+    const deleteBuilder = supabaseAdmin.from('jobs').delete() as any;
+    if (typeof deleteBuilder?.or === 'function') {
+      await deleteBuilder.or(
+        BLOCKED_AGGREGATOR_DOMAINS.map((domain) => `external_apply_url.ilike.%${domain}%`).join(',')
+      );
+    }
   } catch (pruneErr) {
     console.warn('Crawler stale jobs pruning note:', pruneErr);
   }

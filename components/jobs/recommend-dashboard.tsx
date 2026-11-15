@@ -2627,7 +2627,13 @@ export function JobRecommendationsDashboard() {
                 <Briefcase className="h-3.5 w-3.5 shrink-0" />
                 <span>
                   <span className="hidden xl:inline">All Jobs</span>
-                  <span className="xl:hidden">All</span> ({debouncedSearchQuery.trim() || activeChip !== 'all' ? filteredJobs.length : (totalRolesCount ?? allJobs.length)})
+                  <span className="xl:hidden">All</span> ({
+                    filteredJobs.length === 0
+                      ? 0
+                      : (activeChip !== 'all' || activeListTab !== 'all' || (selectedCompanies.length > 0 && !selectedCompanies.includes('all')))
+                      ? filteredJobs.length
+                      : (totalRolesCount ?? filteredJobs.length)
+                  })
                 </span>
               </button>
 
@@ -2783,11 +2789,15 @@ export function JobRecommendationsDashboard() {
             <div className="flex items-center justify-between mb-2 px-1 text-xs text-neutral-500 shrink-0">
               <span className="font-medium text-neutral-600">
                 Found <strong className="text-neutral-900 font-bold">{
-                  (debouncedSearchQuery.trim() || activeChip !== 'all' || activeListTab !== 'all' || (selectedCompanies.length > 0 && !selectedCompanies.includes('all')) || filteredJobs.length === 0)
+                  filteredJobs.length === 0
+                    ? 0
+                    : (activeChip !== 'all' || activeListTab !== 'all' || (selectedCompanies.length > 0 && !selectedCompanies.includes('all')))
                     ? filteredJobs.length
                     : (totalRolesCount ?? filteredJobs.length)
                 }</strong> {
-                  ((debouncedSearchQuery.trim() || activeChip !== 'all' || activeListTab !== 'all' || (selectedCompanies.length > 0 && !selectedCompanies.includes('all')) || filteredJobs.length === 0)
+                  (filteredJobs.length === 0
+                    ? 0
+                    : (activeChip !== 'all' || activeListTab !== 'all' || (selectedCompanies.length > 0 && !selectedCompanies.includes('all')))
                     ? filteredJobs.length
                     : (totalRolesCount ?? filteredJobs.length)) === 1 ? 'role' : 'roles'
                 }
@@ -2969,7 +2979,7 @@ export function JobRecommendationsDashboard() {
                     );
                   })}
 
-                  {hasMore && filteredJobs.length > 0 && (!totalRolesCount || totalRolesCount > filteredJobs.length) && (
+                  {hasMore && filteredJobs.length > 0 && totalRolesCount != null && totalRolesCount > filteredJobs.length && (
                     <div className="pt-2 pb-6 text-center">
                       <button
                         type="button"
@@ -2984,7 +2994,7 @@ export function JobRecommendationsDashboard() {
                           </>
                         ) : (
                           <span>
-                            Load more roles {totalRolesCount && totalRolesCount > filteredJobs.length ? `(${totalRolesCount - filteredJobs.length} remaining)` : ''}
+                            Load more roles ({totalRolesCount - filteredJobs.length} remaining)
                           </span>
                         )}
                       </button>

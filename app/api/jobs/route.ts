@@ -251,64 +251,6 @@ export async function GET(request: Request) {
     // 2. Fetch active jobs from Supabase database within 30 days (1 month)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    const buildBaseDbQuery = (withCount = false) => {
-      let q = supabaseAdmin
-        .from("jobs")
-        .select("*", withCount ? { count: "exact" } : undefined)
-        .eq("is_active", true)
-        .gte("created_at", thirtyDaysAgo);
-
-      if (category !== "all") {
-        q = q.ilike("category", `%${category}%`);
-      }
-      if (jobType !== "all") {
-        q = q.ilike("job_type", `%${jobType.toLowerCase()}%`);
-      }
-      if (experienceLevel !== "all") {
-        q = q.ilike("experience_level", `%${experienceLevel.toLowerCase()}%`);
-      }
-
-      if (workModeParam === "remote") {
-        q = q.or("location.ilike.%remote%,location.ilike.%anywhere%,location.ilike.%virtual%");
-      } else if (workModeParam === "hybrid") {
-        q = q.or("location.ilike.%hybrid%");
-      } else if (workModeParam === "onsite") {
-        q = q.not("location", "ilike", "%remote%").not("location", "ilike", "%anywhere%");
-      }
-
-      if (selectedCompanies.length > 0) {
-        const compFilters = selectedCompanies.map(
-          (c) => `company_name.ilike."%${c.replace(/["%,]/g, "")}%"`
-        );
-        q = q.or(compFilters.join(","));
-      }
-
-      if (queryStr.trim()) {
-        const cleanQ = queryStr.trim().replace(/["%,]/g, "");
-        const words = cleanQ.split(/\s+/).filter((w) => w.length > 1);
-        const searchParts: string[] = [
-          `title.ilike."%${cleanQ}%"`,
-          `company_name.ilike."%${cleanQ}%"`,
-          `category.ilike."%${cleanQ}%"`,
-          `description.ilike."%${cleanQ}%"`,
-          `requirements.ilike."%${cleanQ}%"`,
-        ];
-
-        if (words.length > 1) {
-          const orderedWildcard = words.join("%");
-          const reversedWildcard = [...words].reverse().join("%");
-          searchParts.push(`title.ilike."%${orderedWildcard}%"`);
-          searchParts.push(`title.ilike."%${reversedWildcard}%"`);
-          searchParts.push(`description.ilike."%${orderedWildcard}%"`);
-          searchParts.push(`requirements.ilike."%${orderedWildcard}%"`);
-        }
-
-        q = q.or(searchParts.join(","));
-      }
-
-      return q;
-    };
-
     let rawDbJobs: any[] = [];
 
     // Extract top core tech keywords from candidateSkills and current/last role to build a skill-targeted query
@@ -359,64 +301,103 @@ export async function GET(request: Request) {
 
     const locationOrFilter = activeLocation ? buildPostgrestLocationFilter(activeLocation) : '';
     const locFilterWithRemote = locationOrFilter
-      ? `${locationOrFilter},location.ilike."%remote%",location.ilike."%anywhere%"`
+      ? (workModeParam === 'onsite'
+          ? locationOrFilter
+          : `${locationOrFilter},location.ilike."%remote%",location.ilike."%anywhere%"`)
       : '';
+
+    // Collect all compound OR filter groups to combine into a single coherent PostgREST boolean clause.
+    // In PostgREST, multiple separate .or() calls overwrite each other. Combining them via and(or(...),or(...))
+    // guarantees that Search AND Location AND Company AND Skills are all honored simultaneously.
+    const compoundOrGroups: string[] = [];
+
+    // Search query group
+    if (queryStr.trim()) {
+      const cleanQ = queryStr.trim().replace(/["%,]/g, "");
+      const words = cleanQ.split(/\s+/).filter((w) => w.length > 1);
+      const searchParts: string[] = [
+        `title.ilike."%${cleanQ}%"`,
+        `company_name.ilike."%${cleanQ}%"`,
+        `category.ilike."%${cleanQ}%"`,
+        `description.ilike."%${cleanQ}%"`,
+        `requirements.ilike."%${cleanQ}%"`,
+      ];
+
+      if (words.length > 1) {
+        const orderedWildcard = words.join("%");
+        const reversedWildcard = [...words].reverse().join("%");
+        searchParts.push(`title.ilike."%${orderedWildcard}%"`);
+        searchParts.push(`title.ilike."%${reversedWildcard}%"`);
+        searchParts.push(`description.ilike."%${orderedWildcard}%"`);
+        searchParts.push(`requirements.ilike."%${orderedWildcard}%"`);
+      }
+
+      compoundOrGroups.push(searchParts.join(","));
+    }
+
+    // Company filter group
+    if (selectedCompanies.length > 0) {
+      const compFilters = selectedCompanies.map(
+        (c) => `company_name.ilike."%${c.replace(/["%,]/g, "")}%"`
+      );
+      compoundOrGroups.push(compFilters.join(","));
+    }
+
+    // Location filter group
+    if (locFilterWithRemote) {
+      compoundOrGroups.push(locFilterWithRemote);
+    }
+
+    // Skill filter group (only when not searching with a specific keyword)
+    if (effectiveSkillFilter) {
+      compoundOrGroups.push(effectiveSkillFilter);
+    }
+
+    const buildBaseDbQuery = (withCount = false) => {
+      let q = supabaseAdmin
+        .from("jobs")
+        .select("*", withCount ? { count: "exact" } : undefined)
+        .eq("is_active", true)
+        .gte("created_at", thirtyDaysAgo);
+
+      if (category !== "all") {
+        q = q.ilike("category", `%${category}%`);
+      }
+      if (jobType !== "all") {
+        q = q.ilike("job_type", `%${jobType.toLowerCase()}%`);
+      }
+      if (experienceLevel !== "all") {
+        q = q.ilike("experience_level", `%${experienceLevel.toLowerCase()}%`);
+      }
+
+      if (workModeParam === "remote") {
+        q = q.or("location.ilike.%remote%,location.ilike.%anywhere%,location.ilike.%virtual%");
+      } else if (workModeParam === "hybrid") {
+        q = q.or("location.ilike.%hybrid%");
+      } else if (workModeParam === "onsite") {
+        q = q.not("location", "ilike", "%remote%").not("location", "ilike", "%anywhere%");
+      }
+
+      if (compoundOrGroups.length === 1) {
+        q = q.or(compoundOrGroups[0]);
+      } else if (compoundOrGroups.length > 1) {
+        q = q.or(`and(${compoundOrGroups.map((g) => `or(${g})`).join(',')})`);
+      }
+
+      return q;
+    };
 
     let totalCount = 0;
 
-    if (locFilterWithRemote) {
-      if (!effectiveSkillFilter) {
-        // Keyword search or browsing without skill constraint: Paginated location query with exact total count
-        const { data, count, error } = await buildBaseDbQuery(true)
-          .or(locFilterWithRemote)
-          .order("created_at", { ascending: false })
-          .range(from, to);
+    const { data: dbData, count: dbCount, error: dbError } = await buildBaseDbQuery(true)
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
-        if (error) console.warn("Error querying location DB jobs:", error);
-        rawDbJobs = data || [];
-        totalCount = typeof count === "number" ? count : rawDbJobs.length;
-      } else {
-        // Candidate has resume skills: Skill-matched query with exact location count
-        const [poolRes, countRes] = await Promise.all([
-          buildBaseDbQuery(false)
-            .or(locFilterWithRemote)
-            .or(effectiveSkillFilter)
-            .order("created_at", { ascending: false })
-            .range(from, to),
-          buildBaseDbQuery(true)
-            .or(locFilterWithRemote)
-            .range(0, 0),
-        ]);
-
-        if (poolRes.error) console.warn("Error querying skill-targeted DB jobs pool:", poolRes.error);
-        rawDbJobs = poolRes.data || [];
-        totalCount = typeof countRes.count === "number" ? countRes.count : rawDbJobs.length;
-      }
-    } else {
-      // General browsing without specific location preference
-      if (!effectiveSkillFilter) {
-        const { data, count, error } = await buildBaseDbQuery(true)
-          .order("created_at", { ascending: false })
-          .range(from, to);
-
-        if (error) console.warn("Error querying general DB jobs:", error);
-        rawDbJobs = data || [];
-        totalCount = typeof count === "number" ? count : rawDbJobs.length;
-      } else {
-        const [poolRes, countRes] = await Promise.all([
-          buildBaseDbQuery(false)
-            .or(effectiveSkillFilter)
-            .order("created_at", { ascending: false })
-            .range(from, to),
-          buildBaseDbQuery(true)
-            .range(0, 0),
-        ]);
-
-        if (poolRes.error) console.warn("Error querying skill general jobs pool:", poolRes.error);
-        rawDbJobs = poolRes.data || [];
-        totalCount = typeof countRes.count === "number" ? countRes.count : rawDbJobs.length;
-      }
+    if (dbError) {
+      console.warn("Error querying DB jobs with compound filters:", dbError);
     }
+    rawDbJobs = dbData || [];
+    totalCount = typeof dbCount === "number" ? dbCount : rawDbJobs.length;
 
     // ========================================================================
     // Parallel Live ATS & Freehire Fetchers (Commented per user request)

@@ -91,6 +91,23 @@ describe('Job URL Sanitizer (cleanJobApplyUrl)', () => {
       expect(isValidJobUrl('http://localhost:3000/job/1')).toBe(false);
       expect(isValidJobUrl('not-a-valid-url')).toBe(false);
     });
+
+    it('rejects dead third-party job aggregator URLs and root domains without paths', () => {
+      // Third-party aggregators
+      expect(isValidJobUrl('https://www.hirist.tech/j/mern-stack-developer-1682760')).toBe(false);
+      expect(isValidJobUrl('https://www.hirist.com/j/react-lead-123')).toBe(false);
+      expect(isValidJobUrl('https://www.naukri.com/job-listings-frontend-engineer-12345')).toBe(false);
+      expect(isValidJobUrl('https://www.shine.com/jobs/lead-developer/98765')).toBe(false);
+      expect(isValidJobUrl('https://www.foundit.in/job/software-engineer-54321')).toBe(false);
+      expect(isValidJobUrl('https://in.indeed.com/viewjob?jk=abcdef')).toBe(false);
+
+      // Generic root domain homepages without specific job requisitions
+      expect(isValidJobUrl('https://oracle.com')).toBe(false);
+      expect(isValidJobUrl('https://www.microsoft.com/')).toBe(false);
+
+      // Google search fallback links
+      expect(isValidJobUrl('https://www.google.com/search?q=oracle+jobs')).toBe(false);
+    });
   });
 });
 

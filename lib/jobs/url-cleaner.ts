@@ -62,8 +62,33 @@ export function hasTrackingParam(url: string | null | undefined): boolean {
 }
 
 /**
+ * Third-party job boards and scrapers known to host phantom, dead, or paywalled job links
+ * rather than official direct ATS or verified career portal requisitions.
+ */
+export const BLOCKED_AGGREGATOR_DOMAINS = [
+  'hirist.com',
+  'hirist.tech',
+  'naukri.com',
+  'naukrigulf.com',
+  'shine.com',
+  'foundit.in',
+  'monsterindia.com',
+  'timesjobs.com',
+  'freshersworld.com',
+  'indeed.com',
+  'indeed.co.in',
+  'glassdoor.com',
+  'glassdoor.co.in',
+  'ziprecruiter.com',
+  'jooble.org',
+  'quikr.com',
+  'clickindia.com',
+];
+
+/**
  * Validates whether a job application URL is non-empty, well-formed,
- * uses HTTP/HTTPS protocol, has a valid domain name, and is not a local or dummy URL.
+ * uses HTTP/HTTPS protocol, has a valid domain name, is not a dead aggregator,
+ * and is not a generic root homepage.
  */
 export function isValidJobUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== 'string') return false;
@@ -76,11 +101,31 @@ export function isValidJobUrl(url: string | null | undefined): boolean {
     if (!hasScheme) return false;
 
     const parsed = new URL(trimmed);
-    if (!parsed.hostname || parsed.hostname === 'localhost' || parsed.hostname.endsWith('.invalid') || parsed.hostname.endsWith('.example')) {
+    const hostname = parsed.hostname.toLowerCase();
+
+    if (!hostname || hostname === 'localhost' || hostname.endsWith('.invalid') || hostname.endsWith('.example')) {
       return false;
     }
     // Must contain at least one period in hostname (valid TLD)
-    if (!parsed.hostname.includes('.')) return false;
+    if (!hostname.includes('.')) return false;
+
+    // Reject Google search fallback links
+    if (hostname.includes('google.com') && parsed.pathname.includes('/search')) {
+      return false;
+    }
+
+    // Reject known dead third-party aggregators
+    const isBlockedAggregator = BLOCKED_AGGREGATOR_DOMAINS.some(
+      (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+    );
+    if (isBlockedAggregator) {
+      return false;
+    }
+
+    // Reject generic root domains without job requisition paths (e.g. "https://company.com" or "https://company.com/")
+    if ((parsed.pathname === '' || parsed.pathname === '/') && !parsed.search && !parsed.hash) {
+      return false;
+    }
 
     return true;
   } catch {
