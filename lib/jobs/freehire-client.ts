@@ -94,12 +94,29 @@ function cleanHtmlText(text?: string | null): string {
     .trim();
 }
 
-function formatSalary(min?: number, max?: number, currency = 'USD', location?: string): string {
+function formatSalary(min?: number, max?: number, currency = 'USD', location?: string, seniority?: string, title?: string): string {
   const isIndia =
     (currency && currency.toUpperCase() === 'INR') ||
     (location && /india|hyderabad|bangalore|bengaluru|pune|mumbai|delhi|gurgaon|noida|chennai|telangana|karnataka/i.test(location));
 
-  if (!min && !max) return isIndia ? '₹25L - ₹40L / yr' : 'Competitive / Market Band';
+  const roleText = `${title || ''} ${seniority || ''}`.toLowerCase();
+  const isIntern = /\b(intern|internship|trainee|apprentice|student)\b/i.test(roleText);
+  const isLead = /\b(lead|principal|staff|director|head|architect)\b/i.test(roleText);
+  const isSenior = !isLead && /\b(senior|sr\.?)\b/i.test(roleText);
+  const isEntry = !isIntern && !isSenior && !isLead && /\b(entry|junior|jr\.?|associate|fresher)\b/i.test(roleText);
+  const isHealthcare = /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory|hospital|medical)\b/i.test(roleText);
+
+  if (!min && !max) {
+    if (isIndia) {
+      if (isIntern) return '₹25k - ₹45k / mo';
+      if (isHealthcare) return isSenior ? '₹12L - ₹20L / yr' : '₹6L - ₹11L / yr';
+      if (isEntry) return '₹8L - ₹14L / yr';
+      if (isLead) return '₹50L - ₹85L+ / yr';
+      if (isSenior) return '₹28L - ₹48L / yr';
+      return '₹16L - ₹28L / yr';
+    }
+    return 'Competitive / Market Band';
+  }
 
   if (isIndia) {
     const minL = min ? (min > 100000 ? Math.round(min / 100000) : Math.round(min * 0.22)) : undefined;
@@ -251,7 +268,7 @@ export function transformFreehireJob(
     workplaceType,
     jobType: 'Full-time',
     experienceLevel,
-    salaryRange: raw.salary_range || formatSalary(raw.salary_min, raw.salary_max, raw.salary_currency, locationStr),
+    salaryRange: raw.salary_range || formatSalary(raw.salary_min, raw.salary_max, raw.salary_currency, locationStr, experienceLevel, raw.title),
     postedAt: raw.posted_at ? new Date(raw.posted_at).toLocaleDateString() : 'Recently posted',
     matchScore,
     matchBreakdown: {

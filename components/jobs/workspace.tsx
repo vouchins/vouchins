@@ -71,8 +71,35 @@ export function Workspace({
 }: WorkspaceProps) {
   const { user } = useUser();
   const router = useRouter();
-  const [document, setDocument] = useState<ResumeDocument>(() => initialDocument || SAMPLE_STAFF_RESUME);
-  const [evaluation, setEvaluation] = useState<ResumeEvaluation>(() => initialEvaluation || SAMPLE_STAFF_EVALUATION);
+  const [document, setDocument] = useState<ResumeDocument>(() => {
+    const base = initialDocument || SAMPLE_STAFF_RESUME;
+    const isHealthcare = detectResumeDomain('', base) === 'healthcare';
+    if (isHealthcare && base.experience) {
+      return {
+        ...base,
+        experience: base.experience.map((exp) => ({
+          ...exp,
+          bullets: (exp.bullets || []).map((b) => sanitizeBulletText(b, 'healthcare')),
+        })),
+      };
+    }
+    return base;
+  });
+  const [evaluation, setEvaluation] = useState<ResumeEvaluation>(() => {
+    const baseDoc = initialDocument || SAMPLE_STAFF_RESUME;
+    const isHealthcare = detectResumeDomain('', baseDoc) === 'healthcare';
+    if (isHealthcare) {
+      const cleanedDoc: ResumeDocument = {
+        ...baseDoc,
+        experience: (baseDoc.experience || []).map((exp) => ({
+          ...exp,
+          bullets: (exp.bullets || []).map((b) => sanitizeBulletText(b, 'healthcare')),
+        })),
+      };
+      return evaluateResumeHeuristically(cleanedDoc);
+    }
+    return initialEvaluation || SAMPLE_STAFF_EVALUATION;
+  });
   const [currentResumeId, setCurrentResumeId] = useState<string | undefined>(resumeId);
 
   useEffect(() => {
@@ -128,7 +155,13 @@ export function Workspace({
         initialEvaluation.detectedSeniority?.includes('Software Engineer')
       );
 
-      if (hasLegacyPlaceholder || hasMismatchedTechSuggestions) {
+      const hasContaminatedBullets = isHealthcare && (initialDocument.experience || []).some((exp) =>
+        (exp.bullets || []).some((b) =>
+          /500k\+ mobile users|compute latency|production workloads|API response latency|automated test coverage/i.test(b)
+        )
+      );
+
+      if (hasLegacyPlaceholder || hasMismatchedTechSuggestions || hasContaminatedBullets) {
         // Automatically cleanse contaminated bullets from document
         const cleanedDoc: ResumeDocument = {
           ...initialDocument,
@@ -893,7 +926,7 @@ export function Workspace({
 
                     <div className="flex items-center justify-between pt-2.5 border-t border-neutral-200/60 mt-0.5 gap-2">
                       <span className="text-xs font-semibold text-neutral-700 truncate">
-                        {formatLocalizedSalary(job.salaryRange, job.location || document?.contact?.location)}
+                        {formatLocalizedSalary(job.salaryRange, job.location || document?.contact?.location, job.experienceLevel, job.title)}
                       </span>
                       <div className="flex items-center gap-2 shrink-0">
                         <Button

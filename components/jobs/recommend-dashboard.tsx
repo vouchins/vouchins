@@ -288,12 +288,50 @@ export function isIndianLocation(location?: string | null): boolean {
 }
 
 /**
- * Formats compensation in a location-aware manner.
- * For Indian locations, formats or converts into INR Lakhs (e.g. ₹28L - ₹45L / yr).
+ * Formats compensation in a location-aware, domain-aware, and seniority-aware manner.
+ * If employer did not disclose compensation, estimates realistic industry-standard bands
+ * rather than hardcoding an identical fallback across all seniority levels.
  */
-export function formatLocalizedSalary(salaryRange?: string | null, location?: string | null): string {
+export function formatLocalizedSalary(
+  salaryRange?: string | null,
+  location?: string | null,
+  experienceLevel?: string | null,
+  title?: string | null
+): string {
+  const isIndia = isIndianLocation(location);
+  const titleText = (title || '').toLowerCase();
+  const expText = (experienceLevel || '').toLowerCase();
+
+  const isIntern = /\b(intern|internship|trainee|apprentice|student|co-op)\b/i.test(`${titleText} ${expText}`);
+  const isLeadOrPrincipal = /\b(lead|principal|staff|director|head|architect|vp)\b/i.test(`${titleText} ${expText}`);
+  const isSenior = !isLeadOrPrincipal && /\b(senior|sr\.?)\b/i.test(`${titleText} ${expText}`);
+  const isEntry = !isIntern && !isSenior && !isLeadOrPrincipal && /\b(entry|junior|jr\.?|associate|fresher|graduate)\b/i.test(`${titleText} ${expText}`);
+
+  const isHealthcare = /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory|hospital|medical|nurse|doctor)\b/i.test(titleText);
+
+  // If no salary provided by employer, estimate realistic, market-accurate bands
   if (!salaryRange || salaryRange.trim() === '') {
-    return isIndianLocation(location) ? '₹25L - ₹40L / yr' : 'Competitive / Market Band';
+    if (isIndia) {
+      if (isIntern) return '₹25k - ₹45k / mo';
+      if (isHealthcare) {
+        if (isEntry) return '₹3.5L - ₹6L / yr';
+        if (isLeadOrPrincipal) return '₹20L - ₹35L / yr';
+        if (isSenior) return '₹12L - ₹20L / yr';
+        return '₹6L - ₹11L / yr'; // Mid clinical pharmacist
+      }
+      // Tech / Engineering roles
+      if (isEntry) return '₹8L - ₹14L / yr';
+      if (isLeadOrPrincipal) return '₹50L - ₹85L+ / yr';
+      if (isSenior) return '₹28L - ₹48L / yr';
+      return '₹16L - ₹28L / yr'; // Mid level tech (2-5 yrs)
+    }
+
+    // US / Global locations
+    if (isIntern) return '$35 - $55 / hr';
+    if (isEntry) return '$70k - $95k / yr';
+    if (isLeadOrPrincipal) return '$220k - $320k+ / yr';
+    if (isSenior) return '$150k - $210k / yr';
+    return '$105k - $145k / yr';
   }
 
   const trimmed = salaryRange.trim();
@@ -304,19 +342,23 @@ export function formatLocalizedSalary(salaryRange?: string | null, location?: st
   }
 
   // If Indian location but raw salary contains USD ($), convert to realistic INR CTC band
-  if (isIndianLocation(location)) {
+  if (isIndia) {
     if (trimmed.includes('$')) {
       const matches = trimmed.match(/\$(\d+)(?:k)?(?:\s*-\s*\$(\d+)(?:k)?)?/i);
       if (matches) {
         const minK = parseInt(matches[1], 10);
         const maxK = matches[2] ? parseInt(matches[2], 10) : undefined;
-        const minLakhs = Math.max(18, Math.round(minK * 0.22));
-        const maxLakhs = maxK ? Math.max(minLakhs + 10, Math.round(maxK * 0.25)) : undefined;
+        const minLakhs = Math.max(12, Math.round(minK * 0.22));
+        const maxLakhs = maxK ? Math.max(minLakhs + 6, Math.round(maxK * 0.25)) : undefined;
         return maxLakhs ? `₹${minLakhs}L - ₹${maxLakhs}L / yr` : `From ₹${minLakhs}L / yr`;
       }
     }
-    if (trimmed.toLowerCase().includes('competitive')) {
-      return '₹28L - ₹45L / yr';
+    if (trimmed.toLowerCase().includes('competitive') || trimmed.toLowerCase().includes('not disclosed')) {
+      if (isIntern) return '₹25k - ₹45k / mo';
+      if (isHealthcare) return isSenior ? '₹12L - ₹20L / yr' : '₹6L - ₹11L / yr';
+      if (isLeadOrPrincipal) return '₹50L - ₹85L+ / yr';
+      if (isSenior) return '₹28L - ₹48L / yr';
+      return '₹16L - ₹28L / yr';
     }
   }
 
@@ -332,7 +374,7 @@ const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = CURATED_TECH_JOBS.map((cj) =>
   workplaceType: cj.workplaceType,
   jobType: cj.jobType,
   experienceLevel: cj.experienceLevel as any,
-  salaryRange: formatLocalizedSalary(cj.salaryRange, cj.location),
+  salaryRange: formatLocalizedSalary(cj.salaryRange, cj.location, cj.experienceLevel, cj.title),
   postedAt: cj.postedAt,
   matchScore: 95,
   matchBreakdown: {
@@ -633,7 +675,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       workplaceType,
       jobType,
       experienceLevel,
-      salaryRange: formatLocalizedSalary(job.salary_range, location),
+      salaryRange: formatLocalizedSalary(job.salary_range, location, experienceLevel, title),
       postedAt,
       createdAt: job.created_at || undefined,
       matchScore: job.match_score || matchScore,
@@ -696,7 +738,7 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       workplaceType: 'Remote',
       jobType: 'Full-time',
       experienceLevel: 'Senior',
-      salaryRange: formatLocalizedSalary(job?.salary_range, job?.location),
+      salaryRange: formatLocalizedSalary(job?.salary_range, job?.location, 'Senior', job?.title),
       postedAt: 'Recently',
       matchScore: 88,
       matchBreakdown: { skillsScore: 90, experienceScore: 85, stackScore: 88 },
@@ -1504,7 +1546,8 @@ export function JobRecommendationsDashboard() {
       const compKey = selectedJob.companyName.toLowerCase().trim();
       const cached = companyInsidersCacheRef.current.get(compKey);
       if (cached) {
-        setCompanyInsiders(cached);
+        const filteredCached = cached.filter((i: any) => i.id !== user?.id && (!user?.email || i.email !== user.email));
+        setCompanyInsiders(filteredCached);
         setIsLoadingInsiders(false);
         return;
       }
@@ -1551,7 +1594,8 @@ export function JobRecommendationsDashboard() {
         if (res.ok) {
           const json = await res.json();
           if (isMounted) {
-            const list = json.insiders && Array.isArray(json.insiders) ? json.insiders : [];
+            const list = (json.insiders && Array.isArray(json.insiders) ? json.insiders : [])
+              .filter((i: any) => i.id !== user?.id && (!user?.email || i.email !== user.email));
             companyInsidersCacheRef.current.set(compKey, list);
             setCompanyInsiders(list);
           }

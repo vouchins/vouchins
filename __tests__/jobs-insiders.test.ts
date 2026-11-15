@@ -47,6 +47,7 @@ jest.mock('@/lib/supabase/admin', () => ({
         const createChain = (resolveData: any) => {
           const chain: any = {
             eq: jest.fn(() => chain),
+            neq: jest.fn(() => chain),
             or: jest.fn(() => chain),
             ilike: jest.fn(() => chain),
             order: jest.fn(() => chain),
@@ -256,6 +257,54 @@ describe('Jobs: Verified Insiders & Verification Gated Connection', () => {
         isMasked: false,
         avatarUrl: 'https://example.com/avatar.jpg',
       });
+    });
+
+    it('should exclude the calling user from the returned insiders list even if they work at the company', async () => {
+      mockAuthUser = { id: 'viewer-taher', email: 'taher@oracle.com' };
+      mockUserData = {
+        id: 'viewer-taher',
+        full_name: 'Shaik Taher',
+        email: 'taher@oracle.com',
+        is_verified: true,
+      };
+      mockCompaniesData = [
+        { id: 'comp-oracle-123', name: 'Oracle', domain: 'oracle.com' },
+      ];
+      mockUsersData = [
+        {
+          id: 'viewer-taher',
+          full_name: 'Shaik Taher',
+          email: 'taher@oracle.com',
+          city: 'Hyderabad',
+          avatar_url: 'https://example.com/taher.jpg',
+          bio: 'Lead Engineer',
+          is_verified: true,
+          is_active: true,
+          company: { id: 'comp-oracle-123', name: 'Oracle', domain: 'oracle.com' },
+        },
+        {
+          id: 'user-sabyasachi',
+          full_name: 'Sabyasachi Gosh',
+          email: 'sabyasachi@oracle.com',
+          city: 'Hyderabad',
+          avatar_url: 'https://example.com/avatar.jpg',
+          bio: 'Senior Principal Staff Architect',
+          is_verified: true,
+          is_active: true,
+          company: { id: 'comp-oracle-123', name: 'Oracle', domain: 'oracle.com' },
+        },
+      ];
+
+      const req = new Request('http://localhost:3000/api/jobs/insiders?company=Oracle&domain=oracle.com');
+      const res = await getInsiders(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      // User's own profile 'viewer-taher' must be filtered out
+      expect(json.insiders.length).toBe(1);
+      expect(json.insiders[0].id).toBe('user-sabyasachi');
+      expect(json.insiders.some((insider: any) => insider.id === 'viewer-taher')).toBe(false);
     });
 
     it('should fallback to curated corporate directory for DE Shaw when DB has 0 registered users', async () => {

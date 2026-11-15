@@ -32,6 +32,9 @@ export async function GET(request: Request) {
 
     // Check if the requesting viewer is corporate verified or platform admin
     let isViewerVerified = false;
+    let callingUserId: string | null = null;
+    let callingUserEmail: string | null = null;
+
     try {
       const cookieStore = await cookies();
       const supabase = createServerClient(
@@ -50,29 +53,40 @@ export async function GET(request: Request) {
       } = await supabase.auth.getUser();
 
       if (authUser?.id) {
+        callingUserId = authUser.id;
+        callingUserEmail = authUser.email || null;
         const { data: viewerData } = await supabaseAdmin
           .from("users")
-          .select("is_verified, is_admin")
+          .select("is_verified, is_admin, email")
           .eq("id", authUser.id)
           .maybeSingle();
 
+        if (viewerData?.email) {
+          callingUserEmail = viewerData.email;
+        }
         if (viewerData?.is_verified || viewerData?.is_admin) {
           isViewerVerified = true;
         }
       }
 
       // If cookie auth did not resolve verification, verify via auth-guard (handles bearer & dev fallback)
-      if (!isViewerVerified) {
+      if (!isViewerVerified || !callingUserId) {
         const guard = await verifyJobsAccess(request);
+        if (guard.userId && !callingUserId) {
+          callingUserId = guard.userId;
+        }
         if (guard.isAdmin) {
           isViewerVerified = true;
         } else if (guard.userId) {
           const { data: viewerProfile } = await supabaseAdmin
             .from("users")
-            .select("is_verified, is_admin")
+            .select("is_verified, is_admin, email")
             .eq("id", guard.userId)
             .maybeSingle();
 
+          if (viewerProfile?.email && !callingUserEmail) {
+            callingUserEmail = viewerProfile.email;
+          }
           if (viewerProfile?.is_verified || viewerProfile?.is_admin) {
             isViewerVerified = true;
           }
@@ -172,7 +186,7 @@ export async function GET(request: Request) {
       // Safeguard: Only execute user query when specific company or domain criteria are present.
       // This strictly prevents querying random database users if company name was stripped.
       if (orConditions.length > 0) {
-        const { data: dbUsers, error: usersError } = await supabaseAdmin
+        let userQuery = supabaseAdmin
           .from("users")
           .select(`
             id,
@@ -187,13 +201,23 @@ export async function GET(request: Request) {
             company_id,
             company:companies(id, name, domain)
           `)
-          .eq("is_active", true)
+          .eq("is_active", true);
+
+        if (callingUserId) {
+          userQuery = userQuery.neq("id", callingUserId);
+        }
+
+        const { data: dbUsers, error: usersError } = await userQuery
           .or(orConditions.join(","))
           .order("is_verified", { ascending: false })
           .limit(15);
 
         if (!usersError && dbUsers) {
-          users = dbUsers;
+          users = dbUsers.filter((u: any) => {
+            if (callingUserId && u.id === callingUserId) return false;
+            if (callingUserEmail && (u.email === callingUserEmail || u.secondary_email === callingUserEmail)) return false;
+            return true;
+          });
         }
       }
     } catch (err) {
@@ -241,7 +265,9 @@ export async function GET(request: Request) {
     let finalInsiders = formattedDbInsiders;
     if (finalInsiders.length === 0) {
       const curated = getCuratedInsiders(cleanCompanyName || sanitizedRaw || company, cleanDomain || domain);
-      finalInsiders = curated.map((c) => ({
+      finalInsiders = curated
+        .filter((c) => c.id !== callingUserId)
+        .map((c) => ({
         id: c.id,
         name: isViewerVerified ? c.name : formatPartialName(c.name),
         role: c.role,

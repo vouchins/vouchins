@@ -22,6 +22,7 @@ export interface PaginatedResumePage {
   roles: PaginatedRoleSegment[];
   showEducation: boolean;
   showProjects: boolean;
+  showCertifications?: boolean;
 }
 
 export function estimateBulletUnits(text: string): number {
@@ -66,6 +67,11 @@ export function partitionResumePages(
           );
           return acc + 22 + bUnits;
         }, 0)
+      : 0;
+
+  const certUnits =
+    document.certifications && document.certifications.length > 0
+      ? 24 + document.certifications.length * 18
       : 0;
 
   const contactLinksCount = [
@@ -166,7 +172,7 @@ export function partitionResumePages(
 
   const fitsSinglePage =
     overflowRoles.length === 0 &&
-    currentP1 + eduUnits + projUnits <= PAGE_CAPACITY;
+    currentP1 + eduUnits + projUnits + certUnits <= PAGE_CAPACITY;
 
   // Page 1
   rawPages.push({
@@ -175,8 +181,9 @@ export function partitionResumePages(
     showSummary: Boolean(document.summary),
     showSkills: (document.skills?.length || 0) > 0,
     roles: page1Roles,
-    showEducation: fitsSinglePage,
-    showProjects: fitsSinglePage,
+    showEducation: fitsSinglePage && eduUnits > 0,
+    showProjects: fitsSinglePage && projUnits > 0,
+    showCertifications: fitsSinglePage && certUnits > 0,
   });
 
   if (!fitsSinglePage) {
@@ -250,10 +257,11 @@ export function partitionResumePages(
       }
     });
 
+    const canFitEduProjCert = currentUnits + eduUnits + projUnits + certUnits <= PAGE_CAPACITY;
     const canFitEduAndProj = currentUnits + eduUnits + projUnits <= PAGE_CAPACITY;
     const canFitEduOnly = currentUnits + eduUnits <= PAGE_CAPACITY;
 
-    if (canFitEduAndProj) {
+    if (canFitEduProjCert) {
       rawPages.push({
         isFirstPage: false,
         showContact: false,
@@ -262,7 +270,31 @@ export function partitionResumePages(
         roles: currentPageRoles,
         showEducation: eduUnits > 0,
         showProjects: projUnits > 0,
+        showCertifications: certUnits > 0,
       });
+    } else if (canFitEduAndProj) {
+      rawPages.push({
+        isFirstPage: false,
+        showContact: false,
+        showSummary: false,
+        showSkills: false,
+        roles: currentPageRoles,
+        showEducation: eduUnits > 0,
+        showProjects: projUnits > 0,
+        showCertifications: false,
+      });
+      if (certUnits > 0) {
+        rawPages.push({
+          isFirstPage: false,
+          showContact: false,
+          showSummary: false,
+          showSkills: false,
+          roles: [],
+          showEducation: false,
+          showProjects: false,
+          showCertifications: true,
+        });
+      }
     } else if (canFitEduOnly && eduUnits > 0) {
       rawPages.push({
         isFirstPage: false,
@@ -272,8 +304,9 @@ export function partitionResumePages(
         roles: currentPageRoles,
         showEducation: true,
         showProjects: false,
+        showCertifications: false,
       });
-      if (projUnits > 0) {
+      if (projUnits + certUnits > 0) {
         rawPages.push({
           isFirstPage: false,
           showContact: false,
@@ -281,7 +314,8 @@ export function partitionResumePages(
           showSkills: false,
           roles: [],
           showEducation: false,
-          showProjects: true,
+          showProjects: projUnits > 0,
+          showCertifications: certUnits > 0,
         });
       }
     } else {
@@ -294,11 +328,12 @@ export function partitionResumePages(
           roles: currentPageRoles,
           showEducation: false,
           showProjects: false,
+          showCertifications: false,
         });
       }
 
       const freshPageBannerUnits = 55;
-      if (freshPageBannerUnits + eduUnits + projUnits <= PAGE_CAPACITY) {
+      if (freshPageBannerUnits + eduUnits + projUnits + certUnits <= PAGE_CAPACITY) {
         rawPages.push({
           isFirstPage: false,
           showContact: false,
@@ -307,6 +342,7 @@ export function partitionResumePages(
           roles: [],
           showEducation: eduUnits > 0,
           showProjects: projUnits > 0,
+          showCertifications: certUnits > 0,
         });
       } else {
         if (eduUnits > 0) {
@@ -318,9 +354,10 @@ export function partitionResumePages(
             roles: [],
             showEducation: true,
             showProjects: false,
+            showCertifications: false,
           });
         }
-        if (projUnits > 0) {
+        if (projUnits > 0 || certUnits > 0) {
           rawPages.push({
             isFirstPage: false,
             showContact: false,
@@ -328,7 +365,8 @@ export function partitionResumePages(
             showSkills: false,
             roles: [],
             showEducation: false,
-            showProjects: true,
+            showProjects: projUnits > 0,
+            showCertifications: certUnits > 0,
           });
         }
       }

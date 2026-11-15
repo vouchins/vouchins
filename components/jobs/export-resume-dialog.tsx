@@ -20,6 +20,7 @@ import {
   ResumeBulletStyle,
 } from '@/lib/jobs/types';
 import { partitionResumePages, PaginatedRoleSegment } from '@/lib/jobs/pagination';
+import { detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
 import {
   CheckCircle2,
   Download,
@@ -218,6 +219,10 @@ export function ExportResumeDialog({
       </div>
     ) : null;
 
+  const isHealthcare = detectResumeDomain('', document) === 'healthcare';
+  const skillsTitle = isHealthcare ? 'Core Skills' : 'Technical Skills';
+  const projectsTitle = isHealthcare ? 'Key Projects & Research' : 'Key Technical Projects';
+
   const renderPreviewSkills = (inSidebar = false) =>
     document.skills && document.skills.length > 0 ? (
       <div>
@@ -230,7 +235,7 @@ export function ExportResumeDialog({
             isCentered && !inSidebar ? 'text-center' : 'text-left'
           }`}
         >
-          Technical Skills
+          {skillsTitle}
         </h2>
         {inSidebar ? (
           <div className="space-y-2">
@@ -414,7 +419,7 @@ export function ExportResumeDialog({
             isCentered && !isStructured ? 'text-center' : 'text-left'
           }`}
         >
-          Key Technical Projects
+          {projectsTitle}
         </h2>
         <div className="space-y-2">
           {document.projects.map((proj, idx) => (
@@ -449,6 +454,40 @@ export function ExportResumeDialog({
             </div>
           ))}
         </div>
+      </div>
+    ) : null;
+
+  const renderPreviewCertifications = () =>
+    document.certifications && document.certifications.length > 0 ? (
+      <div>
+        <h2
+          style={{
+            fontSize: `${config.fontSizes.sectionHeaders}pt`,
+            color: headingColor,
+          }}
+          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
+            isCentered && !isStructured ? 'text-center' : 'text-left'
+          }`}
+        >
+          Certifications & Credentials
+        </h2>
+        <ul className="space-y-0.5 pl-2">
+          {document.certifications.map((cert, idx) => (
+            <li
+              key={idx}
+              style={{ fontSize: `${config.fontSizes.bodyText * 0.9}pt` }}
+              className="flex items-start gap-1.5 text-neutral-700 leading-snug"
+            >
+              <span
+                style={{ color: headingColor }}
+                className="font-bold shrink-0"
+              >
+                {config.bulletStyle}
+              </span>
+              <span>{cert}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     ) : null;
 
@@ -936,9 +975,13 @@ export function ExportResumeDialog({
                               : page.roles.length > 0
                               ? 'Professional Experience (Continued)'
                               : page.showEducation && page.showProjects
-                              ? 'Education & Technical Projects'
+                              ? isHealthcare
+                                ? 'Education & Clinical Projects'
+                                : 'Education & Technical Projects'
                               : page.showProjects
-                              ? 'Key Technical Projects & Research'
+                              ? projectsTitle
+                              : page.showCertifications
+                              ? 'Certifications & Credentials'
                               : 'Education (Continued)'}
                           </span>
                           <span className="text-[11px] text-neutral-400">
@@ -987,6 +1030,7 @@ export function ExportResumeDialog({
                             {page.showSummary && renderPreviewSummary()}
                             {page.roles.length > 0 && renderPreviewExperience(page.roles, pageIdx > 0)}
                             {page.showProjects && renderPreviewProjects()}
+                            {page.showCertifications && renderPreviewCertifications()}
                           </div>
 
                           {/* Right Column (35%) */}
@@ -1003,6 +1047,7 @@ export function ExportResumeDialog({
                           {page.roles.length > 0 && renderPreviewExperience(page.roles, pageIdx > 0)}
                           {page.showEducation && renderPreviewEducation(false)}
                           {page.showProjects && renderPreviewProjects()}
+                          {page.showCertifications && renderPreviewCertifications()}
                         </div>
                       )}
                     </div>

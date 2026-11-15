@@ -7,6 +7,7 @@ import {
   ResumeDateFormat,
 } from '@/lib/jobs/types';
 import { partitionResumePages, PaginatedRoleSegment } from '@/lib/jobs/pagination';
+import { detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
 
 /**
  * Format resume date strings based on selected user preference.
@@ -377,6 +378,10 @@ export function ResumePDFDocument({
   ].filter(Boolean);
 
   // Common Sections: Summary, Experience, Skills, Education, Projects
+  const isHealthcare = detectResumeDomain('', document) === 'healthcare';
+  const skillsTitle = isHealthcare ? 'Core Skills' : 'Technical Skills';
+  const projectsTitle = isHealthcare ? 'Key Projects & Research' : 'Key Technical Projects';
+
   const renderSummarySection = () =>
     document.summary ? (
       <View style={dynamicStyles.section}>
@@ -388,7 +393,7 @@ export function ResumePDFDocument({
   const renderSkillsSection = () =>
     document.skills && document.skills.length > 0 ? (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Technical Skills</Text>
+        <Text style={dynamicStyles.sectionTitle}>{skillsTitle}</Text>
         {isStructured
           ? document.skills.map((skillGroup, idx) => (
               <View key={idx} style={dynamicStyles.structuredSkillGroup} wrap={false}>
@@ -505,7 +510,7 @@ export function ResumePDFDocument({
   const renderProjectsSection = () =>
     document.projects && document.projects.length > 0 ? (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Key Technical Projects</Text>
+        <Text style={dynamicStyles.sectionTitle}>{projectsTitle}</Text>
         {document.projects.map((proj, projIdx) => (
           <View key={projIdx} style={dynamicStyles.roleContainer}>
             <View style={dynamicStyles.roleHeader} wrap={false}>
@@ -529,6 +534,19 @@ export function ResumePDFDocument({
       </View>
     ) : null;
 
+  const renderCertificationsSection = () =>
+    document.certifications && document.certifications.length > 0 ? (
+      <View style={dynamicStyles.section}>
+        <Text style={dynamicStyles.sectionTitle}>Certifications & Credentials</Text>
+        {document.certifications.map((cert, certIdx) => (
+          <View key={certIdx} style={dynamicStyles.bulletRow} wrap={false}>
+            <Text style={dynamicStyles.bulletPoint}>{bulletStyle}</Text>
+            <Text style={dynamicStyles.bulletText}>{cert}</Text>
+          </View>
+        ))}
+      </View>
+    ) : null;
+
   const pages = partitionResumePages(document, pageSize);
 
   return (
@@ -545,9 +563,13 @@ export function ResumePDFDocument({
                   : page.roles.length > 0
                   ? 'Professional Experience (Continued)'
                   : page.showEducation && page.showProjects
-                  ? 'Education & Technical Projects'
+                  ? isHealthcare
+                    ? 'Education & Clinical Projects'
+                    : 'Education & Technical Projects'
                   : page.showProjects
-                  ? 'Key Technical Projects & Research'
+                  ? projectsTitle
+                  : page.showCertifications
+                  ? 'Certifications & Credentials'
                   : 'Education (Continued)'}
               </Text>
               <Text style={dynamicStyles.pageContinuationNumber}>
@@ -580,6 +602,7 @@ export function ResumePDFDocument({
                 {page.showSummary && renderSummarySection()}
                 {page.roles.length > 0 && renderExperienceSection(page.roles, pageIdx > 0)}
                 {page.showProjects && renderProjectsSection()}
+                {page.showCertifications && renderCertificationsSection()}
               </View>
               <View style={dynamicStyles.structuredSideCol}>
                 {page.showSkills && renderSkillsSection()}
@@ -593,6 +616,7 @@ export function ResumePDFDocument({
               {page.roles.length > 0 && renderExperienceSection(page.roles, pageIdx > 0)}
               {page.showEducation && renderEducationSection()}
               {page.showProjects && renderProjectsSection()}
+              {page.showCertifications && renderCertificationsSection()}
             </>
           )}
 
