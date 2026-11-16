@@ -1107,8 +1107,11 @@ export function JobRecommendationsDashboard() {
     for (const j of dbJobs) {
       if (j.companyName?.trim()) set.add(j.companyName.trim());
     }
-    for (const cj of CURATED_RECOMMENDED_JOBS) {
-      if (cj.companyName?.trim()) set.add(cj.companyName.trim());
+    // Only include curated companies if database returned 0 jobs
+    if (dbJobs.length === 0) {
+      for (const cj of CURATED_RECOMMENDED_JOBS) {
+        if (cj.companyName?.trim()) set.add(cj.companyName.trim());
+      }
     }
     for (const c of customCompanies) {
       if (c.trim()) set.add(c.trim());
@@ -1169,12 +1172,15 @@ export function JobRecommendationsDashboard() {
       }
     }
 
-    for (const cj of CURATED_RECOMMENDED_JOBS) {
-      const key = `${(cj.companyName || '').toLowerCase()}-${(cj.title || '').toLowerCase()}`;
-      if (!seenSourceIds.has(cj.id) && !seenSourceTitles.has(key)) {
-        seenSourceIds.add(cj.id);
-        seenSourceTitles.add(key);
-        sourceJobs.push(cj);
+    // Curated catalog serves strictly as zero-data fallback when database has no jobs
+    if (dbJobs.length === 0) {
+      for (const cj of CURATED_RECOMMENDED_JOBS) {
+        const key = `${(cj.companyName || '').toLowerCase()}-${(cj.title || '').toLowerCase()}`;
+        if (!seenSourceIds.has(cj.id) && !seenSourceTitles.has(key)) {
+          seenSourceIds.add(cj.id);
+          seenSourceTitles.add(key);
+          sourceJobs.push(cj);
+        }
       }
     }
 

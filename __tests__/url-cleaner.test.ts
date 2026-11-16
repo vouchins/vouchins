@@ -138,6 +138,8 @@ describe('Job URL Sanitizer (cleanJobApplyUrl)', () => {
       expect(isValidJobUrl('https://www.shine.com/jobs/lead-developer/98765')).toBe(false);
       expect(isValidJobUrl('https://www.foundit.in/job/software-engineer-54321')).toBe(false);
       expect(isValidJobUrl('https://in.indeed.com/viewjob?jk=abcdef')).toBe(false);
+      expect(isValidJobUrl('https://www.adzuna.com/details/5954697740')).toBe(false);
+      expect(isValidJobUrl('https://ie.whatjobs.com/pub_api__cpl__6362629__7127?geoID=253')).toBe(false);
 
       // Generic root domain homepages without specific job requisitions
       expect(isValidJobUrl('https://oracle.com')).toBe(false);

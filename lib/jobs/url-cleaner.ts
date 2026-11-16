@@ -83,6 +83,9 @@ export const BLOCKED_AGGREGATOR_DOMAINS = [
   'jooble.org',
   'quikr.com',
   'clickindia.com',
+  'adzuna.com',
+  'adzuna.in',
+  'whatjobs.com',
 ];
 
 /**
