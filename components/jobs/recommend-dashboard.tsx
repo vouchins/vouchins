@@ -64,7 +64,7 @@ import { JobsNavbar } from './jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
 import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch, containsSkill, COMMON_TECH_TAXONOMY, canonicalizeSkill, isValidGeographicLocation } from '@/lib/jobs/ats-client';
-import { cleanJobApplyUrl } from '@/lib/jobs/url-cleaner';
+import { cleanJobApplyUrl, isValidJobUrl } from '@/lib/jobs/url-cleaner';
 import { CompanyLogo } from './company-logo';
 import { getGoogleFaviconUrl } from '@/lib/utils';
 import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
@@ -155,79 +155,7 @@ export function formatPartialName(fullName: string): string {
  * rather than a generic root career portal or Google search fallback.
  */
 export function hasValidExternalJobId(url?: string | null): boolean {
-  if (!url || typeof url !== 'string') return false;
-  const trimmed = url.trim();
-  if (!trimmed || trimmed.startsWith('javascript:')) return false;
-
-  // Reject Google search fallback links
-  if (trimmed.includes('google.com/search')) return false;
-
-  try {
-    const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
-    const pathname = parsed.pathname.toLowerCase();
-
-    // Check for root domain or generic landing pages with no specific job requisition
-    const genericRoots = [
-      '',
-      '/',
-      '/careers',
-      '/careers/',
-      '/jobs',
-      '/jobs/',
-      '/about/careers',
-      '/about/careers/',
-      '/positions',
-      '/positions/',
-      '/careers/applications/jobs/results',
-    ];
-    if (genericRoots.includes(pathname) && !parsed.search && !parsed.hash) {
-      return false;
-    }
-
-    const atsDomains = [
-      'greenhouse.io',
-      'lever.co',
-      'ashbyhq.com',
-      'workday.com',
-      'myworkdayjobs.com',
-      'smartrecruiters.com',
-      'bamboohr.com',
-      'jobvite.com',
-      'icims.com',
-      'breezy.hr',
-      'workable.com',
-      'rippling-ats.com',
-    ];
-
-    const isAts = atsDomains.some((d) => parsed.hostname.includes(d));
-    if (isAts) {
-      const pathParts = pathname.split('/').filter(Boolean);
-      return pathParts.length >= 2;
-    }
-
-    const hasRequisitionParam =
-      parsed.searchParams.has('gh_jid') ||
-      parsed.searchParams.has('jobId') ||
-      parsed.searchParams.has('job_id') ||
-      parsed.searchParams.has('id') ||
-      parsed.searchParams.has('requisition_id');
-
-    if (hasRequisitionParam) return true;
-
-    const pathParts = pathname.split('/').filter(Boolean);
-    if (pathParts.length >= 2) {
-      const lastPart = pathParts[pathParts.length - 1];
-      const hasIdPattern = /\d{4,}/.test(lastPart) || /[a-f0-9-]{12,}/.test(lastPart) || lastPart.includes('-');
-      const isJobSection = pathParts.some((p) =>
-        ['jobs', 'job', 'positions', 'position', 'openings', 'role', 'roles', 'careers', 'list', 'listing'].includes(p)
-      );
-      return isJobSection && hasIdPattern && !genericRoots.includes(`/${lastPart}`);
-    }
-
-    return false;
-  } catch {
-    return false;
-  }
+  return isValidJobUrl(url);
 }
 
 /**
@@ -1303,7 +1231,7 @@ export function JobRecommendationsDashboard() {
       }
     }
     const validList = deduplicatedList.filter(
-      (j) => !j.isCurated || j.isInternal || hasValidExternalJobId(j.externalApplyUrl) || Boolean(j.externalApplyUrl)
+      (j) => j.isInternal || isValidJobUrl(j.externalApplyUrl)
     );
     const ninetyDaysAgoMs = 90 * 24 * 60 * 60 * 1000;
     const now = Date.now();
@@ -3140,7 +3068,7 @@ export function JobRecommendationsDashboard() {
                         </>
                       )}
                     </button>
-                  ) : (
+                  ) : isValidJobUrl(selectedJobApplyUrl) ? (
                     <a
                       href={selectedJobApplyUrl}
                       target="_blank"
@@ -3156,6 +3084,14 @@ export function JobRecommendationsDashboard() {
                       <span>Apply on Site</span>
                       <ExternalLink className="h-3.5 w-3.5 text-white" />
                     </a>
+                  ) : (
+                    <button
+                      disabled
+                      title="Direct requisition link is currently being verified"
+                      className="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-400 text-xs font-medium cursor-not-allowed flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>Requisition Link Pending</span>
+                    </button>
                   )}
 
                   {effectiveInsiderCount > 0 ? (
@@ -4018,7 +3954,7 @@ export function JobRecommendationsDashboard() {
                     </>
                   )}
                 </button>
-              ) : (
+              ) : isValidJobUrl(selectedJobApplyUrl) ? (
                 <a
                   href={selectedJobApplyUrl}
                   target="_blank"
@@ -4034,6 +3970,14 @@ export function JobRecommendationsDashboard() {
                   <span className="truncate">Apply on Site</span>
                   <ExternalLink className="h-3.5 w-3.5 text-white shrink-0" />
                 </a>
+              ) : (
+                <button
+                  disabled
+                  title="Direct requisition link is currently being verified"
+                  className="flex-1 h-11 px-3 rounded-xl bg-gray-100 text-gray-400 text-xs font-medium cursor-not-allowed flex items-center justify-center gap-1.5 truncate shadow-sm"
+                >
+                  <span className="truncate">Direct Link Pending</span>
+                </button>
               )}
             </div>
             </>

@@ -76,10 +76,48 @@ describe('Job URL Sanitizer (cleanJobApplyUrl)', () => {
   });
 
   describe('isValidJobUrl', () => {
-    it('approves legitimate corporate career portal URLs', () => {
+    it('approves legitimate corporate career portal URLs with exact requisitions', () => {
       expect(isValidJobUrl('https://careers.google.com/jobs/results/12345')).toBe(true);
-      expect(isValidJobUrl('https://oracle.wd5.myworkdayjobs.com/External/job/123')).toBe(true);
-      expect(isValidJobUrl('http://careers.microsoft.com/job/456')).toBe(true);
+      expect(isValidJobUrl('https://oracle.wd5.myworkdayjobs.com/External/job/Hyderabad/Staff-Backend-Cloud-Engineer_229643')).toBe(true);
+      expect(isValidJobUrl('https://careers.microsoft.com/us/en/job/1849202/Lead-Frontend-Engineer')).toBe(true);
+      expect(isValidJobUrl('https://careers.servicenow.com/jobs/7439999812903')).toBe(true);
+      expect(isValidJobUrl('https://www.uber.com/global/en/careers/list/89312/')).toBe(true);
+      expect(isValidJobUrl('https://www.amazon.jobs/en/jobs/2619420/software-development-engineer-ii')).toBe(true);
+      expect(isValidJobUrl('https://www.deshawindia.com/careers/roles/5092')).toBe(true);
+      expect(isValidJobUrl('https://boards.greenhouse.io/stripe/jobs/5910291')).toBe(true);
+      expect(isValidJobUrl('https://example.com/careers?jobId=123456')).toBe(true);
+    });
+
+    it('rejects generic corporate portal landing pages without specific requisitions', () => {
+      expect(isValidJobUrl('https://careers.oracle.com')).toBe(false);
+      expect(isValidJobUrl('https://careers.oracle.com/')).toBe(false);
+      expect(isValidJobUrl('https://careers.servicenow.com/careers')).toBe(false);
+      expect(isValidJobUrl('https://www.servicenow.com/careers.html')).toBe(false);
+      expect(isValidJobUrl('https://www.deshawindia.com/careers')).toBe(false);
+      expect(isValidJobUrl('https://www.uber.com/careers')).toBe(false);
+      expect(isValidJobUrl('https://stripe.com/jobs')).toBe(false);
+      expect(isValidJobUrl('https://qualcomm.wd5.myworkdayjobs.com/External')).toBe(false);
+      expect(isValidJobUrl('https://careers.swiggy.com')).toBe(false);
+      expect(isValidJobUrl('https://www.zomato.com/careers')).toBe(false);
+      expect(isValidJobUrl('https://www.flipkartcareers.com')).toBe(false);
+    });
+
+    it('rejects generic search query pages and keyword-filtered URLs', () => {
+      expect(
+        isValidJobUrl('https://careers.microsoft.com/professionals/us/en/search-results?keywords=Hyderabad')
+      ).toBe(false);
+      expect(
+        isValidJobUrl('https://careers.salesforce.com/en/jobs/?location=Hyderabad')
+      ).toBe(false);
+      expect(
+        isValidJobUrl('https://careers.adobe.com/us/en/search-results?keywords=India')
+      ).toBe(false);
+      expect(
+        isValidJobUrl('https://jobs.cisco.com/jobs/SearchJobs/India')
+      ).toBe(false);
+      expect(
+        isValidJobUrl('https://careers.servicenow.com/jobs?location=Hyderabad%2C+India')
+      ).toBe(false);
     });
 
     it('rejects malformed, javascript, anchor, or localhost URLs', () => {

@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     let companyName: string | undefined;
     let country: string | undefined;
     let city: string | undefined;
+    let postedWithinDays = 30;
     let excludedCompanies: string[] = [];
 
     try {
@@ -40,6 +41,9 @@ export async function POST(request: Request) {
       if (typeof body.city === 'string' && body.city.trim()) {
         city = body.city.trim();
       }
+      if (typeof body.postedWithinDays === 'number' && body.postedWithinDays > 0) {
+        postedWithinDays = body.postedWithinDays;
+      }
       if (Array.isArray(body.excludedCompanies)) {
         excludedCompanies = body.excludedCompanies
           .filter((c: any) => typeof c === 'string' && c.trim().length > 0)
@@ -56,6 +60,7 @@ export async function POST(request: Request) {
       companyName,
       country,
       city,
+      postedWithinDays,
       excludedCompanies,
     });
 

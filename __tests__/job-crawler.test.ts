@@ -287,4 +287,85 @@ describe('Job Crawler Engine', () => {
     expect(result.companiesProcessed).toEqual(['Google', 'Microsoft']);
     expect(requestedCompanies).not.toContain('Infosys');
   });
+
+  it('filters out jobs older than postedWithinDays cutoff', async () => {
+    const mockInsert = jest.fn().mockResolvedValue({ data: null, error: null });
+
+    mockFrom.mockImplementation((tableName: string) => {
+      if (tableName === 'companies') {
+        return {
+          select: () => ({
+            order: () => Promise.resolve({
+              data: [{ id: 'c-1', name: 'Google', domain: 'google.com' }],
+              count: 1,
+            }),
+          }),
+        };
+      }
+      if (tableName === 'recruiters') {
+        return {
+          select: () => ({
+            eq: () => ({ maybeSingle: async () => ({ data: { id: 'test-rec-id' }, error: null }) }),
+            limit: () => ({ maybeSingle: async () => ({ data: { id: 'test-rec-id' }, error: null }) }),
+          }),
+        };
+      }
+      if (tableName === 'jobs') {
+        return {
+          delete: () => ({
+            lt: jest.fn().mockResolvedValue({ data: null, error: null }),
+            or: jest.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+          select: () => ({ in: async () => ({ data: [], error: null }) }),
+          insert: mockInsert,
+        };
+      }
+      return { select: () => ({ order: () => Promise.resolve({ data: [], count: 0 }) }) };
+    });
+
+    const now = Date.now();
+    const halfDayAgo = new Date(now - 12 * 60 * 60 * 1000).toISOString();
+    const fourDaysAgo = new Date(now - 4 * 24 * 60 * 60 * 1000).toISOString();
+
+    global.fetch = jest.fn().mockImplementation(() => {
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          data: [
+            {
+              id: 'job-fresh',
+              title: 'Fresh Role',
+              company: 'Google',
+              url: 'https://careers.google.com/jobs/fresh-123',
+              location: 'Bengaluru, India',
+              countries: ['in'],
+              posted_at: halfDayAgo,
+            },
+            {
+              id: 'job-older',
+              title: 'Older Role',
+              company: 'Google',
+              url: 'https://careers.google.com/jobs/older-456',
+              location: 'Bengaluru, India',
+              countries: ['in'],
+              posted_at: fourDaysAgo,
+            },
+          ],
+        }),
+      });
+    });
+
+    // Test postedWithinDays = 2 (less than 2 days)
+    const result = await crawlAndSyncTechJobs({
+      batchIndex: 0,
+      batchSize: 10,
+      postedWithinDays: 2,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockInsert).toHaveBeenCalledTimes(1);
+    const insertedJobs = mockInsert.mock.calls[0][0];
+    expect(insertedJobs.length).toBe(1);
+    expect(insertedJobs[0].title).toBe('Fresh Role');
+  });
 });

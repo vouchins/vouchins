@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Ban, Briefcase, Building2, Check, CheckCircle2, ChevronDown, Download, ExternalLink, FileSpreadsheet, Globe, Loader2, MapPin, Play, Plus, RefreshCw, Search, ShieldAlert, SlidersHorizontal, Square, Trash2, UploadCloud, X, Zap } from "lucide-react";
+import { AlertCircle, Ban, Briefcase, Building2, Check, CheckCircle2, ChevronDown, Clock, Download, ExternalLink, FileSpreadsheet, Globe, Loader2, MapPin, Play, Plus, RefreshCw, Search, ShieldAlert, SlidersHorizontal, Square, Trash2, UploadCloud, X, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,7 @@ export function ContentImporterTab() {
   const [allCompanyNames, setAllCompanyNames] = useState<string[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedPostedDays, setSelectedPostedDays] = useState<number>(30);
   const [selectedBatchIndex, setSelectedBatchIndex] = useState(0);
   const [selectedLimit, setSelectedLimit] = useState<number>(25);
   const [batchInfo, setBatchInfo] = useState<{ totalCompanies: number; totalBatches: number; batchSize: number }>({
@@ -263,11 +264,13 @@ export function ContentImporterTab() {
       ? `Country: ${selectedCountry.toUpperCase()}`
       : 'Global';
 
+    const freshnessLabel = selectedPostedDays === 1 ? '< 24 hrs' : `< ${selectedPostedDays}d`;
+
     const restrictedSummary = restrictedCompanies.length > 0
       ? ` (Restricting ${restrictedCompanies.length} companies)`
       : '';
 
-    setActiveJobInProgress(`Querying ATS requisitions for ${compNamesSummary} [${geoLabel}]${restrictedSummary}...`);
+    setActiveJobInProgress(`Querying ATS requisitions for ${compNamesSummary} [${geoLabel} · ${freshnessLabel}]${restrictedSummary}...`);
 
     try {
       const res = await fetch("/api/admin/jobs/crawl", {
@@ -279,6 +282,7 @@ export function ContentImporterTab() {
           limit: selectedLimit,
           country: selectedCountry,
           city: selectedCity,
+          postedWithinDays: selectedPostedDays,
           excludedCompanies: restrictedCompanies,
         }),
       });
@@ -331,6 +335,8 @@ export function ContentImporterTab() {
       ? `Country: ${selectedCountry.toUpperCase()}`
       : 'Global';
 
+    const freshnessLabel = selectedPostedDays === 1 ? '< 24 hrs' : `< ${selectedPostedDays}d`;
+
     try {
       while (currentIdx < batchInfo.totalBatches) {
         if (abortCrawlRef.current) {
@@ -348,7 +354,7 @@ export function ContentImporterTab() {
           ? ` (Skipping ${restrictedCompanies.length} restricted)`
           : '';
 
-        setActiveJobInProgress(`Batch ${currentIdx + 1}/${batchInfo.totalBatches}: Scanning ${compNamesSummary} [${geoLabel}]${restrictedSummary}...`);
+        setActiveJobInProgress(`Batch ${currentIdx + 1}/${batchInfo.totalBatches}: Scanning ${compNamesSummary} [${geoLabel} · ${freshnessLabel}]${restrictedSummary}...`);
         setChainedProgress((prev) => ({
           ...prev,
           currentBatchIndex: currentIdx,
@@ -370,6 +376,7 @@ export function ContentImporterTab() {
                 limit: selectedLimit,
                 country: selectedCountry,
                 city: selectedCity,
+                postedWithinDays: selectedPostedDays,
                 excludedCompanies: restrictedCompanies,
               }),
             });
@@ -571,16 +578,17 @@ export function ContentImporterTab() {
             <SlidersHorizontal className="h-4 w-4 text-[#0A1B5C]" />
             Crawl Parameters & Geo-Targeting
           </div>
-          <div className="text-[11px] font-medium text-neutral-500 flex items-center gap-1.5">
+          <div className="text-[11px] font-medium text-neutral-500 flex items-center gap-1.5 flex-wrap">
             <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
             Scope: <span className="font-bold text-neutral-700">{selectedCountry === 'all' ? 'All Countries (Global)' : selectedCountry.toUpperCase()}</span>
             {selectedCity ? (
               <> · City: <span className="font-bold text-neutral-700">{selectedCity}</span></>
             ) : null}
+            <> · Posted: <span className="font-bold text-neutral-700">{selectedPostedDays === 1 ? '< 24 hrs' : `< ${selectedPostedDays} days`}</span></>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
           {/* Country Selector */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
@@ -653,6 +661,46 @@ export function ContentImporterTab() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Date Posted / Freshness Selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-neutral-700 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-[#0A1B5C]" />
+              Date Posted:
+            </label>
+            <Select
+              value={String(selectedPostedDays)}
+              onValueChange={(val) => setSelectedPostedDays(Number(val))}
+              disabled={isCrawlingJobs || isChainedCrawling}
+            >
+              <SelectTrigger className="w-full h-10 text-xs font-semibold rounded-xl border border-neutral-300 bg-white px-3.5 py-2 text-neutral-800 shadow-2xs hover:border-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 focus:border-[#0A1B5C] transition-all">
+                <SelectValue placeholder="Select date posted" />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl border border-neutral-200 bg-white shadow-lg p-1 z-50">
+                <SelectItem value="1" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ Less than 1 day (24h)
+                </SelectItem>
+                <SelectItem value="2" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ Less than 2 days
+                </SelectItem>
+                <SelectItem value="3" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ Less than 3 days
+                </SelectItem>
+                <SelectItem value="5" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ Less than 5 days
+                </SelectItem>
+                <SelectItem value="10" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ Less than 10 days
+                </SelectItem>
+                <SelectItem value="15" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ Less than 15 days
+                </SelectItem>
+                <SelectItem value="30" className="text-xs font-medium cursor-pointer rounded-lg py-2">
+                  ⚡ Less than 30 days (1 mo)
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Batch Selector */}
@@ -752,6 +800,36 @@ export function ContentImporterTab() {
               }}
               className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all ${
                 selectedCity.toLowerCase() === preset.value.toLowerCase()
+                  ? 'bg-[#0A1B5C] text-white shadow-2xs font-bold'
+                  : 'bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 shadow-2xs'
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Quick Date Posted Presets */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5 text-xs">
+          <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider mr-1">
+            Date Posted:
+          </span>
+          {[
+            { label: '< 1 day (24h)', value: 1 },
+            { label: '< 2 days', value: 2 },
+            { label: '< 3 days', value: 3 },
+            { label: '< 5 days', value: 5 },
+            { label: '< 10 days', value: 10 },
+            { label: '< 15 days', value: 15 },
+            { label: '< 30 days (1 mo)', value: 30 },
+          ].map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              disabled={isCrawlingJobs || isChainedCrawling}
+              onClick={() => setSelectedPostedDays(preset.value)}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all ${
+                selectedPostedDays === preset.value
                   ? 'bg-[#0A1B5C] text-white shadow-2xs font-bold'
                   : 'bg-white text-neutral-600 border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 shadow-2xs'
               }`}

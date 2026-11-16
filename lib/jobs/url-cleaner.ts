@@ -88,7 +88,7 @@ export const BLOCKED_AGGREGATOR_DOMAINS = [
 /**
  * Validates whether a job application URL is non-empty, well-formed,
  * uses HTTP/HTTPS protocol, has a valid domain name, is not a dead aggregator,
- * and is not a generic root homepage.
+ * and is not a generic root homepage or generic search query portal.
  */
 export function isValidJobUrl(url: string | null | undefined): boolean {
   if (!url || typeof url !== 'string') return false;
@@ -122,8 +122,112 @@ export function isValidJobUrl(url: string | null | undefined): boolean {
       return false;
     }
 
-    // Reject generic root domains without job requisition paths (e.g. "https://company.com" or "https://company.com/")
-    if ((parsed.pathname === '' || parsed.pathname === '/') && !parsed.search && !parsed.hash) {
+    // Normalized pathname without trailing slash (or '/' if root)
+    const pathname = parsed.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+
+    // Generic landing paths that do not represent a specific job posting
+    const genericLandingPaths = new Set([
+      '/',
+      '/careers',
+      '/careers.html',
+      '/careers.htm',
+      '/jobs',
+      '/jobs.html',
+      '/about/careers',
+      '/about/careers.html',
+      '/positions',
+      '/openings',
+      '/search-results',
+      '/searchjobs',
+      '/search-jobs',
+      '/professionals/us/en/search-results',
+      '/careers/applications/jobs/results',
+      '/external',
+      '/external_career_site',
+      '/external_experienced',
+    ]);
+
+    const searchKeys = Array.from(parsed.searchParams.keys()).map((k) => k.toLowerCase());
+    const hasRequisitionParam = searchKeys.some((k) =>
+      [
+        'gh_jid',
+        'jobid',
+        'job_id',
+        'id',
+        'requisition_id',
+        'requisitionid',
+        'req_id',
+        'reqid',
+        'job_req_id',
+      ].includes(k)
+    );
+
+    // If pathname is generic and has no requisition query parameter, reject
+    if (genericLandingPaths.has(pathname) && !hasRequisitionParam) {
+      return false;
+    }
+
+    // Reject search filter query pages that don't have a requisition param (e.g. ?keywords=Hyderabad, ?q=react, ?location=India)
+    const hasSearchFilterOnly =
+      searchKeys.some((k) =>
+        ['keywords', 'keyword', 'q', 'query', 'location', 'search', 'city', 'country'].includes(k)
+      ) && !hasRequisitionParam;
+
+    if (hasSearchFilterOnly && (pathname.includes('search') || genericLandingPaths.has(pathname) || pathname === '/')) {
+      return false;
+    }
+
+    // ATS domains validation: must have at least 2 non-empty path segments (e.g. /company/job-id or /External/job/...)
+    const atsDomains = [
+      'greenhouse.io',
+      'lever.co',
+      'ashbyhq.com',
+      'workday.com',
+      'myworkdayjobs.com',
+      'smartrecruiters.com',
+      'bamboohr.com',
+      'jobvite.com',
+      'icims.com',
+      'breezy.hr',
+      'workable.com',
+      'rippling-ats.com',
+    ];
+    const isAts = atsDomains.some((d) => hostname.includes(d));
+    const pathParts = pathname.split('/').filter(Boolean);
+
+    if (isAts) {
+      // ATS links must have at least 2 path segments, not just /External
+      if (pathParts.length < 2 && !hasRequisitionParam) {
+        return false;
+      }
+      return true;
+    }
+
+    // For direct company career portals:
+    // If it has a requisition query param, it's valid
+    if (hasRequisitionParam) {
+      return true;
+    }
+
+    // Path must have at least 2 segments and not end in a generic keyword
+    if (pathParts.length < 2) {
+      return false;
+    }
+
+    const lastPart = pathParts[pathParts.length - 1];
+    const genericTailWords = [
+      'careers',
+      'jobs',
+      'positions',
+      'openings',
+      'roles',
+      'search',
+      'results',
+      'india',
+      'hyderabad',
+      'bengaluru',
+    ];
+    if (genericTailWords.includes(lastPart)) {
       return false;
     }
 

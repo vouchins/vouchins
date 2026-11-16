@@ -28,6 +28,7 @@ export interface CrawlBatchOptions {
   companyName?: string;
   country?: string; // ISO 2-letter country code (e.g. 'in', 'us', 'gb') or 'all'
   city?: string;    // City filter (e.g. 'Hyderabad', 'Bengaluru', 'San Francisco')
+  postedWithinDays?: number; // Filter postings published within N days (1, 2, 3, 5, 10, 15, 30)
   excludedCompanies?: string[]; // Names or domains of companies to restrict/exclude from crawl
 }
 
@@ -443,9 +444,18 @@ export async function crawlAndSyncTechJobs(
               }
             }
 
-            // Filter out expired jobs older than 30 days
-            const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-            if (Date.now() - new Date(authenticPostedAt).getTime() > thirtyDaysMs) {
+            // Filter out jobs older than requested freshness cutoff (default: 30 days / 1 month)
+            const maxDays = (typeof options.postedWithinDays === 'number' && options.postedWithinDays > 0)
+              ? options.postedWithinDays
+              : 30;
+            const cutoffMs = maxDays * 24 * 60 * 60 * 1000;
+
+            if (!rawPostedDate && maxDays <= 7) {
+              // When admin requests fresh postings (<= 7 days), reject undated stale requisitions
+              continue;
+            }
+
+            if (Date.now() - new Date(authenticPostedAt).getTime() > cutoffMs) {
               continue;
             }
 
