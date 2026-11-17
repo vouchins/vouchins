@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { JobMatchVectors } from './types';
-import { CURATED_TECH_JOBS } from './curated-tech-jobs';
 import { isLocationMatch, containsSkill } from './ats-client';
 import { cleanJobApplyUrl } from './url-cleaner';
 
@@ -98,69 +97,8 @@ export async function matchJobsForProfile(
       };
     });
 
-    // Score and match curated tech roles
-    const curatedMatched: MatchedJobResult[] = CURATED_TECH_JOBS.map((cj) => {
-      let score = 65;
-      const reasons: string[] = [];
-      const matchingSkills: string[] = [];
-
-      const jobText = `${cj.title} ${cj.description.about} ${cj.matchingSkills.join(' ')}`.toLowerCase();
-
-      (vectors.primarySkills || []).forEach((skill) => {
-        if (containsSkill(jobText, skill)) {
-          matchingSkills.push(skill);
-          score += 6;
-        }
-      });
-
-      const titleWords = cj.title.toLowerCase().split(/\s+/);
-      const roleWords = candidateRole.split(/\s+/);
-      const commonWords = roleWords.filter((w) => titleWords.includes(w) && w.length > 3);
-      if (commonWords.length > 0) {
-        score += 12;
-        reasons.push(`Target role "${vectors.detectedRole}" directly aligns`);
-      }
-
-      if (isLocationMatch(cj.location, candidateLocation)) {
-        score += 10;
-        reasons.push(`Matches your location in ${cj.location}`);
-      }
-
-      if (matchingSkills.length > 0) {
-        reasons.push(`Direct skill alignment with ${matchingSkills.slice(0, 3).join(', ')}`);
-      } else {
-        reasons.push('Verified corporate referral available from Vouchins member community');
-      }
-
-      const finalScore = Math.min(98, Math.max(65, score));
-
-      return {
-        id: cj.id,
-        title: cj.title,
-        companyName: cj.companyName,
-        companyLogo: cj.companyLogo,
-        location: cj.location,
-        jobType: cj.jobType,
-        experienceLevel: cj.experienceLevel,
-        salaryRange: cj.salaryRange,
-        matchScore: finalScore,
-        matchingSkills: matchingSkills.length > 0 ? matchingSkills : cj.matchingSkills.slice(0, 3),
-        reasons,
-        externalApplyUrl: cj.externalApplyUrl || null,
-        isInternal: false,
-      };
-    });
-
     const seenIds = new Set(dbMatched.map((j) => j.id));
     const combined = [...dbMatched];
-
-    // Merge curated tech roles with db-matched listings (deduplicated by id)
-    for (const curated of curatedMatched) {
-      if (!seenIds.has(curated.id)) {
-        combined.push(curated);
-        seenIds.add(curated.id);
-      }
-    }
 
     // Sort by location alignment first, then by match score descending
     combined.sort((a, b) => {
@@ -174,112 +112,6 @@ export async function matchJobsForProfile(
     return combined.slice(0, 6);
   } catch (err) {
     console.error('Job matcher error:', err);
-    return getDemoMatchedJobs(vectors);
+    return [];
   }
-}
-
-function getDemoMatchedJobs(vectors: JobMatchVectors): MatchedJobResult[] {
-  return [
-    {
-      id: 'rec-servicenow-staff',
-      title: 'Staff Software Engineer (Platform Infrastructure)',
-      companyName: 'ServiceNow',
-      location: 'Hyderabad, Telangana',
-      jobType: 'Full-time',
-      experienceLevel: 'Staff',
-      salaryRange: '₹55L - ₹80L / yr',
-      matchScore: 94,
-      matchingSkills: (vectors.primarySkills || []).slice(0, 3),
-      reasons: [
-        'Direct stack alignment with high-throughput cloud infrastructure',
-        'Verified corporate referral available from Vouchins member community',
-      ],
-      externalApplyUrl: 'https://careers.servicenow.com/jobs/74400192',
-      isInternal: false,
-    },
-    {
-      id: 'rec-uber-senior-backend',
-      title: 'Senior Backend Engineer (Core Driver Payouts)',
-      companyName: 'Uber',
-      location: 'Hyderabad, Telangana',
-      jobType: 'Full-time',
-      experienceLevel: 'Senior',
-      salaryRange: '₹38L - ₹58L / yr',
-      matchScore: 89,
-      matchingSkills: ['TypeScript', 'Go', 'Distributed Systems'],
-      reasons: [
-        'Google XYZ metric criteria satisfied in core platform experience',
-        'Strong candidate readiness score (>80th percentile)',
-      ],
-      externalApplyUrl: 'https://www.uber.com/global/en/careers/list/91823',
-      isInternal: false,
-    },
-    {
-      id: 'curated-microsoft-sde2-hyd',
-      title: 'Software Development Engineer II (Azure Core Platform)',
-      companyName: 'Microsoft',
-      location: 'Hyderabad, Telangana',
-      jobType: 'Full-time',
-      experienceLevel: 'Mid',
-      salaryRange: '₹36L - ₹55L / yr',
-      matchScore: 92,
-      matchingSkills: (vectors.primarySkills || []).slice(0, 3),
-      reasons: [
-        'Azure core systems engineering with high availability',
-        'Verified employee voucher network in HITEC City campus',
-      ],
-      externalApplyUrl: 'https://careers.microsoft.com/us/en/job/184920',
-      isInternal: false,
-    },
-    {
-      id: 'curated-deshaw-member-technical-hyd',
-      title: 'Member Technical / Senior Software Engineer',
-      companyName: 'DE Shaw',
-      location: 'Hyderabad, Telangana',
-      jobType: 'Full-time',
-      experienceLevel: 'Senior',
-      salaryRange: '₹45L - ₹75L / yr',
-      matchScore: 91,
-      matchingSkills: ['Java', 'SQL', 'Data Structures'],
-      reasons: [
-        'Mission-critical low-latency financial systems design',
-        'Top-of-market compensation with high performance bonus',
-      ],
-      externalApplyUrl: 'https://www.deshawindia.com/careers/roles/5092',
-      isInternal: false,
-    },
-    {
-      id: 'curated-salesforce-lead-java-hyd',
-      title: 'Lead Software Engineer (Core Platform & Microservices)',
-      companyName: 'Salesforce',
-      location: 'Hyderabad, Telangana',
-      jobType: 'Full-time',
-      experienceLevel: 'Lead',
-      salaryRange: '₹40L - ₹65L / yr',
-      matchScore: 93,
-      matchingSkills: ['Java', 'Spring Boot', 'SQL', 'MySQL'],
-      reasons: [
-        'Core Customer 360 cloud microservices architecture',
-        'Verified corporate insider referral network in Hyderabad IT Corridor',
-      ],
-      externalApplyUrl: 'https://careers.salesforce.com/en/jobs/jr78192',
-      isInternal: false,
-    },
-    {
-      id: 'curated-oracle-staff-cloud-java',
-      title: 'Staff Backend Cloud Engineer (Distributed Core Platform)',
-      companyName: 'Oracle',
-      location: 'Hyderabad, Telangana',
-      jobType: 'Full-time',
-      experienceLevel: 'Staff',
-      salaryRange: '₹36L - ₹54L / yr',
-      matchScore: 88,
-      matchingSkills: ['Distributed Systems', 'Cloud Architecture', 'Java'],
-      reasons: [
-        'High relevance score across modern cloud control planes',
-      ],
-      externalApplyUrl: 'https://careers.oracle.com/jobs/229643',
-      isInternal: false,
-    },
-  ];
 }

@@ -17,7 +17,6 @@ import {
   detectRoleDomain,
   isSameCompany,
 } from "@/lib/jobs/ats-client";
-import { CURATED_TECH_JOBS } from "@/lib/jobs/curated-tech-jobs";
 import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
 import { cleanJobApplyUrl, isValidJobUrl } from "@/lib/jobs/url-cleaner";
 
@@ -634,76 +633,6 @@ export async function GET(request: Request) {
       addJobIfUnique(job);
     }
     */
-
-    // Curated Premier Tech Hub Catalog
-    // Premier verified company roles (Microsoft, Uber, ServiceNow, Salesforce, Oracle) are always merged and deduplicated
-    const nowIso = new Date().toISOString();
-    const filteredCurated = CURATED_TECH_JOBS.filter((cj) => {
-      if (activeLocation && !isLocationMatch(cj.location, activeLocation, cj.workplaceType)) {
-        return false;
-      }
-      if (workModeParam !== "all" && cj.workplaceType.toLowerCase() !== workModeParam) {
-        return false;
-      }
-      if (queryStr.trim()) {
-        const qLower = queryStr.trim().toLowerCase();
-        const qWords = qLower.split(/\s+/).filter((w) => w.length > 2);
-        const text = `${cj.title} ${cj.companyName} ${cj.description.about} ${cj.description.qualifications.join(" ")} ${cj.matchingSkills.join(" ")}`.toLowerCase();
-        const matchesQuery = text.includes(qLower) || (qWords.length > 1 && qWords.every((w) => text.includes(w)));
-        if (!matchesQuery) return false;
-      }
-      return true;
-    });
-
-    for (const cj of filteredCurated) {
-      const matchEvaluation = evaluateJobMatch(
-        {
-          title: cj.title,
-          description: cj.description.about,
-          requirements: cj.description.qualifications.join("\n"),
-          experienceLevel: cj.experienceLevel,
-          workplaceType: cj.workplaceType,
-          location: cj.location,
-          companyName: cj.companyName,
-        },
-        candidateSkills,
-        detectedSeniority,
-        candidateLocation,
-        {
-          currentRole: candidateCurrentRole,
-          currentCompany: candidateCurrentCompany,
-          isStillWorking: isCurrentlyWorking,
-        }
-      );
-
-      const count = getInsiderCount(cj.companyName);
-
-      addJobIfUnique({
-        id: cj.id,
-        title: cj.title,
-        company_name: cj.companyName,
-        company_logo: cj.companyLogo,
-        location: cj.location,
-        workplace_type: cj.workplaceType,
-        job_type: cj.jobType,
-        experience_level: cj.experienceLevel,
-        category: cj.category,
-        salary_range: cj.salaryRange,
-        description: cj.description.about,
-        requirements: cj.description.qualifications.join("\n"),
-        external_apply_url: cj.externalApplyUrl,
-        is_internal: cj.isInternal,
-        match_score: matchEvaluation.matchScore,
-        match_breakdown: matchEvaluation.matchBreakdown,
-        why_you_match: matchEvaluation.whyYouMatch,
-        matching_skills: matchEvaluation.matchingSkills.length > 0 ? matchEvaluation.matchingSkills : cj.matchingSkills,
-        missing_skills: matchEvaluation.missingSkills.length > 0 ? matchEvaluation.missingSkills : cj.missingSkills,
-        tailored_bullet_suggestion: matchEvaluation.tailoredBulletSuggestion,
-        insider_count: count > 0 ? count : cj.insiderCount,
-        is_recommended: matchEvaluation.isRecommended,
-        created_at: nowIso,
-      });
-    }
 
     if (totalCount === 0) {
       totalCount = combined.length;

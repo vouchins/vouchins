@@ -67,7 +67,6 @@ import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch, containsSkill, COM
 import { cleanJobApplyUrl, isValidJobUrl } from '@/lib/jobs/url-cleaner';
 import { CompanyLogo } from './company-logo';
 import { getGoogleFaviconUrl } from '@/lib/utils';
-import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
 import { SkillResource } from '@/lib/skills/types';
 import { DEFAULT_SKILL_RESOURCES } from '@/lib/skills/default-resources';
 import { ResumeDocument } from '@/lib/jobs/types';
@@ -293,40 +292,7 @@ export function formatLocalizedSalary(
   return trimmed;
 }
 
-const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = CURATED_TECH_JOBS.map((cj) => ({
-  id: cj.id,
-  title: cj.title,
-  companyName: cj.companyName,
-  companyLogo: cj.companyLogo,
-  location: cj.location,
-  workplaceType: cj.workplaceType,
-  jobType: cj.jobType,
-  experienceLevel: cj.experienceLevel as any,
-  salaryRange: formatLocalizedSalary(cj.salaryRange, cj.location, cj.experienceLevel, cj.title),
-  postedAt: cj.postedAt,
-  matchScore: 95,
-  matchBreakdown: {
-    skillsScore: 96,
-    experienceScore: 94,
-    stackScore: 95,
-  },
-  whyYouMatch: `Strong alignment with your technical background and ${cj.companyName}'s engineering standards.`,
-  matchingSkills: cj.matchingSkills,
-  missingSkills: cj.missingSkills,
-  insiderCount: cj.insiderCount,
-  verifiedInsiders: [],
-  description: cj.description,
-  tailoredBulletSuggestion: {
-    original: `Developed backend services and database optimizations for ${cj.companyName}.`,
-    tailored: `Architected high-throughput service components using ${cj.matchingSkills.slice(0, 2).join(' and ')}, reducing p99 latency by 38% across production environments.`,
-    impactMetric: '-38% Latency',
-  },
-  externalApplyUrl: cj.externalApplyUrl,
-  externalJobId: cj.externalJobId,
-  isInternal: false,
-  isCurated: true,
-  isRecommended: true,
-}));
+const CURATED_RECOMMENDED_JOBS: RecommendedJob[] = [];
 
 function getJobTimestamp(job: RecommendedJob): number {
   if (job.createdAt) {

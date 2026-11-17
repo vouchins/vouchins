@@ -4,33 +4,12 @@
 
 import { GET } from '@/app/api/jobs/route';
 import { clearAtsBoardCache } from '@/lib/jobs/ats-client';
-import { CURATED_TECH_JOBS } from '@/lib/jobs/curated-tech-jobs';
 
 jest.setTimeout(15000);
 
 describe('Hyderabad Location & Resume Tech Stack Job Matching', () => {
   beforeEach(() => {
     clearAtsBoardCache();
-  });
-
-  it('contains rich Hyderabad positions matching Java, Spring Boot, MySQL, and REST APIs', () => {
-    const hydJobs = CURATED_TECH_JOBS.filter((j) => j.location.toLowerCase().includes('hyderabad'));
-    expect(hydJobs.length).toBeGreaterThanOrEqual(8);
-
-    const companies = hydJobs.map((j) => j.companyName);
-    expect(companies).toContain('Oracle');
-    expect(companies).toContain('ServiceNow');
-    expect(companies).toContain('Microsoft');
-    expect(companies).toContain('Uber');
-    expect(companies).toContain('Amazon');
-    expect(companies).toContain('DE Shaw');
-    expect(companies).toContain('Salesforce');
-    expect(companies).toContain('Qualcomm');
-
-    const javaRoles = hydJobs.filter((j) =>
-      j.matchingSkills.some((s) => s.toLowerCase() === 'java' || s.toLowerCase() === 'spring boot')
-    );
-    expect(javaRoles.length).toBeGreaterThanOrEqual(6);
   });
 
   it('GET /api/jobs returns matching jobs in Hyderabad for Java / Spring Boot candidate', async () => {

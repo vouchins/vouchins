@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     if (q) {
       // Escape special characters in query string
       const sanitizedQ = q.replace(/[%_,]/g, ' ');
-      query = query.or(`title.ilike.%${sanitizedQ}%,company_name.ilike.%${sanitizedQ}%,location.ilike.%${sanitizedQ}%`);
+      query = query.or(`title.ilike.%${sanitizedQ}%,company_name.ilike.%${sanitizedQ}%,location.ilike.%${sanitizedQ}%,external_apply_url.ilike.%${sanitizedQ}%`);
     }
 
     if (company && company.toLowerCase() !== 'all') {
