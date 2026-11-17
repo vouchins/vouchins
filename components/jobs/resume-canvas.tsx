@@ -406,7 +406,7 @@ export function ResumeCanvas({
       {pages.map((page, pageIdx) => (
         <div
           key={pageIdx}
-          className="relative w-full max-w-[850px] bg-white rounded-xl shadow-md border border-neutral-300 min-h-[1056px] p-6 sm:p-8 text-neutral-900 font-sans flex flex-col justify-between print:min-h-0 print:shadow-none print:border-none print:p-0 print:break-after-page"
+          className="relative w-full max-w-[850px] bg-white rounded-xl shadow-md border border-neutral-300 min-h-[1056px] p-6 sm:p-8 text-neutral-900 font-sans flex flex-col justify-between shrink-0 print:min-h-0 print:shadow-none print:border-none print:p-0 print:break-after-page"
         >
           {/* Sheet Body */}
           <div className="flex flex-col gap-3.5 sm:gap-4">
@@ -739,7 +739,7 @@ export function ResumeCanvas({
                                   updateRole(globalIdx, 'startDate', parts[0] || '');
                                   updateRole(globalIdx, 'endDate', parts[1] || 'Present');
                                 }}
-                                className="w-28 text-right bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
+                                className="w-36 min-w-[140px] text-right bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
                               />
                               {role.location && (
                                 <>
@@ -749,7 +749,7 @@ export function ResumeCanvas({
                                     value={role.location}
                                     onChange={(e) => updateRole(globalIdx, 'location', e.target.value)}
                                     placeholder="Location"
-                                    className="w-28 text-right bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
+                                    className="w-24 sm:w-28 text-right bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
                                   />
                                 </>
                               )}
@@ -901,6 +901,11 @@ export function ResumeCanvas({
                           {proj.title}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
+                          {(proj.repoUrl || proj.liveUrl) && (
+                            <span className="text-[11px] text-neutral-500 font-mono">
+                              {proj.repoUrl || proj.liveUrl}
+                            </span>
+                          )}
                           {proj.techStack && proj.techStack.length > 0 && (
                             <span
                               contentEditable
@@ -1004,7 +1009,7 @@ export function ResumeCanvas({
       ))}
 
       {/* Quick Add Content & Section Toolbar */}
-      <div className="w-full max-w-[850px] bg-white border border-neutral-300 rounded-xl p-3.5 shadow-sm flex flex-wrap items-center justify-between gap-3 print:hidden">
+      <div className="w-full max-w-[850px] bg-white border border-neutral-300 rounded-xl p-3.5 shadow-sm flex flex-wrap items-center justify-between gap-3 shrink-0 print:hidden">
         <div className="flex items-center gap-2 text-xs font-bold text-neutral-700">
           <Plus className="h-4 w-4 text-[#0A1B5C]" />
           <span>Add Section:</span>

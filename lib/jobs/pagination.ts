@@ -54,15 +54,15 @@ export function partitionResumePages(
 
   const eduUnits =
     document.education && document.education.length > 0
-      ? 26 + document.education.length * 30
+      ? 24 + document.education.length * 30
       : 0;
 
   const projUnits =
     document.projects && document.projects.length > 0
-      ? 26 +
+      ? 24 +
         document.projects.reduce((acc, p) => {
           const bUnits = (p.bullets || []).reduce(
-            (bAcc, b) => bAcc + estimateBulletUnits(b) + 3,
+            (bAcc, b) => bAcc + estimateBulletUnits(b) + 2,
             0
           );
           return acc + 22 + bUnits;
@@ -71,7 +71,7 @@ export function partitionResumePages(
 
   const certUnits =
     document.certifications && document.certifications.length > 0
-      ? 24 + document.certifications.length * 18
+      ? 22 + document.certifications.length * 16
       : 0;
 
   const contactLinksCount = [
@@ -83,17 +83,17 @@ export function partitionResumePages(
     document.contact.leetcodeUrl,
     document.contact.portfolioUrl,
   ].filter(Boolean).length;
-  let p1Used = contactLinksCount > 4 ? 120 : 105; // Header & Contact
+  let p1Used = contactLinksCount > 4 ? 110 : 95; // Header & Contact
   if (document.summary) {
-    p1Used += document.summary.length > 250 ? 70 : 50;
+    p1Used += document.summary.length > 250 ? 65 : 45;
   }
   const skillsUnits = (document.skills || []).reduce((acc, s) => {
     const textLen = (s.category || '').length + 2 + (s.items || []).join(', ').length;
     const estimatedLines = Math.max(1, Math.ceil(textLen / 95));
     return acc + estimatedLines * 16 + 4;
-  }, 28);
+  }, 26);
   p1Used += skillsUnits;
-  p1Used += 28; // Work Experience section header
+  p1Used += 26; // Work Experience section header
 
   const page1Roles: PaginatedRoleSegment[] = [];
   const overflowRoles: PaginatedRoleSegment[] = [];

@@ -208,9 +208,9 @@ export async function extractResumeText(
     .replace(/\u00AD/g, '') // remove soft hyphens inserted by PDF typesetting
     // Heal PDF kerning in phones (e.g. +1   ( 347 )   686 - 2993 -> +1 (347) 686-2993)
     .replace(/\+\s*(\d{1,3})\s*\(\s*(\d{3})\s*\)\s*(\d{3})\s*-\s*(\d{4})/g, '+$1 ($2) $3-$4')
-    // Heal PDF kerning in email addresses (e.g. U mmufarwah .fm @gmail.com -> Ummufarwah.fm@gmail.com)
-    .replace(/\b([a-zA-Z0-9._%+-]+(?:\s+[a-zA-Z0-9._%+-]+)*)\s*@\s*([a-zA-Z0-9.\s-]+)\s*\.\s*([a-zA-Z]{2,})\b/g, (match, local, domain, tld) => {
-      return `${local.replace(/\s+/g, '')}@${domain.replace(/\s+/g, '')}.${tld}`;
+    // Heal PDF kerning in email addresses (strictly bounded to avoid consuming previous lines/words)
+    .replace(/(?:^|[ \t|•·])([a-zA-Z0-9._%+-]{1,40})\s*@\s*([a-zA-Z0-9.-]{1,40})\s*\.\s*([a-zA-Z]{2,10})\b/g, (match, local, domain, tld) => {
+      return ` ${local.replace(/\s+/g, '')}@${domain.replace(/\s+/g, '')}.${tld}`;
     })
     // Heal PDF spacing before commas (e.g. "Jersey City ,   NJ" -> "Jersey City, NJ")
     .replace(/\s+,\s*/g, ', ')

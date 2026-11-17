@@ -83,12 +83,19 @@ You MUST output strictly valid JSON conforming to the requested schema.
 `;
 }
 
-const GEMINI_MODELS = [
-  process.env.GEMINI_MODEL,
-  'gemini-3.5-flash-lite',
-  'gemini-3.5-flash',
-  'gemini-flash-latest',
-].filter(Boolean) as string[];
+const GEMINI_MODELS = Array.from(
+  new Set(
+    [
+      process.env.GEMINI_MODEL && process.env.GEMINI_MODEL !== 'gemini-3.5-flash'
+        ? process.env.GEMINI_MODEL
+        : null,
+      'gemini-3.5-flash-lite',
+      'gemini-flash-lite-latest',
+      'gemini-3.8-flash',
+      'gemini-flash-latest',
+    ].filter(Boolean) as string[]
+  )
+);
 
 /**
  * Parses raw extracted resume text into a canonical ResumeDocument schema.
@@ -97,6 +104,18 @@ export async function extractStructuredResume(
   rawText: string,
   userId: string
 ): Promise<ResumeDocument> {
+  // 1. Fast deterministic heuristic extraction (instant 15ms parse without LLM latency)
+  const fastDoc = parseRawTextToDocument(rawText);
+  if (fastDoc.experience && fastDoc.experience.length > 0) {
+    await recordAIUsage({
+      userId,
+      action: 'extract',
+      provider: 'heuristic',
+      inputChars: rawText.length,
+    });
+    return fastDoc;
+  }
+
   const geminiKey = process.env.GEMINI_API_KEY;
 
   if (geminiKey) {
@@ -187,6 +206,7 @@ ${rawText.slice(0, 14000)}
                 maxOutputTokens: 8192,
               },
             }),
+            signal: AbortSignal.timeout(12000),
           }
         );
 
@@ -208,9 +228,11 @@ ${rawText.slice(0, 14000)}
               return validated.data;
             }
           }
+        } else {
+          console.warn(`[AI Client] Gemini structured extraction returned status ${response.status} for model ${model}. Trying next fallback model...`);
         }
-      } catch (err) {
-        console.warn(`[AI Client] Gemini structured extraction failed with model ${model}:`, err);
+      } catch (err: any) {
+        console.warn(`[AI Client] Gemini structured extraction failed or timed out with model ${model}:`, err?.message || err, '. Trying next fallback model...');
       }
     }
   }
@@ -392,6 +414,7 @@ ${JSON.stringify(doc)}
               maxOutputTokens: 8192,
             },
           }),
+          signal: AbortSignal.timeout(15000),
         }
       );
 
@@ -417,16 +440,17 @@ ${JSON.stringify(doc)}
       } else {
         const errJson = await response.json().catch(() => ({}));
         lastError = new Error(errJson?.error?.message || `Gemini API returned status ${response.status}`);
+        console.warn(`[AI Client] Gemini evaluation call returned status ${response.status} with model ${model}. Trying next fallback model...`);
       }
     } catch (geminiErr: any) {
       lastError = geminiErr;
-      console.warn(`[AI Client] Gemini evaluation call failed with model ${model}:`, geminiErr);
+      console.warn(`[AI Client] Gemini evaluation call failed or timed out with model ${model}:`, geminiErr?.message || geminiErr, '. Trying next fallback model...');
     }
   }
 
-  // Graceful fallback: If Gemini model was unavailable, fall back to high-fidelity calibrated heuristic evaluation
+  // Graceful fallback: If all Gemini models were unavailable or timed out, fall back to high-fidelity calibrated heuristic evaluation
   if (doc) {
-    console.warn('[AI Client] Gemini model unavailable. Falling back to calibrated Google XYZ heuristic evaluation.');
+    console.warn('[AI Client] All Gemini models failed or timed out. Falling back to calibrated Google XYZ heuristic evaluation.');
     return {
       doc,
       evaluation: finalizeEvaluation(heuristic),

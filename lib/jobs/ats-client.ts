@@ -323,13 +323,19 @@ export function isValidGeographicLocation(loc?: string | null): boolean {
   if (clean.includes('@') || clean.includes('http://') || clean.includes('https://') || clean.includes('.com')) {
     return false;
   }
-  // Reject common job title keywords mistakenly stored in location fields
-  const jobTitleKeywords = [
+  // Reject common job title keywords and section headers mistakenly stored in location fields
+  const invalidKeywords = [
     'developer', 'engineer', 'architect', 'lead', 'manager', 'director',
     'specialist', 'consultant', 'analyst', 'designer', 'intern', 'administrator',
-    'full stack', 'frontend', 'backend', 'qa', 'sdet', 'devops', 'software'
+    'full stack', 'frontend', 'backend', 'qa', 'sdet', 'devops', 'software',
+    'skills', 'experience', 'projects', 'education', 'summary', 'certifications',
+    'achievements', 'languages', 'contact', 'linkedin', 'github', 'leetcode',
+    'scaler', 'portfolio', 'resume', 'curriculum vitae'
   ];
-  if (jobTitleKeywords.some((kw) => clean.includes(kw))) {
+  if (invalidKeywords.some((kw) => clean === kw || clean.startsWith(kw + ' ') || clean.endsWith(' ' + kw))) {
+    return false;
+  }
+  if (invalidKeywords.some((kw) => clean.includes(kw))) {
     return false;
   }
   return true;

@@ -117,21 +117,21 @@ export function ResumePDFDocument({
   // Dynamic Stylesheet based on user configuration
   const dynamicStyles = StyleSheet.create({
     page: {
-      paddingTop: isCompact ? 24 : isStructured ? 26 : 30,
-      paddingBottom: isCompact ? 28 : isStructured ? 30 : 36,
-      paddingLeft: isCompact ? 28 : isStructured ? 30 : 32,
-      paddingRight: isCompact ? 28 : isStructured ? 30 : 32,
+      paddingTop: isCompact ? 20 : isStructured ? 22 : 24,
+      paddingBottom: isCompact ? 22 : isStructured ? 24 : 24,
+      paddingLeft: isCompact ? 26 : isStructured ? 28 : 28,
+      paddingRight: isCompact ? 26 : isStructured ? 28 : 28,
       fontFamily: fontRegular,
       fontSize: fontSizes.bodyText,
-      lineHeight: isCompact || isStructured ? 1.25 : 1.32,
+      lineHeight: isCompact || isStructured ? 1.22 : 1.25,
       color: '#111827',
       position: 'relative',
     },
     pageContinuationHeader: {
       borderBottomWidth: 0.75,
       borderBottomColor: '#E5E7EB',
-      paddingBottom: isCompact ? 2 : 3,
-      marginBottom: isCompact ? 6 : 8,
+      paddingBottom: isCompact ? 2 : 2.5,
+      marginBottom: isCompact ? 5 : 6,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
@@ -151,7 +151,7 @@ export function ResumePDFDocument({
       borderBottomWidth: 0.5,
       borderBottomColor: '#F3F4F6',
       paddingBottom: 2,
-      marginBottom: 3,
+      marginBottom: 2.5,
     },
     continuedRoleTitle: {
       fontSize: fontSizes.bodyText * 0.9,
@@ -160,15 +160,15 @@ export function ResumePDFDocument({
     },
     footer: {
       position: 'absolute',
-      bottom: isCompact ? 12 : 16,
-      left: isCompact ? 28 : isStructured ? 30 : 32,
-      right: isCompact ? 28 : isStructured ? 30 : 32,
+      bottom: isCompact ? 10 : 12,
+      left: isCompact ? 26 : isStructured ? 28 : 28,
+      right: isCompact ? 26 : isStructured ? 28 : 28,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       borderTopWidth: 0.5,
       borderTopColor: '#E5E7EB',
-      paddingTop: 3,
+      paddingTop: 2.5,
     },
     footerText: {
       fontSize: 8,
@@ -177,16 +177,16 @@ export function ResumePDFDocument({
     header: {
       borderBottomWidth: 1,
       borderBottomColor: isCentered ? 'transparent' : '#E5E7EB',
-      paddingBottom: isCompact ? 8 : isStructured ? 8 : 12,
-      marginBottom: isCompact ? 10 : isStructured ? 10 : 14,
+      paddingBottom: isCompact ? 6 : isStructured ? 6 : 7,
+      marginBottom: isCompact ? 7 : isStructured ? 7 : 8,
       alignItems: isCentered ? 'center' : 'flex-start',
     },
     fullName: {
       fontSize: fontSizes.name,
       fontFamily: fontBold,
       color: nameColor,
-      lineHeight: 1.2,
-      marginBottom: isCompact ? 5 : isStructured ? 4 : 8,
+      lineHeight: 1.15,
+      marginBottom: isCompact ? 3 : isStructured ? 3 : 4,
       textAlign: isCentered ? 'center' : 'left',
       letterSpacing: -0.5,
     },
@@ -195,19 +195,19 @@ export function ResumePDFDocument({
       flexWrap: 'wrap',
       alignItems: 'center',
       justifyContent: isCentered ? 'center' : 'flex-start',
-      marginTop: 2,
+      marginTop: 1.5,
     },
     contactSeparator: {
       color: '#9CA3AF',
-      marginHorizontal: 4,
+      marginHorizontal: 3.5,
       fontSize: fontSizes.bodyText * 0.8,
     },
     contactItem: {
-      fontSize: fontSizes.bodyText * 0.9,
+      fontSize: fontSizes.bodyText * 0.88,
       color: '#6B7280',
     },
     section: {
-      marginBottom: isCompact ? 7 : isStructured ? 7 : 10,
+      marginBottom: isCompact ? 5 : isStructured ? 5 : 6,
     },
     sectionTitle: {
       fontSize: fontSizes.sectionHeaders,
@@ -217,23 +217,23 @@ export function ResumePDFDocument({
       letterSpacing: 0.5,
       borderBottomWidth: 0.75,
       borderBottomColor: '#E5E7EB',
-      paddingBottom: isCompact ? 1.5 : isStructured ? 1.5 : 2.5,
-      marginBottom: isCompact ? 4 : isStructured ? 4 : 6,
+      paddingBottom: isCompact ? 1 : isStructured ? 1 : 1.5,
+      marginBottom: isCompact ? 3 : isStructured ? 3 : 3.5,
       textAlign: isCentered && !isStructured ? 'center' : 'left',
     },
     summaryText: {
       fontSize: fontSizes.bodyText * 0.92,
-      lineHeight: isCompact || isStructured ? 1.25 : 1.35,
+      lineHeight: isCompact || isStructured ? 1.22 : 1.26,
       color: '#374151',
     },
     roleContainer: {
-      marginBottom: isCompact ? 5 : isStructured ? 5 : 7,
+      marginBottom: isCompact ? 3.5 : isStructured ? 4 : 4.5,
     },
     roleHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'baseline',
-      marginBottom: 2,
+      marginBottom: 1.5,
     },
     roleTitleContainer: {
       flex: 1,
@@ -264,24 +264,24 @@ export function ResumePDFDocument({
     },
     bulletRow: {
       flexDirection: 'row',
-      marginBottom: isCompact ? 1.5 : isStructured ? 1.5 : 2,
-      paddingLeft: 4,
+      marginBottom: isCompact ? 1 : isStructured ? 1 : 1.5,
+      paddingLeft: 3,
     },
     bulletPoint: {
-      width: 10,
+      width: 9,
       fontSize: fontSizes.bodyText * 0.9,
       color: headingColor,
     },
     bulletText: {
       flex: 1,
       fontSize: fontSizes.bodyText * 0.9,
-      lineHeight: isCompact || isStructured ? 1.25 : 1.32,
+      lineHeight: isCompact || isStructured ? 1.22 : 1.25,
       color: '#1F2937',
     },
     skillLine: {
       fontSize: fontSizes.bodyText * 0.9,
-      lineHeight: isCompact || isStructured ? 1.18 : 1.24,
-      marginBottom: isCompact ? 1.5 : 2.5,
+      lineHeight: isCompact || isStructured ? 1.18 : 1.22,
+      marginBottom: isCompact ? 1 : 1.5,
     },
     skillCategory: {
       fontSize: fontSizes.bodyText * 0.9,
@@ -308,7 +308,7 @@ export function ResumePDFDocument({
       color: '#374151',
     },
     eduContainer: {
-      marginBottom: isCompact ? 3 : 5,
+      marginBottom: isCompact ? 2.5 : 3.5,
     },
     eduHeader: {
       flexDirection: 'row',
@@ -513,10 +513,18 @@ export function ResumePDFDocument({
         <Text style={dynamicStyles.sectionTitle}>{projectsTitle}</Text>
         {document.projects.map((proj, projIdx) => (
           <View key={projIdx} style={dynamicStyles.roleContainer}>
-            <View style={dynamicStyles.roleHeader} wrap={false}>
+            <View
+              style={dynamicStyles.roleHeader}
+              wrap={Boolean(proj.bullets && proj.bullets.length > 0 ? false : true)}
+            >
               <View style={dynamicStyles.roleTitleContainer}>
                 <Text style={dynamicStyles.roleTitle}>{proj.title}</Text>
               </View>
+              {(proj.repoUrl || proj.liveUrl) && (
+                <Text style={dynamicStyles.projectTechStack}>
+                  {proj.repoUrl || proj.liveUrl}
+                </Text>
+              )}
               {proj.techStack && proj.techStack.length > 0 && (
                 <Text style={dynamicStyles.projectTechStack}>
                   {proj.techStack.join(' • ')}

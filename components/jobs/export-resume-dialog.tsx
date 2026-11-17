@@ -428,11 +428,18 @@ export function ExportResumeDialog({
                 <span className="font-bold text-neutral-900 text-xs">
                   {proj.title}
                 </span>
-                {proj.techStack && (
-                  <span className="text-[11px] text-neutral-500">
-                    {proj.techStack.join(' • ')}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {(proj.repoUrl || proj.liveUrl) && (
+                    <span className="text-[11px] text-neutral-500 font-mono">
+                      {proj.repoUrl || proj.liveUrl}
+                    </span>
+                  )}
+                  {proj.techStack && proj.techStack.length > 0 && (
+                    <span className="text-[11px] text-neutral-500">
+                      {proj.techStack.join(' • ')}
+                    </span>
+                  )}
+                </div>
               </div>
               <ul className="space-y-0.5 pl-2">
                 {proj.bullets.map((b, bIdx) => (

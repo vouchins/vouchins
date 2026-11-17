@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
@@ -156,14 +157,30 @@ export async function POST(request: Request) {
     }
 
     // 4. Execute AI evaluation calibrated against current document state
-    const { doc, evaluation, provider } = await evaluateResumeAI({
-      userId,
-      rawText: textToAnalyze,
-      existingDoc,
-      baselineScore: previousScore,
-      previousSuggestions,
-      forceHeuristic,
-    });
+    let evalResult;
+    try {
+      evalResult = await evaluateResumeAI({
+        userId,
+        rawText: textToAnalyze,
+        existingDoc,
+        baselineScore: previousScore,
+        previousSuggestions,
+        forceHeuristic,
+      });
+    } catch (evalErr: any) {
+      if (evalErr.code === 'PRO_PLAN_REQUIRED' || evalErr.message?.includes('PRO_PLAN_REQUIRED')) {
+        throw evalErr;
+      }
+      console.warn('[API Evaluate] evaluateResumeAI threw unexpectedly, applying safe heuristic fallback:', evalErr);
+      const fallbackDoc = existingDoc || parseRawTextToDocument(textToAnalyze);
+      const fallbackHeuristic = evaluateResumeHeuristically(fallbackDoc, textToAnalyze);
+      evalResult = {
+        doc: fallbackDoc,
+        evaluation: fallbackHeuristic,
+        provider: 'heuristic' as const,
+      };
+    }
+    const { doc, evaluation, provider } = evalResult;
 
     // 5. Persist or update resume record in Supabase
 

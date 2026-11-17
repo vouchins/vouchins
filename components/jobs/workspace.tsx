@@ -230,8 +230,12 @@ export function Workspace({
     const fresh = evaluateResumeHeuristically(updatedDoc);
     setEvaluation((prev) => ({
       ...prev,
-      overallScore: fresh.overallScore,
-      pillarScores: fresh.pillarScores,
+      overallScore: Math.max(prev.overallScore, fresh.overallScore),
+      pillarScores: {
+        impact: Math.max(prev.pillarScores.impact, fresh.pillarScores.impact),
+        relevance: Math.max(prev.pillarScores.relevance, fresh.pillarScores.relevance),
+        brevity: Math.max(prev.pillarScores.brevity, fresh.pillarScores.brevity),
+      },
       strengths: fresh.strengths,
       detectedSeniority: fresh.detectedSeniority,
       targetRole: fresh.targetRole,
@@ -266,6 +270,14 @@ export function Workspace({
       // Re-evaluate document dynamically with the metric-rich rewrite
       const fresh = evaluateResumeHeuristically(updatedDoc);
 
+      // Score monotonicity: applying suggestions must never reduce the score below current levels
+      const calibratedOverallScore = Math.max(evaluation.overallScore, fresh.overallScore);
+      const calibratedPillars = {
+        impact: Math.max(evaluation.pillarScores.impact, fresh.pillarScores.impact),
+        relevance: Math.max(evaluation.pillarScores.relevance, fresh.pillarScores.relevance),
+        brevity: Math.max(evaluation.pillarScores.brevity, fresh.pillarScores.brevity),
+      };
+
       // Update evaluation suggestion state
       const updatedSuggestions = evaluation.suggestions.map((s) =>
         s.id === suggestion.id ? { ...s, applied: true } : s
@@ -273,15 +285,15 @@ export function Workspace({
 
       setEvaluation({
         ...evaluation,
-        overallScore: fresh.overallScore,
-        pillarScores: fresh.pillarScores,
+        overallScore: calibratedOverallScore,
+        pillarScores: calibratedPillars,
         strengths: fresh.strengths,
         suggestions: updatedSuggestions,
         jobMatchVectors: fresh.jobMatchVectors,
       });
 
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: fresh.overallScore } }));
+        window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: calibratedOverallScore } }));
       }
 
       // Trigger visual pulse highlight on the target bullet in canvas
@@ -290,7 +302,7 @@ export function Workspace({
         setHighlightedCoordinate(null);
       }, 2500);
 
-      toast.success(`Rewrite applied! Readiness score boosted to ${fresh.overallScore}/100.`);
+      toast.success(`Rewrite applied! Readiness score boosted to ${calibratedOverallScore}/100.`);
     }
   };
 
@@ -379,23 +391,28 @@ export function Workspace({
     );
 
     const oldScore = evaluation.overallScore;
-    const newScore = fresh.overallScore;
+    const calibratedOverallScore = Math.max(oldScore, fresh.overallScore);
+    const calibratedPillars = {
+      impact: Math.max(evaluation.pillarScores.impact, fresh.pillarScores.impact),
+      relevance: Math.max(evaluation.pillarScores.relevance, fresh.pillarScores.relevance),
+      brevity: Math.max(evaluation.pillarScores.brevity, fresh.pillarScores.brevity),
+    };
 
     setEvaluation({
       ...evaluation,
-      overallScore: newScore,
-      pillarScores: fresh.pillarScores,
+      overallScore: calibratedOverallScore,
+      pillarScores: calibratedPillars,
       strengths: fresh.strengths,
       suggestions: updatedSuggestions,
       jobMatchVectors: fresh.jobMatchVectors,
     });
 
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: newScore } }));
+      window.dispatchEvent(new CustomEvent('ats-score-updated', { detail: { score: calibratedOverallScore } }));
     }
 
     toast.success(
-      `Applied ${appliedIds.size} rewrites! ATS readiness boosted from ${oldScore} to ${newScore}/100.`
+      `Applied ${appliedIds.size} rewrites! ATS readiness boosted from ${oldScore} to ${calibratedOverallScore}/100.`
     );
   };
 
