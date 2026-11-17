@@ -86,6 +86,9 @@ export const BLOCKED_AGGREGATOR_DOMAINS = [
   'adzuna.com',
   'adzuna.in',
   'whatjobs.com',
+  't.me',
+  'telegram.me',
+  'telegram.org',
 ];
 
 /**
