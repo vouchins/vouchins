@@ -84,26 +84,31 @@ export function ResumePDFDocument({
     template = 'standard',
     accentColor = '#0A1B5C',
     accentScope = 'all',
-    fontFamily = 'Helvetica',
+    fontFamily = 'Times-Roman',
     fontSizes = DEFAULT_EXPORT_CONFIG.fontSizes,
     dateFormat = 'short',
     bulletStyle = '•',
   } = config;
 
   // Resolve ATS-safe standard PostScript fonts for @react-pdf
-  const fontRegular =
-    fontFamily === 'Times-Roman'
-      ? 'Times-Roman'
-      : fontFamily === 'Courier'
-      ? 'Courier'
-      : 'Helvetica';
+  const isSerif =
+    fontFamily === 'Times-Roman' ||
+    fontFamily === 'Georgia' ||
+    fontFamily === 'Garamond' ||
+    fontFamily === 'Cambria';
+  const isMonospace = fontFamily === 'Courier';
 
-  const fontBold =
-    fontFamily === 'Times-Roman'
-      ? 'Times-Bold'
-      : fontFamily === 'Courier'
-      ? 'Courier-Bold'
-      : 'Helvetica-Bold';
+  const fontRegular = isSerif
+    ? 'Times-Roman'
+    : isMonospace
+    ? 'Courier'
+    : 'Helvetica';
+
+  const fontBold = isSerif
+    ? 'Times-Bold'
+    : isMonospace
+    ? 'Courier-Bold'
+    : 'Helvetica-Bold';
 
   const isCompact = template === 'compact';
   const isCentered = template === 'centered';
@@ -225,6 +230,7 @@ export function ResumePDFDocument({
       fontSize: fontSizes.bodyText * 0.92,
       lineHeight: isCompact || isStructured ? 1.22 : 1.26,
       color: '#374151',
+      textAlign: isCentered ? 'center' : 'left',
     },
     roleContainer: {
       marginBottom: isCompact ? 3.5 : isStructured ? 4 : 4.5,
@@ -243,6 +249,7 @@ export function ResumePDFDocument({
       fontSize: fontSizes.subHeaders,
       fontFamily: fontBold,
       color: '#111827',
+      textAlign: isCentered && !isStructured ? 'center' : 'left',
     },
     companyName: {
       fontSize: fontSizes.bodyText * 0.95,
@@ -282,6 +289,7 @@ export function ResumePDFDocument({
       fontSize: fontSizes.bodyText * 0.9,
       lineHeight: isCompact || isStructured ? 1.18 : 1.22,
       marginBottom: isCompact ? 1 : 1.5,
+      textAlign: isCentered ? 'center' : 'left',
     },
     skillCategory: {
       fontSize: fontSizes.bodyText * 0.9,
@@ -319,11 +327,13 @@ export function ResumePDFDocument({
       fontSize: fontSizes.subHeaders * 0.95,
       fontFamily: fontBold,
       color: '#111827',
+      textAlign: isCentered && !isStructured ? 'center' : 'left',
     },
     eduDegree: {
       fontSize: fontSizes.bodyText * 0.9,
       color: '#4B5563',
       marginTop: 1,
+      textAlign: isCentered && !isStructured ? 'center' : 'left',
     },
     structuredEduGroup: {
       marginBottom: isCompact ? 3 : 4,
@@ -457,11 +467,20 @@ export function ResumePDFDocument({
       </View>
     ) : null;
 
-  const renderEducationSection = () =>
-    document.education && document.education.length > 0 ? (
+  const renderEducationSection = (indices?: number[], isContinuation = false) => {
+    if (!document.education || document.education.length === 0) return null;
+    const itemsToRender = indices
+      ? indices.map((idx) => ({ edu: document.education[idx], idx })).filter((x) => x.edu)
+      : document.education.map((edu, idx) => ({ edu, idx }));
+
+    if (itemsToRender.length === 0) return null;
+
+    return (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Education</Text>
-        {document.education.map((edu, eduIdx) => (
+        <Text style={dynamicStyles.sectionTitle}>
+          Education {isContinuation ? '(Continued)' : ''}
+        </Text>
+        {itemsToRender.map(({ edu, idx: eduIdx }) => (
           <View
             key={eduIdx}
             style={isStructured ? dynamicStyles.structuredEduGroup : dynamicStyles.eduContainer}
@@ -505,13 +524,23 @@ export function ResumePDFDocument({
           </View>
         ))}
       </View>
-    ) : null;
+    );
+  };
 
-  const renderProjectsSection = () =>
-    document.projects && document.projects.length > 0 ? (
+  const renderProjectsSection = (indices?: number[], isContinuation = false) => {
+    if (!document.projects || document.projects.length === 0) return null;
+    const itemsToRender = indices
+      ? indices.map((idx) => ({ proj: document.projects![idx], idx })).filter((x) => x.proj)
+      : document.projects.map((proj, idx) => ({ proj, idx }));
+
+    if (itemsToRender.length === 0) return null;
+
+    return (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>{projectsTitle}</Text>
-        {document.projects.map((proj, projIdx) => (
+        <Text style={dynamicStyles.sectionTitle}>
+          {projectsTitle} {isContinuation ? '(Continued)' : ''}
+        </Text>
+        {itemsToRender.map(({ proj, idx: projIdx }) => (
           <View key={projIdx} style={dynamicStyles.roleContainer}>
             <View
               style={dynamicStyles.roleHeader}
@@ -540,22 +569,33 @@ export function ResumePDFDocument({
           </View>
         ))}
       </View>
-    ) : null;
+    );
+  };
 
-  const renderCertificationsSection = () =>
-    document.certifications && document.certifications.length > 0 ? (
+  const renderCertificationsSection = (indices?: number[], isContinuation = false) => {
+    if (!document.certifications || document.certifications.length === 0) return null;
+    const itemsToRender = indices
+      ? indices.map((idx) => ({ cert: document.certifications![idx], idx })).filter((x) => x.cert)
+      : document.certifications.map((cert, idx) => ({ cert, idx }));
+
+    if (itemsToRender.length === 0) return null;
+
+    return (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Certifications & Credentials</Text>
-        {document.certifications.map((cert, certIdx) => (
+        <Text style={dynamicStyles.sectionTitle}>
+          Certifications & Credentials {isContinuation ? '(Continued)' : ''}
+        </Text>
+        {itemsToRender.map(({ cert, idx: certIdx }) => (
           <View key={certIdx} style={dynamicStyles.bulletRow} wrap={false}>
             <Text style={dynamicStyles.bulletPoint}>{bulletStyle}</Text>
             <Text style={dynamicStyles.bulletText}>{cert}</Text>
           </View>
         ))}
       </View>
-    ) : null;
+    );
+  };
 
-  const pages = partitionResumePages(document, pageSize);
+  const pages = partitionResumePages(document, pageSize, template);
 
   return (
     <Document title={`${document.contact.fullName || 'Candidate'} - Resume`}>
@@ -609,12 +649,12 @@ export function ResumePDFDocument({
               <View style={dynamicStyles.structuredMainCol}>
                 {page.showSummary && renderSummarySection()}
                 {page.roles.length > 0 && renderExperienceSection(page.roles, pageIdx > 0)}
-                {page.showProjects && renderProjectsSection()}
-                {page.showCertifications && renderCertificationsSection()}
+                {page.showProjects && renderProjectsSection(page.projectIndices, pageIdx > 0 && !page.isFirstPage)}
+                {page.showCertifications && renderCertificationsSection(page.certificationIndices, pageIdx > 0 && !page.isFirstPage)}
               </View>
               <View style={dynamicStyles.structuredSideCol}>
                 {page.showSkills && renderSkillsSection()}
-                {page.showEducation && renderEducationSection()}
+                {page.showEducation && renderEducationSection(page.educationIndices, pageIdx > 0 && !page.isFirstPage)}
               </View>
             </View>
           ) : (
@@ -622,9 +662,9 @@ export function ResumePDFDocument({
               {page.showSummary && renderSummarySection()}
               {page.showSkills && renderSkillsSection()}
               {page.roles.length > 0 && renderExperienceSection(page.roles, pageIdx > 0)}
-              {page.showEducation && renderEducationSection()}
-              {page.showProjects && renderProjectsSection()}
-              {page.showCertifications && renderCertificationsSection()}
+              {page.showEducation && renderEducationSection(page.educationIndices, pageIdx > 0 && !page.isFirstPage && (page.educationIndices?.[0] ?? 0) > 0)}
+              {page.showProjects && renderProjectsSection(page.projectIndices, pageIdx > 0 && !page.isFirstPage && (page.projectIndices?.[0] ?? 0) > 0)}
+              {page.showCertifications && renderCertificationsSection(page.certificationIndices, pageIdx > 0 && !page.isFirstPage && (page.certificationIndices?.[0] ?? 0) > 0)}
             </>
           )}
 

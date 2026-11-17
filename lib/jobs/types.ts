@@ -217,7 +217,16 @@ export function createDefaultResumeDocument(partial?: Partial<ResumeDocument>): 
 
 export type ResumeTemplateId = 'standard' | 'compact' | 'centered' | 'structured';
 export type ResumePageSize = 'LETTER' | 'A4';
-export type ResumeFontFamily = 'Helvetica' | 'Times-Roman' | 'Arial' | 'Courier';
+export type ResumeFontFamily =
+  | 'Helvetica'
+  | 'Times-Roman'
+  | 'Arial'
+  | 'Calibri'
+  | 'Georgia'
+  | 'Garamond'
+  | 'Cambria'
+  | 'Verdana'
+  | 'Courier';
 export type ResumeAccentScope = 'all' | 'titles' | 'name';
 export type ResumeDateFormat = 'short' | 'full' | 'numeric' | 'year';
 export type ResumeBulletStyle = '•' | '-' | '▪' | '▸';
@@ -243,7 +252,7 @@ export const DEFAULT_EXPORT_CONFIG: ResumeExportConfig = {
   template: 'standard',
   accentColor: '#0A1B5C',
   accentScope: 'all',
-  fontFamily: 'Helvetica',
+  fontFamily: 'Times-Roman',
   fontSizes: {
     name: 21,
     sectionHeaders: 12,

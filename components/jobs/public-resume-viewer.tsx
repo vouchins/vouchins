@@ -53,6 +53,18 @@ export function PublicResumeViewer({
 
   const candidateName = contact.fullName || title || 'Candidate';
 
+  // Only display title as subtitle if it represents an actual target role/specialization
+  // and is not a generic file name or document label (e.g. "MANASA MADDALI - Resume", "Master Resume", "resume.pdf")
+  const isGenericDocumentTitle =
+    !title ||
+    title === candidateName ||
+    /\b(?:resume|cv)\b/i.test(title) ||
+    /\.(?:pdf|docx?|txt)$/i.test(title) ||
+    title.toLowerCase().startsWith('master resume') ||
+    title.toLowerCase().startsWith('candidate profile');
+
+  const displaySubtitle = !isGenericDocumentTitle ? title : null;
+
   const handleCopyLink = async () => {
     try {
       const url = typeof window !== 'undefined' ? window.location.href : '';
@@ -179,16 +191,19 @@ export function PublicResumeViewer({
 
       {/* 2. Main Printable Resume Canvas */}
       <main className="flex-1 p-3 sm:p-6 lg:p-8 flex justify-center print:p-0 print:m-0">
-        <article className="w-full max-w-4xl bg-white rounded-3xl sm:border border-neutral-200/80 p-6 sm:p-12 shadow-sm print:shadow-none print:border-none print:p-0 print:m-0 print:rounded-none space-y-7">
+        <article
+          style={{ fontFamily: '"Times New Roman", Times, serif' }}
+          className="w-full max-w-4xl bg-white rounded-3xl sm:border border-neutral-200/80 p-6 sm:p-12 shadow-sm print:shadow-none print:border-none print:p-0 print:m-0 print:rounded-none space-y-7"
+        >
           {/* Header & Contact Information */}
           <header className="border-b border-neutral-200 pb-6 space-y-3">
             <div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-neutral-900 tracking-tight">
                 {candidateName}
               </h1>
-              {title && title !== candidateName && (
+              {displaySubtitle && (
                 <p className="text-sm sm:text-base font-bold text-[#0A1B5C] mt-0.5">
-                  {title}
+                  {displaySubtitle}
                 </p>
               )}
             </div>

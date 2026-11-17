@@ -158,25 +158,49 @@ export function ExportResumeDialog({
       ? config.accentColor
       : '#111827';
 
-  const previewFontFamily =
-    config.fontFamily === 'Times-Roman'
-      ? '"Times New Roman", Times, serif'
-      : config.fontFamily === 'Courier'
-      ? 'Courier, monospace'
-      : 'Helvetica, Arial, sans-serif';
-
   const isCompact = config.template === 'compact';
   const isCentered = config.template === 'centered';
   const isStructured = config.template === 'structured';
 
-  const previewFontBold =
+  const previewFontFamily =
     config.fontFamily === 'Times-Roman'
-      ? '"Times New Roman Bold", Times, serif'
+      ? '"Times New Roman", Times, serif'
+      : config.fontFamily === 'Georgia'
+      ? 'Georgia, serif'
+      : config.fontFamily === 'Garamond'
+      ? 'Garamond, "EB Garamond", serif'
+      : config.fontFamily === 'Cambria'
+      ? 'Cambria, Georgia, serif'
+      : config.fontFamily === 'Calibri'
+      ? 'Calibri, "Gill Sans", sans-serif'
+      : config.fontFamily === 'Verdana'
+      ? 'Verdana, Geneva, sans-serif'
+      : config.fontFamily === 'Arial'
+      ? 'Arial, Helvetica, sans-serif'
       : config.fontFamily === 'Courier'
       ? 'Courier, monospace'
       : 'Helvetica, Arial, sans-serif';
 
-  const pages = partitionResumePages(document, config.pageSize);
+  const previewFontBold =
+    config.fontFamily === 'Times-Roman'
+      ? '"Times New Roman Bold", Times, serif'
+      : config.fontFamily === 'Georgia'
+      ? 'Georgia, serif'
+      : config.fontFamily === 'Garamond'
+      ? 'Garamond, "EB Garamond", serif'
+      : config.fontFamily === 'Cambria'
+      ? 'Cambria, Georgia, serif'
+      : config.fontFamily === 'Calibri'
+      ? 'Calibri, "Gill Sans", sans-serif'
+      : config.fontFamily === 'Verdana'
+      ? 'Verdana, Geneva, sans-serif'
+      : config.fontFamily === 'Arial'
+      ? 'Arial, Helvetica, sans-serif'
+      : config.fontFamily === 'Courier'
+      ? 'Courier, monospace'
+      : 'Helvetica, Arial, sans-serif';
+
+  const pages = partitionResumePages(document, config.pageSize, config.template);
 
   const contactParts = [
     document.contact.email,
@@ -212,7 +236,9 @@ export function ExportResumeDialog({
         </h2>
         <p
           style={{ fontSize: `${config.fontSizes.bodyText * 0.95}pt` }}
-          className="text-neutral-700 leading-relaxed font-normal"
+          className={`text-neutral-700 leading-relaxed font-normal ${
+            isCentered && !isStructured ? 'text-center' : 'text-left'
+          }`}
         >
           {document.summary}
         </p>
@@ -251,7 +277,7 @@ export function ExportResumeDialog({
             ))}
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className={`space-y-1 ${isCentered ? 'text-center' : 'text-left'}`}>
             {document.skills.map((s, idx) => (
               <div key={idx} className="text-xs leading-snug text-neutral-700">
                 <span className="font-bold text-neutral-900 mr-1.5">
@@ -342,8 +368,15 @@ export function ExportResumeDialog({
       </div>
     ) : null;
 
-  const renderPreviewEducation = (inSidebar = false) =>
-    document.education && document.education.length > 0 ? (
+  const renderPreviewEducation = (inSidebar = false, indices?: number[], isContinuation = false) => {
+    if (!document.education || document.education.length === 0) return null;
+    const itemsToRender = indices
+      ? indices.map((idx) => ({ edu: document.education[idx], idx })).filter((x) => x.edu)
+      : document.education.map((edu, idx) => ({ edu, idx }));
+
+    if (itemsToRender.length === 0) return null;
+
+    return (
       <div>
         <h2
           style={{
@@ -354,11 +387,11 @@ export function ExportResumeDialog({
             isCentered && !inSidebar ? 'text-center' : 'text-left'
           }`}
         >
-          Education
+          Education {isContinuation ? '(Continued)' : ''}
         </h2>
         {inSidebar ? (
           <div className="space-y-2">
-            {document.education.map((edu, idx) => (
+            {itemsToRender.map(({ edu, idx }) => (
               <div key={idx} className="space-y-0.5">
                 <span className="font-bold text-[11px] text-neutral-900 block">
                   {edu.institution}
@@ -380,8 +413,15 @@ export function ExportResumeDialog({
           </div>
         ) : (
           <div className="space-y-1.5">
-            {document.education.map((edu, idx) => (
-              <div key={idx} className="flex items-baseline justify-between">
+            {itemsToRender.map(({ edu, idx }) => (
+              <div
+                key={idx}
+                className={`flex items-baseline ${
+                  isCentered && !isStructured
+                    ? 'justify-center gap-3 text-center'
+                    : 'justify-between'
+                }`}
+              >
                 <div>
                   <span className="font-bold text-neutral-900 text-xs">
                     {edu.institution}
@@ -405,10 +445,18 @@ export function ExportResumeDialog({
           </div>
         )}
       </div>
-    ) : null;
+    );
+  };
 
-  const renderPreviewProjects = () =>
-    document.projects && document.projects.length > 0 ? (
+  const renderPreviewProjects = (indices?: number[], isContinuation = false) => {
+    if (!document.projects || document.projects.length === 0) return null;
+    const itemsToRender = indices
+      ? indices.map((idx) => ({ proj: document.projects![idx], idx })).filter((x) => x.proj)
+      : document.projects.map((proj, idx) => ({ proj, idx }));
+
+    if (itemsToRender.length === 0) return null;
+
+    return (
       <div>
         <h2
           style={{
@@ -419,10 +467,10 @@ export function ExportResumeDialog({
             isCentered && !isStructured ? 'text-center' : 'text-left'
           }`}
         >
-          {projectsTitle}
+          {projectsTitle} {isContinuation ? '(Continued)' : ''}
         </h2>
         <div className="space-y-2">
-          {document.projects.map((proj, idx) => (
+          {itemsToRender.map(({ proj, idx }) => (
             <div key={idx} className="space-y-0.5">
               <div className="flex items-baseline justify-between">
                 <span className="font-bold text-neutral-900 text-xs">
@@ -462,10 +510,18 @@ export function ExportResumeDialog({
           ))}
         </div>
       </div>
-    ) : null;
+    );
+  };
 
-  const renderPreviewCertifications = () =>
-    document.certifications && document.certifications.length > 0 ? (
+  const renderPreviewCertifications = (indices?: number[], isContinuation = false) => {
+    if (!document.certifications || document.certifications.length === 0) return null;
+    const itemsToRender = indices
+      ? indices.map((idx) => ({ cert: document.certifications![idx], idx })).filter((x) => x.cert)
+      : document.certifications.map((cert, idx) => ({ cert, idx }));
+
+    if (itemsToRender.length === 0) return null;
+
+    return (
       <div>
         <h2
           style={{
@@ -476,10 +532,10 @@ export function ExportResumeDialog({
             isCentered && !isStructured ? 'text-center' : 'text-left'
           }`}
         >
-          Certifications & Credentials
+          Certifications & Credentials {isContinuation ? '(Continued)' : ''}
         </h2>
         <ul className="space-y-0.5 pl-2">
-          {document.certifications.map((cert, idx) => (
+          {itemsToRender.map(({ cert, idx }) => (
             <li
               key={idx}
               style={{ fontSize: `${config.fontSizes.bodyText * 0.9}pt` }}
@@ -496,7 +552,8 @@ export function ExportResumeDialog({
           ))}
         </ul>
       </div>
-    ) : null;
+    );
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -726,9 +783,15 @@ export function ExportResumeDialog({
                     }
                     className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-semibold text-neutral-800 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
                   >
-                    <option value="Helvetica">Helvetica</option>
-                    <option value="Times-Roman">Times-Roman</option>
-                    <option value="Courier">Courier</option>
+                    <option value="Times-Roman">Times New Roman (Serif)</option>
+                    <option value="Garamond">Garamond (Serif)</option>
+                    <option value="Georgia">Georgia (Serif)</option>
+                    <option value="Cambria">Cambria (Serif)</option>
+                    <option value="Calibri">Calibri (Sans-serif)</option>
+                    <option value="Helvetica">Helvetica (Sans-serif)</option>
+                    <option value="Arial">Arial (Sans-serif)</option>
+                    <option value="Verdana">Verdana (Sans-serif)</option>
+                    <option value="Courier">Courier (Monospace)</option>
                   </select>
                   <ChevronDown className="h-4 w-4 text-neutral-500 absolute right-3 top-2.5 pointer-events-none" />
                 </div>
@@ -752,7 +815,7 @@ export function ExportResumeDialog({
                       }
                       className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
                     >
-                      {[18, 19, 20, 21, 22, 24].map((sz) => (
+                      {[14, 15, 16, 17, 18, 19, 20, 21, 22, 24].map((sz) => (
                         <option key={sz} value={sz}>
                           {sz}
                         </option>
@@ -778,7 +841,7 @@ export function ExportResumeDialog({
                       }
                       className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
                     >
-                      {[11, 12, 13, 14].map((sz) => (
+                      {[9, 9.5, 10, 10.5, 11, 12, 13, 14].map((sz) => (
                         <option key={sz} value={sz}>
                           {sz}
                         </option>
@@ -807,7 +870,7 @@ export function ExportResumeDialog({
                       }
                       className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
                     >
-                      {[10, 10.5, 11, 11.5, 12].map((sz) => (
+                      {[8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12].map((sz) => (
                         <option key={sz} value={sz}>
                           {sz}
                         </option>
@@ -833,7 +896,7 @@ export function ExportResumeDialog({
                       }
                       className="w-full h-9 px-3 bg-white border border-neutral-300 rounded-xl text-xs font-bold text-neutral-900 appearance-none focus:outline-none focus:ring-2 focus:ring-[#0A1B5C]/20 cursor-pointer"
                     >
-                      {[9, 9.5, 10, 10.5, 11].map((sz) => (
+                      {[7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11].map((sz) => (
                         <option key={sz} value={sz}>
                           {sz}
                         </option>
@@ -1036,14 +1099,14 @@ export function ExportResumeDialog({
                           <div className="flex-[65] space-y-4">
                             {page.showSummary && renderPreviewSummary()}
                             {page.roles.length > 0 && renderPreviewExperience(page.roles, pageIdx > 0)}
-                            {page.showProjects && renderPreviewProjects()}
-                            {page.showCertifications && renderPreviewCertifications()}
+                            {page.showProjects && renderPreviewProjects(page.projectIndices, pageIdx > 0 && !page.isFirstPage)}
+                            {page.showCertifications && renderPreviewCertifications(page.certificationIndices, pageIdx > 0 && !page.isFirstPage)}
                           </div>
 
                           {/* Right Column (35%) */}
                           <div className="flex-[35] border-l border-neutral-200 pl-5 space-y-4">
                             {page.showSkills && renderPreviewSkills(true)}
-                            {page.showEducation && renderPreviewEducation(true)}
+                            {page.showEducation && renderPreviewEducation(true, page.educationIndices, pageIdx > 0 && !page.isFirstPage)}
                           </div>
                         </div>
                       ) : (
@@ -1052,9 +1115,9 @@ export function ExportResumeDialog({
                           {page.showSummary && renderPreviewSummary()}
                           {page.showSkills && renderPreviewSkills(false)}
                           {page.roles.length > 0 && renderPreviewExperience(page.roles, pageIdx > 0)}
-                          {page.showEducation && renderPreviewEducation(false)}
-                          {page.showProjects && renderPreviewProjects()}
-                          {page.showCertifications && renderPreviewCertifications()}
+                          {page.showEducation && renderPreviewEducation(false, page.educationIndices, pageIdx > 0 && !page.isFirstPage && (page.educationIndices?.[0] ?? 0) > 0)}
+                          {page.showProjects && renderPreviewProjects(page.projectIndices, pageIdx > 0 && !page.isFirstPage && (page.projectIndices?.[0] ?? 0) > 0)}
+                          {page.showCertifications && renderPreviewCertifications(page.certificationIndices, pageIdx > 0 && !page.isFirstPage && (page.certificationIndices?.[0] ?? 0) > 0)}
                         </div>
                       )}
                     </div>

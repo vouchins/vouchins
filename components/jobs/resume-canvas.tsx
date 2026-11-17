@@ -406,7 +406,8 @@ export function ResumeCanvas({
       {pages.map((page, pageIdx) => (
         <div
           key={pageIdx}
-          className="relative w-full max-w-[850px] bg-white rounded-xl shadow-md border border-neutral-300 min-h-[1056px] p-6 sm:p-8 text-neutral-900 font-sans flex flex-col justify-between shrink-0 print:min-h-0 print:shadow-none print:border-none print:p-0 print:break-after-page"
+          style={{ fontFamily: '"Times New Roman", Times, serif' }}
+          className="relative w-full max-w-[850px] bg-white rounded-xl shadow-md border border-neutral-300 min-h-[1056px] p-6 sm:p-8 text-neutral-900 flex flex-col justify-between shrink-0 print:min-h-0 print:shadow-none print:border-none print:p-0 print:break-after-page"
         >
           {/* Sheet Body */}
           <div className="flex flex-col gap-3.5 sm:gap-4">
@@ -805,7 +806,7 @@ export function ResumeCanvas({
               <section className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-[#0A1B5C]">
-                    Education
+                    Education {pageIdx > 0 && (page.educationIndices?.[0] ?? 0) > 0 ? '(Continued)' : ''}
                   </h2>
                   <button
                     type="button"
@@ -818,7 +819,10 @@ export function ResumeCanvas({
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  {document.education.map((edu, eduIdx) => (
+                  {(page.educationIndices
+                    ? page.educationIndices.map((idx) => ({ edu: document.education[idx], eduIdx: idx })).filter((x) => x.edu)
+                    : document.education.map((edu, eduIdx) => ({ edu, eduIdx }))
+                  ).map(({ edu, eduIdx }) => (
                     <div key={edu.id || eduIdx} className="group/edu flex justify-between items-baseline text-xs gap-3">
                       <div className="flex flex-col min-w-0 flex-1">
                         <span
@@ -876,7 +880,7 @@ export function ResumeCanvas({
               <section className="flex flex-col gap-2">
                 <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-[#0A1B5C]">
-                    {projectsTitle}
+                    {projectsTitle} {pageIdx > 0 && (page.projectIndices?.[0] ?? 0) > 0 ? '(Continued)' : ''}
                   </h2>
                   <button
                     type="button"
@@ -889,7 +893,10 @@ export function ResumeCanvas({
                 </div>
 
                 <div className="flex flex-col gap-2.5">
-                  {document.projects.map((proj, projIdx) => (
+                  {(page.projectIndices
+                    ? page.projectIndices.map((idx) => ({ proj: document.projects![idx], projIdx: idx })).filter((x) => x.proj)
+                    : document.projects.map((proj, projIdx) => ({ proj, projIdx }))
+                  ).map(({ proj, projIdx }) => (
                     <div key={proj.id || projIdx} className="group/proj flex flex-col gap-1 text-xs">
                       <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
                         <span
@@ -955,7 +962,7 @@ export function ResumeCanvas({
               <section className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-[#0A1B5C]">
-                    Certifications & Credentials
+                    Certifications & Credentials {pageIdx > 0 && (page.certificationIndices?.[0] ?? 0) > 0 ? '(Continued)' : ''}
                   </h2>
                   <button
                     type="button"
@@ -968,7 +975,10 @@ export function ResumeCanvas({
                 </div>
 
                 <div className="flex flex-col gap-1">
-                  {document.certifications.map((cert, certIdx) => (
+                  {(page.certificationIndices
+                    ? page.certificationIndices.map((idx) => ({ cert: document.certifications![idx], certIdx: idx })).filter((x) => x.cert)
+                    : document.certifications.map((cert, certIdx) => ({ cert, certIdx }))
+                  ).map(({ cert, certIdx }) => (
                     <div key={certIdx} className="group/cert flex items-center justify-between gap-2 text-xs">
                       <div className="flex items-center gap-1.5 flex-1">
                         <span className="text-neutral-400 select-none">•</span>
