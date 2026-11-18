@@ -168,4 +168,32 @@ describe('Heuristic Evaluation for Specialized Healthcare Resume', () => {
     const evaluation = evaluateResumeHeuristically(doc, rawText);
     expect(evaluation.targetRole).toBe('Clinical Pharmacist');
   });
+
+  it('extracts real resume buffer from Ummu Farwah.pdf with accurate text alignment', async () => {
+    const fs = await import('fs');
+    const path = '/Users/shaiktaher/Downloads/Ummu Farwah.pdf';
+    if (!fs.existsSync(path)) return;
+
+    const buffer = fs.readFileSync(path);
+    const { extractResumeText } = await import('@/lib/jobs/parser');
+    const extraction = await extractResumeText(buffer, 'application/pdf', 'Ummu Farwah.pdf');
+
+    expect(extraction.rawText).toContain('Ummu Farwah');
+    expect(extraction.rawText).toContain('Regulatory Affairs');
+    expect(extraction.rawText).toContain('Clinical Pharmacist');
+    expect(extraction.rawText).toContain('Tuffah Hospital');
+
+    const doc = parseRawTextToDocument(extraction.rawText);
+    expect(doc.contact.fullName).toBe('Ummu Farwah');
+    expect(doc.contact.email).toBe('Ummufarwah.fm@gmail.com');
+    expect(doc.contact.location).toBe('Jersey City, NJ');
+    expect(doc.experience.length).toBeGreaterThanOrEqual(1);
+    expect(doc.education.length).toBeGreaterThanOrEqual(1);
+
+    const { partitionResumePages } = await import('@/lib/jobs/pagination');
+    const docWithRewrites = parseRawTextToDocument(extraction.rawText);
+    const pages = partitionResumePages(docWithRewrites, 'LETTER', 'standard');
+    expect(pages.length).toBeGreaterThanOrEqual(1);
+    expect(pages[0].roles.length).toBeGreaterThanOrEqual(1);
+  });
 });

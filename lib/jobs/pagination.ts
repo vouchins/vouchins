@@ -30,16 +30,17 @@ export interface PaginatedResumePage {
 
 export function estimateBulletUnits(text: string): number {
   const len = text ? text.length : 0;
-  // A standard resume bullet line in 540pt printable width with 9pt font fits ~90-95 chars.
-  // Each line is ~13-14pt tall including line-height and bullet spacing.
-  if (len <= 95) return 14;
-  if (len <= 190) return 26;
-  if (len <= 285) return 38;
-  return 38 + Math.ceil((len - 285) / 95) * 12;
+  // In standard full-width layout (556pt printable width with 9pt font),
+  // each line holds ~140-145 characters.
+  // Line-height is ~11.25pt plus bullet padding (~13pt total per rendered line).
+  if (len <= 140) return 13;
+  if (len <= 280) return 25;
+  if (len <= 420) return 37;
+  return 37 + Math.ceil((len - 420) / 140) * 12;
 }
 
 export function estimateRoleUnits(role: WorkExperienceItem): number {
-  const headerUnits = 24;
+  const headerUnits = 20;
   const bulletsUnits = (role.bullets || []).reduce(
     (sum, b) => sum + estimateBulletUnits(b) + 1.5,
     0
@@ -61,7 +62,7 @@ export function partitionResumePages(
 
   const eduUnits =
     document.education && document.education.length > 0
-      ? 24 + document.education.length * 30
+      ? 24 + document.education.length * 36
       : 0;
 
   const projUnits =
@@ -69,7 +70,7 @@ export function partitionResumePages(
       ? 24 +
         document.projects.reduce((acc, p) => {
           const bUnits = (p.bullets || []).reduce(
-            (bAcc, b) => bAcc + estimateBulletUnits(b) + 2,
+            (bAcc, b) => bAcc + estimateBulletUnits(b) + 1.5,
             0
           );
           return acc + 22 + bUnits;
@@ -78,7 +79,7 @@ export function partitionResumePages(
 
   const certUnits =
     document.certifications && document.certifications.length > 0
-      ? 22 + document.certifications.length * 16
+      ? 20 + document.certifications.length * 16
       : 0;
 
   const contactLinksCount = [
@@ -90,20 +91,20 @@ export function partitionResumePages(
     document.contact.leetcodeUrl,
     document.contact.portfolioUrl,
   ].filter(Boolean).length;
-  let p1Used = contactLinksCount > 4 ? 110 : 95; // Header & Contact
+  let p1Used = contactLinksCount > 4 ? 85 : 70; // Header & Contact
   if (document.summary) {
-    p1Used += document.summary.length > 250 ? 65 : 45;
+    p1Used += 18 + Math.ceil(document.summary.length / 140) * 13;
   }
   const skillsUnits = (document.skills || []).reduce((acc, s) => {
     const textLen = (s.category || '').length + 2 + (s.items || []).join(', ').length;
-    const estimatedLines = Math.max(1, Math.ceil(textLen / 95));
-    return acc + estimatedLines * 16 + 4;
-  }, 26);
+    const estimatedLines = Math.max(1, Math.ceil(textLen / 140));
+    return acc + estimatedLines * 13 + 6;
+  }, 18);
   // In structured template, skills and education are in the sidebar column, NOT in the main column!
   if (!isStructured) {
     p1Used += skillsUnits;
   }
-  p1Used += 26; // Work Experience section header
+  p1Used += 20; // Work Experience section header
 
   const page1Roles: PaginatedRoleSegment[] = [];
   const overflowRoles: PaginatedRoleSegment[] = [];
@@ -128,14 +129,14 @@ export function partitionResumePages(
     } else {
       // Flow across page break if header + at least 2 bullets fit to prevent awkward dead space on Page 1
       const availableSpace = PAGE_CAPACITY - currentP1;
-      const roleHeaderUnits = 32;
+      const roleHeaderUnits = 20;
       const bullets = item.role.bullets || [];
 
       let p1BulletCount = 0;
       let p1RoleBulletsUnits = roleHeaderUnits;
 
       for (let bIdx = 0; bIdx < bullets.length; bIdx++) {
-        const bUnit = estimateBulletUnits(bullets[bIdx]) + 3;
+        const bUnit = estimateBulletUnits(bullets[bIdx]) + 1.5;
         if (p1RoleBulletsUnits + bUnit <= availableSpace) {
           p1RoleBulletsUnits += bUnit;
           p1BulletCount++;
@@ -194,7 +195,7 @@ export function partitionResumePages(
     let sideSpaceUsed = skillsUnits;
     let p1EduCost = 22;
     for (let i = 0; i < remEdu.length; i++) {
-      const itemCost = 28;
+      const itemCost = 36;
       if (sideSpaceUsed + p1EduCost + itemCost <= (PAGE_CAPACITY - 95)) {
         p1EduCost += itemCost;
         p1Edu.push(remEdu[i]);
@@ -207,9 +208,9 @@ export function partitionResumePages(
     }
   } else {
     if (overflowRoles.length === 0 && remEdu.length > 0) {
-      let p1EduCost = 22; // Section header
+      let p1EduCost = 24; // Section header
       for (let i = 0; i < remEdu.length; i++) {
-        const itemCost = 28;
+        const itemCost = 45;
         if (currentP1 + p1EduCost + itemCost <= PAGE_CAPACITY) {
           p1EduCost += itemCost;
           p1Edu.push(remEdu[i]);

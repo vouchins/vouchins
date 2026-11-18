@@ -32,7 +32,7 @@ export function SubscriptionGate({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-3xl border border-neutral-200 bg-white">
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-3xl border border-neutral-200 bg-white [&>button]:text-white [&>button]:opacity-80 [&>button:hover]:opacity-100 [&>button:hover]:text-white [&>button]:focus:ring-white/40">
         {/* Top Header Banner */}
         <div className="bg-[#0A1B5C] px-6 py-8 text-white relative">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-teal-200 text-xs font-semibold mb-3">

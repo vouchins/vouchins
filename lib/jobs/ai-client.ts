@@ -218,6 +218,21 @@ ${rawText.slice(0, 14000)}
             const parsed = JSON.parse(content);
             const validated = ResumeDocumentSchema.safeParse(parsed);
             if (validated.success) {
+              const data = validated.data;
+              // Guard: If LLM returned a hollow/empty document with no contact, no experience, and no education
+              // even though rawText contains substantive content, fall back to robust heuristic parsing.
+              const hasSubstantiveContent =
+                (data.experience && data.experience.length > 0) ||
+                (data.education && data.education.length > 0) ||
+                (data.skills && data.skills.length > 0) ||
+                (data.contact?.fullName && data.contact.fullName !== 'Candidate Profile');
+
+              if (!hasSubstantiveContent && rawText.length > 100) {
+                console.warn('[AI Client] Gemini returned empty/hollow document structure, falling back to heuristic extraction.');
+                const heuristicDoc = parseRawTextToDocument(rawText);
+                return heuristicDoc;
+              }
+
               await recordAIUsage({
                 userId,
                 action: 'extract',
@@ -225,7 +240,7 @@ ${rawText.slice(0, 14000)}
                 model,
                 inputChars: rawText.length,
               });
-              return validated.data;
+              return data;
             }
           }
         } else {

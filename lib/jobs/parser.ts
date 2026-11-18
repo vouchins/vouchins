@@ -10,15 +10,25 @@ export interface ExtractionResult {
 }
 
 /**
+ * Dynamic ESM loader for pdfjs-dist that works reliably across both
+ * local development and serverless/bundled environments (Vercel, Next.js, Jest).
+ */
+async function getPdfJs() {
+  try {
+    return await import('pdfjs-dist/legacy/build/pdf.mjs');
+  } catch {
+    const importEsm = new Function('specifier', 'return import(specifier)');
+    return await importEsm('pdfjs-dist/legacy/build/pdf.mjs');
+  }
+}
+
+/**
  * Robust pure JavaScript PDF text parser using pdfjs-dist legacy build.
  * Does NOT require native C++ bindings (@napi-rs/canvas) or external workers,
  * making it 100% resilient across serverless environments (Vercel, Netlify, Docker).
  */
 async function parsePdfBuffer(buffer: Buffer): Promise<{ rawText: string; pageCount: number }> {
-  // Use new Function to guarantee native dynamic ESM import across all runtimes
-  // (prevents test runners and legacy CJS compilers from transpiling dynamic import to require)
-  const importEsm = new Function('specifier', 'return import(specifier)');
-  const pdfjs = await importEsm('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfjs = await getPdfJs();
   const uint8Data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   const loadingTask = pdfjs.getDocument({
     data: uint8Data,
@@ -39,26 +49,52 @@ async function parsePdfBuffer(buffer: Buffer): Promise<{ rawText: string; pageCo
     // Group items by vertical position (Y) to preserve natural line layout
     const lines: string[] = [];
     let currentY: number | null = null;
-    let currentLine: string[] = [];
+    let currentLineItems: Array<{ str: string; x: number; width: number }> = [];
+
+    const flushLine = () => {
+      if (currentLineItems.length === 0) return;
+      // Sort items on the same horizontal baseline by X-coordinate
+      currentLineItems.sort((a, b) => a.x - b.x);
+
+      let lineStr = '';
+      for (let j = 0; j < currentLineItems.length; j++) {
+        const cur = currentLineItems[j];
+        if (j === 0) {
+          lineStr += cur.str;
+        } else {
+          const prev = currentLineItems[j - 1];
+          const gap = cur.x - (prev.x + prev.width);
+          // Only insert space if neither side already has a space and the gap indicates a word break (> 2px)
+          if (prev.str.endsWith(' ') || cur.str.startsWith(' ')) {
+            lineStr += cur.str;
+          } else if (gap > 2) {
+            lineStr += ' ' + cur.str;
+          } else {
+            lineStr += cur.str;
+          }
+        }
+      }
+      lines.push(lineStr.trim());
+      currentLineItems = [];
+    };
 
     for (const item of items) {
       if (!('str' in item)) continue;
       const str = item.str;
       if (!str) continue;
       const y = Math.round(item.transform[5]);
+      const x = item.transform[4];
+      const width = item.width || 0;
+
       if (currentY === null || Math.abs(y - currentY) > 4) {
-        if (currentLine.length > 0) {
-          lines.push(currentLine.join(' ').trim());
-        }
+        flushLine();
         currentY = y;
-        currentLine = [str];
+        currentLineItems = [{ str, x, width }];
       } else {
-        currentLine.push(str);
+        currentLineItems.push({ str, x, width });
       }
     }
-    if (currentLine.length > 0) {
-      lines.push(currentLine.join(' ').trim());
-    }
+    flushLine();
     pagesText.push(lines.join('\n'));
     page.cleanup();
   }
@@ -73,11 +109,12 @@ async function parsePdfBuffer(buffer: Buffer): Promise<{ rawText: string; pageCo
 /**
  * Resilient fallback parser that decompresses FlateDecode (zlib) streams and extracts raw text
  * if standard PDF parsing fails in restricted environments.
+ * Correctly interprets PDF TJ array spacing operands so words are not fragmented into isolated characters.
  */
 function extractPdfStreamText(buffer: Buffer): string {
   try {
     const content = buffer.toString('binary');
-    const chunks: string[] = [];
+    const lines: string[] = [];
 
     const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
     let match: RegExpExecArray | null;
@@ -86,10 +123,10 @@ function extractPdfStreamText(buffer: Buffer): string {
       const rawStream = Buffer.from(match[1], 'binary');
       let decompressed: Buffer;
       try {
-        decompressed = zlib.inflateSync(rawStream);
+        decompressed = zlib.inflateSync(new Uint8Array(rawStream));
       } catch {
         try {
-          decompressed = zlib.inflateRawSync(rawStream);
+          decompressed = zlib.inflateRawSync(new Uint8Array(rawStream));
         } catch {
           decompressed = rawStream;
         }
@@ -101,35 +138,58 @@ function extractPdfStreamText(buffer: Buffer): string {
         let btMatch: RegExpExecArray | null;
         while ((btMatch = btEtRegex.exec(streamText)) !== null) {
           const block = btMatch[0];
-          const tjRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|'|")/g;
+          let blockText = '';
+
+          // 1. Match TJ array operators: [(str) 20 (str)] TJ
+          const arrayRegex = /\[([\s\S]*?)\]\s*TJ/g;
+          let arrMatch: RegExpExecArray | null;
+          while ((arrMatch = arrayRegex.exec(block)) !== null) {
+            const innerStr = arrMatch[1];
+            // In PDF TJ operators, tokens are strings in parentheses or numeric font-relative kerning shifts
+            const tokenRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)|(-?\d+(?:\.\d+)?)/g;
+            let tokenMatch: RegExpExecArray | null;
+            let currentRun = '';
+            while ((tokenMatch = tokenRegex.exec(innerStr)) !== null) {
+              if (tokenMatch[1] !== undefined) {
+                const clean = tokenMatch[1]
+                  .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+                  .replace(/\\(.)/g, '$1');
+                currentRun += clean;
+              } else if (tokenMatch[2] !== undefined) {
+                const spacing = parseFloat(tokenMatch[2]);
+                // In PDF TJ syntax, negative offset moves forward in text space.
+                // Displacements <= -180 units represent word spaces; smaller numbers are glyph kerning.
+                if (spacing <= -180) {
+                  currentRun += ' ';
+                }
+              }
+            }
+            if (currentRun.trim()) {
+              blockText += (blockText ? ' ' : '') + currentRun.trim();
+            }
+          }
+
+          // 2. Match single string operators: (str) Tj or (str) ' or (str) "
+          const tjRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|["\x27])/g;
           let tjMatch: RegExpExecArray | null;
           while ((tjMatch = tjRegex.exec(block)) !== null) {
             const clean = tjMatch[1]
               .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
               .replace(/\\(.)/g, '$1')
               .trim();
-            if (clean) chunks.push(clean);
+            if (clean) {
+              blockText += (blockText ? ' ' : '') + clean;
+            }
           }
 
-          const arrayRegex = /\[([\s\S]*?)\]\s*TJ/g;
-          let arrMatch: RegExpExecArray | null;
-          while ((arrMatch = arrayRegex.exec(block)) !== null) {
-            const innerStr = arrMatch[1];
-            const innerRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)/g;
-            let sMatch: RegExpExecArray | null;
-            while ((sMatch = innerRegex.exec(innerStr)) !== null) {
-              const clean = sMatch[1]
-                .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
-                .replace(/\\(.)/g, '$1')
-                .trim();
-              if (clean) chunks.push(clean);
-            }
+          if (blockText.trim()) {
+            lines.push(blockText.trim());
           }
         }
       }
     }
 
-    return chunks.join(' ');
+    return lines.join('\n');
   } catch {
     return '';
   }
@@ -218,6 +278,11 @@ export async function extractResumeText(
     .replace(/\bPharmacis\s+t\b/gi, 'Pharmacist')
     .replace(/\bdocumentatio\s+n\b/gi, 'documentation')
     .replace(/\bi\s+nteractions?\b/gi, 'interactions')
+    // Heal PDF spaced letter sequences (e.g. "R e gul a to r y" -> "Regulatory")
+    .replace(/\b([A-Z][a-z]{0,2})\s+([a-z]{1,4}(?:\s+[a-z]{1,4}){1,5})\b/g, (match, prefix, rest) => {
+      const merged = prefix + rest.replace(/\s+/g, '');
+      return merged.length > 3 ? merged : match;
+    })
     // Re-join words broken across line wraps (e.g. "ori-\nented" -> "oriented", "distrib-\nuted" -> "distributed")
     .replace(/(\b[a-zA-Z]{2,})-(?:[ \t]*\n[ \t]*|[ \t]+)([a-zA-Z]{2,}\b)/g, (match, prefix, suffix) => {
       const lowerSuffix = suffix.toLowerCase();
