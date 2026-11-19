@@ -793,6 +793,7 @@ export function JobRecommendationsDashboard() {
     const initial = user?.city?.trim() || '';
     return isValidGeographicLocation(initial) ? initial : '';
   });
+  const userCitySelectedManuallyRef = React.useRef(false);
   const [customCityInput, setCustomCityInput] = useState<string>('');
   const [isLocationMenuOpen, setIsLocationMenuOpen] = useState(false);
 
@@ -830,6 +831,7 @@ export function JobRecommendationsDashboard() {
   const [isTailoring, setIsTailoring] = useState(false);
   const [tailorSuccess, setTailorSuccess] = useState(false);
   const [isDownloadingTailoredPdf, setIsDownloadingTailoredPdf] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
   // Fetch candidate profile & master resume skills
   useEffect(() => {
@@ -903,12 +905,13 @@ export function JobRecommendationsDashboard() {
                   setCandidateSeniority(data.document.experience[0].roleTitle.trim());
                 }
               }
-              if (!selectedCity || !isValidGeographicLocation(selectedCity)) {
-                if (user?.city?.trim() && isValidGeographicLocation(user.city)) {
-                  setSelectedCity(user.city.trim());
+              if (!userCitySelectedManuallyRef.current) {
+                const homeCity = user?.city?.trim() || data.user?.city?.trim();
+                if (homeCity && isValidGeographicLocation(homeCity)) {
+                  setSelectedCity(homeCity);
                 } else if (data.document?.contact?.location && isValidGeographicLocation(data.document.contact.location)) {
                   setSelectedCity(data.document.contact.location.trim());
-                } else {
+                } else if (!selectedCity || !isValidGeographicLocation(selectedCity)) {
                   setSelectedCity('');
                 }
               }
@@ -920,6 +923,10 @@ export function JobRecommendationsDashboard() {
         }
       } catch (err) {
         console.warn('Candidate profile loading note:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingProfile(false);
+        }
       }
     }
     loadCandidateProfile();
@@ -929,6 +936,7 @@ export function JobRecommendationsDashboard() {
   }, []);
 
   const handleApplyLocation = (city?: string) => {
+    userCitySelectedManuallyRef.current = true;
     const target = (city !== undefined ? city : customCityInput).trim();
     if (target && target.toLowerCase() !== 'all') {
       setSelectedCity(target);
@@ -944,11 +952,11 @@ export function JobRecommendationsDashboard() {
 
   useEffect(() => {
     if (user?.city?.trim() && isValidGeographicLocation(user.city)) {
-      if (!selectedCity || !isValidGeographicLocation(selectedCity)) {
+      if (!userCitySelectedManuallyRef.current) {
         setSelectedCity(user.city.trim());
       }
     }
-  }, [user?.city, selectedCity]);
+  }, [user?.city]);
 
   // Real Database Jobs State (Server-Side Paginated)
   const [dbJobs, setDbJobs] = useState<RecommendedJob[]>([]);
@@ -1019,8 +1027,11 @@ export function JobRecommendationsDashboard() {
       if (err.name === 'AbortError') return;
       console.error('Failed to load live jobs:', err);
     } finally {
-      setIsLoadingJobs(false);
-      setIsLoadingMore(false);
+      // Only mark loading as finished if this request wasn't superseded by another in-flight controller
+      if (searchAbortControllerRef.current === controller) {
+        setIsLoadingJobs(false);
+        setIsLoadingMore(false);
+      }
     }
   }, [
     selectedCity,
@@ -1034,9 +1045,11 @@ export function JobRecommendationsDashboard() {
   ]);
 
   useEffect(() => {
+    // Wait until initial candidate profile check has completed to prevent firing an uncontextualized request that immediately gets cancelled
+    if (isLoadingProfile) return;
     setPage(1);
     loadJobs(1, false);
-  }, [loadJobs]);
+  }, [loadJobs, isLoadingProfile]);
 
   const handleLoadMore = () => {
     if (isLoadingMore || !hasMore) return;
@@ -1238,7 +1251,7 @@ export function JobRecommendationsDashboard() {
   }, [dbJobs, selectedCity, candidateProfileSkills, candidateSeniority, workModeFilter]);
 
   const recommendedJobs = useMemo(() => {
-    let list = allJobs.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 90);
+    let list = allJobs.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 74);
     if (debouncedSearchQuery.trim()) {
       const q = debouncedSearchQuery.toLowerCase().trim();
       const qWords = q.split(/\s+/).filter(Boolean);
@@ -1353,7 +1366,7 @@ export function JobRecommendationsDashboard() {
 
     // Filter by list tab (only constrain by recommendation threshold if not actively searching with a keyword)
     if (activeListTab === 'recommended' && !debouncedSearchQuery.trim()) {
-      list = list.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 90);
+      list = list.filter((j) => j.isRecommended || j.isCurated || j.matchScore >= 74);
     } else if (activeListTab === 'saved') {
       list = list.filter((j) => savedJobIds.includes(j.id));
     } else if (activeListTab === 'applied') {
@@ -2710,7 +2723,7 @@ export function JobRecommendationsDashboard() {
 
             {/* Scrollable Job Cards List (Independently scrollable on left) */}
             <div ref={listScrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain space-y-3 pr-1.5 rounded-2xl [scrollbar-width:thin] [-webkit-overflow-scrolling:touch] touch-pan-y pb-6">
-              {isLoadingJobs && dbJobs.length === 0 ? (
+              {(isLoadingJobs || isLoadingProfile) && dbJobs.length === 0 ? (
                 <div className="space-y-3">
                   {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="p-4 rounded-2xl border border-neutral-200/80 bg-white animate-pulse">
@@ -2743,11 +2756,14 @@ export function JobRecommendationsDashboard() {
                   <button
                     type="button"
                     onClick={() => {
+                      userCitySelectedManuallyRef.current = true;
                       setSearchQuery('');
                       setDebouncedSearchQuery('');
                       setActiveChip('all');
+                      setActiveListTab('all');
                       setSelectedCity('');
                       setSelectedCompanies([]);
+                      setWorkModeFilter('all');
                     }}
                     className="mt-4 px-4 py-2 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold transition-colors"
                   >
@@ -2908,7 +2924,27 @@ export function JobRecommendationsDashboard() {
           {/* Right Column (62% on desktop): Deep-Dive Job & Copilot Action Pane */}
           <div className={`lg:col-span-7 bg-white rounded-2xl sm:rounded-3xl border border-neutral-200/90 shadow-sm flex-1 lg:flex-initial flex flex-col h-full min-h-0 overflow-hidden ${mobileView === 'detail' ? 'flex' : 'hidden lg:flex'
             }`}>
-            {!selectedJob ? (
+            {(isLoadingJobs || isLoadingProfile) && dbJobs.length === 0 ? (
+              <div className="flex-1 p-6 sm:p-8 space-y-6 animate-pulse">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-neutral-100" />
+                  <div className="space-y-2 flex-1">
+                    <div className="h-5 w-48 bg-neutral-200 rounded-md" />
+                    <div className="h-4 w-32 bg-neutral-100 rounded-md" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <div className="h-8 w-24 bg-neutral-100 rounded-xl" />
+                  <div className="h-8 w-28 bg-neutral-100 rounded-xl" />
+                  <div className="h-8 w-20 bg-neutral-100 rounded-xl" />
+                </div>
+                <div className="space-y-3 pt-4 border-t border-neutral-100">
+                  <div className="h-4 w-full bg-neutral-100 rounded" />
+                  <div className="h-4 w-5/6 bg-neutral-100 rounded" />
+                  <div className="h-4 w-4/6 bg-neutral-100 rounded" />
+                </div>
+              </div>
+            ) : !selectedJob ? (
               <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-neutral-50/50 to-white">
                 <div className="w-16 h-16 rounded-2xl bg-neutral-100 flex items-center justify-center mb-4 text-[#0A1B5C]/60 border border-neutral-200/60 shadow-xs">
                   <Briefcase className="w-8 h-8 text-[#0A1B5C]" />

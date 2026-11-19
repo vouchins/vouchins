@@ -183,10 +183,10 @@ export function JobsOverviewDashboard() {
   const shareableUrl = effectiveSlug
     ? `${origin || 'https://www.vouchins.com'}/resume/${effectiveSlug}`
     : (user as any)?.resume_path
-    ? (user as any).resume_path.startsWith('http')
-      ? (user as any).resume_path
-      : `${origin || 'https://www.vouchins.com'}${(user as any).resume_path}`
-    : '';
+      ? (user as any).resume_path.startsWith('http')
+        ? (user as any).resume_path
+        : `${origin || 'https://www.vouchins.com'}${(user as any).resume_path}`
+      : '';
 
   // Handle open custom slug editor
   const handleOpenSlugEditor = () => {
@@ -194,9 +194,9 @@ export function JobsOverviewDashboard() {
       activeCustomSlug ||
       (user?.full_name
         ? user.full_name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
         : '');
     setCustomSlugInput(initialSlug);
     setSlugStatus({});
@@ -423,16 +423,16 @@ export function JobsOverviewDashboard() {
   // Display matched jobs (using DB jobs if available, otherwise curated top matches)
   const displayMatchedJobs = jobsList.length > 0
     ? jobsList.slice(0, 4).map((j, idx) => ({
-        id: j.id,
-        title: j.title || 'Software Engineer',
-        company: j.company_name || 'Tech Company',
-        logo: (j.company_name || 'TC').slice(0, 2).toUpperCase(),
-        logoBg: 'bg-[#0A1B5C] text-white',
-        location: j.location || 'Remote',
-        salary: j.salary_range || 'Competitive',
-        matchScore: 90 + ((idx * 3) % 8),
-        tags: (j.requirements || '').split('\n').filter((s: string) => s.trim().length > 3).slice(0, 4),
-      }))
+      id: j.id,
+      title: j.title || 'Software Engineer',
+      company: j.company_name || 'Tech Company',
+      logo: (j.company_name || 'TC').slice(0, 2).toUpperCase(),
+      logoBg: 'bg-[#0A1B5C] text-white',
+      location: j.location || 'Remote',
+      salary: j.salary_range,
+      matchScore: 90 + ((idx * 3) % 8),
+      tags: (j.requirements || '').split('\n').filter((s: string) => s.trim().length > 3).slice(0, 4),
+    }))
     : topMatches;
 
   // Recent activity stream (preserved for when section is uncommented)
@@ -864,9 +864,8 @@ export function JobsOverviewDashboard() {
                       <h2 className="text-lg sm:text-xl font-black text-neutral-900 tracking-tight">
                         {user ? 'Add Your Master Resume' : 'Get Started with Master Resume'}
                       </h2>
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${
-                        user ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      }`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black border ${user ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        }`}>
                         {user ? 'Action Required' : 'Step 1'}
                       </span>
                     </div>

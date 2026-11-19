@@ -414,10 +414,15 @@ export function isLocationMatch(
   // 6. Remote Job Region Compatibility
   // If the job is remote, verify it is geographically compatible with candidate's location
   if (normalizedType === 'remote') {
-    const isCandidateIndia = INDIA_REGIONS.has(candLoc) ||
-      (aliases.some((al) => INDIA_REGIONS.has(al)));
-    const isCandidateUS = US_REGIONS.has(candLoc) ||
-      (aliases.some((al) => US_REGIONS.has(al)));
+    const candTokens = candLoc.split(/[\s,/-]+/).map((t) => t.trim()).filter(Boolean);
+    const isCandidateIndia =
+      INDIA_REGIONS.has(candLoc) ||
+      candTokens.some((t) => INDIA_REGIONS.has(t)) ||
+      aliases.some((al) => INDIA_REGIONS.has(al));
+    const isCandidateUS =
+      US_REGIONS.has(candLoc) ||
+      candTokens.some((t) => US_REGIONS.has(t)) ||
+      aliases.some((al) => US_REGIONS.has(al));
 
     const jobHasUS = Array.from(US_REGIONS).some((term) => {
       const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
