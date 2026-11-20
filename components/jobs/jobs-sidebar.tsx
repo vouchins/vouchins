@@ -207,7 +207,7 @@ export function JobsSidebar({
                   }}
                   title={item.tooltip || item.label}
                   className={`relative flex flex-col items-center justify-center w-full py-2.5 px-1 rounded-2xl transition-all group ${isActive
-                    ? 'bg-[#0A1B5C]/10 text-[#0A1B5C] font-black shadow-xs ring-1 ring-[#0A1B5C]/20'
+                    ? 'bg-[#0A1B5C]/10 text-[#0A1B5C] font-semibold shadow-xs ring-1 ring-[#0A1B5C]/20'
                     : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100/80'
                     }`}
                 >
@@ -219,14 +219,14 @@ export function JobsSidebar({
 
                     {/* Pill Badge (e.g. NEW for Mock Interviews) */}
                     {item.badge && (
-                      <span className="absolute -top-1.5 -right-3.5 px-1 py-0.2 bg-rose-500 text-white text-[8px] font-black rounded uppercase tracking-wider shadow-xs leading-none">
+                      <span className="absolute -top-1.5 -right-3.5 px-1 py-0.2 bg-rose-500 text-white text-[8px] font-semibold rounded uppercase tracking-wider shadow-xs leading-none">
                         {item.badge}
                       </span>
                     )}
                   </div>
 
                   <span
-                    className={`text-[10px] sm:text-[11px] tracking-tight mt-1 transition-colors leading-none ${isActive ? 'text-[#0A1B5C] font-extrabold' : 'text-neutral-500 font-medium'
+                    className={`text-[10px] sm:text-[11px] tracking-tight mt-1 transition-colors leading-none ${isActive ? 'text-[#0A1B5C] font-semibold' : 'text-neutral-500 font-medium'
                       }`}
                   >
                     {item.label}
@@ -306,7 +306,7 @@ export function JobsSidebar({
                 className={cn(
                   "relative flex flex-col items-center justify-center py-1 px-0.5 rounded-xl transition-all flex-1 min-w-0",
                   isActive
-                    ? "text-[#0A1B5C] font-black"
+                    ? "text-[#0A1B5C] font-semibold"
                     : "text-neutral-500 hover:text-neutral-900"
                 )}
               >
@@ -318,7 +318,7 @@ export function JobsSidebar({
                     )}
                   />
                   {item.badge && (
-                    <span className="absolute -top-1 -right-1.5 px-1 py-0.2 bg-rose-500 text-white text-[7px] font-black rounded uppercase tracking-wider leading-none">
+                    <span className="absolute -top-1 -right-1.5 px-1 py-0.2 bg-rose-500 text-white text-[7px] font-semibold rounded uppercase tracking-wider leading-none">
                       {item.badge}
                     </span>
                   )}
@@ -326,7 +326,7 @@ export function JobsSidebar({
                 <span
                   className={cn(
                     "text-[9px] sm:text-[10px] tracking-tight mt-0.5 leading-none truncate max-w-full text-center",
-                    isActive ? "text-[#0A1B5C] font-extrabold" : "text-neutral-500 font-medium"
+                    isActive ? "text-[#0A1B5C] font-semibold" : "text-neutral-500 font-medium"
                   )}
                 >
                   {item.label}

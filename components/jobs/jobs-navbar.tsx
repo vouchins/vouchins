@@ -161,7 +161,7 @@ export function JobsNavbar({
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white border-b border-neutral-200/80 shadow-xs px-3 sm:px-6 py-2.5 sm:py-3 shrink-0">
+      <header className="sticky top-0 z-40 bg-white/75 backdrop-blur-xl border-b border-white/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] px-3 sm:px-6 py-2.5 sm:py-3 shrink-0">
         <div className="max-w-[1720px] mx-auto flex items-center justify-between gap-2 sm:gap-4">
           {/* Left: Brand / Logo */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
@@ -222,7 +222,7 @@ export function JobsNavbar({
                       </span>
                       {dynamicAtsScore != null ? (
                         <span
-                          className={`text-[10px] font-extrabold flex items-center gap-1 ${
+                          className={`text-[10px] font-semibold flex items-center gap-1 ${
                             dynamicAtsScore >= 80
                               ? 'text-emerald-600'
                               : dynamicAtsScore >= 60
