@@ -92,16 +92,26 @@ export async function GET(request: Request) {
         doc?.experience?.some((e: any) => e.company === 'Leading Tech Organization') ||
         doc?.projects?.some((p: any) => p.title === 'Distributed Real-Time Processing Engine');
 
-      if (isTainted && r.raw_text) {
+      const isHollow =
+        (!doc?.experience || doc.experience.length === 0) &&
+        (!doc?.skills || doc.skills.length === 0) &&
+        Boolean(r.raw_text && r.raw_text.trim().length > 100);
+
+      if ((isTainted || isHollow) && r.raw_text) {
         try {
           doc = parseRawTextToDocument(r.raw_text);
           if ((r as any).custom_slug) {
             (doc as any).customSlug = (r as any).custom_slug;
           }
-          // Auto-heal legacy database record in background
+          // Auto-heal legacy or hollow database record in background
           supabaseAdmin
             .from('job_resumes')
-            .update({ document_schema: doc })
+            .update({
+              document_schema: doc,
+              title: doc.contact?.fullName && doc.contact.fullName !== 'Candidate Profile'
+                ? `${doc.contact.fullName} - Resume`
+                : r.title,
+            })
             .eq('id', r.id)
             .then(() => {});
         } catch {
@@ -143,10 +153,27 @@ export async function GET(request: Request) {
           evaluation?.detectedSeniority?.includes('Software Engineer')
         );
 
-        if (hasLegacyPlaceholder || hasMismatchedTechSuggestions || !evaluation) {
-          // Stale evaluation from legacy placeholder document or domain mismatch: generate fresh
+        const isHollowEvaluation = isHollow || !evaluation?.suggestions || evaluation.suggestions.length === 0;
+
+        if (hasLegacyPlaceholder || hasMismatchedTechSuggestions || isHollowEvaluation || !evaluation) {
+          // Stale evaluation from legacy placeholder document or domain mismatch or hollow doc: generate fresh
           try {
             evaluation = evaluateResumeHeuristically(doc, r.raw_text);
+            supabaseAdmin
+              .from('job_evaluations')
+              .insert({
+                resume_id: r.id,
+                user_id: authCheck.userId,
+                overall_score: evaluation.overallScore,
+                pillar_scores: evaluation.pillarScores,
+                detected_seniority: evaluation.detectedSeniority,
+                target_role: evaluation.targetRole,
+                strengths: evaluation.strengths,
+                missing_keywords: evaluation.missingKeywords,
+                suggestions: evaluation.suggestions,
+                job_match_vectors: evaluation.jobMatchVectors,
+              })
+              .then(() => {});
           } catch (evalErr) {
             console.warn('Error during heuristic evaluation:', evalErr);
           }

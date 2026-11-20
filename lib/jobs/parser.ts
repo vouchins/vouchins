@@ -106,15 +106,119 @@ async function parsePdfBuffer(buffer: Buffer): Promise<{ rawText: string; pageCo
   };
 }
 
+async function parseWithPdfParse(buffer: Buffer): Promise<{ rawText: string; pageCount: number }> {
+  const { PDFParse } = await import('pdf-parse');
+  const uint8Data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  const parser = new (PDFParse as any)({ data: uint8Data });
+  const result = await parser.getText();
+  return {
+    rawText: result.text || '',
+    pageCount: result.pages?.length || 1,
+  };
+}
+
 /**
  * Resilient fallback parser that decompresses FlateDecode (zlib) streams and extracts raw text
  * if standard PDF parsing fails in restricted environments.
- * Correctly interprets PDF TJ array spacing operands so words are not fragmented into isolated characters.
+ * Processes stream operations sequentially to preserve line layout, text coordinates, and ligatures.
  */
+function decodePdfStreamString(s: string): string {
+  return s
+    .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\(.)/g, '$1')
+    .replace(/\x1C/g, 'fi')
+    .replace(/\x1D/g, 'fl')
+    .replace(/\x1E/g, 'ffi')
+    .replace(/\x1F/g, 'ffl')
+    .replace(/\x15/g, ' - ')
+    .replace(/[\x88\x95\uF0B7\u25AA]/g, '• ');
+}
+
+function parseStreamSequential(streamText: string): string[] {
+  const lines: string[] = [];
+  const btEtRegex = /BT([\s\S]*?)ET/g;
+  let btMatch: RegExpExecArray | null;
+
+  while ((btMatch = btEtRegex.exec(streamText)) !== null) {
+    const block = btMatch[1];
+    let currentLine = '';
+    let lastY: number | null = null;
+
+    // Tokenize stream operators:
+    // 1) [(...)...] TJ (array of strings and kerning offsets)
+    // 2) (...) Tj or (...) ' or (...) " (string showing operators)
+    // 3) tx ty Td / TD (move text position)
+    // 4) a b c d e f Tm (set text matrix)
+    // 5) T* (move to next line)
+    const opRegex = /\[([\s\S]*?)\]\s*TJ|\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(Tj|["\x27])|(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(Td|TD)|(-?\d+(?:\.\d+)?\s+){5}(-?\d+(?:\.\d+)?)\s+Tm|(T\*)/g;
+    let opMatch: RegExpExecArray | null;
+
+    const flushLine = () => {
+      const trimmed = currentLine.trim();
+      if (trimmed) {
+        lines.push(trimmed);
+      }
+      currentLine = '';
+    };
+
+    while ((opMatch = opRegex.exec(block)) !== null) {
+      if (opMatch[1] !== undefined) {
+        // TJ array
+        const innerStr = opMatch[1];
+        const tokenRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)|(-?\d+(?:\.\d+)?)/g;
+        let tokenMatch: RegExpExecArray | null;
+        let run = '';
+        while ((tokenMatch = tokenRegex.exec(innerStr)) !== null) {
+          if (tokenMatch[1] !== undefined) {
+            run += decodePdfStreamString(tokenMatch[1]);
+          } else if (tokenMatch[2] !== undefined) {
+            const spacing = parseFloat(tokenMatch[2]);
+            if (spacing <= -180) {
+              run += ' ';
+            }
+          }
+        }
+        if (run) {
+          currentLine += (currentLine && !currentLine.endsWith(' ') ? ' ' : '') + run;
+        }
+      } else if (opMatch[2] !== undefined) {
+        // Tj or ' or "
+        const str = decodePdfStreamString(opMatch[2]);
+        const op = opMatch[3];
+        if (op === "'" || op === '"') {
+          flushLine();
+        }
+        currentLine += (currentLine && !currentLine.endsWith(' ') ? ' ' : '') + str;
+      } else if (opMatch[6] !== undefined) {
+        // Td or TD: opMatch[4] is tx, opMatch[5] is ty
+        const ty = parseFloat(opMatch[5]);
+        if (Math.abs(ty) > 1) {
+          flushLine();
+        }
+      } else if (opMatch[8] !== undefined) {
+        // Tm: opMatch[8] is f (vertical translation)
+        const y = parseFloat(opMatch[8]);
+        if (lastY !== null && Math.abs(y - lastY) > 2) {
+          flushLine();
+        }
+        lastY = y;
+      } else if (opMatch[9] !== undefined) {
+        // T*
+        flushLine();
+      }
+    }
+    flushLine();
+  }
+  return lines;
+}
+
 function extractPdfStreamText(buffer: Buffer): string {
   try {
     const content = buffer.toString('binary');
-    const lines: string[] = [];
+    const allLines: string[] = [];
 
     const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
     let match: RegExpExecArray | null;
@@ -134,62 +238,14 @@ function extractPdfStreamText(buffer: Buffer): string {
 
       const streamText = decompressed.toString('latin1');
       if (streamText.includes('BT') && streamText.includes('ET')) {
-        const btEtRegex = /BT[\s\S]*?ET/g;
-        let btMatch: RegExpExecArray | null;
-        while ((btMatch = btEtRegex.exec(streamText)) !== null) {
-          const block = btMatch[0];
-          let blockText = '';
-
-          // 1. Match TJ array operators: [(str) 20 (str)] TJ
-          const arrayRegex = /\[([\s\S]*?)\]\s*TJ/g;
-          let arrMatch: RegExpExecArray | null;
-          while ((arrMatch = arrayRegex.exec(block)) !== null) {
-            const innerStr = arrMatch[1];
-            // In PDF TJ operators, tokens are strings in parentheses or numeric font-relative kerning shifts
-            const tokenRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)|(-?\d+(?:\.\d+)?)/g;
-            let tokenMatch: RegExpExecArray | null;
-            let currentRun = '';
-            while ((tokenMatch = tokenRegex.exec(innerStr)) !== null) {
-              if (tokenMatch[1] !== undefined) {
-                const clean = tokenMatch[1]
-                  .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
-                  .replace(/\\(.)/g, '$1');
-                currentRun += clean;
-              } else if (tokenMatch[2] !== undefined) {
-                const spacing = parseFloat(tokenMatch[2]);
-                // In PDF TJ syntax, negative offset moves forward in text space.
-                // Displacements <= -180 units represent word spaces; smaller numbers are glyph kerning.
-                if (spacing <= -180) {
-                  currentRun += ' ';
-                }
-              }
-            }
-            if (currentRun.trim()) {
-              blockText += (blockText ? ' ' : '') + currentRun.trim();
-            }
-          }
-
-          // 2. Match single string operators: (str) Tj or (str) ' or (str) "
-          const tjRegex = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|["\x27])/g;
-          let tjMatch: RegExpExecArray | null;
-          while ((tjMatch = tjRegex.exec(block)) !== null) {
-            const clean = tjMatch[1]
-              .replace(/\\([0-7]{1,3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
-              .replace(/\\(.)/g, '$1')
-              .trim();
-            if (clean) {
-              blockText += (blockText ? ' ' : '') + clean;
-            }
-          }
-
-          if (blockText.trim()) {
-            lines.push(blockText.trim());
-          }
+        const streamLines = parseStreamSequential(streamText);
+        if (streamLines.length > 0) {
+          allLines.push(...streamLines);
         }
       }
     }
 
-    return lines.join('\n');
+    return allLines.join('\n');
   } catch {
     return '';
   }
@@ -226,41 +282,61 @@ export async function extractResumeText(
     const result = await mammoth.extractRawText({ buffer });
     rawText = result.value || '';
   } else {
-    // Default to PDF parsing
+    // Default to PDF parsing with a 3-tier resilient parser
     detectedFormat = 'pdf';
     try {
       const parsed = await parsePdfBuffer(buffer);
-      rawText = parsed.rawText || '';
-      pageCount = parsed.pageCount;
-    } catch (pdfErr: any) {
-      console.warn('[PDF Extraction Warning]: parsePdfBuffer failed, trying stream fallbacks...', pdfErr?.message);
-
-      const fallbackText = extractPdfStreamText(buffer);
-      if (fallbackText && fallbackText.trim().length >= 50) {
-        rawText = fallbackText;
+      if (parsed.rawText && parsed.rawText.trim().length >= 50) {
+        rawText = parsed.rawText;
+        pageCount = parsed.pageCount;
       } else {
-        // If file might be a mislabeled docx, try mammoth
-        try {
-          const docxResult = await mammoth.extractRawText({ buffer });
-          if (docxResult.value && docxResult.value.trim().length > 50) {
-            rawText = docxResult.value;
-            detectedFormat = 'docx';
-          } else {
-            throw pdfErr;
+        throw new Error('parsePdfBuffer returned insufficient text');
+      }
+    } catch (pdfErr: any) {
+      console.warn('[PDF Extraction Warning]: parsePdfBuffer failed or returned insufficient text, trying PDFParse...', pdfErr?.message);
+      try {
+        const parsed = await parseWithPdfParse(buffer);
+        if (parsed.rawText && parsed.rawText.trim().length >= 50) {
+          rawText = parsed.rawText;
+          pageCount = parsed.pageCount;
+        } else {
+          throw new Error('PDFParse returned insufficient text');
+        }
+      } catch (parseErr: any) {
+        console.warn('[PDF Extraction Warning]: PDFParse fallback failed, trying stream decompressor...', parseErr?.message);
+        const fallbackText = extractPdfStreamText(buffer);
+        if (fallbackText && fallbackText.trim().length >= 50) {
+          rawText = fallbackText;
+        } else {
+          // If file might be a mislabeled docx, try mammoth
+          try {
+            const docxResult = await mammoth.extractRawText({ buffer });
+            if (docxResult.value && docxResult.value.trim().length > 50) {
+              rawText = docxResult.value;
+              detectedFormat = 'docx';
+            } else {
+              throw pdfErr;
+            }
+          } catch {
+            throw new Error(
+              'Failed to extract text from PDF document. Please ensure the file contains selectable text and is not an image-only scan or password-protected.'
+            );
           }
-        } catch {
-          throw new Error(
-            'Failed to extract text from PDF document. Please ensure the file contains selectable text and is not an image-only scan or password-protected.'
-          );
         }
       }
     }
   }
 
-  // Normalize text: clean irregular spacing, control chars, and fix null-byte glyph delimiters
+  // Normalize text: clean irregular spacing, control chars, ligatures, and fix null-byte glyph delimiters
   const normalized = rawText
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
+    .replace(/\x1C/g, 'fi')
+    .replace(/\x1D/g, 'fl')
+    .replace(/\x1E/g, 'ffi')
+    .replace(/\x1F/g, 'ffl')
+    .replace(/\x15/g, ' - ')
+    .replace(/[\x88\x95\uF0B7\u25AA]/g, '• ')
     .replace(/(\d{4})\s*[\x00\u0000]\s*(\d{4}|present)/gi, '$1 - $2')
     .replace(/(\d{1,2}\/\d{4})\s*[\x00\u0000]\s*(\d{1,2}\/\d{4}|present)/gi, '$1 - $2')
     .replace(/[\x00\u0000]/g, ' ')

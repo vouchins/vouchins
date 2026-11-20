@@ -835,10 +835,31 @@ function estimateYears(doc: ResumeDocument): number {
  * Ensures zero fabrication or placeholder insertion.
  */
 export function parseRawTextToDocument(rawText: string): ResumeDocument {
-  // Normalize characters: fix null-byte glyph delimiters, control characters, and soft hyphens
+  // --- Fast path: raw_text is actually a serialized JSON document_schema ---
+  // This happens when old code stored document_schema JSON in the raw_text column.
+  // Detect by checking if the string starts with '{' and contains known schema keys.
+  const trimmedInput = rawText.trimStart();
+  if (trimmedInput.startsWith('{') && trimmedInput.includes('"skills"') && trimmedInput.includes('"contact"')) {
+    try {
+      const parsed = JSON.parse(rawText);
+      if (parsed && typeof parsed === 'object' && ('skills' in parsed || 'experience' in parsed)) {
+        return parsed as ResumeDocument;
+      }
+    } catch {
+      // Not valid JSON - fall through to normal text parsing
+    }
+  }
+
+  // Normalize characters: fix null-byte glyph delimiters, ligatures, bullets, control characters, and soft hyphens
   const normalizedText = rawText
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
+    .replace(/\x1C/g, 'fi')
+    .replace(/\x1D/g, 'fl')
+    .replace(/\x1E/g, 'ffi')
+    .replace(/\x1F/g, 'ffl')
+    .replace(/\x15/g, ' - ')
+    .replace(/[\x88\x95\uF0B7\u25AA]/g, '• ')
     .replace(/(\d{4})\s*[\x00\u0000]\s*(\d{4}|present)/gi, '$1 - $2')
     .replace(/(\d{1,2}\/\d{4})\s*[\x00\u0000]\s*(\d{1,2}\/\d{4}|present)/gi, '$1 - $2')
     .replace(/[\x00\u0000]/g, ' - ')
@@ -865,10 +886,26 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     .replace(/--\s*\d+\s*of\s*\d+\s*--/gi, '')
     .replace(/page\s*\d+(\s*of\s*\d+)?/gi, '');
 
-  const rawLines = normalizedText
+  const splitRawLines = normalizedText
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
+
+  // Split lines if section headers were glued to the end of previous paragraphs during PDF extraction
+  const SECTION_TAIL_REGEX = /\s+(Professional\s+Summary|Executive\s+Summary|Technical\s+Skills|Core\s+Skills|Work\s+Experience|Experience|Internships|Projects|Education|Achievements|Certifications)\s*$/i;
+  const rawLines: string[] = [];
+
+  for (const line of splitRawLines) {
+    const tailMatch = line.match(SECTION_TAIL_REGEX);
+    if (tailMatch && tailMatch.index && tailMatch.index > 15) {
+      const before = line.slice(0, tailMatch.index).trim();
+      const header = tailMatch[1].trim();
+      if (before) rawLines.push(before);
+      if (header) rawLines.push(header);
+    } else {
+      rawLines.push(line);
+    }
+  }
 
   // Filter out footer artifacts, page markers, and standalone quotes
   const lines = rawLines.filter((l) => {
@@ -879,6 +916,15 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   });
 
   const TITLE_KEYWORD_REGEX = /(?:engineer|developer|lead|architect|manager|director|analyst|specialist|consultant|intern|officer|head|administrator|designer|trainee|associate|fresher|fellow|scientist|programmer|sde|researcher|apprentice|pharmacist|pharmacology|pharmacy|clinician|physician|nurse|practitioner|therapist|chemist|coordinator|auditor|investigator|advisor|executive)/i;
+
+  const TECH_OR_ROLE_WORDS = new Set([
+    'java', 'python', 'javascript', 'typescript', 'c++', 'c#', 'golang', 'rust', 'php', 'ruby', 'swift', 'kotlin',
+    'frontend', 'backend', 'fullstack', 'full-stack', 'full stack', 'cloud', 'devops', 'mobile', 'ios', 'android', 'web', 'data',
+    'software', 'systems', 'security', 'qa', 'test', 'automation', 'database', 'ai', 'ml', 'ui', 'ux',
+    'senior', 'junior', 'lead', 'staff', 'principal', 'head', 'architect', 'engineer', 'developer',
+    'manager', 'director', 'intern', 'analyst', 'specialist', 'consultant', 'coordinator', 'administrator',
+    'profile', 'summary', 'resume', 'curriculum', 'vitae', 'cv', 'experience', 'skills', 'education', 'projects'
+  ]);
 
   // Extract contact info
   const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
@@ -891,24 +937,39 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   let fullName = 'Candidate Profile';
   for (let i = 0; i < Math.min(5, lines.length); i++) {
     let l = lines[i].trim();
-    if (!l || l.includes('@') || l.includes('.com') || /\d{5,}/.test(l)) continue;
-    if (/^(summary|experience|skills|education|projects|certifications|resume|cv)/i.test(l)) continue;
+    if (!l) continue;
 
-    // Check if line contains title/company combined (e.g. SABYASACHI GHOSH Senior Software Developer IC3, Oracle)
-    if (l.includes('|')) {
-      const parts = l.split('|').map((s) => s.trim()).filter(Boolean);
-      if (parts[0] && parts[0].length >= 2 && parts[0].length <= 40) {
+    // Check if line contains delimiter '|' or '•' with name as first segment
+    if (l.includes('|') || l.includes('•') || l.includes('·')) {
+      const parts = l.split(/[|•·]/).map((s) => s.trim()).filter(Boolean);
+      if (parts[0] && parts[0].length >= 2 && parts[0].length <= 40 && !parts[0].includes('@') && !/\d{5,}/.test(parts[0])) {
         l = parts[0];
       }
-    } else if (TITLE_KEYWORD_REGEX.test(l)) {
+    }
+
+    if (!l || l.includes('@') || l.includes('.com') || /\d{5,}/.test(l)) continue;
+    if (/^(summary|experience|skills|education|projects|certifications|resume|cv|profile|contact)/i.test(l)) continue;
+
+    // If line matches title keywords, check if name precedes title
+    if (TITLE_KEYWORD_REGEX.test(l)) {
       const match = l.match(TITLE_KEYWORD_REGEX);
       if (match && match.index && match.index >= 3) {
         const potentialName = l.slice(0, match.index).replace(/[,-]+$/, '').trim();
-        if (potentialName.length >= 2 && potentialName.length <= 40) {
+        const words = potentialName.toLowerCase().split(/\s+/).filter(Boolean);
+        const allTechWords = words.length > 0 && words.every((w) => TECH_OR_ROLE_WORDS.has(w));
+        if (!allTechWords && potentialName.length >= 2 && potentialName.length <= 40) {
           l = potentialName;
+        } else {
+          continue;
         }
+      } else {
+        continue;
       }
     }
+
+    const checkWords = l.toLowerCase().split(/\s+/).filter(Boolean);
+    const isOnlyTech = checkWords.length > 0 && checkWords.every((w) => TECH_OR_ROLE_WORDS.has(w));
+    if (isOnlyTech) continue;
 
     if (l.length >= 2 && l.length <= 40) {
       fullName = l;
@@ -921,7 +982,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   const potentialLocs: string[] = [];
   for (let i = 0; i < Math.min(10, lines.length); i++) {
     const line = lines[i].trim();
-    if (!line || line === fullName) continue;
+    if (!line || line === fullName || /^(profile|summary|resume|cv)$/i.test(line)) continue;
 
     if (line.includes('@') || line.includes('linkedin') || line.includes('github') || /\d{8,}/.test(line)) {
       const locPart = line
@@ -953,17 +1014,44 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     }
   }
 
-  // Section categorization
+  // Section categorization with flexible bullets, numbers, and colon handling
   const sectionKeywords = [
-    { type: 'summary', regex: /^(professional summary|summary|about me|profile|overview|objective)$/i },
-    { type: 'experience', regex: /^(work experience|professional experience|experience|employment history|work history)$/i },
-    { type: 'achievements', regex: /^(key achievements|achievements|honors|awards|accomplishments)$/i },
-    { type: 'skills', regex: /^(core skills|top skills|technical skills|key skills|skills|technologies|core competencies|competencies|areas of expertise|professional skills|clinical skills|regulatory skills|tools & technologies)$/i },
-    { type: 'languages', regex: /^(languages)$/i },
-    { type: 'education', regex: /^(education|academic background|academics)$/i },
-    { type: 'projects', regex: /^(key technical projects|technical projects|projects|personal projects)$/i },
-    { type: 'certifications', regex: /^(certifications|licenses & certifications|certifications & licenses)$/i },
-    { type: 'contact', regex: /^(contact)$/i },
+    {
+      type: 'summary',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:professional\s+summary|executive\s+summary|career\s+summary|summary|about\s+me|profile|overview|objective)[\s:\-–—/]*$/i,
+    },
+    {
+      type: 'experience',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:work\s+experience|professional\s+experience|experience|employment\s+history|work\s+history|internships?|internship\s+experience|practical\s+experience)[\s:\-–—/]*$/i,
+    },
+    {
+      type: 'achievements',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:key\s+achievements|achievements|honors|awards|accomplishments)[\s:\-–—/]*$/i,
+    },
+    {
+      type: 'skills',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:core\s+skills|top\s+skills|technical\s+skills|key\s+skills|skills\s*(?:&|and)\s*technologies|skills|technologies|core\s+competencies|competencies|areas\s+of\s+expertise|professional\s+skills|clinical\s+skills|regulatory\s+skills|tools\s*(?:&|and)\s*technologies)[\s:\-–—/]*$/i,
+    },
+    {
+      type: 'languages',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:languages)[\s:\-–—/]*$/i,
+    },
+    {
+      type: 'education',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:education|academic\s+background|academics|qualifications)[\s:\-–—/]*$/i,
+    },
+    {
+      type: 'projects',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:key\s+technical\s+projects|technical\s+projects|projects|personal\s+projects|academic\s+projects|final\s+year\s+projects?|featured\s+projects)[\s:\-–—/]*$/i,
+    },
+    {
+      type: 'certifications',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:certifications?|licenses?\s*(?:&|and)\s*certifications?|certifications?\s*(?:&|and)\s*licenses?)[\s:\-–—/]*$/i,
+    },
+    {
+      type: 'contact',
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:contact|contact\s+information)[\s:\-–—/]*$/i,
+    },
   ];
 
   type SectionType = 'header' | 'summary' | 'experience' | 'achievements' | 'skills' | 'languages' | 'education' | 'projects' | 'certifications' | 'contact';
@@ -1001,8 +1089,8 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   const expBlock = sectionBlocks.find((b) => b.type === 'experience');
 
   const DATE_RANGE_REGEX = /(?:(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4})\s*[\s\-–—to]+\s*(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4}|Present|Current))/i;
-  const ACTION_VERB_REGEX = /^(?:[•\-*–—\u2022\u25E6\u25AA\u2043\s]*)(?:developed|built|engineered|architected|spearheaded|implemented|designed|created|led|managed|collaborated|maintained|optimized|automated|delivered|integrated|authored|executed|established|configured|deployed|mentored|resolved|streamlined|formulated|directed|oversaw|constructed|standardized|refactored|efactoring|upgraded|scaled|reduced|increased|improved|headed|drove|reviewed|evaluated|assessed|monitored|provided|supported|studied|assisted|participated|educated|strengthened|applied|conducted|prepared|collected)/i;
-  const BULLET_SYMBOL_REGEX = /^[\s]*[•\-*–—\u2022\u25E6\u25AA\u2043]/;
+  const ACTION_VERB_REGEX = /^(?:[•\-*–—\u2022\u25E6\u25AA\u2043▪\uF0B7\x88\x95\s]*)(?:developed|built|engineered|architected|spearheaded|implemented|designed|created|led|managed|collaborated|maintained|optimized|automated|delivered|integrated|authored|executed|established|configured|deployed|mentored|resolved|streamlined|formulated|directed|oversaw|constructed|standardized|refactored|efactoring|upgraded|scaled|reduced|increased|improved|headed|drove|reviewed|evaluated|assessed|monitored|provided|supported|studied|assisted|participated|educated|strengthened|applied|conducted|prepared|collected)/i;
+  const BULLET_SYMBOL_REGEX = /^[\s]*[•\-*–—\u2022\u25E6\u25AA\u2043▪\uF0B7\x88\x95]/;
   if (expBlock) {
     const elines = expBlock.lines;
     const roleStarts: {

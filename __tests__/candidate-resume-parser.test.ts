@@ -196,4 +196,46 @@ describe('Heuristic Evaluation for Specialized Healthcare Resume', () => {
     expect(pages.length).toBeGreaterThanOrEqual(1);
     expect(pages[0].roles.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('correctly extracts and parses Ahmed_Java_Backend_developer_2_experience (2).pdf without empty sections or false name match', async () => {
+    const fs = await import('fs');
+    const path = '/Users/shaiktaher/Downloads/Ahmed_Java_Backend_developer_2_experience (2).pdf';
+    if (!fs.existsSync(path)) return;
+
+    const buffer = fs.readFileSync(path);
+    const { extractResumeText } = await import('@/lib/jobs/parser');
+    const extraction = await extractResumeText(buffer, 'application/pdf', 'Ahmed_Java_Backend_developer_2_experience (2).pdf');
+
+    expect(extraction.rawText.length).toBeGreaterThan(1000);
+    expect(extraction.rawText).toContain('Shaik Ahmed');
+    expect(extraction.rawText).toContain('Spring Boot');
+
+    const doc = parseRawTextToDocument(extraction.rawText);
+    expect(doc.contact.fullName).toBe('Shaik Ahmed');
+    expect(doc.contact.email).toBe('shaikahmed807454@gmail.com');
+    expect(doc.contact.phone).toContain('8074548500');
+    expect(doc.contact.location).toBe('Hyderabad, Telangana');
+
+    expect(doc.summary).toBeTruthy();
+    expect(doc.summary.length).toBeGreaterThan(50);
+
+    expect(doc.skills.length).toBeGreaterThanOrEqual(5);
+    const allSkills = doc.skills.flatMap((s) => s.items);
+    expect(allSkills).toContain('Java');
+    expect(allSkills).toContain('Spring Boot');
+    expect(allSkills).toContain('MySQL');
+
+    expect(doc.experience.length).toBeGreaterThanOrEqual(1);
+    expect(doc.experience[0].company).toContain('Evergent');
+    expect(doc.experience[0].bullets.length).toBeGreaterThanOrEqual(3);
+
+    expect(doc.education.length).toBeGreaterThanOrEqual(1);
+    expect(doc.education[0].institution).toContain('MLR Institute of Technology');
+
+    expect(doc.projects?.length).toBeGreaterThanOrEqual(3);
+
+    const evaluation = evaluateResumeHeuristically(doc, extraction.rawText);
+    expect(evaluation.overallScore).toBeGreaterThan(60);
+    expect(evaluation.detectedSeniority).toContain('Software Engineer');
+  });
 });

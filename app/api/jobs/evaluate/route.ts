@@ -78,8 +78,14 @@ export async function POST(request: Request) {
         doc = parseRawTextToDocument(rawText);
       }
 
-      // Check if cached document was tainted with legacy fallback placeholders
+      // Check if cached document was tainted with legacy fallback placeholders or hollow
+      const isHollow =
+        (!doc?.experience || doc.experience.length === 0) &&
+        (!doc?.skills || doc.skills.length === 0) &&
+        Boolean(rawText && rawText.trim().length > 100);
+
       const isTainted =
+        isHollow ||
         doc?.experience?.some((e: any) => e.company === 'Leading Tech Organization') ||
         doc?.projects?.some((p: any) => p.title === 'Distributed Real-Time Processing Engine') ||
         (doc?.contact?.location === 'San Francisco, CA / Remote' && !rawText?.includes('San Francisco'));

@@ -86,13 +86,13 @@ You MUST output strictly valid JSON conforming to the requested schema.
 const GEMINI_MODELS = Array.from(
   new Set(
     [
-      process.env.GEMINI_MODEL && process.env.GEMINI_MODEL !== 'gemini-3.5-flash'
-        ? process.env.GEMINI_MODEL
-        : null,
+      process.env.GEMINI_MODEL,
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
       'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite',
       'gemini-flash-lite-latest',
       'gemini-3.8-flash',
-      'gemini-flash-latest',
     ].filter(Boolean) as string[]
   )
 );
@@ -106,7 +106,12 @@ export async function extractStructuredResume(
 ): Promise<ResumeDocument> {
   // 1. Fast deterministic heuristic extraction (instant 15ms parse without LLM latency)
   const fastDoc = parseRawTextToDocument(rawText);
-  if (fastDoc.experience && fastDoc.experience.length > 0) {
+  const hasSubstantiveContent =
+    (fastDoc.experience && fastDoc.experience.length > 0) ||
+    (fastDoc.skills && fastDoc.skills.length > 0) ||
+    (fastDoc.education && fastDoc.education.length > 0);
+
+  if (hasSubstantiveContent) {
     await recordAIUsage({
       userId,
       action: 'extract',

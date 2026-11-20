@@ -347,6 +347,7 @@ export function ResumePageClient() {
         body: JSON.stringify({
           rawText: extractData.rawText,
           title: file.name.replace(/\.[^/.]+$/, ''),
+          document: extractData.document,
         }),
       });
 
