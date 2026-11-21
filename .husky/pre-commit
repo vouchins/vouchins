@@ -4,5 +4,8 @@
 # Run a full type check before every commit
 npm run typecheck
 
+# Run resume pipeline & jobs regression tests before every commit
+npm run test:precommit
+
 # Run the linter across the whole project
 npm run prod:local

@@ -8,6 +8,7 @@ import {
 } from '@/lib/jobs/types';
 import { partitionResumePages, PaginatedRoleSegment } from '@/lib/jobs/pagination';
 import { detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
+import { isValidGeographicLocation } from '@/lib/jobs/ats-client';
 
 /**
  * Format resume date strings based on selected user preference.
@@ -372,7 +373,9 @@ export function ResumePDFDocument({
   const contactParts = [
     document.contact.email,
     document.contact.phone,
-    document.contact.location,
+    document.contact.location && isValidGeographicLocation(document.contact.location)
+      ? document.contact.location
+      : '',
     document.contact.linkedinUrl
       ? document.contact.linkedinUrl.replace(/^https?:\/\//, '')
       : '',
@@ -669,7 +672,7 @@ export function ResumePDFDocument({
           )}
 
           {/* Authentic Document Page Footer */}
-          <View style={dynamicStyles.footer} fixed>
+          <View style={dynamicStyles.footer}>
             <Text style={dynamicStyles.footerText}>
               {document.contact.fullName || 'Candidate'} - Resume
             </Text>

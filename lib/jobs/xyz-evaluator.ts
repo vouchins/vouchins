@@ -8,7 +8,7 @@ import {
 } from './types';
 import { isValidGeographicLocation } from './ats-client';
 
-export type ResumeDomain = 'tech' | 'healthcare' | 'business' | 'general';
+export type ResumeDomain = 'tech' | 'healthcare' | 'business' | 'data' | 'general';
 
 export function detectResumeDomain(corpus: string, doc?: ResumeDocument | null): ResumeDomain {
   const latestTitle = (doc?.experience?.[0]?.roleTitle || '').toLowerCase();
@@ -20,7 +20,10 @@ export function detectResumeDomain(corpus: string, doc?: ResumeDocument | null):
   // Healthcare / Clinical / Pharma / Regulatory / Medicine / Nursing
   const healthcareHits = (combined.match(/\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory affairs|healthcare|hospital|medical|patient|physician|nurse|nursing|doctor|biotech|pharmacology|pharmacokinetics|pharmacodynamics|pharmacovigilance|fda|gcp|ind|nda|meddra|ehr|emr|therapeutics|toxicology|dosage|medication)\b/gi) || []).length;
 
-  // Tech / Software Engineering / IT / Data Science
+  // Data Governance / Data Quality / Analytics / BI / Data Engineering
+  const dataHits = (combined.match(/\b(data governance|data quality|collibra|data catalog|data lineage|data profiling|data steward|dqim|pii|metadata|etl|snowflake|power bi|tableau|data warehouse|data modeling|dax|data cleansing|data management|business intelligence|bi analyst)\b/gi) || []).length;
+
+  // Tech / Software Engineering / IT / Distributed Systems
   const techHits = (combined.match(/\b(software|developer|engineer|sde|frontend|backend|fullstack|web|devops|sre|cloud|system|architect|machine learning|data scientist|data engineer|qa|tester|microservices|kubernetes|docker|react|typescript|python|java|c\+\+|node\.js)\b/gi) || []).length;
 
   // Business / Finance / Marketing / Sales / HR
@@ -28,6 +31,10 @@ export function detectResumeDomain(corpus: string, doc?: ResumeDocument | null):
 
   if (healthcareHits >= 2 || /\b(pharmacist|pharmacy|pharm-d|pharmd|clinical|regulatory affairs|patient care|nurse|physician|hospital)\b/i.test(latestTitle)) {
     return 'healthcare';
+  }
+
+  if (dataHits >= 2 || /\b(data governance|data quality|data steward|collibra|data lineage|bi developer|data analyst)\b/i.test(latestTitle)) {
+    return 'data';
   }
 
   if (techHits >= 2 || /\b(software|developer|engineer|sde|frontend|backend|fullstack|devops|sre|cloud|system|architect|machine learning)\b/i.test(latestTitle)) {
@@ -74,6 +81,12 @@ const HEALTHCARE_TAXONOMY = {
   regulatoryAndCompliance: ['fda', 'gcp', 'gmp', 'ich', 'ind', 'nda', 'regulatory affairs', 'compliance', 'audit', 'pharmacovigilance', 'rems'],
   clinicalAndPharma: ['pharmacology', 'pharmacokinetics', 'pharmacodynamics', 'clinical trials', 'drug safety', 'patient care', 'medication therapy', 'drug interaction', 'therapeutic monitoring', 'ehr', 'emr', 'clinical research', 'patient outcome'],
   documentationAndPractices: ['clinical documentation', 'sop', 'data integrity', 'healthcare operations', 'cross-functional', 'meddra', 'who-drug', 'adverse drug'],
+};
+
+const DATA_TAXONOMY = {
+  governanceAndQuality: ['data governance', 'data quality', 'collibra', 'data catalog', 'data lineage', 'data profiling', 'data steward', 'metadata', 'pii', 'dqim'],
+  platformsAndPipelines: ['snowflake', 'sql', 'oracle', 'db2', 'ms sql server', 'postgresql', 'databricks', 'etl', 'data warehouse', 'data modeling'],
+  biAndAnalytics: ['power bi', 'dax', 'tableau', 'dashboards', 'kpi', 'data analysis', 'excel', 'reporting'],
 };
 
 /**
@@ -140,6 +153,7 @@ export function evaluateResumeHeuristically(
 
   const domain = detectResumeDomain(textCorpus, doc);
   const isHealthcare = domain === 'healthcare';
+  const isData = domain === 'data';
 
   let totalBullets = 0;
   let metricRichBullets = 0;
@@ -195,6 +209,8 @@ export function evaluateResumeHeuristically(
             suggestedRewrite: rewrite,
             rationale: isHealthcare
               ? `Lacks measurable metrics. Top clinical and healthcare employers look for quantifiable patient care scope, adverse event mitigation, or regulatory compliance rates.`
+              : isData
+              ? `Lacks measurable metrics. Leading enterprise data organizations look for quantifiable data accuracy, critical data element (CDE) coverage, or compliance audit turnaround.`
               : `Lacks measurable metrics. Top-tier engineering bars (Google, Meta, Uber) look for quantifiable scope (e.g. % latency improvement, user scale, or throughput).`,
             applied: false,
           });
@@ -245,6 +261,12 @@ export function evaluateResumeHeuristically(
         ...HEALTHCARE_TAXONOMY.clinicalAndPharma,
         ...HEALTHCARE_TAXONOMY.documentationAndPractices,
       ]
+    : isData
+    ? [
+        ...DATA_TAXONOMY.governanceAndQuality,
+        ...DATA_TAXONOMY.platformsAndPipelines,
+        ...DATA_TAXONOMY.biAndAnalytics,
+      ]
     : [
         ...MODERN_TECH_TAXONOMY.tier1Languages,
         ...MODERN_TECH_TAXONOMY.modernFrontend,
@@ -262,6 +284,15 @@ export function evaluateResumeHeuristically(
         'Medication Therapy Management (MTM)',
         'Clinical Trial Data Integrity',
         'Electronic Health Records (EHR)',
+      ].filter((kw) => !textCorpus.includes(kw.toLowerCase().split(' ')[0]))
+    : isData
+    ? [
+        'Data Governance & Stewardship',
+        'Collibra / Enterprise Data Catalog',
+        'Data Lineage & Metadata Management',
+        'Data Quality Rules & DQIM',
+        'PII / Regulatory Compliance (GDPR)',
+        'Snowflake / Cloud Data Warehousing',
       ].filter((kw) => !textCorpus.includes(kw.toLowerCase().split(' ')[0]))
     : [
         'TypeScript',
@@ -292,6 +323,8 @@ export function evaluateResumeHeuristically(
     strengths.push(
       isHealthcare
         ? 'High alignment with clinical pharmacy and regulatory compliance standards'
+        : isData
+        ? 'High alignment with enterprise data governance, quality frameworks, and metadata management'
         : 'Modern tech stack alignment with current distributed architectures'
     );
   }
@@ -300,6 +333,8 @@ export function evaluateResumeHeuristically(
     strengths.push(
       isHealthcare
         ? 'Demonstrated clinical and healthcare progression across multiple roles'
+        : isData
+        ? 'Demonstrated data governance and quality progression across enterprise environments'
         : 'Demonstrated progression across multiple production software roles'
     );
   }
@@ -307,6 +342,8 @@ export function evaluateResumeHeuristically(
     strengths.push(
       isHealthcare
         ? 'Strong portfolio of research projects and clinical studies demonstrating domain mastery'
+        : isData
+        ? 'Strong portfolio of enterprise data architecture and governance initiatives'
         : 'Strong portfolio of technical projects demonstrating hands-on engineering capabilities'
     );
   }
@@ -330,17 +367,38 @@ export function evaluateResumeHeuristically(
     brevity: brevityScore,
   };
 
+  // User Requirement 5: Ensure zero duplicate suggestions
+  const uniqueSuggestions: ResumeSuggestion[] = [];
+  const seenOriginals = new Set<string>();
+  const seenRewrites = new Set<string>();
+
+  for (const s of suggestions) {
+    const origKey = (s.originalText || '').trim().toLowerCase();
+    const rewKey = (s.suggestedRewrite || '').trim().toLowerCase();
+    if (origKey && !seenOriginals.has(origKey) && rewKey && !seenRewrites.has(rewKey)) {
+      seenOriginals.add(origKey);
+      seenRewrites.add(rewKey);
+      uniqueSuggestions.push(s);
+    }
+  }
+
   return {
     overallScore,
     pillarScores,
+    domain,
     detectedSeniority,
     targetRole,
     strengths,
     missingKeywords: missingKeywords.slice(0, 5),
-    suggestions,
+    suggestions: uniqueSuggestions,
     jobMatchVectors,
   };
 }
+
+export const evaluateHeuristically = (rawTextOrDoc: any, docOrRawText?: any) =>
+  typeof rawTextOrDoc === 'string'
+    ? evaluateResumeHeuristically(docOrRawText, rawTextOrDoc)
+    : evaluateResumeHeuristically(rawTextOrDoc, docOrRawText);
 
 // ----------------------------------------------------------------------------
 // Rewrite & Heuristic Helpers
@@ -374,6 +432,23 @@ export function sanitizeBulletText(bullet: string, domain?: ResumeDomain | any):
       .replace(/(?:,\s*|\s+)?boosting automated test coverage from 60% to 92% and preventing regression bugs[.]?/gi, '.')
       .replace(/(?:,\s*|\s+)?remediating 30\+ critical vulnerabilities and achieving 100% security compliance[.]?/gi, '.');
   }
+
+  const hasDataContext =
+    activeDomain === 'data' ||
+    /\b(collibra|data quality|data governance|data steward|data lineage|metadata|dqim|cde|critical data element|data catalog)\b/i.test(
+      text
+    );
+
+  if (hasDataContext) {
+    text = text
+      .replace(/(?:,\s*|\s+)?expanding active user adoption to 500k\+ mobile users with a 4\.8-star app store rating[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?improving system delivery efficiency by 30% across production workloads[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?boosting page performance scores by 35% and accelerating user task completion by 22%[.]?/gi, '.')
+      .replace(/(?:,\s*|\s+)?boosting automated test coverage from 60% to 92% and preventing regression bugs[.]?/gi, '.');
+  }
+
+  // Strip trailing role header bleed from bullet ends (e.g. "...in operations. Analyst - Data Quality | Wipro Limited")
+  text = text.replace(/\.?\s*(?:[A-Z][A-Za-z\s&-]+(?:\b(?:Specialist|Consultant|Engineer|Developer|Manager|Lead|Analyst|Director)\b)[^|\n]*\|\s*.*)$/i, '.');
 
   const repeatingPhrases = [
     'expanding active user adoption to 500k+ mobile users with a 4.8-star app store rating',
@@ -435,7 +510,7 @@ function generateXYZRewrite(bullet: string, roleTitle: string, domain: ResumeDom
     .trim();
 
   // Guard against appending if already enriched with outcomes
-  if (/reducing API response latency|boosting page performance|cutting query compute latency|improving operational throughput|improving system delivery efficiency|expanding active user adoption|improving patient therapy adherence|reducing adverse drug event|analyzing clinical outcome metrics|accelerating regulatory documentation|improving clinical workflow efficiency/i.test(cleaned)) {
+  if (/reducing API response latency|boosting page performance|cutting query compute latency|improving operational throughput|improving system delivery efficiency|expanding active user adoption|improving patient therapy adherence|reducing adverse drug event|analyzing clinical outcome metrics|accelerating regulatory documentation|improving clinical workflow efficiency|reducing critical data element discrepancy|cataloging \d+\+ enterprise|achieving 100% regulatory compliance|cutting ETL batch|streamlining executive reporting|strengthening data reliability/i.test(cleaned)) {
     return cleaned;
   }
 
@@ -455,6 +530,25 @@ function generateXYZRewrite(bullet: string, roleTitle: string, domain: ResumeDom
     return `${cleaned}, improving clinical workflow efficiency by 25% and eliminating documentation discrepancies across multidisciplinary teams.`;
   }
 
+  if (domain === 'data') {
+    if (/quality|rule|anomal|discrepanc|accuracy|validat|profil/i.test(cleaned)) {
+      return `${cleaned}, reducing critical data element discrepancy rates by 42% and elevating data accuracy to 99.6%.`;
+    }
+    if (/govern|catalog|lineage|metadata|collibra|glossary|steward/i.test(cleaned)) {
+      return `${cleaned}, cataloging 600+ enterprise data assets and cutting metadata discovery lead time by 45%.`;
+    }
+    if (/pii|privacy|gdpr|audit|complian|security|access/i.test(cleaned)) {
+      return `${cleaned}, achieving 100% regulatory compliance across sensitive PII domains with zero audit findings.`;
+    }
+    if (/etl|pipeline|transform|ingest|snowflake|databricks|warehouse/i.test(cleaned)) {
+      return `${cleaned}, cutting ETL batch execution latency by 35% across 2M+ daily transactional records.`;
+    }
+    if (/dashboard|report|bi|power bi|tableau|kpi|stakeholder/i.test(cleaned)) {
+      return `${cleaned}, streamlining executive reporting cycles by 40% and providing real-time data visibility to 120+ stakeholders.`;
+    }
+    return `${cleaned}, strengthening data reliability and accelerating cross-functional analytics delivery by 30%.`;
+  }
+
   // Tech domain
   if (/api|service|backend|server|commerce/i.test(cleaned)) {
     return `${cleaned}, reducing API response latency by 32% and supporting 1.2M+ active daily requests.`;
@@ -471,11 +565,11 @@ function generateXYZRewrite(bullet: string, roleTitle: string, domain: ResumeDom
   return `${cleaned}, improving operational throughput by 28% and eliminating production blockers across teams.`;
 }
 
-function injectQuantifiableMetrics(bullet: string, domain: ResumeDomain = 'tech'): string {
+function injectQuantifiableMetrics(bullet: string, domain: ResumeDomain = 'tech', bulletIndex?: number): string {
   const clean = sanitizeBulletText(bullet, domain).replace(/^[-•*]\s*/, '').replace(/[.,;]+$/, '').trim();
 
   // Guard against duplicate metric injection
-  if (/500k\+|4\.8-star|user adoption|vulnerabilities|compliance|automated test coverage|delivery efficiency|boosted|reduced|accelerated|patient safety|medication adherence|documentation accuracy|inspection readiness|workflow throughput/i.test(clean)) {
+  if (/500k\+|4\.8-star|user adoption|vulnerabilities|compliance|automated test coverage|delivery efficiency|boosted|reduced|accelerated|patient safety|medication adherence|documentation accuracy|inspection readiness|workflow throughput|critical data element|cde|data discovery|data accuracy|data discrepancy|pipeline latency|data reliability|service reliability|deployment turnaround/i.test(clean)) {
     return clean;
   }
 
@@ -495,6 +589,36 @@ function injectQuantifiableMetrics(bullet: string, domain: ResumeDomain = 'tech'
     return `${clean}, boosting clinical review throughput by 30% while maintaining strict data integrity.`;
   }
 
+  if (domain === 'data') {
+    if (/quality|rule|anomal|discrepanc|accuracy|validat|profil/i.test(clean)) {
+      return `${clean}, identifying and remediating 120+ data discrepancies to achieve 99.5% Critical Data Element (CDE) accuracy.`;
+    }
+    if (/govern|catalog|lineage|metadata|collibra|glossary|steward/i.test(clean)) {
+      return `${clean}, cataloging 450+ critical data assets and accelerating audit compliance reporting turnaround by 45%.`;
+    }
+    if (/pii|privacy|gdpr|audit|complian|security|access/i.test(clean)) {
+      return `${clean}, establishing strict PII governance policies and maintaining 100% regulatory audit compliance.`;
+    }
+    if (/etl|pipeline|transform|ingest|snowflake|databricks|warehouse/i.test(clean)) {
+      return `${clean}, optimizing data transformation pipelines to reduce compute execution latency by 35%.`;
+    }
+    if (/ticket|sims|sla|jira|resolution|support/i.test(clean)) {
+      return `${clean}, resolving 200+ monthly data validation requests while maintaining 99% SLA adherence.`;
+    }
+    if (/dashboard|report|bi|power bi|tableau|kpi|metric/i.test(clean)) {
+      return `${clean}, delivering automated executive reporting adopted by 80+ enterprise business stakeholders.`;
+    }
+    const dataFallbacks = [
+      'elevating data accuracy to 99.4% and reducing downstream pipeline failures',
+      'strengthening enterprise data trust and improving compliance reporting turnaround by 35%',
+      'accelerating data discovery lead times by 40% across cross-functional analytics teams',
+      'eliminating critical data discrepancies and ensuring 100% audit readiness',
+      'optimizing operational data validation workflows to increase daily processing throughput by 25%',
+    ];
+    const pick = dataFallbacks[(clean.length + (bulletIndex ?? 0)) % dataFallbacks.length];
+    return `${clean}, ${pick}.`;
+  }
+
   // Tech domain
   if (/security|vulnerability|compliance|librar/i.test(clean)) {
     return `${clean}, remediating 30+ critical vulnerabilities and achieving 100% security compliance.`;
@@ -508,7 +632,15 @@ function injectQuantifiableMetrics(bullet: string, domain: ResumeDomain = 'tech'
     return `${clean}, boosting automated test coverage from 60% to 92% and preventing regression bugs.`;
   }
 
-  return `${clean}, improving system delivery efficiency by 30% across production workloads.`;
+  const techFallbacks = [
+    'improving system delivery efficiency by 30% across production workloads',
+    'reducing pipeline deployment turnaround by 32% across engineering cycles',
+    'increasing service reliability to 99.95% uptime under peak production load',
+    'cutting latency by 28% and eliminating recurring production bottlenecks',
+    'accelerating cross-team delivery throughput by 25% while maintaining zero critical regressions',
+  ];
+  const pick = techFallbacks[(clean.length + (bulletIndex ?? 0)) % techFallbacks.length];
+  return `${clean}, ${pick}.`;
 }
 
 function condenseBullet(bullet: string): string {
@@ -893,6 +1025,8 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
 
   // Split lines if section headers were glued to the end of previous paragraphs during PDF extraction
   const SECTION_TAIL_REGEX = /\s+(Professional\s+Summary|Executive\s+Summary|Technical\s+Skills|Core\s+Skills|Work\s+Experience|Experience|Internships|Projects|Education|Achievements|Certifications)\s*$/i;
+  // Also split lines if an embedded role header was glued right after a period
+  const EMBEDDED_ROLE_REGEX = /\.\s+([A-Z][A-Za-z0-9\s&/()–-]+(?:\b(?:Specialist|Consultant|Engineer|Developer|Manager|Lead|Analyst|Director|Architect|Officer|Coordinator|Administrator|Executive)\b)[^|\n]*\|\s*[A-Za-z0-9\s&,.-]+)/;
   const rawLines: string[] = [];
 
   for (const line of splitRawLines) {
@@ -903,7 +1037,15 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
       if (before) rawLines.push(before);
       if (header) rawLines.push(header);
     } else {
-      rawLines.push(line);
+      const embeddedMatch = line.match(EMBEDDED_ROLE_REGEX);
+      if (embeddedMatch && embeddedMatch.index && embeddedMatch.index > 15) {
+        const before = line.slice(0, embeddedMatch.index + 1).trim();
+        const rolePart = line.slice(embeddedMatch.index + 1).trim();
+        if (before) rawLines.push(before);
+        if (rolePart) rawLines.push(rolePart);
+      } else {
+        rawLines.push(line);
+      }
     }
   }
 
@@ -912,6 +1054,8 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     if (/^--\s*\d+\s*of\s*\d+\s*--$/i.test(l)) return false;
     if (/^[«»"'`\s]+$/.test(l)) return false;
     if (/^[Eéqòåb\s]{1,10}$/i.test(l)) return false;
+    if (/\b(?:resume\s+page|page\s+\d+\s+of\s+\d+)\b/i.test(l)) return false;
+    if (/^.*\b(?:experience|education|projects)\s*\(continued\).*$/i.test(l)) return false;
     return true;
   });
 
@@ -994,8 +1138,8 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         .replace(/(?:\+?91[\s-]*)?[6789]\d{9}|\b\d{10}\b|(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '')
         .replace(/\b91\b/g, '')
         .replace(/\b(linkedin|github|leetcode|scaler|my portfolio|portfolio|website|site)\b/gi, '')
-        .replace(/^(email|linkedin|github|phone|mobile|tel|contact)\s*[:|•·-]?\s*/gi, '')
-        .replace(/[|•·\(\)\-]/g, ' ')
+        .replace(/\b(email|linkedin|github|phone|mobile|telephone|tel|contact|location|address)\b\s*[:|•·-]?/gi, '')
+        .replace(/[:|•·\(\)\-]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
       if (isValidGeographicLocation(locPart)) {
@@ -1119,18 +1263,31 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         // Check if company and/or location precedes the date range on the same line
         const prefix = elines[i].slice(0, match.index).trim();
         if (prefix) {
-          if (prefix.includes('|')) {
-            const parts = prefix.split('|').map((s) => s.trim()).filter(Boolean);
+          const cleanPrefix = prefix
+            .replace(/\s*\(continued\)\s*/gi, '')
+            .replace(/[•·]\s*(?:Quality\.?|Enterprise Tech|tickets.*|demonstrating.*)?\s*$/i, '')
+            .trim();
+
+          if (cleanPrefix.includes('|')) {
+            const parts = cleanPrefix.split('|').map((s) => s.trim().replace(/[•·].*$/, '').trim()).filter(Boolean);
             if (parts.length >= 2) {
               if (TITLE_KEYWORD_REGEX.test(parts[0])) {
                 lineTitle = parts[0];
-                if (isValidGeographicLocation(parts[1])) {
-                  lineLocation = parts[1];
-                } else {
-                  lineCompany = parts[1];
-                  if (parts[2] && isValidGeographicLocation(parts[2])) {
-                    lineLocation = parts[2];
+                const companyCandidate = parts[1];
+                if (companyCandidate.includes(',')) {
+                  const cParts = companyCandidate.split(',').map((s) => s.trim()).filter(Boolean);
+                  lineCompany = cParts[0];
+                  const locCandidate = cParts.slice(1).join(', ').trim();
+                  if (isValidGeographicLocation(locCandidate)) {
+                    lineLocation = locCandidate;
                   }
+                } else if (isValidGeographicLocation(companyCandidate)) {
+                  lineLocation = companyCandidate;
+                } else {
+                  lineCompany = companyCandidate;
+                }
+                if (parts[2] && isValidGeographicLocation(parts[2])) {
+                  lineLocation = parts[2];
                 }
               } else if (isValidGeographicLocation(parts[1])) {
                 lineCompany = parts[0];
@@ -1149,8 +1306,8 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
                 lineCompany = parts[0];
               }
             }
-          } else if (prefix.includes(',')) {
-            const parts = prefix.split(',').map((s) => s.trim()).filter(Boolean);
+          } else if (cleanPrefix.includes(',')) {
+            const parts = cleanPrefix.split(',').map((s) => s.trim()).filter(Boolean);
             if (parts.length >= 2) {
               lineCompany = parts[0];
               lineLocation = parts.slice(1).join(', ');
@@ -1161,8 +1318,8 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
                 lineCompany = parts[0];
               }
             }
-          } else if (TITLE_KEYWORD_REGEX.test(prefix)) {
-            lineTitle = prefix;
+          } else if (TITLE_KEYWORD_REGEX.test(cleanPrefix)) {
+            lineTitle = cleanPrefix;
             const nextLine = (elines[i + 1] || '').trim();
             if (
               nextLine &&
@@ -1174,9 +1331,24 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
               lineCompany = nextLine;
               bulletStartIndex = i + 2;
             }
-          } else if (prefix.length >= 2) {
-            lineCompany = prefix;
+          } else if (cleanPrefix.length >= 2) {
+            lineCompany = cleanPrefix;
           }
+        }
+
+        if (lineCompany) {
+          lineCompany = lineCompany.replace(/[•·].*$/, '').trim();
+          if (lineCompany.includes(',') && !lineLocation) {
+            const cParts = lineCompany.split(',').map((s) => s.trim()).filter(Boolean);
+            const locCandidate = cParts.slice(1).join(', ').trim();
+            if (isValidGeographicLocation(locCandidate)) {
+              lineCompany = cParts[0];
+              lineLocation = locCandidate;
+            }
+          }
+        }
+        if (lineTitle) {
+          lineTitle = lineTitle.replace(/[•·].*$/, '').trim();
         }
 
         const locPart = elines[i].replace(match[0], '').replace(/[•·\-–—|]/g, ' ').trim();
@@ -1264,23 +1436,44 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
             .replace(/\befactoring\b/g, 'refactoring')
             .replace(/\bReduxbased\b/g, 'Redux-based');
 
+          if (/^(?:Centre|Center),\s*[A-Za-z\s]+,?\s*(?:India|USA|UK|Canada)?/i.test(line)) {
+            continue;
+          }
+
           const isNewBullet = ACTION_VERB_REGEX.test(line) || BULLET_SYMBOL_REGEX.test(line);
+
+          const cleanBullet = (b: string) =>
+            sanitizeBulletText(b)
+              .replace(/\.?\s*(?:[A-Z][A-Za-z\s&-]+(?:\b(?:Specialist|Consultant|Engineer|Developer|Manager|Lead|Analyst|Director)\b)[^|\n]*\|\s*.*)$/i, '.')
+              .trim();
 
           if (isNewBullet) {
             if (currentBullet.trim().length > 10) {
-              roleBullets.push(currentBullet.trim());
+              const cleaned = cleanBullet(currentBullet);
+              if (cleaned.length > 10) roleBullets.push(cleaned);
             }
             currentBullet = line.replace(BULLET_SYMBOL_REGEX, '').trim();
           } else {
-            if (currentBullet) {
-              currentBullet += ' ' + line;
-            } else if (line.length > 20) {
-              currentBullet = line;
+            if (TITLE_KEYWORD_REGEX.test(line) && line.includes('|')) {
+              if (currentBullet.trim().length > 10) {
+                const cleaned = cleanBullet(currentBullet);
+                if (cleaned.length > 10) roleBullets.push(cleaned);
+                currentBullet = '';
+              }
+            } else {
+              if (currentBullet) {
+                currentBullet += ' ' + line;
+              } else if (line.length > 20) {
+                currentBullet = line;
+              }
             }
           }
         }
         if (currentBullet.trim().length > 10) {
-          roleBullets.push(currentBullet.trim());
+          const cleaned = sanitizeBulletText(currentBullet)
+            .replace(/\.?\s*(?:[A-Z][A-Za-z\s&-]+(?:\b(?:Specialist|Consultant|Engineer|Developer|Manager|Lead|Analyst|Director)\b)[^|\n]*\|\s*.*)$/i, '.')
+            .trim();
+          if (cleaned.length > 10) roleBullets.push(cleaned);
         }
 
         experience.push({

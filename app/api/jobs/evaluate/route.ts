@@ -30,7 +30,8 @@ export async function POST(request: Request) {
 
     const userId = authCheck.userId!;
     const body = await request.json();
-    const { rawText, existingDoc, resumeId, title, forceHeuristic } = body;
+    const { rawText, resumeId, title, forceHeuristic } = body;
+    const existingDoc = body.existingDoc || body.document;
 
     if (!rawText && !existingDoc) {
       return NextResponse.json(

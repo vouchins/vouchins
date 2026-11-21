@@ -13,6 +13,8 @@
     "prepare": "husky install",
     "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest",
     "test:watch": "jest --watch",
+    "test:resumes": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --testPathPatterns=\"all-resumes-batch\" --runInBand",
+    "test:precommit": "NODE_OPTIONS=\"--experimental-vm-modules\" jest --testPathPatterns=\"resume|jobs|xyz-evaluator|pagination|fuzel-resume|all-resumes-batch\" --runInBand",
     "test:e2e": "NODE_PATH=./node_modules npx tsx --env-file=.env.local e2e/run-all.ts"
   },
   "dependencies": {

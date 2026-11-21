@@ -17,8 +17,7 @@ async function getPdfJs() {
   try {
     return await import('pdfjs-dist/legacy/build/pdf.mjs');
   } catch {
-    const importEsm = new Function('specifier', 'return import(specifier)');
-    return await importEsm('pdfjs-dist/legacy/build/pdf.mjs');
+    return null;
   }
 }
 
@@ -29,6 +28,9 @@ async function getPdfJs() {
  */
 async function parsePdfBuffer(buffer: Buffer): Promise<{ rawText: string; pageCount: number }> {
   const pdfjs = await getPdfJs();
+  if (!pdfjs) {
+    throw new Error('pdfjs-dist not available in this environment');
+  }
   const uint8Data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   const loadingTask = pdfjs.getDocument({
     data: uint8Data,
@@ -285,25 +287,23 @@ export async function extractResumeText(
     // Default to PDF parsing with a 3-tier resilient parser
     detectedFormat = 'pdf';
     try {
-      const parsed = await parsePdfBuffer(buffer);
+      const parsed = await parseWithPdfParse(buffer);
       if (parsed.rawText && parsed.rawText.trim().length >= 50) {
         rawText = parsed.rawText;
         pageCount = parsed.pageCount;
       } else {
-        throw new Error('parsePdfBuffer returned insufficient text');
+        throw new Error('parseWithPdfParse returned insufficient text');
       }
     } catch (pdfErr: any) {
-      console.warn('[PDF Extraction Warning]: parsePdfBuffer failed or returned insufficient text, trying PDFParse...', pdfErr?.message);
       try {
-        const parsed = await parseWithPdfParse(buffer);
+        const parsed = await parsePdfBuffer(buffer);
         if (parsed.rawText && parsed.rawText.trim().length >= 50) {
           rawText = parsed.rawText;
           pageCount = parsed.pageCount;
         } else {
-          throw new Error('PDFParse returned insufficient text');
+          throw new Error('parsePdfBuffer returned insufficient text');
         }
       } catch (parseErr: any) {
-        console.warn('[PDF Extraction Warning]: PDFParse fallback failed, trying stream decompressor...', parseErr?.message);
         const fallbackText = extractPdfStreamText(buffer);
         if (fallbackText && fallbackText.trim().length >= 50) {
           rawText = fallbackText;

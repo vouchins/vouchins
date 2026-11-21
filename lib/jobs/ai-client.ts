@@ -46,6 +46,26 @@ You MUST output strictly valid JSON conforming to the requested schema.
 `;
   }
 
+  if (domain === 'data') {
+    return `
+You are a Principal Data Governance, Quality, and Analytics Hiring Bar Raiser (leading cloud data enterprises, financial institutions, and global consulting firms like EY, Amazon, Snowflake, Databricks).
+Evaluate the candidate's resume strictly against high-bar enterprise data governance, data quality, data lineage, and metadata management standards.
+
+Scoring Criteria:
+1. Impact & Metrics (XYZ formula: "Accomplished [X], as measured by [Y], by doing [Z]"):
+   - Heavily penalize passive/weak language ("worked on", "assisted", "responsible for").
+   - Reward quantifiable data quality outcomes (% accuracy, % data discrepancy reduction, # critical data elements (CDEs) cataloged, data discovery speed %, query/ETL pipeline latency reduction %, audit compliance % across PII/GDPR).
+   - NEVER suggest irrelevant web development metrics (such as React page performance or mobile app store ratings).
+2. Domain & Competency Relevance:
+   - Identify enterprise data tools and governance frameworks: Collibra (Data Quality, Data Catalog), Snowflake, Databricks, Data Lineage, Metadata Management, PII Classification, Data Profiling, DQIM, SQL, Power BI, ETL pipelines.
+3. Brevity & Readability:
+   - ATS scan efficiency, bullet density (1-2 lines per bullet, strong data leadership verbs like architected, cataloged, profiled, remediated, enforced, automated).
+
+Provide targeted rewrite suggestions with exact roleIndex and bulletIndex coordinates.
+You MUST output strictly valid JSON conforming to the requested schema.
+`;
+  }
+
   if (domain === 'business') {
     return `
 You are an Executive Hiring Director and Talent Bar Raiser at leading global enterprises.
@@ -86,13 +106,13 @@ You MUST output strictly valid JSON conforming to the requested schema.
 const GEMINI_MODELS = Array.from(
   new Set(
     [
-      process.env.GEMINI_MODEL,
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
+      'gemini-flash-lite-latest',
       'gemini-3.5-flash-lite',
       'gemini-3.1-flash-lite',
-      'gemini-flash-lite-latest',
+      process.env.GEMINI_MODEL,
       'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.5-flash',
     ].filter(Boolean) as string[]
   )
 );
@@ -211,7 +231,7 @@ ${rawText.slice(0, 14000)}
                 maxOutputTokens: 8192,
               },
             }),
-            signal: AbortSignal.timeout(12000),
+            signal: AbortSignal.timeout(5000),
           }
         );
 
@@ -385,6 +405,8 @@ CRITICAL INSTRUCTIONS FOR RE-ANALYZING THIS RESUME:
   const systemPrompt = getDomainSystemPrompt(domain, heuristic.targetRole);
   const targetCompanies = domain === 'healthcare'
     ? 'Top Healthcare Systems, Clinical Research Organizations, and Pharmaceutical Leaders'
+    : domain === 'data'
+    ? 'Top Enterprise Data Organizations (Snowflake, Databricks, Amazon, EY, Big 4)'
     : domain === 'business'
     ? 'Top Global Enterprise & Consulting Organizations'
     : 'Google, Meta, Amazon, Uber, Salesforce';
@@ -409,7 +431,7 @@ CRITICAL SUGGESTION AUDIT RULES:
 - Perform a comprehensive, complete audit of ALL experience roles and bullet points in this single pass.
 - Do NOT stop at 2 or 3 suggestions. Evaluate every single bullet point across all roles.
 - For EVERY bullet point that lacks measurable metrics, uses passive phrasing, or can be improved with the Google XYZ formula ("Accomplished [X], measured by [Y], by doing [Z]"), provide a high-impact rewrite with exact roleIndex, bulletIndex, and originalText.
-${domain === 'healthcare' ? '- For healthcare/pharma, focus on clinical outcomes, patient safety, therapy adherence, protocol compliance, or adverse event reduction. NEVER generate software tech metrics like latency, mobile app ratings, or database queries.' : ''}
+${domain === 'healthcare' ? '- For healthcare/pharma, focus on clinical outcomes, patient safety, therapy adherence, protocol compliance, or adverse event reduction. NEVER generate software tech metrics like latency, mobile app ratings, or database queries.' : domain === 'data' ? '- For data governance/quality, focus on data accuracy, critical data element (CDE) coverage, discrepancy remediation, lineage mapping, and PII/GDPR audit compliance. NEVER suggest frontend or web development metrics.' : ''}
 - Aim to provide all actionable rewrite suggestions (typically 6-12 suggestions across all roles) at once, so the candidate can elevate their resume and boost their ATS score in one single pass without multiple re-analyses.
 
 ${reanalysisPromptAddition}
@@ -434,7 +456,7 @@ ${JSON.stringify(doc)}
               maxOutputTokens: 8192,
             },
           }),
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(5000),
         }
       );
 

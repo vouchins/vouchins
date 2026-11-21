@@ -319,23 +319,31 @@ export function isValidGeographicLocation(loc?: string | null): boolean {
   if (!clean || clean === 'all' || clean === 'remote' || clean === 'anywhere' || clean === 'virtual' || clean === 'hybrid') {
     return false;
   }
-  // Reject email addresses, social handles, or "Role @ Company" format
-  if (clean.includes('@') || clean.includes('http://') || clean.includes('https://') || clean.includes('.com')) {
+  // Reject email addresses, social handles, template placeholders, or colons
+  if (
+    clean.includes('@') ||
+    clean.includes(':') ||
+    clean.includes('http://') ||
+    clean.includes('https://') ||
+    clean.includes('.com')
+  ) {
     return false;
   }
-  // Reject common job title keywords and section headers mistakenly stored in location fields
+  // Reject common job title keywords, contact labels, and section headers mistakenly stored in location fields
   const invalidKeywords = [
     'developer', 'engineer', 'architect', 'lead', 'manager', 'director',
     'specialist', 'consultant', 'analyst', 'designer', 'intern', 'administrator',
     'full stack', 'frontend', 'backend', 'qa', 'sdet', 'devops', 'software',
     'skills', 'experience', 'projects', 'education', 'summary', 'certifications',
     'achievements', 'languages', 'contact', 'linkedin', 'github', 'leetcode',
-    'scaler', 'portfolio', 'resume', 'curriculum vitae'
+    'scaler', 'portfolio', 'resume', 'curriculum vitae', 'phone', 'email', 'mobile',
+    'telephone', 'tel', 'address', 'mail'
   ];
-  if (invalidKeywords.some((kw) => clean === kw || clean.startsWith(kw + ' ') || clean.endsWith(' ' + kw))) {
-    return false;
-  }
-  if (invalidKeywords.some((kw) => clean.includes(kw))) {
+  const hasInvalidWord = invalidKeywords.some((kw) => {
+    const rx = new RegExp(`(^|\\b|\\s)${kw}(\\b|\\s|$)`, 'i');
+    return rx.test(clean);
+  });
+  if (hasInvalidWord) {
     return false;
   }
   return true;

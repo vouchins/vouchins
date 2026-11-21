@@ -102,6 +102,7 @@ export const JobMatchVectorsSchema = z.object({
 export const ResumeEvaluationSchema = z.object({
   overallScore: z.number().min(0).max(100),
   pillarScores: PillarScoresSchema,
+  domain: z.string().optional(),
   detectedSeniority: z.string(),
   targetRole: z.string(),
   strengths: z.array(z.string()),

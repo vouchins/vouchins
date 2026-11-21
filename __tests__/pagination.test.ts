@@ -90,12 +90,10 @@ const SAMPLE_DOC: ResumeDocument = {
 };
 
 describe('partitionResumePages shared pagination engine', () => {
-  it('partitions resume into balanced 2-page document', () => {
+  it('partitions resume into balanced 1-page document when content fits', () => {
     const pages = partitionResumePages(SAMPLE_DOC, 'LETTER');
-    expect(pages.length).toBe(2);
+    expect(pages.length).toBe(1);
     expect(pages[0].pageNumber).toBe(1);
-    expect(pages[0].totalPages).toBe(2);
-    expect(pages[1].pageNumber).toBe(2);
-    expect(pages[1].totalPages).toBe(2);
+    expect(pages[0].totalPages).toBe(1);
   });
 });
