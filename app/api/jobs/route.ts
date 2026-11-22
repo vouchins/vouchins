@@ -16,69 +16,12 @@ import {
   CandidateMatchingContext,
   detectRoleDomain,
   isSameCompany,
+  buildPostgrestLocationFilter,
 } from "@/lib/jobs/ats-client";
 import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
 import { cleanJobApplyUrl, isValidJobUrl } from "@/lib/jobs/url-cleaner";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Builds a safe PostgREST .or() filter string with properly double-quoted location terms
- * and regional/state aliases (e.g. Hyderabad -> hyd, telangana, cyberabad, hitec city).
- */
-export function buildPostgrestLocationFilter(locationStr: string): string {
-  if (!locationStr || locationStr.toLowerCase() === "all" || !isValidGeographicLocation(locationStr)) return "";
-  const locLower = locationStr.toLowerCase().trim();
-  const rawParts = locLower.split(/[,/|]+/).map((p) => p.trim()).filter((p) => p.length >= 2);
-  const searchTerms = new Set<string>();
-
-  for (const part of rawParts) {
-    if (part.length >= 3 && part !== "remote" && part !== "india" && part !== "usa" && part !== "united states") {
-      searchTerms.add(part);
-    }
-    const aliases = LOCATION_ALIASES[part] || [];
-    for (const alias of aliases) {
-      if (alias.length >= 2 && alias !== "remote" && alias !== "india") {
-        searchTerms.add(alias);
-      }
-    }
-  }
-
-  // Check distinct city matches
-  const distinctCities = [
-    "hyderabad", "bangalore", "bengaluru", "pune", "mumbai", "delhi", "gurgaon", "noida", "chennai",
-    "san francisco", "new york", "seattle", "austin", "boston", "chicago"
-  ];
-  const matchedCity = distinctCities.find((c) => locLower.includes(c));
-  if (matchedCity) {
-    searchTerms.add(matchedCity);
-    const cityAliases = LOCATION_ALIASES[matchedCity] || [];
-    for (const alias of cityAliases) {
-      if (alias.length >= 2 && alias !== "remote" && alias !== "india") {
-        searchTerms.add(alias);
-      }
-    }
-  }
-
-  // Also check if the whole input string has direct aliases
-  const fullAliases = LOCATION_ALIASES[locLower] || [];
-  for (const alias of fullAliases) {
-    if (alias.length >= 2 && alias !== "remote" && alias !== "india") {
-      searchTerms.add(alias);
-    }
-  }
-
-  if (searchTerms.size === 0) {
-    const firstWord = rawParts[0] || locLower;
-    if (firstWord.length >= 2) searchTerms.add(firstWord);
-  }
-
-  const conditions = Array.from(searchTerms)
-    .filter((term) => term.length >= 2)
-    .map((term) => `location.ilike."%${term.replace(/["%,]/g, "")}%"`);
-
-  return conditions.join(",");
-}
 
 export async function GET(request: Request) {
   try {

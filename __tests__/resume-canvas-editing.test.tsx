@@ -160,4 +160,78 @@ describe('Resume Canvas Manual Skills & Section Editing', () => {
       })
     );
   });
+
+  it('allows deleting an experience role even when only 1 role exists', () => {
+    const onChange = jest.fn();
+    render(<ResumeCanvas document={SAMPLE_DOC} onChange={onChange} />);
+
+    // In SAMPLE_DOC, document.experience has exactly 1 role
+    expect(SAMPLE_DOC.experience.length).toBe(1);
+
+    const deleteRoleBtn = screen.getByTitle('Delete Role');
+    expect(deleteRoleBtn).toBeInTheDocument();
+    fireEvent.click(deleteRoleBtn);
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        experience: [],
+      })
+    );
+  });
+
+  it('allows deleting an education entry even when only 1 education entry exists', () => {
+    const onChange = jest.fn();
+    render(<ResumeCanvas document={SAMPLE_DOC} onChange={onChange} />);
+
+    // In SAMPLE_DOC, document.education has exactly 1 entry
+    expect(SAMPLE_DOC.education.length).toBe(1);
+
+    const deleteEduBtn = screen.getByTitle('Delete Education');
+    expect(deleteEduBtn).toBeInTheDocument();
+    fireEvent.click(deleteEduBtn);
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        education: [],
+      })
+    );
+  });
+
+  it('allows deleting a skill category even when only 1 category exists', () => {
+    const onChange = jest.fn();
+    render(<ResumeCanvas document={SAMPLE_DOC} onChange={onChange} />);
+
+    // In SAMPLE_DOC, document.skills has exactly 1 category
+    expect(SAMPLE_DOC.skills.length).toBe(1);
+
+    const deleteCatBtn = screen.getByTitle('Delete Category');
+    expect(deleteCatBtn).toBeInTheDocument();
+    fireEvent.click(deleteCatBtn);
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skills: [],
+      })
+    );
+  });
+
+  it('allows clearing misparsed role location with 1 click', () => {
+    const onChange = jest.fn();
+    render(<ResumeCanvas document={SAMPLE_DOC} onChange={onChange} />);
+
+    // In SAMPLE_DOC, role 0 has location 'New York, NY'
+    const clearLocBtn = screen.getByTitle('Clear location');
+    expect(clearLocBtn).toBeInTheDocument();
+    fireEvent.click(clearLocBtn);
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        experience: expect.arrayContaining([
+          expect.objectContaining({
+            location: '',
+          }),
+        ]),
+      })
+    );
+  });
 });

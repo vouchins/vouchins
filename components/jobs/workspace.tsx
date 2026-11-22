@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -33,6 +33,8 @@ import {
   ShieldCheck,
   ArrowLeft,
   ExternalLink,
+  RotateCcw,
+  RotateCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase/browser';
@@ -57,7 +59,45 @@ interface WorkspaceProps {
   onBack?: () => void;
 }
 
+function hasCompletedWord(prev: ResumeDocument, next: ResumeDocument): boolean {
+  const extractStrings = (doc: ResumeDocument): string[] => {
+    const list: string[] = [
+      doc.contact?.fullName || '',
+      doc.contact?.location || '',
+      doc.summary || '',
+    ];
+    doc.experience?.forEach((r) => {
+      list.push(r.company || '', r.roleTitle || '', r.location || '', ...(r.bullets || []));
+    });
+    doc.education?.forEach((e) => {
+      list.push(e.institution || '', e.degree || '', e.fieldOfStudy || '');
+    });
+    doc.projects?.forEach((p) => {
+      list.push(p.title || '', ...(p.bullets || []));
+    });
+    doc.skills?.forEach((s) => {
+      list.push(s.category || '', ...(s.items || []));
+    });
+    return list;
+  };
+
+  const prevStrings = extractStrings(prev);
+  const nextStrings = extractStrings(next);
+
+  for (let i = 0; i < nextStrings.length; i++) {
+    const p = prevStrings[i] || '';
+    const n = nextStrings[i] || '';
+    if (n !== p) {
+      if (n.length > p.length && /[\s,.;:!?\n]$/.test(n)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function Workspace({
+
   initialDocument,
   initialEvaluation,
   resumeId,
@@ -211,11 +251,128 @@ export function Workspace({
     }
   }, [initialEvaluation, initialDocument]);
 
+  // Undo / Redo History Stack
+  const [history, setHistory] = useState<ResumeDocument[]>([initialDocument || SAMPLE_STAFF_RESUME]);
+  const [historyIndex, setHistoryIndex] = useState<number>(0);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingDocRef = useRef<ResumeDocument | null>(null);
+
   useEffect(() => {
     if (initialDocument) {
       setDocument(initialDocument);
+      setHistory([initialDocument]);
+      setHistoryIndex(0);
+      pendingDocRef.current = null;
     }
   }, [initialDocument]);
+
+  const pushToHistory = useCallback((newDoc: ResumeDocument) => {
+    pendingDocRef.current = null;
+    setHistory((prev) => {
+      const sliced = prev.slice(0, historyIndex + 1);
+      if (sliced.length >= 50) {
+        sliced.shift();
+      }
+      return [...sliced, newDoc];
+    });
+    setHistoryIndex((prev) => Math.min(prev + 1, 49));
+  }, [historyIndex]);
+
+  // Handle Undo
+  const handleUndo = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    // If user was actively typing an uncommitted word, revert to the last committed state
+    if (pendingDocRef.current && history[historyIndex]) {
+      pendingDocRef.current = null;
+      const targetDoc = history[historyIndex];
+      setDocument(targetDoc);
+      const fresh = evaluateResumeHeuristically(targetDoc);
+      setEvaluation((prev) => ({
+        ...prev,
+        overallScore: fresh.overallScore,
+        pillarScores: fresh.pillarScores,
+        strengths: fresh.strengths,
+        detectedSeniority: fresh.detectedSeniority,
+        targetRole: fresh.targetRole,
+        jobMatchVectors: fresh.jobMatchVectors,
+      }));
+      toast.info('Change undone (⌘Z)', { duration: 1500 });
+      return;
+    }
+
+    if (historyIndex > 0) {
+      pendingDocRef.current = null;
+      const newIndex = historyIndex - 1;
+      const targetDoc = history[newIndex];
+      setHistoryIndex(newIndex);
+      setDocument(targetDoc);
+      const fresh = evaluateResumeHeuristically(targetDoc);
+      setEvaluation((prev) => ({
+        ...prev,
+        overallScore: fresh.overallScore,
+        pillarScores: fresh.pillarScores,
+        strengths: fresh.strengths,
+        detectedSeniority: fresh.detectedSeniority,
+        targetRole: fresh.targetRole,
+        jobMatchVectors: fresh.jobMatchVectors,
+      }));
+      toast.info('Change undone (⌘Z)', { duration: 1500 });
+    }
+  }, [historyIndex, history]);
+
+  // Handle Redo
+  const handleRedo = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    pendingDocRef.current = null;
+
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      const targetDoc = history[newIndex];
+      setHistoryIndex(newIndex);
+      setDocument(targetDoc);
+      const fresh = evaluateResumeHeuristically(targetDoc);
+      setEvaluation((prev) => ({
+        ...prev,
+        overallScore: fresh.overallScore,
+        pillarScores: fresh.pillarScores,
+        strengths: fresh.strengths,
+        detectedSeniority: fresh.detectedSeniority,
+        targetRole: fresh.targetRole,
+        jobMatchVectors: fresh.jobMatchVectors,
+      }));
+      toast.info('Change redone (⌘⇧Z)', { duration: 1500 });
+    }
+  }, [historyIndex, history]);
+
+  // Global Keyboard Shortcuts for Undo (Cmd/Ctrl+Z) and Redo (Cmd/Ctrl+Shift+Z or Ctrl+Y)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && !e.altKey) {
+        if (e.key === 'z' || e.key === 'Z') {
+          if (e.shiftKey) {
+            e.preventDefault();
+            handleRedo();
+          } else {
+            e.preventDefault();
+            handleUndo();
+          }
+        } else if (e.key === 'y' || e.key === 'Y') {
+          e.preventDefault();
+          handleRedo();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Tracks which bullet point in the canvas is currently pulsing with highlight
   const [highlightedCoordinate, setHighlightedCoordinate] = useState<{
@@ -225,6 +382,7 @@ export function Workspace({
 
   // Handle document edits in the canvas and live-recalculate readiness score
   const handleDocumentChange = (updatedDoc: ResumeDocument) => {
+    const prevDoc = document;
     setDocument(updatedDoc);
     setMatchedJobs([]);
     const fresh = evaluateResumeHeuristically(updatedDoc);
@@ -241,10 +399,53 @@ export function Workspace({
       targetRole: fresh.targetRole,
       jobMatchVectors: fresh.jobMatchVectors,
     }));
+
+    // Detect structural change (delete, add, list length change) vs text editing
+    const currentDoc = history[historyIndex] || prevDoc;
+    const isStructural =
+      (updatedDoc.experience?.length || 0) !== (currentDoc.experience?.length || 0) ||
+      (updatedDoc.education?.length || 0) !== (currentDoc.education?.length || 0) ||
+      (updatedDoc.projects?.length || 0) !== (currentDoc.projects?.length || 0) ||
+      (updatedDoc.skills?.length || 0) !== (currentDoc.skills?.length || 0) ||
+      (updatedDoc.certifications?.length || 0) !== (currentDoc.certifications?.length || 0) ||
+      Boolean(updatedDoc.summary) !== Boolean(currentDoc.summary) ||
+      updatedDoc.experience.some(
+        (role, rIdx) => (role.bullets?.length || 0) !== (currentDoc.experience[rIdx]?.bullets?.length || 0)
+      ) ||
+      updatedDoc.skills.some(
+        (cat, cIdx) => (cat.items?.length || 0) !== (currentDoc.skills[cIdx]?.items?.length || 0)
+      );
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    if (isStructural) {
+      // Immediate push to history for deletions and additions
+      pendingDocRef.current = null;
+      pushToHistory(updatedDoc);
+    } else if (hasCompletedWord(prevDoc, updatedDoc)) {
+      // Word boundary reached (typed space, comma, period, newline) -> commit completed word
+      pendingDocRef.current = null;
+      pushToHistory(updatedDoc);
+    } else {
+      // Active typing inside a word -> debounce so each letter doesn't create an undo step
+      pendingDocRef.current = updatedDoc;
+      debounceTimerRef.current = setTimeout(() => {
+        pendingDocRef.current = null;
+        pushToHistory(updatedDoc);
+      }, 500);
+    }
   };
 
   // Apply a rewrite suggestion to the live document canvas and update readiness score
   const handleApplySuggestion = (suggestion: ResumeSuggestion) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    pendingDocRef.current = null;
 
     const { roleIndex, bulletIndex, suggestedRewrite } = suggestion;
 
@@ -265,6 +466,7 @@ export function Workspace({
       };
 
       setDocument(updatedDoc);
+      pushToHistory(updatedDoc);
       setMatchedJobs([]);
 
       // Re-evaluate document dynamically with the metric-rich rewrite
@@ -327,6 +529,7 @@ export function Workspace({
       };
 
       setDocument(updatedDoc);
+      pushToHistory(updatedDoc);
       setMatchedJobs([]);
 
       const fresh = evaluateResumeHeuristically(updatedDoc);
@@ -356,6 +559,12 @@ export function Workspace({
   const handleApplyAllSuggestions = (suggestionsToApply: ResumeSuggestion[]) => {
     if (!suggestionsToApply || suggestionsToApply.length === 0) return;
 
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    pendingDocRef.current = null;
+
     const updatedExperience = document.experience.map((role) => ({
       ...role,
       bullets: [...role.bullets],
@@ -382,6 +591,7 @@ export function Workspace({
     };
 
     setDocument(updatedDoc);
+    pushToHistory(updatedDoc);
     setMatchedJobs([]);
 
     const fresh = evaluateResumeHeuristically(updatedDoc);
@@ -420,6 +630,12 @@ export function Workspace({
   const handleRevertAllSuggestions = (suggestionsToRevert: ResumeSuggestion[]) => {
     if (!suggestionsToRevert || suggestionsToRevert.length === 0) return;
 
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    pendingDocRef.current = null;
+
     const updatedExperience = document.experience.map((role) => ({
       ...role,
       bullets: [...role.bullets],
@@ -446,6 +662,7 @@ export function Workspace({
     };
 
     setDocument(updatedDoc);
+    pushToHistory(updatedDoc);
     setMatchedJobs([]);
 
     const fresh = evaluateResumeHeuristically(updatedDoc);
@@ -746,6 +963,33 @@ export function Workspace({
 
         {/* Right: Actions + Profile Avatar */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Undo / Redo Toolbar */}
+          <div className="flex items-center border border-neutral-200/90 rounded-lg p-0.5 bg-neutral-50/80 shadow-2xs select-none">
+            <button
+              type="button"
+              onClick={handleUndo}
+              disabled={historyIndex <= 0 && !pendingDocRef.current}
+              aria-label="Undo change (⌘Z)"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold text-neutral-700 hover:text-neutral-900 hover:bg-white hover:shadow-2xs active:scale-[0.98] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:shadow-none disabled:active:scale-100 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              <RotateCcw className="h-3.5 w-3.5 pointer-events-none shrink-0" />
+              <span className="pointer-events-none">Undo</span>
+              <kbd className="text-[10px] text-neutral-400 font-mono pointer-events-none">⌘Z</kbd>
+            </button>
+            <div className="h-3.5 w-px bg-neutral-200 mx-0.5" />
+            <button
+              type="button"
+              onClick={handleRedo}
+              disabled={historyIndex >= history.length - 1}
+              aria-label="Redo change (⌘⇧Z)"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold text-neutral-700 hover:text-neutral-900 hover:bg-white hover:shadow-2xs active:scale-[0.98] disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:shadow-none disabled:active:scale-100 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            >
+              <RotateCw className="h-3.5 w-3.5 pointer-events-none shrink-0" />
+              <span className="pointer-events-none">Redo</span>
+              <kbd className="text-[10px] text-neutral-400 font-mono pointer-events-none">⌘⇧Z</kbd>
+            </button>
+          </div>
+
           {onReanalyze && (
             <Button
               variant="outline"

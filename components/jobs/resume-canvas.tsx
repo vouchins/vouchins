@@ -219,8 +219,12 @@ export function ResumeCanvas({
   // Delete Bullet Point
   const deleteBullet = (roleIndex: number, bulletIndex: number) => {
     const newExperience = [...document.experience];
-    if (newExperience[roleIndex].bullets.length <= 1) return;
-    newExperience[roleIndex].bullets.splice(bulletIndex, 1);
+    const newBullets = [...(newExperience[roleIndex].bullets || [])];
+    newBullets.splice(bulletIndex, 1);
+    newExperience[roleIndex] = {
+      ...newExperience[roleIndex],
+      bullets: newBullets.length > 0 ? newBullets : [''],
+    };
     onChange({ ...document, experience: newExperience });
   };
 
@@ -262,7 +266,6 @@ export function ResumeCanvas({
 
   // Delete Role
   const deleteRole = (roleIndex: number) => {
-    if (document.experience.length <= 1) return;
     const newExperience = [...document.experience];
     newExperience.splice(roleIndex, 1);
     onChange({ ...document, experience: newExperience });
@@ -298,7 +301,6 @@ export function ResumeCanvas({
   };
 
   const deleteEducation = (index: number) => {
-    if (document.education.length <= 1) return;
     const newEdu = [...document.education];
     newEdu.splice(index, 1);
     onChange({ ...document, education: newEdu });
@@ -343,9 +345,11 @@ export function ResumeCanvas({
   const deleteProjectBullet = (projIndex: number, bulletIndex: number) => {
     const newProjects = [...(document.projects || [])];
     const newBullets = [...(newProjects[projIndex].bullets || [])];
-    if (newBullets.length <= 1) return;
     newBullets.splice(bulletIndex, 1);
-    newProjects[projIndex] = { ...newProjects[projIndex], bullets: newBullets };
+    newProjects[projIndex] = {
+      ...newProjects[projIndex],
+      bullets: newBullets.length > 0 ? newBullets : [''],
+    };
     onChange({ ...document, projects: newProjects });
   };
 
@@ -667,27 +671,40 @@ export function ResumeCanvas({
                   </button>
                 </div>
                 <div className="flex flex-col gap-1.5 text-xs text-neutral-800">
-                  {document.skills.map((skillGroup, idx) => (
-                    <EditableSkillRow
-                      key={idx}
-                      category={skillGroup.category}
-                      items={skillGroup.items}
-                      onChangeCategory={(newCat) => updateSkillCategoryName(idx, newCat)}
-                      onChangeItems={(newItems) => updateSkillGroupItems(idx, newItems)}
-                      onDeleteCategory={() => deleteSkillCategory(idx)}
-                      canDelete={document.skills.length > 1}
-                    />
-                  ))}
+                  {(!document.skills || document.skills.length === 0) ? (
+                    <div className="py-2.5 px-3 border border-dashed border-neutral-200 rounded-lg text-neutral-400 italic text-xs flex items-center justify-between print:hidden">
+                      <span>No technical skills added yet.</span>
+                      <button
+                        type="button"
+                        onClick={addSkillCategory}
+                        className="text-[#0A1B5C] font-semibold hover:underline cursor-pointer"
+                      >
+                        + Add Category
+                      </button>
+                    </div>
+                  ) : (
+                    document.skills.map((skillGroup, idx) => (
+                      <EditableSkillRow
+                        key={idx}
+                        category={skillGroup.category}
+                        items={skillGroup.items}
+                        onChangeCategory={(newCat) => updateSkillCategoryName(idx, newCat)}
+                        onChangeItems={(newItems) => updateSkillGroupItems(idx, newItems)}
+                        onDeleteCategory={() => deleteSkillCategory(idx)}
+                        canDelete={true}
+                      />
+                    ))
+                  )}
                 </div>
               </section>
             )}
 
             {/* 4. Professional Experience */}
-            {page.roles.length > 0 && (
+            {(page.roles.length > 0 || (pageIdx === 0 && (!document.experience || document.experience.length === 0))) && (
               <section className="flex flex-col gap-3 sm:gap-3.5">
                 <div className="flex items-center justify-between border-b border-neutral-200 pb-1">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-[#0A1B5C]">
-                    Work Experience {pageIdx > 0 ? '(Continued)' : ''}
+                    Work Experience {pageIdx > 0 && page.roles[0]?.isContinuation ? '(Continued)' : ''}
                   </h2>
                   {pageIdx === 0 && (
                     <button
@@ -701,103 +718,131 @@ export function ResumeCanvas({
                   )}
                 </div>
 
-                <div className="flex flex-col gap-3.5 sm:gap-4">
-                  {page.roles.map(({ role, globalIdx, bulletStartIndex = 0, bulletEndIndex, isContinuation }) => {
-                    const bulletsToRender = role.bullets.slice(
-                      bulletStartIndex,
-                      bulletEndIndex !== undefined ? bulletEndIndex : role.bullets.length
-                    );
+                {(!document.experience || document.experience.length === 0) ? (
+                  <div className="py-3 px-3 border border-dashed border-neutral-200 rounded-lg text-neutral-400 italic text-xs flex items-center justify-between print:hidden">
+                    <span>No work experience entries.</span>
+                    <button
+                      type="button"
+                      onClick={addRole}
+                      className="text-[#0A1B5C] font-semibold hover:underline cursor-pointer"
+                    >
+                      + Add Position
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3.5 sm:gap-4">
+                    {page.roles.map(({ role, globalIdx, bulletStartIndex = 0, bulletEndIndex, isContinuation }) => {
+                      const bulletsToRender = role.bullets.slice(
+                        bulletStartIndex,
+                        bulletEndIndex !== undefined ? bulletEndIndex : role.bullets.length
+                      );
 
-                    return (
-                      <div key={`${role.id || globalIdx}-${bulletStartIndex}`} className="group/role flex flex-col gap-1.5">
-                        {/* Role Header */}
-                        {!isContinuation ? (
-                          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
-                            <div className="flex items-baseline gap-2 flex-wrap">
-                              <input
-                                type="text"
-                                value={role.roleTitle}
-                                onChange={(e) => updateRole(globalIdx, 'roleTitle', e.target.value)}
-                                placeholder="Role Title"
-                                className="text-[13.5px] font-bold text-neutral-900 bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
-                              />
-                              <span className="text-neutral-400 font-bold select-none">•</span>
-                              <input
-                                type="text"
-                                value={role.company}
-                                onChange={(e) => updateRole(globalIdx, 'company', e.target.value)}
-                                placeholder="Company"
-                                className="text-[13.5px] font-semibold text-neutral-800 bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
-                              />
-                            </div>
+                      return (
+                        <div key={`${role.id || globalIdx}-${bulletStartIndex}`} className="group/role flex flex-col gap-1.5">
+                          {/* Role Header */}
+                          {!isContinuation ? (
+                            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                              <div className="flex items-baseline gap-2 flex-wrap">
+                                <input
+                                  type="text"
+                                  value={role.roleTitle}
+                                  onChange={(e) => updateRole(globalIdx, 'roleTitle', e.target.value)}
+                                  placeholder="Role Title"
+                                  className="text-[13.5px] font-bold text-neutral-900 bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
+                                />
+                                <span className="text-neutral-400 font-bold select-none">•</span>
+                                <input
+                                  type="text"
+                                  value={role.company}
+                                  onChange={(e) => updateRole(globalIdx, 'company', e.target.value)}
+                                  placeholder="Company"
+                                  className="text-[13.5px] font-semibold text-neutral-800 bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
+                                />
+                              </div>
 
-                            <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
-                              <input
-                                type="text"
-                                value={`${role.startDate} - ${role.endDate}`}
-                                onChange={(e) => {
-                                  const parts = e.target.value.split('-').map((s) => s.trim());
-                                  updateRole(globalIdx, 'startDate', parts[0] || '');
-                                  updateRole(globalIdx, 'endDate', parts[1] || 'Present');
-                                }}
-                                className="w-36 min-w-[140px] text-right bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
-                              />
-                              {role.location && (
-                                <>
-                                  <span className="text-neutral-300 select-none">|</span>
-                                  <input
-                                    type="text"
-                                    value={role.location}
-                                    onChange={(e) => updateRole(globalIdx, 'location', e.target.value)}
-                                    placeholder="Location"
-                                    className="w-24 sm:w-28 text-right bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
-                                  />
-                                </>
-                              )}
-                              {document.experience.length > 1 && (
+                              <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                                <input
+                                  type="text"
+                                  value={`${role.startDate} - ${role.endDate}`}
+                                  onChange={(e) => {
+                                    const parts = e.target.value.split('-').map((s) => s.trim());
+                                    updateRole(globalIdx, 'startDate', parts[0] || '');
+                                    updateRole(globalIdx, 'endDate', parts[1] || 'Present');
+                                  }}
+                                  className="w-36 min-w-[140px] text-right bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
+                                />
+                                {role.location ? (
+                                  <div className="group/loc flex items-center gap-0.5">
+                                    <span className="text-neutral-300 select-none">|</span>
+                                    <input
+                                      type="text"
+                                      value={role.location}
+                                      onChange={(e) => updateRole(globalIdx, 'location', e.target.value)}
+                                      placeholder="Location"
+                                      className="w-20 sm:w-24 text-right bg-transparent border-b border-transparent hover:border-neutral-300 focus:outline-none"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => updateRole(globalIdx, 'location', '')}
+                                      title="Clear location"
+                                      className="opacity-0 group-hover/loc:opacity-100 text-neutral-400 hover:text-rose-600 transition-opacity p-0.5 print:hidden cursor-pointer"
+                                    >
+                                      <X className="h-2.5 w-2.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateRole(globalIdx, 'location', 'City, State')}
+                                    title="Add location"
+                                    className="opacity-0 group-hover/role:opacity-100 text-[11px] text-neutral-400 hover:text-[#0A1B5C] transition-opacity print:hidden cursor-pointer"
+                                  >
+                                    + Location
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => deleteRole(globalIdx)}
                                   title="Delete Role"
-                                  className="opacity-0 group-hover/role:opacity-100 text-neutral-400 hover:text-rose-600 transition-opacity p-0.5 print:hidden cursor-pointer"
+                                  className="opacity-60 sm:opacity-0 sm:group-hover/role:opacity-100 text-neutral-400 hover:text-rose-600 transition-opacity p-0.5 print:hidden cursor-pointer"
                                 >
                                   <Trash2 className="h-3 w-3" />
                                 </button>
-                              )}
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-baseline justify-between gap-1 text-xs text-neutral-500 border-b border-neutral-100 pb-1 mb-0.5">
-                            <span className="font-semibold text-neutral-800">
-                              {role.roleTitle} • {role.company} (Continued)
-                            </span>
-                          </div>
-                        )}
+                          ) : (
+                            <div className="flex items-baseline justify-between gap-1 text-xs text-neutral-500 border-b border-neutral-100 pb-1 mb-0.5">
+                              <span className="font-semibold text-neutral-800">
+                                {role.roleTitle} • {role.company} (Continued)
+                              </span>
+                            </div>
+                          )}
 
-                        {/* Bullets List */}
-                        <div className="flex flex-col gap-0.5 pl-0.5">
-                          {bulletsToRender.map((bullet, localIdx) => {
-                            const actualBulletIdx = bulletStartIndex + localIdx;
-                            const isTargetHighlighted =
-                              highlightedCoordinate?.roleIndex === globalIdx &&
-                              highlightedCoordinate?.bulletIndex === actualBulletIdx;
+                          {/* Bullets List */}
+                          <div className="flex flex-col gap-0.5 pl-0.5">
+                            {bulletsToRender.map((bullet, localIdx) => {
+                              const actualBulletIdx = bulletStartIndex + localIdx;
+                              const isTargetHighlighted =
+                                highlightedCoordinate?.roleIndex === globalIdx &&
+                                highlightedCoordinate?.bulletIndex === actualBulletIdx;
 
-                            return (
-                              <EditableBullet
-                                key={actualBulletIdx}
-                                bullet={bullet}
-                                isHighlighted={isTargetHighlighted}
-                                onChange={(newText) => updateBullet(globalIdx, actualBulletIdx, newText)}
-                                onAddBelow={() => addBullet(globalIdx, actualBulletIdx)}
-                                onDelete={() => deleteBullet(globalIdx, actualBulletIdx)}
-                              />
-                            );
-                          })}
+                              return (
+                                <EditableBullet
+                                  key={actualBulletIdx}
+                                  bullet={bullet}
+                                  isHighlighted={isTargetHighlighted}
+                                  onChange={(newText) => updateBullet(globalIdx, actualBulletIdx, newText)}
+                                  onAddBelow={() => addBullet(globalIdx, actualBulletIdx)}
+                                  onDelete={() => deleteBullet(globalIdx, actualBulletIdx)}
+                                />
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             )}
 
@@ -819,58 +864,69 @@ export function ResumeCanvas({
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  {(page.educationIndices
-                    ? page.educationIndices.map((idx) => ({ edu: document.education[idx], eduIdx: idx })).filter((x) => x.edu)
-                    : document.education.map((edu, eduIdx) => ({ edu, eduIdx }))
-                  ).map(({ edu, eduIdx }) => (
-                    <div key={edu.id || eduIdx} className="group/edu flex justify-between items-baseline text-xs gap-3">
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span
-                          contentEditable
-                          suppressContentEditableWarning
-                          onBlur={(e) => updateEducation(eduIdx, 'institution', e.currentTarget.textContent || '')}
-                          className="font-bold text-neutral-900 break-words hover:bg-neutral-50 rounded px-0.5 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
-                        >
-                          {edu.institution}
-                        </span>
-                        <span className="text-neutral-700 break-words">
+                  {(!document.education || document.education.length === 0) ? (
+                    <div className="py-2.5 px-3 border border-dashed border-neutral-200 rounded-lg text-neutral-400 italic text-xs flex items-center justify-between print:hidden">
+                      <span>No education entries added yet.</span>
+                      <button
+                        type="button"
+                        onClick={addEducation}
+                        className="text-[#0A1B5C] font-semibold hover:underline cursor-pointer"
+                      >
+                        + Add Education
+                      </button>
+                    </div>
+                  ) : (
+                    (page.educationIndices
+                      ? page.educationIndices.map((idx) => ({ edu: document.education[idx], eduIdx: idx })).filter((x) => x.edu)
+                      : document.education.map((edu, eduIdx) => ({ edu, eduIdx }))
+                    ).map(({ edu, eduIdx }) => (
+                      <div key={edu.id || eduIdx} className="group/edu flex justify-between items-baseline text-xs gap-3">
+                        <div className="flex flex-col min-w-0 flex-1">
                           <span
                             contentEditable
                             suppressContentEditableWarning
-                            onBlur={(e) => updateEducation(eduIdx, 'degree', e.currentTarget.textContent || '')}
-                            className="hover:bg-neutral-50 rounded px-0.5 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+                            onBlur={(e) => updateEducation(eduIdx, 'institution', e.currentTarget.textContent || '')}
+                            className="font-bold text-neutral-900 break-words hover:bg-neutral-50 rounded px-0.5 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
                           >
-                            {edu.degree}
+                            {edu.institution}
                           </span>
-                          {edu.fieldOfStudy &&
-                          !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
-                            ? ` in ${edu.fieldOfStudy}`
-                            : ''}
-                          {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-neutral-500 font-medium shrink-0">
-                        <span
-                          contentEditable
-                          suppressContentEditableWarning
-                          onBlur={(e) => updateEducation(eduIdx, 'endDate', e.currentTarget.textContent || '')}
-                          className="hover:bg-neutral-50 rounded px-0.5 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] text-right"
-                        >
-                          {edu.endDate}
-                        </span>
-                        {document.education.length > 1 && (
+                          <span className="text-neutral-700 break-words">
+                            <span
+                              contentEditable
+                              suppressContentEditableWarning
+                              onBlur={(e) => updateEducation(eduIdx, 'degree', e.currentTarget.textContent || '')}
+                              className="hover:bg-neutral-50 rounded px-0.5 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+                            >
+                              {edu.degree}
+                            </span>
+                            {edu.fieldOfStudy &&
+                            !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
+                              ? ` in ${edu.fieldOfStudy}`
+                              : ''}
+                            {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-neutral-500 font-medium shrink-0">
+                          <span
+                            contentEditable
+                            suppressContentEditableWarning
+                            onBlur={(e) => updateEducation(eduIdx, 'endDate', e.currentTarget.textContent || '')}
+                            className="hover:bg-neutral-50 rounded px-0.5 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C] text-right"
+                          >
+                            {edu.endDate}
+                          </span>
                           <button
                             type="button"
                             onClick={() => deleteEducation(eduIdx)}
                             title="Delete Education"
-                            className="opacity-0 group-hover/edu:opacity-100 text-neutral-400 hover:text-rose-600 transition-opacity p-0.5 print:hidden cursor-pointer"
+                            className="opacity-60 sm:opacity-0 sm:group-hover/edu:opacity-100 text-neutral-400 hover:text-rose-600 transition-opacity p-0.5 print:hidden cursor-pointer"
                           >
                             <Trash2 className="h-3 w-3" />
                           </button>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </section>
             )}

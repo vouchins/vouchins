@@ -12,9 +12,10 @@ import {
   canonicalizeSkill,
   candidateHasSkill,
   isValidGeographicLocation,
+  buildPostgrestLocationFilter,
 } from '@/lib/jobs/ats-client';
 import { parseRawTextToDocument } from '@/lib/jobs/xyz-evaluator';
-import { buildPostgrestLocationFilter, GET } from '@/app/api/jobs/route';
+import { GET } from '@/app/api/jobs/route';
 
 describe('Resume to Database Job Matching Engine', () => {
   describe('Skill Synonyms & Precise Keyword Extraction', () => {
