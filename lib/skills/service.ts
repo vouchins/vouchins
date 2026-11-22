@@ -64,7 +64,26 @@ export async function getAllSkillResources(filters?: {
       .order('created_at', { ascending: false });
 
     if (!error && Array.isArray(data) && data.length > 0) {
-      inMemoryResources = data.map(mapDbRowToResource);
+      const dbResources = data.map(mapDbRowToResource);
+      // Ensure any newly added default resources in code are also present
+      const existingUrls = new Set(dbResources.map((r) => r.url.toLowerCase().replace(/\/$/, '')));
+      const missingDefaults = DEFAULT_SKILL_RESOURCES.filter(
+        (def) => !existingUrls.has(def.url.toLowerCase().replace(/\/$/, ''))
+      );
+      if (missingDefaults.length > 0) {
+        try {
+          const rowsToInsert = missingDefaults.map((r) => ({
+            id: r.id,
+            ...mapResourceToDbRow(r),
+            created_at: r.createdAt || new Date().toISOString(),
+          }));
+          await supabaseAdmin.from('skills_courses').insert(rowsToInsert);
+        } catch {
+          // Silently preserve
+        }
+        dbResources.push(...missingDefaults);
+      }
+      inMemoryResources = dbResources;
       hasSyncedFromDb = true;
     } else if (!hasSyncedFromDb && (!data || data.length === 0)) {
       // If table exists but is empty, try seeding default resources

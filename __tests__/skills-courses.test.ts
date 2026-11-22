@@ -70,6 +70,9 @@ describe('Skills Development Catalog & API', () => {
       // Java link
       expect(urls).toContain('https://dev.java/learn/');
 
+      // Design Patterns link
+      expect(urls).toContain('https://www.patterns.dev/');
+
       // AI link & secondary repo
       const aiResource = DEFAULT_SKILL_RESOURCES.find(
         (r) => r.url === 'https://aiengineeringfromscratch.com/'
@@ -77,13 +80,14 @@ describe('Skills Development Catalog & API', () => {
       expect(aiResource).toBeDefined();
       expect(aiResource?.secondaryUrl).toBe('https://github.com/rohitg00/ai-engineering-from-scratch');
 
-      expect(DEFAULT_SKILL_RESOURCES.length).toBe(14);
+      expect(DEFAULT_SKILL_RESOURCES.length).toBe(15);
     });
 
     it('categorizes courses under the expected pillars', () => {
       const categories = new Set(DEFAULT_SKILL_RESOURCES.map((r) => r.category));
       expect(categories).toContain('DSA');
       expect(categories).toContain('System Design');
+      expect(categories).toContain('Design Patterns');
       expect(categories).toContain('JavaScript');
       expect(categories).toContain('CSS');
       expect(categories).toContain('Java');

@@ -245,5 +245,26 @@ export const DEFAULT_SKILL_RESOURCES: SkillResource[] = [
     tags: ['LLMs', 'RAG Pipelines', 'Vector Search', 'Open Source', 'GitHub Repo'],
     createdAt: '2026-11-10T00:00:00.000Z',
   },
+
+  // ============================================================================
+  // DESIGN PATTERNS
+  // ============================================================================
+  {
+    id: 'design-patterns-dev',
+    title: 'Patterns.dev - Design Patterns & Component Patterns for Web Apps',
+    description:
+      'Free comprehensive handbook on classic software design patterns, React patterns, and architectural rendering patterns authored by Addy Osmani and Lydia Hallie.',
+    category: 'Design Patterns',
+    url: 'https://www.patterns.dev/',
+    secondaryUrl: 'https://github.com/patterns-dev',
+    secondaryUrlLabel: 'GitHub Organization',
+    type: 'curriculum',
+    difficulty: 'All Levels',
+    isFree: true,
+    featured: true,
+    domain: 'patterns.dev',
+    tags: ['Design Patterns', 'Architecture', 'React', 'JavaScript', 'System Design'],
+    createdAt: '2026-11-22T00:00:00.000Z',
+  },
 ];
 

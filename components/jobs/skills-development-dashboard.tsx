@@ -31,15 +31,19 @@ import { toast } from 'sonner';
 import { SkillResource, SkillCategory } from '@/lib/skills/types';
 import { DEFAULT_SKILL_RESOURCES } from '@/lib/skills/default-resources';
 
-const CATEGORY_TABS: { id: SkillCategory; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'All', label: 'All Resources', icon: Layers },
-  { id: 'DSA', label: 'DSA & Algorithms', icon: Terminal },
-  { id: 'System Design', label: 'System Design', icon: Database },
-  { id: 'JavaScript', label: 'JavaScript', icon: Code2 },
-  { id: 'CSS', label: 'CSS Layouts', icon: Layers },
-  { id: 'Java', label: 'Java', icon: BookOpen },
-  { id: 'AI', label: 'AI & LLMs', icon: Cpu },
-];
+const STANDARD_CATEGORY_META: Record<
+  string,
+  { label: string; icon: React.ComponentType<{ className?: string }> }
+> = {
+  all: { label: 'All Resources', icon: Layers },
+  dsa: { label: 'DSA & Algorithms', icon: Terminal },
+  'system design': { label: 'System Design', icon: Database },
+  'design patterns': { label: 'Design Patterns', icon: Sparkles },
+  javascript: { label: 'JavaScript', icon: Code2 },
+  css: { label: 'CSS Layouts', icon: Layers },
+  java: { label: 'Java', icon: BookOpen },
+  ai: { label: 'AI & LLMs', icon: Cpu },
+};
 
 function getCategoryColor(category: string) {
   switch (category.toLowerCase()) {
@@ -52,6 +56,11 @@ function getCategoryColor(category: string) {
       return {
         badge: 'bg-blue-50 text-blue-700 border-blue-200',
         dot: 'bg-blue-600',
+      };
+    case 'design patterns':
+      return {
+        badge: 'bg-teal-50 text-teal-800 border-teal-200',
+        dot: 'bg-teal-600',
       };
     case 'javascript':
       return {
@@ -75,8 +84,8 @@ function getCategoryColor(category: string) {
       };
     default:
       return {
-        badge: 'bg-neutral-100 text-neutral-700 border-neutral-200',
-        dot: 'bg-neutral-600',
+        badge: 'bg-cyan-50 text-cyan-800 border-cyan-200',
+        dot: 'bg-cyan-600',
       };
   }
 }
@@ -142,6 +151,51 @@ export function SkillsDevelopmentDashboard() {
       );
     });
   }, [courses, selectedCategory, searchQuery]);
+
+  // Dynamically compute category tabs from the actual courses list + standard presets
+  const categoryTabs = useMemo(() => {
+    // Collect all unique categories present in courses
+    const foundCategories = new Set<string>();
+    courses.forEach((c) => {
+      if (c.category?.trim()) {
+        foundCategories.add(c.category.trim());
+      }
+    });
+
+    // Preset standard order
+    const orderedPresets = ['DSA', 'System Design', 'Design Patterns', 'JavaScript', 'CSS', 'Java', 'AI'];
+    const result: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+      { id: 'All', label: 'All Resources', icon: Layers },
+    ];
+
+    // Add ordered presets if they exist in courses or are defaults
+    orderedPresets.forEach((cat) => {
+      const matchInFound = Array.from(foundCategories).find((fc) => fc.toLowerCase() === cat.toLowerCase());
+      if (matchInFound) {
+        const meta = STANDARD_CATEGORY_META[cat.toLowerCase()] || { label: cat, icon: Sparkles };
+        result.push({
+          id: matchInFound,
+          label: meta.label,
+          icon: meta.icon,
+        });
+        foundCategories.delete(matchInFound);
+      }
+    });
+
+    // Add any remaining dynamic/custom categories added by admin
+    Array.from(foundCategories)
+      .sort((a, b) => a.localeCompare(b))
+      .forEach((customCat) => {
+        const meta = STANDARD_CATEGORY_META[customCat.toLowerCase()] || { label: customCat, icon: Sparkles };
+        result.push({
+          id: customCat,
+          label: meta.label || customCat,
+          icon: meta.icon,
+        });
+      });
+
+    return result;
+  }, [courses]);
 
   return (
     <div className="relative flex min-h-screen bg-[#F8FAFC] text-neutral-900 font-sans selection:bg-[#0A1B5C]/20 selection:text-[#0A1B5C]">
@@ -230,7 +284,7 @@ export function SkillsDevelopmentDashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               {/* Category Pills */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-                {CATEGORY_TABS.map((tab) => {
+                {categoryTabs.map((tab) => {
                   const count =
                     tab.id === 'All'
                       ? courses.length

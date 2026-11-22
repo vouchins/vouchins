@@ -111,6 +111,7 @@ export async function middleware(request: NextRequest) {
     '/jobs/dashboard',
     '/jobs-dashboard',
     '/jobs/recommend',
+    '/jobs/skills-development',
     '/robots.txt',
     '/sitemap.xml',
     '/llms.txt',
@@ -140,6 +141,7 @@ export async function middleware(request: NextRequest) {
     '/jobs/dashboard',
     '/jobs-dashboard',
     '/jobs/recommend',
+    '/jobs/skills-development',
   ]
   const isIndexableRoute =
     indexablePaths.includes(url.pathname) ||

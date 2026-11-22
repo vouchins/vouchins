@@ -2,6 +2,7 @@ export type SkillCategory =
   | 'All'
   | 'DSA'
   | 'System Design'
+  | 'Design Patterns'
   | 'JavaScript'
   | 'CSS'
   | 'Java'

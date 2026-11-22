@@ -44,7 +44,15 @@ interface SkillsTabProps {
   loading?: boolean;
 }
 
-const CATEGORIES = ['All', 'DSA', 'System Design', 'JavaScript', 'CSS', 'Java', 'AI'];
+const DEFAULT_PRESET_CATEGORIES = [
+  'DSA',
+  'System Design',
+  'Design Patterns',
+  'JavaScript',
+  'CSS',
+  'Java',
+  'AI',
+];
 
 export function SkillsTab({ onRefresh, loading = false }: SkillsTabProps) {
   const [courses, setCourses] = useState<SkillResource[]>([]);
@@ -56,6 +64,23 @@ export function SkillsTab({ onRefresh, loading = false }: SkillsTabProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<SkillResource | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+
+  // Dynamically collect unique categories from active courses + default presets
+  const availableCategories = React.useMemo(() => {
+    const set = new Set<string>(DEFAULT_PRESET_CATEGORIES);
+    courses.forEach((c) => {
+      if (c.category?.trim()) {
+        set.add(c.category.trim());
+      }
+    });
+    return Array.from(set);
+  }, [courses]);
+
+  const filterCategories = React.useMemo(() => {
+    return ['All', ...availableCategories];
+  }, [availableCategories]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -94,10 +119,13 @@ export function SkillsTab({ onRefresh, loading = false }: SkillsTabProps) {
 
   const handleOpenAddModal = () => {
     setEditingCourse(null);
+    setIsCustomCategory(false);
+    setCustomCategoryInput('');
+    const defaultCat = selectedCategory !== 'All' ? selectedCategory : 'DSA';
     setFormData({
       title: '',
       description: '',
-      category: selectedCategory !== 'All' ? selectedCategory : 'DSA',
+      category: defaultCat,
       url: '',
       secondaryUrl: '',
       secondaryUrlLabel: '',
@@ -112,6 +140,9 @@ export function SkillsTab({ onRefresh, loading = false }: SkillsTabProps) {
 
   const handleOpenEditModal = (course: SkillResource) => {
     setEditingCourse(course);
+    const isStandard = availableCategories.includes(course.category);
+    setIsCustomCategory(!isStandard);
+    setCustomCategoryInput(!isStandard ? course.category : '');
     setFormData({
       title: course.title,
       description: course.description || '',
@@ -139,6 +170,12 @@ export function SkillsTab({ onRefresh, loading = false }: SkillsTabProps) {
       return;
     }
 
+    const effectiveCategory = isCustomCategory ? customCategoryInput.trim() : formData.category.trim();
+    if (!effectiveCategory) {
+      toast.error('Category is required');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const tags = formData.tagsString
@@ -149,7 +186,7 @@ export function SkillsTab({ onRefresh, loading = false }: SkillsTabProps) {
       const payload = {
         title: formData.title.trim(),
         description: formData.description.trim(),
-        category: formData.category,
+        category: effectiveCategory,
         url: formData.url.trim(),
         secondaryUrl: formData.secondaryUrl.trim() || null,
         secondaryUrlLabel: formData.secondaryUrlLabel.trim() || null,
@@ -313,7 +350,7 @@ export function SkillsTab({ onRefresh, loading = false }: SkillsTabProps) {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2 border-t border-neutral-100">
             {/* Category Filter Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
-              {CATEGORIES.map((cat) => {
+              {filterCategories.map((cat) => {
                 const count =
                   cat === 'All'
                     ? courses.length
@@ -519,21 +556,54 @@ export function SkillsTab({ onRefresh, loading = false }: SkillsTabProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-neutral-700">Category *</Label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full h-9 rounded-md border border-neutral-300 bg-white px-3 text-xs font-bold text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
-                >
-                  <option value="DSA">DSA</option>
-                  <option value="System Design">System Design</option>
-                  <option value="JavaScript">JavaScript</option>
-                  <option value="CSS">CSS</option>
-                  <option value="Java">Java</option>
-                  <option value="AI">AI</option>
-                  <option value="DevOps">DevOps</option>
-                  <option value="Other">Other</option>
-                </select>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-neutral-700">Category *</Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isCustomCategory) {
+                        setIsCustomCategory(true);
+                        setCustomCategoryInput('');
+                      } else {
+                        setIsCustomCategory(false);
+                      }
+                    }}
+                    className="text-[11px] font-bold text-[#0A1B5C] hover:underline cursor-pointer"
+                  >
+                    {isCustomCategory ? '← Choose Existing' : '+ New Category'}
+                  </button>
+                </div>
+                {isCustomCategory ? (
+                  <Input
+                    type="text"
+                    required
+                    value={customCategoryInput}
+                    onChange={(e) => setCustomCategoryInput(e.target.value)}
+                    placeholder="e.g. Design Patterns, DevOps..."
+                    className="text-xs h-9"
+                    autoFocus
+                  />
+                ) : (
+                  <select
+                    value={formData.category}
+                    onChange={(e) => {
+                      if (e.target.value === '__NEW__') {
+                        setIsCustomCategory(true);
+                        setCustomCategoryInput('');
+                      } else {
+                        setFormData({ ...formData, category: e.target.value });
+                      }
+                    }}
+                    className="w-full h-9 rounded-md border border-neutral-300 bg-white px-3 text-xs font-bold text-neutral-800 focus:outline-none focus:ring-1 focus:ring-[#0A1B5C]"
+                  >
+                    {availableCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="__NEW__">+ Add Custom Category...</option>
+                  </select>
+                )}
               </div>
 
               <div className="space-y-1.5">
