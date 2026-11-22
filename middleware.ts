@@ -170,7 +170,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // If user is logged in and visits the landing page, redirect to feed (Industry Standard)
-  if (user && url.pathname === '/') {
+  if (user && url.pathname === '/' && !url.searchParams.has('preview')) {
     url.pathname = '/feed'
     return redirectWithCookies(url)
   }

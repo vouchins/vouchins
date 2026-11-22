@@ -16,7 +16,6 @@ import {
   XCircle,
   ThumbsUp,
   Briefcase,
-  Play,
   ArrowRightCircle,
   TrendingUp,
   ShoppingCart,
@@ -35,7 +34,10 @@ import {
   Car,
   Award,
   Fingerprint,
-  Mail
+  Mail,
+  FileText,
+  GraduationCap,
+  Sparkles
 } from "lucide-react";
 
 export default function Home() {
@@ -46,7 +48,7 @@ export default function Home() {
       name: "Rahul Verma",
       action: "referred",
       target: "Ananya Iyer",
-      subtext: "Fitness & Sports",
+      subtext: "Senior SWE @ Microsoft",
       icon: Briefcase,
       iconColor: "text-purple-400",
       iconBg: "bg-purple-500/10",
@@ -54,22 +56,22 @@ export default function Home() {
     {
       avatar: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Priya Mehta",
-      action: "posted a flatmate",
-      target: "requirement",
-      subtext: "Flatmate match",
-      icon: HomeIcon,
-      iconColor: "text-blue-400",
-      iconBg: "bg-blue-500/10",
+      action: "scored 95% in",
+      target: "Resume Studio",
+      subtext: "Google XYZ Formula Verified",
+      icon: FileText,
+      iconColor: "text-[#4FD1C5]",
+      iconBg: "bg-[#4FD1C5]/10",
     },
     {
       avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=100&h=100&q=80",
       name: "Arjun Nair",
-      action: "listed iPhone 15",
-      target: "for sale",
-      subtext: "Gadgets & Gear",
-      icon: ShoppingCart,
-      iconColor: "text-emerald-400",
-      iconBg: "bg-emerald-500/10",
+      action: "completed workshop on",
+      target: "System Design",
+      subtext: "100% Free Skills Exchange",
+      icon: GraduationCap,
+      iconColor: "text-amber-400",
+      iconBg: "bg-amber-500/10",
     },
     {
       avatar: "https://images.unsplash.com/photo-1607746882042-944635dfe10e?auto=format&fit=crop&w=100&h=100&q=80",
@@ -78,8 +80,8 @@ export default function Home() {
       target: "recommendation",
       subtext: "12m ago • Mumbai",
       icon: Star,
-      iconColor: "text-amber-400",
-      iconBg: "bg-amber-500/10",
+      iconColor: "text-blue-400",
+      iconBg: "bg-blue-500/10",
     }
   ];
 
@@ -134,20 +136,45 @@ export default function Home() {
                 </div>
 
                 {/* Main Headline */}
-                <h1 className="text-6xl md:text-7xl font-extrabold tracking-normal leading-tight text-white font-[family-name:var(--font-playfair)]">
-                  Verified Professionals.<br />
+                <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-normal leading-[1.12] text-white font-[family-name:var(--font-playfair)]">
+                  Exclusive Community for<br />
                   <span className="bg-gradient-to-r from-[#4FD1C5] to-[#26c6da] bg-clip-text text-transparent font-black">
-                    A Trusted Circle.
+                    Corporate Professionals.
                   </span>
                 </h1>
 
                 {/* Subheadline */}
-                <p className="text-sm md:text-base text-slate-300 max-w-lg font-normal leading-relaxed tracking-wide animate-fade-in">
-                  Vouchins is an invite-only network for corporate professionals. Access is confirmed through a supported corporate email and strengthened through peer vouches. Connect, collaborate, and exchange in a community designed for greater accountability.
+                <p className="text-sm md:text-base text-slate-300 max-w-2xl font-normal leading-relaxed tracking-wide animate-fade-in">
+                  The private network engineered for verified corporate professionals. Discover curated <strong className="text-white font-semibold">Jobs with direct insider referrals</strong>, optimize applications in our <strong className="text-white font-semibold">Interactive Resume Studio</strong>, and level up with <strong className="text-white font-semibold">100% Free Skills Development</strong>. Connect with trusted peers for verified <strong className="text-white font-semibold">flatmate searching</strong>, high-signal <strong className="text-white font-semibold">recommendations</strong>, and safe <strong className="text-white font-semibold">peer-to-peer buying and selling</strong>.
                 </p>
 
+                {/* 3 Core Pillars Highlight Pills */}
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2.5 pt-1">
+                  <Link
+                    href="/jobs"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-[#4FD1C5]/40 hover:-translate-y-0.5"
+                  >
+                    <Briefcase className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                    <span>Curated Jobs & Referrals</span>
+                  </Link>
+                  <Link
+                    href="/jobs/resume/studio"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-[#4FD1C5]/40 hover:-translate-y-0.5"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                    <span>ATS Resume Studio</span>
+                  </Link>
+                  <Link
+                    href="/skills-development"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 backdrop-blur-sm transition-all hover:border-[#4FD1C5]/40 hover:-translate-y-0.5"
+                  >
+                    <GraduationCap className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                    <span>Free Skills Exchange</span>
+                  </Link>
+                </div>
+
                 {/* CTAs */}
-                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3.5 pt-1">
                   <Link href="/signup">
                     <Button
                       size="lg"
@@ -156,29 +183,24 @@ export default function Home() {
                       Request Access
                     </Button>
                   </Link>
-                  <Button
-                    asChild
-                    size="lg"
-                    variant="outline"
-                    className="border-white/10 hover:bg-white/5 text-white font-bold text-sm uppercase tracking-wider px-8 py-6 rounded-2xl backdrop-blur-sm hover:border-white/20 transition-all hover:-translate-y-0.5 bg-transparent"
-                  >
-                    <a
-                      href="https://www.youtube.com/watch?v=GSIqQAb6wc4"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  <Link href="/jobs">
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="border-[#4FD1C5]/30 hover:bg-[#4FD1C5]/10 text-white font-bold text-sm uppercase tracking-wider px-7 py-6 rounded-2xl backdrop-blur-sm hover:border-[#4FD1C5]/60 transition-all hover:-translate-y-0.5 bg-white/5"
                     >
-                      <Play className="mr-2 h-4 w-4 fill-white" /> Watch Demo
-                    </a>
-                  </Button>
+                      <Briefcase className="mr-2 h-4 w-4 text-[#4FD1C5]" /> Explore Jobs & Studio
+                    </Button>
+                  </Link>
                 </div>
 
-                <div className="inline-flex items-center px-4 py-2 rounded-full bg-[#4FD1C5]/10 border border-[#4FD1C5]/20 text-[#4FD1C5] text-xs font-semibold tracking-wide backdrop-blur-sm w-fit shadow-[0_0_15px_rgba(79,209,197,0.15)]">
+                {/* <div className="inline-flex items-center px-4 py-2 rounded-full bg-[#4FD1C5]/10 border border-[#4FD1C5]/20 text-[#4FD1C5] text-xs font-semibold tracking-wide backdrop-blur-sm w-fit shadow-[0_0_15px_rgba(79,209,197,0.15)]">
                   <span className="relative flex h-2 w-2 mr-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#4FD1C5] opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[#4FD1C5]"></span>
                   </span>
-                  The private enclave for verified leaders
-                </div>
+                  The private enclave for verified professionals
+                </div> */}
               </div>
 
               {/* Right Column - Trust Graph & Floating Mockups */}
@@ -220,30 +242,30 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Card 5: Learned a Skill */}
+                  {/* Card 5: Free Skills */}
                   <div className="pointer-events-auto absolute top-28 right-1 sm:top-36 sm:right-8 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-                      <Award className="h-4.5 w-4.5" />
+                      <GraduationCap className="h-4.5 w-4.5" />
                     </div>
                     <div>
-                      <div className="text-[11px] font-bold text-white">Learned a new skill</div>
-                      <div className="text-[9px] text-amber-400 font-semibold">on Vouchins <span className="h-1.5 w-1.5 bg-amber-400 rounded-full inline-block"></span></div>
+                      <div className="text-[11px] font-bold text-white">Mastered System Design</div>
+                      <div className="text-[9px] text-amber-400 font-semibold">100% free peer upskilling <span className="h-1.5 w-1.5 bg-amber-400 rounded-full inline-block"></span></div>
                     </div>
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-amber-400 text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
                       <Check className="h-2 w-2 stroke-[3]" />
                     </div>
                   </div>
 
-                  {/* Card 1: Bought a Car */}
-                  <div className="pointer-events-auto absolute top-20 left-2 sm:top-24 sm:left-6 z-10 animate-float-medium bg-[#020617]/80 border border-white/10 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                      <Car className="h-4.5 w-4.5" />
+                  {/* Card 1: Resume Studio */}
+                  <div className="pointer-events-auto absolute top-20 left-2 sm:top-24 sm:left-6 z-10 animate-float-medium bg-[#020617]/80 border border-[#4FD1C5]/30 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-[0_0_25px_rgba(79,209,197,0.15)] flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-[#4FD1C5]/10 border border-[#4FD1C5]/20 flex items-center justify-center text-[#4FD1C5] shrink-0">
+                      <FileText className="h-4.5 w-4.5" />
                     </div>
                     <div>
-                      <div className="text-[11px] font-bold text-white">Bought a car</div>
-                      <div className="text-[9px] text-emerald-400 font-semibold">from other employee <span className="h-1.5 w-1.5 bg-emerald-400 rounded-full inline-block"></span></div>
+                      <div className="text-[11px] font-bold text-white">ATS Score 95/100</div>
+                      <div className="text-[9px] text-[#4FD1C5] font-semibold">Google XYZ formula verified <span className="h-1.5 w-1.5 bg-[#4FD1C5] rounded-full inline-block"></span></div>
                     </div>
-                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-emerald-400 text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-[#4FD1C5] text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
                       <Check className="h-2 w-2 stroke-[3]" />
                     </div>
                   </div>
@@ -285,8 +307,8 @@ export default function Home() {
                       <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=100&h=100&q=80" alt="avatar" className="h-full w-full object-cover" />
                     </div>
                     <div>
-                      <div className="text-[11px] font-bold text-white">Got a new job</div>
-                      <div className="text-[9px] text-purple-400 font-semibold">by referral <span className="h-1.5 w-1.5 bg-purple-400 rounded-full inline-block"></span></div>
+                      <div className="text-[11px] font-bold text-white">Referred for SWE</div>
+                      <div className="text-[9px] text-purple-400 font-semibold">Google L5 via insider <span className="h-1.5 w-1.5 bg-purple-400 rounded-full inline-block"></span></div>
                     </div>
                     <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 bg-purple-400 text-[#020617] rounded-full p-0.5 border border-[#020617] flex items-center justify-center shadow-lg">
                       <Check className="h-2 w-2 stroke-[3]" />
@@ -492,82 +514,121 @@ export default function Home() {
               <div className="xl:col-span-9 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
                 {/* Card 1: Jobs & Referrals */}
-                <div className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">
-                  <div className="h-10 w-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                <Link
+                  href="/jobs"
+                  className="group w-full bg-white border border-neutral-200/60 hover:border-purple-300 rounded-2xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5 relative overflow-hidden"
+                >
+                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-purple-50 text-[10px] font-bold text-purple-600 border border-purple-100 flex items-center gap-1">
+                    <Sparkles className="h-2.5 w-2.5" /> Direct Reqs
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <Briefcase className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Executive Opportunities</h3>
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug group-hover:text-purple-600 transition-colors">
+                      Curated Jobs & Referrals
+                    </h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Access exclusive, off-market roles with direct referrals.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card 2: Buy & Sell Safely */}
-                <div className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">
-                  <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                    <ShoppingCart className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">High-Value Marketplace</h3>
-                    <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Exchange premium assets in a high-trust environment.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card 3: Find Flatmates You Can Trust */}
-                <Link href="/flatmates-in-hyderabad" className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">
-                  <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                    <HomeIcon className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Premium Living Spaces</h3>
-                    <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Connect with verified professionals for premium housing.
+                      Access live ATS requisitions and connect directly with verified insiders for referrals at top tech firms.
                     </p>
                   </div>
                 </Link>
 
-                {/* Card 4: Recommendations That Matter */}
-                <div className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">
-                  <div className="h-10 w-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+                {/* Card 2: Resume Studio */}
+                <Link
+                  href="/jobs/resume/studio"
+                  className="group w-full bg-white border border-neutral-200/60 hover:border-[#4FD1C5]/50 rounded-2xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5 relative overflow-hidden"
+                >
+                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-[#4FD1C5]/10 text-[10px] font-bold text-[#0D9488] border border-[#4FD1C5]/20 flex items-center gap-1">
+                    <Sparkles className="h-2.5 w-2.5" /> ATS Scored
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-[#4FD1C5]/15 text-[#0D9488] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug group-hover:text-[#0D9488] transition-colors">
+                      Interactive Resume Studio
+                    </h3>
+                    <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
+                      Score and optimize your resume in real time using the Google XYZ formula and live ATS benchmarks.
+                    </p>
+                  </div>
+                </Link>
+
+                {/* Card 3: Free Skills Development */}
+                <Link
+                  href="/skills-development"
+                  className="group w-full bg-white border border-neutral-200/60 hover:border-amber-300 rounded-2xl p-5 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5 relative overflow-hidden"
+                >
+                  <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full bg-amber-50 text-[10px] font-bold text-amber-700 border border-amber-100 flex items-center gap-1">
+                    <Sparkles className="h-2.5 w-2.5" /> 100% Free
+                  </div>
+                  <div className="h-10 w-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <GraduationCap className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug group-hover:text-amber-700 transition-colors">
+                      Free Skills Development
+                    </h3>
+                    <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
+                      Exchange knowledge and learn in-demand tech skills through peer workshops and verified community courses.
+                    </p>
+                  </div>
+                </Link>
+
+                {/* Card 4: Buy & Sell Safely */}
+                <Link
+                  href="/corporate-marketplace"
+                  className="group w-full bg-white border border-neutral-200/60 hover:border-emerald-300 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5"
+                >
+                  <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <ShoppingCart className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug group-hover:text-emerald-700 transition-colors">
+                      Corporate Marketplace
+                    </h3>
+                    <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
+                      Exchange vehicles, electronics, and assets safely in a high-trust network of corporate colleagues.
+                    </p>
+                  </div>
+                </Link>
+
+                {/* Card 5: Find Flatmates You Can Trust */}
+                <Link
+                  href="/flatmates-in-hyderabad"
+                  className="group w-full bg-white border border-neutral-200/60 hover:border-blue-300 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5"
+                >
+                  <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <HomeIcon className="h-5 w-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug group-hover:text-blue-700 transition-colors">
+                      Premium Living Spaces
+                    </h3>
+                    <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
+                      Find verified flatmates and premium rentals near corporate hubs without brokers or scams.
+                    </p>
+                  </div>
+                </Link>
+
+                {/* Card 6: Recommendations That Matter */}
+                <Link
+                  href="/trusted-recommendations"
+                  className="group w-full bg-white border border-neutral-200/60 hover:border-indigo-300 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5"
+                >
+                  <div className="h-10 w-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     <Star className="h-5 w-5" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Vetted Endorsements</h3>
+                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug group-hover:text-indigo-700 transition-colors">
+                      Vetted Recommendations
+                    </h3>
                     <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      High-signal recommendations from verified peers.
+                      High-signal professional recommendations, doctor endorsements, and vendor reviews from verified peers.
                     </p>
                   </div>
-                </div>
-
-                {/* Card 5: Real People, Real Profiles */}
-                <div className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">
-                  <div className="h-10 w-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
-                    <Users className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Elite Network</h3>
-                    <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Forge relationships with top-tier corporate leaders.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card 6: Professional Messaging */}
-                <div className="w-full bg-white border border-neutral-200/60 rounded-2xl p-5 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col items-center text-center space-y-3.5">
-                  <div className="h-10 w-10 rounded-full bg-cyan-100 text-cyan-600 flex items-center justify-center shrink-0">
-                    <MessageSquare className="h-5 w-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <h3 className="text-xs md:text-sm font-extrabold text-[#0F172A] leading-snug">Encrypted Networking</h3>
-                    <p className="text-[10.5px] md:text-xs text-neutral-500 font-light leading-relaxed">
-                      Direct, confidential communication with verified executives.
-                    </p>
-                  </div>
-                </div>
+                </Link>
 
               </div>
 

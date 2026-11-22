@@ -67,17 +67,59 @@ export function HomepageNavbar() {
                       <span className="flex-1">
                         <span className="flex items-center gap-2">
                           <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#0A1B5C] transition-colors">
-                            Vouchins Jobs
+                            Vouchins Jobs & Referrals
                           </span>
                           <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-[#0A1B5C] text-white">
                             PRO
                           </span>
                         </span>
                         <span className="mt-0.5 block text-xs font-semibold text-[#0A1B5C]">
-                          AI-powered job recommendations and career tools
+                          Curated roles & direct employee referrals
                         </span>
                         <span className="mt-1 block text-[12px] text-neutral-500 font-medium leading-snug">
-                          Curated roles, resume studio, upskilling, referrals and mock interviews
+                          Live ATS requisitions and peer connections at premier tech firms
+                        </span>
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item mt-1">
+                    <Link href="/jobs/resume/studio" className="flex items-start gap-4 px-4 py-3">
+                      <span className="flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#0A1B5C] transition-colors">
+                            Interactive Resume Studio
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-[#4FD1C5] text-[#0A1B5C]">
+                            ATS
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block text-xs font-semibold text-[#0A1B5C]">
+                          Google XYZ formula scoring & live ATS benchmarks
+                        </span>
+                        <span className="mt-1 block text-[12px] text-neutral-500 font-medium leading-snug">
+                          Instant feedback, metric-driven bullet rewrites, and PDF exports
+                        </span>
+                      </span>
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild className="cursor-pointer rounded-xl p-0 focus:bg-neutral-50/80 hover:bg-neutral-50/80 transition-all duration-200 group/item mt-1">
+                    <Link href="/skills-development" className="flex items-start gap-4 px-4 py-3">
+                      <span className="flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="block text-sm font-bold text-neutral-900 group-hover/item:text-[#0A1B5C] transition-colors">
+                            Free Skills Development
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-amber-100 text-amber-800">
+                            FREE
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block text-xs font-semibold text-[#0A1B5C]">
+                          Collaborative peer-to-peer tech upskilling
+                        </span>
+                        <span className="mt-1 block text-[12px] text-neutral-500 font-medium leading-snug">
+                          Master high-demand technologies with verified corporate colleagues
                         </span>
                       </span>
                     </Link>
