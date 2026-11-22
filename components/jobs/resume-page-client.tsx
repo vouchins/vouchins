@@ -438,12 +438,6 @@ export function ResumePageClient() {
       }
     }
 
-    if (!isPro) {
-      setShowSubscriptionGate(true);
-      toast.error('Re-analyzing your resume with AI is exclusive to Jobs Pro and Elite members. Upgrade to Jobs Pro for unlimited evaluations.');
-      return;
-    }
-
     setIsReanalyzing(true);
     const toastId = toast.loading('Re-evaluating resume changes...');
 
@@ -481,7 +475,13 @@ export function ResumePageClient() {
           )
         );
         invalidateResumesCache();
-        if (data.unchanged) {
+        if (data.quotaExceeded) {
+          setShowSubscriptionGate(true);
+          toast.success(
+            data.notice || `Score updated to ${updatedEval?.overallScore ?? 85}/100 via ATS scanner!`,
+            { id: toastId }
+          );
+        } else if (data.unchanged) {
           toast.success(
             `Resume is up to date - no changes detected since last analysis (Score: ${updatedEval?.overallScore ?? 85}/100).`,
             { id: toastId }
@@ -636,7 +636,7 @@ export function ResumePageClient() {
                       {isUserProOrElite(subscription) ? (
                         <> out of <strong className="text-neutral-900 font-extrabold">5 Pro slots</strong>.</>
                       ) : (
-                        <> on the <strong className="text-neutral-900 font-extrabold">Free tier (1 slot)</strong>.</>
+                        <> on the <strong className="text-neutral-900 font-extrabold">Free tier (2 slots)</strong>.</>
                       )}
                     </span>
                     <span
@@ -652,7 +652,7 @@ export function ResumePageClient() {
                     type="button"
                     onClick={() => {
                       const isPro = isUserProOrElite(subscription);
-                      if (!isPro && resumes.length >= 1) {
+                      if (!isPro && resumes.length >= 2) {
                         setShowSubscriptionGate(true);
                         return;
                       }

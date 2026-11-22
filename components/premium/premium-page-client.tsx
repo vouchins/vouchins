@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/dialog';
 import { Navigation } from '@/components/navigation';
 import { useUser } from '@/components/user-provider';
+import { openRazorpayCheckout } from '@/lib/payments/razorpay-client';
 
 export function PremiumPageClient() {
   const router = useRouter();
@@ -101,36 +102,30 @@ export function PremiumPageClient() {
     setIsSubmittingUpgrade(true);
 
     try {
+      const planType = selectedPlanForUpgrade === 'pro' ? 'jobs_pro' : 'premium_bundle';
       const planName = selectedPlanForUpgrade === 'pro' ? 'Pro / Career Plus' : 'Elite / Mentor Access';
-      const cycleText = billingCycle === 'yearly' ? 'Annual Plan' : 'Monthly Plan';
-      const priceText =
-        selectedPlanForUpgrade === 'pro'
-          ? billingCycle === 'yearly'
-            ? '₹3,999/yr'
-            : '₹499/mo'
-          : billingCycle === 'yearly'
-            ? '₹7,999/yr'
-            : '₹999/mo';
 
-      const res = await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: user?.full_name || 'Member',
-          email: user?.email || 'user@vouchins.com',
-          type: 'Premium Plan Upgrade',
-          message: `User requested upgrade to ${planName} (${cycleText} - ${priceText}). User ID: ${user?.id || 'guest'}`,
-        }),
+      await openRazorpayCheckout({
+        planType,
+        billingCycle,
+        user: {
+          name: user?.full_name || undefined,
+          email: user?.email || undefined,
+        },
+        onSuccess: () => {
+          toast.success(`Congratulations! Your ${planName} membership has been activated.`);
+          setIsUpgradeModalOpen(false);
+          window.location.reload();
+        },
+        onError: (errMsg) => {
+          toast.error(errMsg || 'Payment failed. Please try again or contact support.');
+        },
+        onDismiss: () => {
+          setIsSubmittingUpgrade(false);
+        },
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to record upgrade request');
-      }
-
-      toast.success(`Your request for ${planName} has been received! Our membership team will activate your access.`);
-      setIsUpgradeModalOpen(false);
     } catch {
-      toast.error('Could not complete request. Please try again or contact support.');
+      toast.error('Could not complete checkout. Please try again or contact support.');
     } finally {
       setIsSubmittingUpgrade(false);
     }

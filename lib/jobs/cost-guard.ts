@@ -75,9 +75,11 @@ export function computeResumeContentHash(docOrText: ResumeDocument | string): st
   return computeContentHash(parts.join(':::'));
 }
 
+export const FREE_TIER_MONTHLY_AI_LIMIT = 3;
+
 /**
- * Strict 1-Time Rate Limiter for LLM / AI Model calls.
- * Free tier users receive AI model analysis strictly once.
+ * Monthly Rate Limiter for LLM / AI Model calls.
+ * Free tier users receive up to 3 AI model analyses per 30-day window.
  * Pro tier users (or platform admins) enjoy unlimited AI evaluations.
  */
 export async function checkAILlmRateLimit(
@@ -94,34 +96,36 @@ export async function checkAILlmRateLimit(
     return { allowed: true };
   }
 
-  // 1. Fast in-memory rate check (key per user and action, max 1)
+  // 1. Fast in-memory rate check (key per user and action, max 3 per 30 days)
   const memoryKey = `ai-llm:${action}:${userId}`;
   const memoryResult = checkRateLimit(memoryKey, {
     windowMs: 30 * 24 * 60 * 60 * 1000,
-    max: 1,
+    max: FREE_TIER_MONTHLY_AI_LIMIT,
   });
 
   if (!memoryResult.success) {
     return {
       allowed: false,
       code: 'PRO_PLAN_REQUIRED',
-      reason: `You've used your 1 free AI resume analysis. Upgrade to Jobs Pro for unlimited AI suggestions.`,
+      reason: `You've used your ${FREE_TIER_MONTHLY_AI_LIMIT} free AI evaluations this month. Upgrade to Jobs Pro for unlimited AI suggestions.`,
     };
   }
 
-  // 2. Persistent database audit check
+  // 2. Persistent database audit check for calls within the last 30 days
   try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { count, error } = await supabaseAdmin
       .from('job_ai_usage_logs')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .eq('action', action);
+      .eq('action', action)
+      .gte('created_at', thirtyDaysAgo);
 
-    if (!error && (count ?? 0) >= 1) {
+    if (!error && (count ?? 0) >= FREE_TIER_MONTHLY_AI_LIMIT) {
       return {
         allowed: false,
         code: 'PRO_PLAN_REQUIRED',
-        reason: `You've used your 1 free AI resume analysis. Upgrade to Jobs Pro for unlimited AI suggestions.`,
+        reason: `You've used your ${FREE_TIER_MONTHLY_AI_LIMIT} free AI evaluations this month. Upgrade to Jobs Pro for unlimited AI suggestions.`,
       };
     }
   } catch (err) {
@@ -158,8 +162,14 @@ export function resetAIRateLimit(userId: string, action?: string): void {
 export async function checkAICostGuard(
   userId: string,
   rawText: string,
-  isExistingDoc: boolean = false
+  isExistingDoc: boolean = false,
+  forceHeuristic: boolean = false
 ): Promise<CostGuardResult> {
+  // If forceHeuristic is explicitly requested, it costs $0 and runs deterministically
+  if (forceHeuristic) {
+    return { allowed: true };
+  }
+
   // 1. Sanitize & Bound Payload
   const trimmed = rawText.trim();
   if (trimmed.length > 15000) {
@@ -204,44 +214,37 @@ export async function checkAICostGuard(
       supabaseAdmin.from('job_evaluations').delete().eq('id', cached.id).then(() => {});
     }
 
-    // 3. Pro Plan Check: Re-evaluating modified resumes with AI is exclusive to Jobs Pro members.
+    // 3. Pro Subscription Check
     const isPro = await checkIsUserPro(userId);
 
-    if (isExistingDoc && !isPro) {
-      return {
-        allowed: false,
-        code: 'PRO_PLAN_REQUIRED',
-        reason: 'Re-analyzing your resume with AI is exclusive to Jobs Pro members. Upgrade to Jobs Pro to get unlimited re-evaluations.',
-      };
-    }
-
-    // 4. Free user 1-time AI suggestion evaluation limit (for initial uploads)
+    // Free users receive 3 free AI evaluations per 30 days (for new uploads or re-evaluations)
     if (!isPro) {
-      const memoryKey = `ai-suggestions:${userId}`;
-      const memoryLimit = checkRateLimit(memoryKey, {
-        windowMs: 30 * 24 * 60 * 60 * 1000,
-        max: 1,
-      });
-
-      // Check persistent DB log to see if user has already received AI suggestions
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const { count: aiCallCount } = await supabaseAdmin
         .from('job_ai_usage_logs')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('action', 'evaluate');
+        .eq('action', 'evaluate')
+        .gte('created_at', thirtyDaysAgo);
 
-      const hasUsedAIOnce = (aiCallCount ?? 0) >= 1 || !memoryLimit.success;
+      const memoryKey = `ai-suggestions:${userId}`;
+      const memoryLimit = checkRateLimit(memoryKey, {
+        windowMs: 30 * 24 * 60 * 60 * 1000,
+        max: FREE_TIER_MONTHLY_AI_LIMIT,
+      });
 
-      if (hasUsedAIOnce) {
+      const hasExceededMonthlyQuota = (aiCallCount ?? 0) >= FREE_TIER_MONTHLY_AI_LIMIT || !memoryLimit.success;
+
+      if (hasExceededMonthlyQuota) {
         return {
           allowed: false,
           code: 'PRO_PLAN_REQUIRED',
-          reason: "You've used your 1 free AI resume analysis. Upgrade to Jobs Pro to get unlimited AI suggestions and evaluate additional resumes.",
+          reason: `You've used your ${FREE_TIER_MONTHLY_AI_LIMIT} free AI evaluations this month. Upgrade to Jobs Pro for unlimited AI suggestions, or continue editing and re-scoring with our live ATS scanner for free.`,
         };
       }
     }
 
-    // 5. Global Platform Daily Circuit Breaker
+    // 4. Global Platform Daily Circuit Breaker
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const globalCap = parseInt(process.env.JOBS_DAILY_AI_CAP || process.env.ACCELERATOR_DAILY_AI_CAP || '500', 10);
     const { count: globalDailyCount } = await supabaseAdmin

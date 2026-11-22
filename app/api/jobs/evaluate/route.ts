@@ -33,6 +33,10 @@ export async function POST(request: Request) {
     const { rawText, resumeId, title, forceHeuristic } = body;
     const existingDoc = body.existingDoc || body.document;
 
+    const isUuid = (id?: string | null): boolean =>
+      Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+    let targetResumeId = isUuid(resumeId) ? resumeId : null;
+
     if (!rawText && !existingDoc) {
       return NextResponse.json(
         { error: 'Either rawText or existingDoc is required for evaluation.' },
@@ -43,9 +47,62 @@ export async function POST(request: Request) {
     const textToAnalyze = rawText || JSON.stringify(existingDoc);
     const contentHash = computeResumeContentHash(existingDoc || textToAnalyze);
 
-    // 1. Check AI Cost & Abuse Guard Rails (with Pro plan gating & 1-time rate limit)
-    const guardCheck = await checkAICostGuard(userId, textToAnalyze, Boolean(existingDoc));
+    // 1. Check AI Cost & Abuse Guard Rails (with Pro plan gating & 3/month rate limit)
+    const guardCheck = await checkAICostGuard(
+      userId,
+      textToAnalyze,
+      Boolean(existingDoc),
+      Boolean(forceHeuristic)
+    );
     if (!guardCheck.allowed) {
+      // Seamless Free Tier Heuristic Re-scoring:
+      // If the user has exhausted their 3 monthly deep AI evaluations but is modifying
+      // their existing resume, calculate their updated ATS readiness score deterministically
+      // without incurring LLM cost or failing the request.
+      if (existingDoc && guardCheck.code === 'PRO_PLAN_REQUIRED') {
+        const fallbackDoc = existingDoc;
+        const fallbackHeuristic = evaluateResumeHeuristically(fallbackDoc, textToAnalyze);
+
+        if (targetResumeId) {
+          await supabaseAdmin
+            .from('job_resumes')
+            .update({
+              document_schema: fallbackDoc,
+              content_hash: contentHash,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', targetResumeId)
+            .eq('user_id', userId);
+
+          await supabaseAdmin.from('job_evaluations').insert({
+            resume_id: targetResumeId,
+            user_id: userId,
+            content_hash: contentHash,
+            overall_score: fallbackHeuristic.overallScore,
+            pillar_scores: fallbackHeuristic.pillarScores,
+            detected_seniority: fallbackHeuristic.detectedSeniority,
+            target_role: fallbackHeuristic.targetRole,
+            strengths: fallbackHeuristic.strengths,
+            missing_keywords: fallbackHeuristic.missingKeywords,
+            suggestions: fallbackHeuristic.suggestions,
+            job_match_vectors: fallbackHeuristic.jobMatchVectors,
+          });
+        }
+
+        return NextResponse.json({
+          success: true,
+          unchanged: false,
+          fromCache: false,
+          provider: 'heuristic',
+          doc: fallbackDoc,
+          document: fallbackDoc,
+          evaluation: fallbackHeuristic,
+          resumeId: targetResumeId,
+          quotaExceeded: true,
+          notice: 'Readiness score updated via ATS scanner. Upgrade to Jobs Pro for unlimited AI-generated rewrites.',
+        });
+      }
+
       const isProRequired = guardCheck.code === 'PRO_PLAN_REQUIRED';
       return NextResponse.json(
         {
@@ -139,10 +196,6 @@ export async function POST(request: Request) {
     }
 
     // 3. Retrieve previous evaluation context if re-analyzing an existing resume
-    const isUuid = (id?: string | null): boolean =>
-      Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
-
-    let targetResumeId = isUuid(resumeId) ? resumeId : null;
     let previousSuggestions: any[] = [];
     let previousScore = 0;
 

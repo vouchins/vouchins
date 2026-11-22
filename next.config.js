@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: { unoptimized: true },
-  serverExternalPackages: ['pdfjs-dist', 'mammoth'],
+  serverExternalPackages: ['pdfjs-dist', 'pdf-parse', 'mammoth'],
 
   async headers() {
     return [

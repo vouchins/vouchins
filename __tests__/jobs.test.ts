@@ -420,19 +420,23 @@ Castletown high school
       expect(computeContentHash(text1)).not.toBe(computeContentHash(text2));
     });
 
-    it('should enforce strict 1-time rate limit on LLM / AI model calls for free users', async () => {
+    it('should enforce 3-evaluation monthly rate limit on LLM / AI model calls for free users', async () => {
       const testUserId = 'test-user-rate-limit-1';
       resetAIRateLimit(testUserId);
 
-      // First LLM call should be allowed
+      // Calls 1, 2, 3 allowed within monthly quota
       const firstCheck = await checkAILlmRateLimit(testUserId, 'evaluate');
       expect(firstCheck.allowed).toBe(true);
-
-      // Second LLM call for the free user must require Pro plan upgrade
       const secondCheck = await checkAILlmRateLimit(testUserId, 'evaluate');
-      expect(secondCheck.allowed).toBe(false);
-      expect(secondCheck.code).toBe('PRO_PLAN_REQUIRED');
-      expect(secondCheck.reason).toContain('Jobs Pro');
+      expect(secondCheck.allowed).toBe(true);
+      const thirdCheck = await checkAILlmRateLimit(testUserId, 'evaluate');
+      expect(thirdCheck.allowed).toBe(true);
+
+      // 4th LLM call exceeds monthly free quota and requires Pro plan upgrade
+      const fourthCheck = await checkAILlmRateLimit(testUserId, 'evaluate');
+      expect(fourthCheck.allowed).toBe(false);
+      expect(fourthCheck.code).toBe('PRO_PLAN_REQUIRED');
+      expect(fourthCheck.reason).toContain('Jobs Pro');
 
       // Resetting the rate limit enables it again
       resetAIRateLimit(testUserId);
@@ -440,39 +444,37 @@ Castletown high school
       expect(resetCheck.allowed).toBe(true);
     });
 
-    it('should require Pro plan upgrade when free user requests additional AI suggestions or resumes', async () => {
+    it('should allow free users up to 3 AI evaluations per month before requiring Pro plan upgrade', async () => {
       const testUserId = 'test-user-rate-limit-2';
       resetAIRateLimit(testUserId);
 
       const resume1 = 'Candidate A software engineer with TypeScript experience';
       const resume2 = 'Candidate B data engineer with Python and SQL experience';
+      const resume3 = 'Candidate C backend engineer with Go and PostgreSQL experience';
+      const resume4 = 'Candidate D frontend engineer with React and Next.js experience';
 
-      // First AI evaluation call allowed for free user
+      // 1st, 2nd, 3rd AI evaluation calls allowed for free user
       const check1 = await checkAICostGuard(testUserId, resume1, false);
       expect(check1.allowed).toBe(true);
-
-      // Second AI evaluation call for new resume asks user to upgrade to Jobs Pro
       const check2 = await checkAICostGuard(testUserId, resume2, false);
-      expect(check2.allowed).toBe(false);
-      expect(check2.code).toBe('PRO_PLAN_REQUIRED');
-      expect(check2.reason).toContain('Upgrade to Jobs Pro');
+      expect(check2.allowed).toBe(true);
+      const check3 = await checkAICostGuard(testUserId, resume3, false);
+      expect(check3.allowed).toBe(true);
 
-      // Getting more suggestions on existing resume also prompts for Jobs Pro without falling back to heuristic
-      const reanalyzeCheck = await checkAICostGuard(testUserId, resume2, true);
-      expect(reanalyzeCheck.allowed).toBe(false);
-      expect(reanalyzeCheck.code).toBe('PRO_PLAN_REQUIRED');
-      expect(reanalyzeCheck.reason).toContain('exclusive to Jobs Pro members');
+      // 4th AI evaluation call for new resume asks user to upgrade to Jobs Pro
+      const check4 = await checkAICostGuard(testUserId, resume4, false);
+      expect(check4.allowed).toBe(false);
+      expect(check4.code).toBe('PRO_PLAN_REQUIRED');
+      expect(check4.reason).toContain('Upgrade to Jobs Pro');
     });
 
-    it('should reject re-analyzing existing resume for free users even on their first call', async () => {
-      const freshFreeUser = 'fresh-free-user-first-call';
-      resetAIRateLimit(freshFreeUser);
+    it('should allow heuristic re-scoring for free users at $0 cost even when AI quota is used', async () => {
+      const freeUser = 'free-user-heuristic-rescore';
+      resetAIRateLimit(freeUser);
 
-      // Even without any prior usage, re-analyzing existingDoc requires a Pro plan
-      const check = await checkAICostGuard(freshFreeUser, 'Sample resume text', true);
-      expect(check.allowed).toBe(false);
-      expect(check.code).toBe('PRO_PLAN_REQUIRED');
-      expect(check.reason).toContain('exclusive to Jobs Pro members');
+      // When forceHeuristic is true, re-scoring is allowed for free users without consuming AI quota
+      const check = await checkAICostGuard(freeUser, 'Sample resume text', true, true);
+      expect(check.allowed).toBe(true);
     });
 
     it('should allow re-analyzing existing resume for pro users and bypass cache deduplication', async () => {

@@ -1082,6 +1082,24 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   for (let i = 0; i < Math.min(5, lines.length); i++) {
     let l = lines[i].trim();
     if (!l) continue;
+    // Bullet points or list items cannot be candidate full names
+    if (/^[•*◦▪\-\–\—\>]\s*/.test(l)) continue;
+
+    // Check if line contains inline label like Email:, Phone:, etc. preceding the name
+    if (/\b(?:email|e-mail|mail|phone|mobile|tel)\b/i.test(l)) {
+      const beforeLabel = l
+        .split(/\b(?:email|e-mail|mail|phone|mobile|tel)\b/i)[0]
+        .replace(/[,|:•·\-\–\—]+$/, '')
+        .trim();
+      if (
+        beforeLabel.length >= 2 &&
+        beforeLabel.length <= 40 &&
+        !beforeLabel.includes('@') &&
+        !/\d{5,}/.test(beforeLabel)
+      ) {
+        l = beforeLabel;
+      }
+    }
 
     // Check if line contains delimiter '|' or '•' with name as first segment
     if (l.includes('|') || l.includes('•') || l.includes('·')) {
@@ -1138,15 +1156,46 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         .replace(/(?:\+?91[\s-]*)?[6789]\d{9}|\b\d{10}\b|(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '')
         .replace(/\b91\b/g, '')
         .replace(/\b(linkedin|github|leetcode|scaler|my portfolio|portfolio|website|site)\b/gi, '')
-        .replace(/\b(email|linkedin|github|phone|mobile|telephone|tel|contact|location|address)\b\s*[:|•·-]?/gi, '')
+        .replace(/\b(e-mail|email|linkedin|github|phone|mobile|telephone|tel|contact|location|address)\b\s*[:|•·-]?/gi, '')
         .replace(/[:|•·\(\)\-]/g, ' ')
+        .replace(/[^\w\s,]/g, ' ') // Strip PDF icon font artifacts e.g. [, ], Ó, ½
         .replace(/\s+/g, ' ')
-        .trim();
-      if (isValidGeographicLocation(locPart)) {
+        .trim()
+        .replace(/^,\s*|,\s*$/g, '');
+      if (
+        locPart &&
+        locPart.toLowerCase() !== fullName.toLowerCase() &&
+        !fullName.toLowerCase().includes(locPart.toLowerCase()) &&
+        !locPart.toLowerCase().includes(fullName.toLowerCase()) &&
+        isValidGeographicLocation(locPart)
+      ) {
         potentialLocs.push(locPart);
       }
     } else if (isValidGeographicLocation(line) && line.length < 50 && !line.includes(':')) {
-      potentialLocs.push(line);
+      const cleanLine = line
+        .replace(/[^\w\s,]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^,\s*|,\s*$/g, '');
+      if (
+        cleanLine &&
+        cleanLine.toLowerCase() !== fullName.toLowerCase() &&
+        !fullName.toLowerCase().includes(cleanLine.toLowerCase()) &&
+        !cleanLine.toLowerCase().includes(fullName.toLowerCase()) &&
+        isValidGeographicLocation(cleanLine)
+      ) {
+        if (cleanLine.includes(',')) {
+          const parts = cleanLine.split(',');
+          const lastPart = parts.pop()?.trim() || '';
+          const secondToLast = parts.pop()?.trim() || '';
+          const words = secondToLast.split(/\s+/).filter(Boolean);
+          const city = words[words.length - 1] || secondToLast;
+          const refined = `${city}, ${lastPart}`;
+          potentialLocs.push(refined);
+        } else {
+          potentialLocs.push(cleanLine);
+        }
+      }
     }
   }
 
@@ -1174,7 +1223,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     },
     {
       type: 'skills',
-      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:core\s+skills|top\s+skills|technical\s+skills|key\s+skills|skills\s*(?:&|and)\s*technologies|skills|technologies|core\s+competencies|competencies|areas\s+of\s+expertise|professional\s+skills|clinical\s+skills|regulatory\s+skills|tools\s*(?:&|and)\s*technologies)[\s:\-–—/]*$/i,
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:programming\s+skills|core\s+skills|top\s+skills|technical\s+skills|key\s+skills|skills\s*(?:&|and)\s*technologies|skills|technologies|core\s+competencies|competencies|areas\s+of\s+expertise|professional\s+skills|clinical\s+skills|regulatory\s+skills|tools\s*(?:&|and)\s*technologies)[\s:\-–—/]*$/i,
     },
     {
       type: 'languages',
@@ -1200,6 +1249,8 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
 
   type SectionType = 'header' | 'summary' | 'experience' | 'achievements' | 'skills' | 'languages' | 'education' | 'projects' | 'certifications' | 'contact';
 
+  const DATE_RANGE_REGEX = /(?:(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4})\s*(?:[\-–—]|to)\s*(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4}|Present|Current))/i;
+
   const sectionBlocks: { type: SectionType; lines: string[] }[] = [];
   let currentSection: SectionType = 'header';
   let currentBlockLines: string[] = [];
@@ -1207,12 +1258,22 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const matched = sectionKeywords.find((sk) => sk.regex.test(line));
-    if (matched) {
+
+    // Detect unheaded role lines (e.g. "System Engineer | Tata Consultancy Services – Pune, India | Jan 2022– Present")
+    // where work experience starts without an explicit "WORK EXPERIENCE" section header
+    const isUnheadedRoleStart =
+      currentSection !== 'experience' &&
+      currentSection !== 'education' &&
+      DATE_RANGE_REGEX.test(line) &&
+      TITLE_KEYWORD_REGEX.test(line) &&
+      !/\b(bachelor|master|degree|university|college|school|cgpa|gpa|percentage|board|b\.e\.|b\.tech|m\.tech|m\.s\.|b\.s\.)\b/i.test(line);
+
+    if (matched || isUnheadedRoleStart) {
       if (currentBlockLines.length > 0) {
         sectionBlocks.push({ type: currentSection, lines: currentBlockLines });
       }
-      currentSection = matched.type as SectionType;
-      currentBlockLines = [];
+      currentSection = (matched ? matched.type : 'experience') as SectionType;
+      currentBlockLines = matched ? [] : [line];
     } else {
       currentBlockLines.push(line);
     }
@@ -1230,15 +1291,15 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
 
   // 2. Experience
   const experience: ResumeDocument['experience'] = [];
-  const expBlock = sectionBlocks.find((b) => b.type === 'experience');
-
-  const DATE_RANGE_REGEX = /(?:(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4})\s*[\s\-–—to]+\s*(\d{1,2}\/\d{4}|\w+\s+\d{4}|\d{4}|Present|Current))/i;
+  const expBlocks = sectionBlocks.filter((b) => b.type === 'experience');
   const ACTION_VERB_REGEX = /^(?:[•\-*–—\u2022\u25E6\u25AA\u2043▪\uF0B7\x88\x95\s]*)(?:developed|built|engineered|architected|spearheaded|implemented|designed|created|led|managed|collaborated|maintained|optimized|automated|delivered|integrated|authored|executed|established|configured|deployed|mentored|resolved|streamlined|formulated|directed|oversaw|constructed|standardized|refactored|efactoring|upgraded|scaled|reduced|increased|improved|headed|drove|reviewed|evaluated|assessed|monitored|provided|supported|studied|assisted|participated|educated|strengthened|applied|conducted|prepared|collected)/i;
   const BULLET_SYMBOL_REGEX = /^[\s]*[•\-*–—\u2022\u25E6\u25AA\u2043▪\uF0B7\x88\x95]/;
-  if (expBlock) {
-    const elines = expBlock.lines;
+
+  const elines = expBlocks.flatMap((b) => b.lines);
+  if (elines.length > 0) {
     const roleStarts: {
       index: number;
+      headerStartIndex?: number;
       startDate: string;
       endDate: string;
       isCurrent: boolean;
@@ -1262,11 +1323,12 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
 
         // Check if company and/or location precedes the date range on the same line
         const prefix = elines[i].slice(0, match.index).trim();
-        if (prefix) {
-          const cleanPrefix = prefix
-            .replace(/\s*\(continued\)\s*/gi, '')
-            .replace(/[•·]\s*(?:Quality\.?|Enterprise Tech|tickets.*|demonstrating.*)?\s*$/i, '')
-            .trim();
+        const cleanPrefix = prefix
+          .replace(/\s*\(continued\)\s*/gi, '')
+          .replace(/[•·]\s*(?:Quality\.?|Enterprise Tech|tickets.*|demonstrating.*)?\s*$/i, '')
+          .trim();
+
+        if (cleanPrefix) {
 
           if (cleanPrefix.includes('|')) {
             const parts = cleanPrefix.split('|').map((s) => s.trim().replace(/[•·].*$/, '').trim()).filter(Boolean);
@@ -1276,15 +1338,27 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
                 const companyCandidate = parts[1];
                 if (companyCandidate.includes(',')) {
                   const cParts = companyCandidate.split(',').map((s) => s.trim()).filter(Boolean);
-                  lineCompany = cParts[0];
                   const locCandidate = cParts.slice(1).join(', ').trim();
-                  if (isValidGeographicLocation(locCandidate)) {
-                    lineLocation = locCandidate;
+                  const subParts = cParts[0].split(/\s*[–—\-]\s*/);
+                  if (subParts.length >= 2) {
+                    lineCompany = subParts[0];
+                    lineLocation = [subParts.slice(1).join(' '), locCandidate].filter(Boolean).join(', ');
+                  } else {
+                    lineCompany = cParts[0];
+                    if (isValidGeographicLocation(locCandidate)) {
+                      lineLocation = locCandidate;
+                    }
                   }
                 } else if (isValidGeographicLocation(companyCandidate)) {
                   lineLocation = companyCandidate;
                 } else {
-                  lineCompany = companyCandidate;
+                  const subParts = companyCandidate.split(/\s*[–—\-]\s*/);
+                  if (subParts.length >= 2) {
+                    lineCompany = subParts[0];
+                    lineLocation = subParts.slice(1).join(' ');
+                  } else {
+                    lineCompany = companyCandidate;
+                  }
                 }
                 if (parts[2] && isValidGeographicLocation(parts[2])) {
                   lineLocation = parts[2];
@@ -1336,6 +1410,44 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
           }
         }
 
+        let headerStartIndex = i;
+        if (i > 0 && (!lineCompany || !lineTitle)) {
+          const prevLine = elines[i - 1].replace(/^[\s•*◦▪\-\–\—\>|·]+/, '').trim();
+          const locMatch = prevLine.match(/\b(Hyderabad|Bangalore|Bengaluru|Pune|Mumbai|Delhi|Chennai|Noida|Gurgaon|Kolkata|San Francisco|New York|Seattle|Austin|London|IND|India|USA|UK|CA|TX|NY)\b.*$/i);
+          if (
+            prevLine.length < 60 &&
+            !DATE_RANGE_REGEX.test(elines[i - 1]) &&
+            !ACTION_VERB_REGEX.test(prevLine)
+          ) {
+            headerStartIndex = i - 1;
+            if (!lineCompany && lineTitle) {
+              // The date line had title, so prevLine contains company & location
+              if (locMatch) {
+                lineLocation = locMatch[0].trim();
+                lineCompany = prevLine.slice(0, locMatch.index).replace(/[,|\-–—]+$/, '').trim();
+              } else if (prevLine.includes(',')) {
+                const cParts = prevLine.split(',').map((s) => s.trim()).filter(Boolean);
+                lineCompany = cParts[0];
+                lineLocation = cParts.slice(1).join(', ').trim();
+              } else {
+                lineCompany = prevLine;
+              }
+            } else if (lineCompany && !lineTitle) {
+              // The date line had company/location, so prevLine is the role title
+              lineTitle = prevLine;
+            } else if (!lineCompany && !lineTitle) {
+              if (locMatch) {
+                lineLocation = locMatch[0].trim();
+                lineCompany = prevLine.slice(0, locMatch.index).replace(/[,|\-–—]+$/, '').trim();
+              } else if (TITLE_KEYWORD_REGEX.test(prevLine)) {
+                lineTitle = prevLine;
+              } else {
+                lineCompany = prevLine;
+              }
+            }
+          }
+        }
+
         if (lineCompany) {
           lineCompany = lineCompany.replace(/[•·].*$/, '').trim();
           if (lineCompany.includes(',') && !lineLocation) {
@@ -1354,6 +1466,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         const locPart = elines[i].replace(match[0], '').replace(/[•·\-–—|]/g, ' ').trim();
         roleStarts.push({
           index: i,
+          headerStartIndex,
           startDate,
           endDate,
           isCurrent,
@@ -1409,27 +1522,20 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
         let bulletEndIndex = nextRoleStart;
         if (r < roleStarts.length - 1) {
           const nextStart = roleStarts[r + 1];
-          let headerCount = 0;
-          const nextLineBefore = elines[nextRoleStart - 1];
-          const nextLineTwoBefore = elines[nextRoleStart - 2];
-
-          if (!nextStart.title && nextLineBefore && !BULLET_SYMBOL_REGEX.test(nextLineBefore) && !ACTION_VERB_REGEX.test(nextLineBefore)) {
-            headerCount++;
-          }
-          if (
-            !nextStart.company &&
-            !nextStart.title &&
-            nextLineTwoBefore &&
-            !BULLET_SYMBOL_REGEX.test(nextLineTwoBefore) &&
-            !ACTION_VERB_REGEX.test(nextLineTwoBefore)
-          ) {
-            headerCount++;
-          }
-          bulletEndIndex = nextRoleStart - headerCount;
+          bulletEndIndex = nextStart.headerStartIndex ?? nextRoleStart;
         }
 
         for (let k = startInfo.bulletStartIndex; k < bulletEndIndex; k++) {
           let line = elines[k];
+          // Skip company/location headers that might precede the next role
+          const cleanLineForCheck = line.replace(/^[\s•*◦▪\-\–\—\>|·]+/, '').trim();
+          if (
+            cleanLineForCheck.length < 60 &&
+            /\b(Hyderabad|Bangalore|Bengaluru|Pune|Mumbai|Delhi|Chennai|Noida|Gurgaon|Kolkata|San Francisco|New York|Seattle|Austin|London|IND|India|USA|UK)\b/i.test(cleanLineForCheck) &&
+            !ACTION_VERB_REGEX.test(cleanLineForCheck)
+          ) {
+            continue;
+          }
           line = line
             .replace(/\bCommerce9s\b/g, "Commerce's")
             .replace(/\bOracle9s\b/g, "Oracle's")

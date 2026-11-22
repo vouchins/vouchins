@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, ShieldCheck, ArrowRight } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { openRazorpayCheckout } from '@/lib/payments/razorpay-client';
 
 interface SubscriptionGateProps {
   isOpen: boolean;
@@ -22,20 +24,47 @@ export function SubscriptionGate({
   onClose,
   onExploreDemo,
 }: SubscriptionGateProps) {
+  const [isUpgrading, setIsUpgrading] = useState(false);
+
   const perks = [
     'Unlimited Google XYZ impact metric evaluations benchmarked against Tier-1 tech bars',
     'Granular bullet-level rewrite suggestions with 1-click canvas synchronization',
     'Pixel-perfect ATS vector PDF export with 100% selectable text',
     'Automated candidate vector matching across verified company referral boards',
-    'Dedicated version history and snapshot tracking for every profile revision',
+    'Up to 5 resume slots for multi-role and company-tailored targeting',
   ];
+
+  const handleInstantUpgrade = async () => {
+    setIsUpgrading(true);
+    try {
+      await openRazorpayCheckout({
+        planType: 'jobs_pro',
+        billingCycle: 'monthly',
+        onSuccess: () => {
+          toast.success('Welcome to Jobs Pro! All features are now unlocked.');
+          onClose();
+          window.location.reload();
+        },
+        onError: (errMsg) => {
+          toast.error(errMsg || 'Failed to complete checkout');
+        },
+        onDismiss: () => {
+          setIsUpgrading(false);
+        },
+      });
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to initiate checkout');
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-3xl border border-neutral-200 bg-white [&>button]:text-white [&>button]:opacity-80 [&>button:hover]:opacity-100 [&>button:hover]:text-white [&>button]:focus:ring-white/40">
         {/* Top Header Banner */}
         <div className="bg-[#0A1B5C] px-6 py-8 text-white relative">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-teal-200 text-xs font-semibold mb-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[#4FD1C5] text-xs font-semibold mb-3">
             Jobs Pro Feature
           </div>
 
@@ -67,12 +96,30 @@ export function SubscriptionGate({
           {/* Action CTAs */}
           <div className="flex flex-col gap-2.5 pt-2 border-t border-neutral-100">
             <Button
-              asChild
+              onClick={handleInstantUpgrade}
+              disabled={isUpgrading}
               className="w-full h-11 text-sm font-semibold bg-[#0A1B5C] hover:bg-[#0A1B5C]/90 text-white rounded-xl shadow-md gap-2"
             >
+              {isUpgrading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                  Opening Secure Checkout...
+                </>
+              ) : (
+                <>
+                  Upgrade to Jobs Pro - ₹499/mo
+                  <ArrowRight className="h-4 w-4 text-white" />
+                </>
+              )}
+            </Button>
+
+            <Button
+              asChild
+              variant="ghost"
+              className="w-full h-9 text-xs font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl"
+            >
               <Link href="/premium">
-                Upgrade to Jobs Pro
-                <ArrowRight className="h-4 w-4 text-white" />
+                Compare All Plans & Annual Discounts
               </Link>
             </Button>
 

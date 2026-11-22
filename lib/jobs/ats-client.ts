@@ -331,13 +331,14 @@ export function isValidGeographicLocation(loc?: string | null): boolean {
   }
   // Reject common job title keywords, contact labels, and section headers mistakenly stored in location fields
   const invalidKeywords = [
-    'developer', 'engineer', 'architect', 'lead', 'manager', 'director',
+    'developer', 'engineer', 'engineering', 'architect', 'lead', 'manager', 'director',
     'specialist', 'consultant', 'analyst', 'designer', 'intern', 'administrator',
     'full stack', 'frontend', 'backend', 'qa', 'sdet', 'devops', 'software',
     'skills', 'experience', 'projects', 'education', 'summary', 'certifications',
     'achievements', 'languages', 'contact', 'linkedin', 'github', 'leetcode',
     'scaler', 'portfolio', 'resume', 'curriculum vitae', 'phone', 'email', 'mobile',
-    'telephone', 'tel', 'address', 'mail'
+    'telephone', 'tel', 'address', 'mail', 'college', 'university', 'institute',
+    'school', 'bachelor', 'master', 'science', 'technology', 'technologies', 'volunteer'
   ];
   const hasInvalidWord = invalidKeywords.some((kw) => {
     const rx = new RegExp(`(^|\\b|\\s)${kw}(\\b|\\s|$)`, 'i');
@@ -346,7 +347,18 @@ export function isValidGeographicLocation(loc?: string | null): boolean {
   if (hasInvalidWord) {
     return false;
   }
-  return true;
+
+  // Comma-separated strings (e.g. "Hyderabad, India", "San Francisco, CA") match standard geographic format
+  if (clean.includes(',')) {
+    return true;
+  }
+
+  // Standalone location strings must match known geographic cities, states, or regions
+  return (
+    INDIA_REGIONS.has(clean) ||
+    US_REGIONS.has(clean) ||
+    Object.keys(LOCATION_ALIASES).some((alias) => clean === alias || clean.includes(alias))
+  );
 }
 
 export function isLocationMatch(

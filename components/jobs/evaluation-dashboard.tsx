@@ -9,7 +9,7 @@ import {
 import { ScoreGauge } from './score-gauge';
 import { PillarBreakdown } from './pillar-breakdown';
 import { SuggestionCard } from './suggestion-card';
-import { CheckCircle2, AlertTriangle, Filter, Sparkles, Undo2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface EvaluationDashboardProps {
@@ -121,7 +121,6 @@ export function EvaluationDashboard({
                 onClick={() => onApplyAllSuggestions(unappliedSuggestions)}
                 className="h-7 px-3 text-[11px] font-bold bg-[#0A1B5C] hover:bg-[#0c2277] text-white gap-1.5 shadow-xs rounded-xl transition-all active:scale-[0.98]"
               >
-                <Sparkles className="h-3 w-3 text-[#4FD1C5]" />
                 Apply All ({unappliedCount})
               </Button>
             )}
@@ -143,33 +142,29 @@ export function EvaluationDashboard({
         <div className="flex items-center gap-1.5 p-1 rounded-lg bg-neutral-100/90 text-neutral-600 text-xs">
           <button
             onClick={() => setFilter('all')}
-            className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
-              filter === 'all' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
-            }`}
+            className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${filter === 'all' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
+              }`}
           >
             All ({evaluation.suggestions.length})
           </button>
           <button
             onClick={() => setFilter('impact')}
-            className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
-              filter === 'impact' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
-            }`}
+            className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${filter === 'impact' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
+              }`}
           >
             Impact
           </button>
           <button
             onClick={() => setFilter('relevance')}
-            className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
-              filter === 'relevance' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
-            }`}
+            className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${filter === 'relevance' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
+              }`}
           >
             {isHealthcareRole ? 'Domain' : 'Stack'}
           </button>
           <button
             onClick={() => setFilter('brevity')}
-            className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${
-              filter === 'brevity' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
-            }`}
+            className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors ${filter === 'brevity' ? 'bg-white text-neutral-900 shadow-xs font-semibold' : 'hover:text-neutral-900'
+              }`}
           >
             Brevity
           </button>

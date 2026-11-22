@@ -220,12 +220,6 @@ export function ResumeStudioClient() {
       }
     }
 
-    if (!isPro) {
-      setShowSubscriptionGate(true);
-      toast.error('Re-analyzing your resume with AI is exclusive to Jobs Pro and Elite members. Upgrade to Jobs Pro for unlimited evaluations.');
-      return;
-    }
-
     setIsReanalyzing(true);
     const toastId = toast.loading('Re-evaluating resume changes with Google XYZ formula...');
 
@@ -261,7 +255,15 @@ export function ResumeStudioClient() {
             : null
         );
         invalidateResumesCache();
-        toast.success(`Score updated: ${updatedEval?.overallScore ?? 85}/100!`, { id: toastId });
+        if (data.quotaExceeded) {
+          setShowSubscriptionGate(true);
+          toast.success(
+            data.notice || `Score updated to ${updatedEval?.overallScore ?? 85}/100 via ATS scanner!`,
+            { id: toastId }
+          );
+        } else {
+          toast.success(`Score updated: ${updatedEval?.overallScore ?? 85}/100!`, { id: toastId });
+        }
         return { document: updatedDoc, evaluation: updatedEval };
       } else {
         const data = await res.json().catch(() => ({}));
