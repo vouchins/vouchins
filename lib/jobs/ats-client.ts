@@ -691,10 +691,13 @@ export function isSeniorityCompatible(
   };
 }
 
+import type { CandidateExtractedProfile, JobExtractedMetadata } from './types';
+
 export interface CandidateMatchingContext {
   currentRole?: string;
   currentCompany?: string;
   isStillWorking?: boolean;
+  extractedProfile?: CandidateExtractedProfile | null;
 }
 
 export type RoleDomain =
@@ -801,20 +804,31 @@ export function evaluateJobMatch(
     workplaceType?: string;
     location?: string;
     companyName?: string;
+    aiExtractedMetadata?: JobExtractedMetadata | null;
   },
   candidateSkills: string[] = [],
   targetSeniority = 'Senior',
   candidateLocation = '',
   candidateContext?: CandidateMatchingContext
 ) {
-  const normalizedCandidate = candidateSkills.map((s) => s.toLowerCase().trim()).filter(Boolean);
-  const textCorpus = `${jobInfo.title} ${jobInfo.description || ''} ${jobInfo.requirements || ''}`.toLowerCase();
+  const aiMeta = jobInfo.aiExtractedMetadata;
+  const candProfile = candidateContext?.extractedProfile;
+  const effectiveCandidateSkills = Array.from(
+    new Set([
+      ...candidateSkills,
+      ...(candProfile?.skills || []),
+      ...(candProfile?.toolsAndPlatforms || []),
+    ].filter(Boolean))
+  );
+  const textCorpus = `${jobInfo.title} ${jobInfo.description || ''} ${jobInfo.requirements || ''} ${
+    aiMeta ? `${(aiMeta.requiredSkills || []).join(' ')} ${(aiMeta.toolsAndPlatforms || []).join(' ')}` : ''
+  }`.toLowerCase();
 
   const matchingSkills: string[] = [];
   const missingSkills: string[] = [];
 
   // 1. Detect candidate matching skills using precise word boundaries & canonical normalization
-  candidateSkills.forEach((skill) => {
+  effectiveCandidateSkills.forEach((skill) => {
     if (!skill) return;
     const baseSkill = canonicalizeSkill(skill);
     if (containsSkill(textCorpus, skill) || (baseSkill && containsSkill(textCorpus, baseSkill))) {
@@ -827,12 +841,16 @@ export function evaluateJobMatch(
 
   const hasGenuineSkillMatch = matchingSkills.length > 0;
 
-  // 2. Detect missing / recommended skills from tech taxonomy that the job actually mentions
-  COMMON_TECH_TAXONOMY.forEach((tech) => {
+  // 2. Detect missing / recommended skills (prefer AI-extracted requiredSkills/tools first, then taxonomy)
+  const candidatePoolForMissing = aiMeta
+    ? [...(aiMeta.requiredSkills || []), ...(aiMeta.toolsAndPlatforms || []), ...COMMON_TECH_TAXONOMY]
+    : COMMON_TECH_TAXONOMY;
+
+  candidatePoolForMissing.forEach((tech) => {
     const normTech = canonicalizeSkill(tech);
     if (containsSkill(textCorpus, tech)) {
       const alreadyMatched = matchingSkills.some((m) => canonicalizeSkill(m).toLowerCase() === normTech.toLowerCase());
-      const hasSkill = candidateHasSkill(tech, candidateSkills);
+      const hasSkill = candidateHasSkill(tech, effectiveCandidateSkills);
       if (!alreadyMatched && !hasSkill) {
         if (missingSkills.length < 4 && !missingSkills.some((m) => canonicalizeSkill(m).toLowerCase() === normTech.toLowerCase())) {
           missingSkills.push(tech);
@@ -847,9 +865,27 @@ export function evaluateJobMatch(
     baseScore += Math.min(16, matchingSkills.length * 4);
   }
 
+  // Years-of-experience & work-type boost when structured AI metadata is present
+  if (aiMeta?.minYearsExperience != null && candProfile?.totalYearsExperience != null) {
+    if (candProfile.totalYearsExperience >= aiMeta.minYearsExperience) {
+      baseScore += 3;
+    } else if (aiMeta.minYearsExperience - candProfile.totalYearsExperience >= 3) {
+      baseScore -= 5;
+    }
+  }
+  if (
+    aiMeta?.workType &&
+    aiMeta.workType !== 'Unspecified' &&
+    candProfile?.workTypePreference &&
+    candProfile.workTypePreference !== 'Any' &&
+    aiMeta.workType === candProfile.workTypePreference
+  ) {
+    baseScore += 2;
+  }
+
   // Bonus for candidate skills explicitly present in job title
   const titleLower = jobInfo.title.toLowerCase();
-  const titleSkillMatches = candidateSkills.filter(
+  const titleSkillMatches = effectiveCandidateSkills.filter(
     (s) => s.length >= 2 && containsSkill(titleLower, s)
   );
   if (titleSkillMatches.length > 0) {
@@ -857,7 +893,7 @@ export function evaluateJobMatch(
   }
 
   // Role relevance filter: prevents unrelated roles (e.g. chemist, driver) from scoring high
-  if (candidateSkills.length > 0 && !isRoleRelevant(jobInfo.title, candidateSkills, candidateContext?.currentRole)) {
+  if (effectiveCandidateSkills.length > 0 && !isRoleRelevant(jobInfo.title, effectiveCandidateSkills, candidateContext?.currentRole)) {
     baseScore -= 12;
   }
 

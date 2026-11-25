@@ -556,21 +556,49 @@ export async function crawlAndSyncTechJobs(
 
   const newJobsToInsert = crawledItems.filter((j) => !existingUrlSet.has(j.external_apply_url));
 
+  // Enrich newly discovered jobs with deterministic/AI metadata before insert
+  let enrichedNewJobs: Array<Record<string, any>> = newJobsToInsert;
+  if (newJobsToInsert.length > 0) {
+    try {
+      const { extractJobMetadataDeterministic } = await import('./job-ai-extractor');
+      const nowIso = new Date().toISOString();
+      enrichedNewJobs = newJobsToInsert.map((job) => ({
+        ...job,
+        ai_extracted_metadata: extractJobMetadataDeterministic(job),
+        ai_extracted_at: nowIso,
+      }));
+    } catch {
+      enrichedNewJobs = newJobsToInsert;
+    }
+  }
+
   // 6. Batch Insert newly discovered jobs with individual fallback
   let successfullyInsertedCount = 0;
-  if (newJobsToInsert.length > 0) {
-    const insertChunks = chunkArray(newJobsToInsert, 50);
+  if (enrichedNewJobs.length > 0) {
+    const insertChunks = chunkArray(enrichedNewJobs, 50);
     for (const chunk of insertChunks) {
-      const { error: insertError } = await supabaseAdmin
+      let { error: insertError } = await supabaseAdmin
         .from('jobs')
         .insert(chunk);
+
+      // Graceful fallback if ai_extracted_* migration hasn't been applied yet
+      if (insertError && insertError.code === '42703') {
+        const strippedChunk = chunk.map(({ ai_extracted_metadata, ai_extracted_at, ...rest }) => rest);
+        const retry = await supabaseAdmin.from('jobs').insert(strippedChunk);
+        insertError = retry.error;
+      }
 
       if (insertError) {
         console.warn('Batch insert note, falling back to individual inserts:', insertError.message);
         // Resilient fallback: insert individually so one invalid or duplicate row doesn't abort the entire batch
         for (const singleJob of chunk) {
           try {
-            const { error: singleErr } = await supabaseAdmin.from('jobs').insert(singleJob);
+            let { error: singleErr } = await supabaseAdmin.from('jobs').insert(singleJob);
+            if (singleErr && singleErr.code === '42703') {
+              const { ai_extracted_metadata, ai_extracted_at, ...rest } = singleJob;
+              const retrySingle = await supabaseAdmin.from('jobs').insert(rest);
+              singleErr = retrySingle.error;
+            }
             if (!singleErr) successfullyInsertedCount++;
           } catch {
             // Ignore single job conflict

@@ -50,6 +50,27 @@ export const ProjectItemSchema = z.object({
   bullets: z.array(z.string()).default([]),
 });
 
+export const CandidateExtractedProfileSchema = z.object({
+  fullName: z.string().default(''),
+  location: z.string().default(''),
+  currentJobTitle: z.string().default(''),
+  currentCompany: z.string().default(''),
+  totalYearsExperience: z.number().min(0).default(0),
+  seniorityLevel: z
+    .enum(['Entry', 'Mid', 'Senior', 'Staff', 'Lead', 'Principal'])
+    .default('Mid'),
+  workTypePreference: z
+    .enum(['Remote', 'Hybrid', 'Onsite', 'Any'])
+    .default('Any'),
+  skills: z.array(z.string()).default([]),
+  toolsAndPlatforms: z.array(z.string()).default([]),
+  highestEducationLevel: z.string().default(''),
+  fieldsOfStudy: z.array(z.string()).default([]),
+  certifications: z.array(z.string()).default([]),
+});
+
+export type CandidateExtractedProfile = z.infer<typeof CandidateExtractedProfileSchema>;
+
 export const ResumeDocumentSchema = z.object({
   contact: ContactInfoSchema,
   summary: z.string().default(''),
@@ -58,6 +79,7 @@ export const ResumeDocumentSchema = z.object({
   education: z.array(EducationItemSchema).default([]),
   projects: z.array(ProjectItemSchema).optional().default([]),
   certifications: z.array(z.string()).optional().default([]),
+  extractedProfile: CandidateExtractedProfileSchema.optional(),
 });
 
 export type ContactInfo = z.infer<typeof ContactInfoSchema>;
@@ -263,4 +285,28 @@ export const DEFAULT_EXPORT_CONFIG: ResumeExportConfig = {
   dateFormat: 'short',
   bulletStyle: '•',
 };
+
+// ============================================================================
+// 6. AI-Extracted Job Intelligence Schema
+// ============================================================================
+
+export const JobExtractedMetadataSchema = z.object({
+  normalizedTitle: z.string().default(''),
+  locations: z.array(z.string()).default([]),
+  companyName: z.string().default(''),
+  minYearsExperience: z.number().min(0).nullable().default(null),
+  requiredSkills: z.array(z.string()).default([]),
+  toolsAndPlatforms: z.array(z.string()).default([]),
+  preferredCertifications: z.array(z.string()).default([]),
+  workType: z
+    .enum(['Remote', 'Hybrid', 'Onsite', 'Unspecified'])
+    .default('Unspecified'),
+  seniority: z
+    .enum(['Entry', 'Mid', 'Senior', 'Staff', 'Lead', 'Principal'])
+    .default('Mid'),
+  educationRequirement: z.string().default(''),
+});
+
+export type JobExtractedMetadata = z.infer<typeof JobExtractedMetadataSchema>;
+
 

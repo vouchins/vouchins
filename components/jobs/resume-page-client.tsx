@@ -338,6 +338,15 @@ export function ResumePageClient() {
       }
       setUploadStatus('Auditing and persisting to database...');
 
+      const docWithProfile = extractData.document
+        ? {
+            ...extractData.document,
+            ...(extractData.extractedProfile
+              ? { extractedProfile: extractData.extractedProfile }
+              : {}),
+          }
+        : undefined;
+
       const evalRes = await fetch('/api/jobs/evaluate', {
         method: 'POST',
         headers: {
@@ -347,7 +356,7 @@ export function ResumePageClient() {
         body: JSON.stringify({
           rawText: extractData.rawText,
           title: file.name.replace(/\.[^/.]+$/, ''),
-          document: extractData.document,
+          document: docWithProfile,
         }),
       });
 

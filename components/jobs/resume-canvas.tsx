@@ -7,8 +7,13 @@ import {
   EducationItem,
   ProjectItem,
   SkillCategory,
+  CandidateExtractedProfile,
 } from '@/lib/jobs/types';
-import { partitionResumePages, PaginatedResumePage } from '@/lib/jobs/pagination';
+import {
+  partitionResumePages,
+  PaginatedResumePage,
+  estimatePageFitSummary,
+} from '@/lib/jobs/pagination';
 import { EditableBullet } from './editable-bullet';
 import {
   Plus,
@@ -21,6 +26,11 @@ import {
   Globe,
   Code2,
   X,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
 
@@ -142,6 +152,39 @@ export function ResumeCanvas({
   const isHealthcare = detectResumeDomain('', document) === 'healthcare';
   const skillsTitle = isHealthcare ? 'Core Skills' : 'Technical Skills';
   const projectsTitle = isHealthcare ? 'Key Projects & Research' : 'Key Technical Projects';
+  const [profileExpanded, setProfileExpanded] = useState(false);
+
+  const fallbackProfile: CandidateExtractedProfile = {
+    fullName: document.contact.fullName || '',
+    location: document.contact.location || '',
+    currentJobTitle: document.experience?.[0]?.roleTitle || '',
+    currentCompany: document.experience?.[0]?.company || '',
+    totalYearsExperience: document.extractedProfile?.totalYearsExperience ?? Math.max(0, (document.experience?.length || 0) * 2),
+    seniorityLevel: document.extractedProfile?.seniorityLevel ?? 'Mid',
+    workTypePreference: document.extractedProfile?.workTypePreference ?? 'Any',
+    skills: document.extractedProfile?.skills ?? (document.skills || []).flatMap((s) => s.items || []),
+    toolsAndPlatforms: document.extractedProfile?.toolsAndPlatforms ?? [],
+    highestEducationLevel: document.extractedProfile?.highestEducationLevel ?? (document.education?.[0]?.degree || ''),
+    fieldsOfStudy: document.extractedProfile?.fieldsOfStudy ?? [],
+    certifications: document.extractedProfile?.certifications ?? (document.certifications || []),
+  };
+  const extractedProfile: CandidateExtractedProfile = {
+    ...fallbackProfile,
+    ...(document.extractedProfile || {}),
+  };
+
+  const updateExtractedProfile = <K extends keyof CandidateExtractedProfile>(
+    field: K,
+    value: CandidateExtractedProfile[K]
+  ) => {
+    onChange({
+      ...document,
+      extractedProfile: {
+        ...extractedProfile,
+        [field]: value,
+      },
+    });
+  };
 
   // Update Contact Info
   const updateContact = (field: keyof ResumeDocument['contact'], value: string) => {
@@ -403,9 +446,153 @@ export function ResumeCanvas({
 
   // Deterministically partition pages matching Export Dialog and PDF Download
   const pages = partitionResumePages(document, 'LETTER');
+  const fitSummary = estimatePageFitSummary(document, 'LETTER');
 
   return (
-    <div className="flex-1 h-full overflow-y-auto bg-neutral-200/60 p-4 sm:p-8 flex flex-col items-center gap-8 print:p-0 print:bg-white print:gap-0 scroll-py-8">
+    <div className="flex-1 h-full overflow-y-auto bg-neutral-200/60 p-4 sm:p-8 flex flex-col items-center gap-6 print:p-0 print:bg-white print:gap-0 scroll-py-8">
+      {/* Live Page Fit & Collapsible Extracted Profile Bar */}
+      <div className="w-full max-w-[850px] bg-white border border-neutral-300 rounded-xl shadow-sm overflow-hidden shrink-0 print:hidden">
+        <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 bg-neutral-50/80">
+          <div className="flex items-center gap-2 text-xs">
+            {fitSummary.status === 'tight-overflow' ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                {fitSummary.message}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0A1B5C]/5 text-[#0A1B5C] border border-[#0A1B5C]/15 font-semibold">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                {fitSummary.message}
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setProfileExpanded((prev) => !prev)}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[#0A1B5C] text-white hover:bg-[#0A1B5C]/90 transition-colors cursor-pointer"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-[#4FD1C5]" />
+            <span>Extracted Profile</span>
+            {profileExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+
+        {profileExpanded && (
+          <div className="p-4 border-t border-neutral-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs bg-white">
+            <label className="flex flex-col gap-1">
+              <span className="font-semibold text-neutral-600">Current Job Title</span>
+              <input
+                type="text"
+                value={extractedProfile.currentJobTitle}
+                onChange={(e) => updateExtractedProfile('currentJobTitle', e.target.value)}
+                placeholder="e.g., Senior Software Engineer"
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 focus:border-[#0A1B5C] focus:outline-none text-neutral-900"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-semibold text-neutral-600">Current Company</span>
+              <input
+                type="text"
+                value={extractedProfile.currentCompany}
+                onChange={(e) => updateExtractedProfile('currentCompany', e.target.value)}
+                placeholder="e.g., Acme Corp"
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 focus:border-[#0A1B5C] focus:outline-none text-neutral-900"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-semibold text-neutral-600">Location</span>
+              <input
+                type="text"
+                value={extractedProfile.location}
+                onChange={(e) => updateExtractedProfile('location', e.target.value)}
+                placeholder="e.g., Bengaluru, India"
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 focus:border-[#0A1B5C] focus:outline-none text-neutral-900"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-semibold text-neutral-600">Total Years Experience</span>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                value={extractedProfile.totalYearsExperience}
+                onChange={(e) =>
+                  updateExtractedProfile('totalYearsExperience', Math.max(0, parseFloat(e.target.value) || 0))
+                }
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 focus:border-[#0A1B5C] focus:outline-none text-neutral-900"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-semibold text-neutral-600">Seniority Level</span>
+              <select
+                value={extractedProfile.seniorityLevel}
+                onChange={(e) =>
+                  updateExtractedProfile(
+                    'seniorityLevel',
+                    e.target.value as CandidateExtractedProfile['seniorityLevel']
+                  )
+                }
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 focus:border-[#0A1B5C] focus:outline-none text-neutral-900 bg-white"
+              >
+                {['Entry', 'Mid', 'Senior', 'Staff', 'Lead', 'Principal'].map((lvl) => (
+                  <option key={lvl} value={lvl}>
+                    {lvl}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-semibold text-neutral-600">Work Type Preference</span>
+              <select
+                value={extractedProfile.workTypePreference}
+                onChange={(e) =>
+                  updateExtractedProfile(
+                    'workTypePreference',
+                    e.target.value as CandidateExtractedProfile['workTypePreference']
+                  )
+                }
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 focus:border-[#0A1B5C] focus:outline-none text-neutral-900 bg-white"
+              >
+                {['Any', 'Remote', 'Hybrid', 'Onsite'].map((wt) => (
+                  <option key={wt} value={wt}>
+                    {wt}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-semibold text-neutral-600">Highest Education</span>
+              <input
+                type="text"
+                value={extractedProfile.highestEducationLevel}
+                onChange={(e) => updateExtractedProfile('highestEducationLevel', e.target.value)}
+                placeholder="e.g., B.Tech Computer Science"
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 focus:border-[#0A1B5C] focus:outline-none text-neutral-900"
+              />
+            </label>
+            <label className="flex flex-col gap-1 sm:col-span-2">
+              <span className="font-semibold text-neutral-600">Tools & Platforms (comma-separated)</span>
+              <input
+                type="text"
+                value={(extractedProfile.toolsAndPlatforms || []).join(', ')}
+                onChange={(e) =>
+                  updateExtractedProfile(
+                    'toolsAndPlatforms',
+                    e.target.value
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  )
+                }
+                placeholder="e.g., Docker, Kubernetes, PostgreSQL, Figma"
+                className="px-2.5 py-1.5 rounded-md border border-neutral-300 focus:border-[#0A1B5C] focus:outline-none text-neutral-900"
+              />
+            </label>
+          </div>
+        )}
+      </div>
+
       {/* Render Individual Paginated Paper Sheets */}
       {pages.map((page, pageIdx) => (
         <div

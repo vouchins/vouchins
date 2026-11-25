@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { verifyJobsAccess } from '@/lib/jobs/auth-guard';
+import { verifyJobsAccess, checkIsUserPro } from '@/lib/jobs/auth-guard';
 import { ResumeDocumentSchema } from '@/lib/jobs/types';
 import { computeContentHash } from '@/lib/jobs/cost-guard';
 import { evaluateResumeHeuristically, parseRawTextToDocument, sanitizeBulletText, detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
+import { deriveCandidateProfileFromDoc } from '@/lib/jobs/ai-client';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
@@ -324,19 +325,54 @@ export async function POST(request: Request) {
         }
       }
     } else {
-      // Insert new
-      const { data: inserted, error: insertErr } = await supabaseAdmin
+      // Enforce 2-resume upload limit for Free plan users
+      const isPro = await checkIsUserPro(authCheck.userId);
+      if (!isPro) {
+        const { count } = await supabaseAdmin
+          .from('job_resumes')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', authCheck.userId);
+
+        if ((count ?? 0) >= 2) {
+          return NextResponse.json(
+            {
+              error: 'Free plan is limited to 2 resume uploads. Upgrade to Jobs Pro for more resume slots.',
+              code: 'FREE_LIMIT_REACHED',
+            },
+            { status: 403 }
+          );
+        }
+      }
+
+      const extractedProfile = body.extractedProfile || deriveCandidateProfileFromDoc(validatedDoc.data);
+
+      // Insert new (resilient if extracted_profile column isn't migrated yet)
+      let insertRes = await supabaseAdmin
         .from('job_resumes')
         .insert({
           user_id: authCheck.userId,
           title: title || `${validatedDoc.data.contact.fullName || 'Candidate'} - Resume`,
           document_schema: validatedDoc.data,
+          extracted_profile: extractedProfile,
+          ai_extracted_at: new Date().toISOString(),
         })
         .select('id')
         .single();
 
-      if (insertErr) throw insertErr;
-      savedId = inserted.id;
+      if (insertRes.error && (insertRes.error.code === '42703' || insertRes.error.message?.includes('extracted_profile'))) {
+        insertRes = await supabaseAdmin
+          .from('job_resumes')
+          .insert({
+            user_id: authCheck.userId,
+            title: title || `${validatedDoc.data.contact.fullName || 'Candidate'} - Resume`,
+            document_schema: validatedDoc.data,
+          })
+          .select('id')
+          .single();
+      }
+
+      if (insertRes.error) throw insertRes.error;
+      savedId = insertRes.data.id;
 
       await supabaseAdmin.from('job_resume_versions').insert({
         resume_id: savedId,

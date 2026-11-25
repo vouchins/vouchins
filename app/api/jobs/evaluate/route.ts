@@ -245,33 +245,65 @@ export async function POST(request: Request) {
     // 5. Persist or update resume record in Supabase
 
     if (!targetResumeId) {
-      const { data: newResume, error: resumeErr } = await supabaseAdmin
+      const insertPayload: Record<string, any> = {
+        user_id: userId,
+        title: title || `${doc.contact.fullName || 'Candidate'} - Resume`,
+        raw_text: textToAnalyze.slice(0, 15000),
+        content_hash: contentHash,
+        document_schema: doc,
+      };
+      if (doc.extractedProfile) {
+        insertPayload.extracted_profile = doc.extractedProfile;
+        insertPayload.ai_extracted_at = new Date().toISOString();
+      }
+      let { data: newResume, error: resumeErr } = await supabaseAdmin
         .from('job_resumes')
-        .insert({
-          user_id: userId,
-          title: title || `${doc.contact.fullName || 'Candidate'} - Resume`,
-          raw_text: textToAnalyze.slice(0, 15000),
-          content_hash: contentHash,
-          document_schema: doc,
-        })
+        .insert(insertPayload)
         .select('id')
         .single();
+
+      if (resumeErr && resumeErr.code === '42703') {
+        delete insertPayload.extracted_profile;
+        delete insertPayload.ai_extracted_at;
+        const retry = await supabaseAdmin
+          .from('job_resumes')
+          .insert(insertPayload)
+          .select('id')
+          .single();
+        newResume = retry.data;
+        resumeErr = retry.error;
+      }
 
       if (!resumeErr && newResume) {
         targetResumeId = newResume.id;
       }
     } else {
-      await supabaseAdmin
+      const updatePayload: Record<string, any> = {
+        title: title || `${doc.contact.fullName || 'Candidate'} - Resume`,
+        document_schema: doc,
+        content_hash: contentHash,
+        raw_text: textToAnalyze.slice(0, 15000),
+        updated_at: new Date().toISOString(),
+      };
+      if (doc.extractedProfile) {
+        updatePayload.extracted_profile = doc.extractedProfile;
+        updatePayload.ai_extracted_at = new Date().toISOString();
+      }
+      const { error: updateErr } = await supabaseAdmin
         .from('job_resumes')
-        .update({
-          title: title || `${doc.contact.fullName || 'Candidate'} - Resume`,
-          document_schema: doc,
-          content_hash: contentHash,
-          raw_text: textToAnalyze.slice(0, 15000),
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', targetResumeId)
         .eq('user_id', userId);
+
+      if (updateErr && updateErr.code === '42703') {
+        delete updatePayload.extracted_profile;
+        delete updatePayload.ai_extracted_at;
+        await supabaseAdmin
+          .from('job_resumes')
+          .update(updatePayload)
+          .eq('id', targetResumeId)
+          .eq('user_id', userId);
+      }
     }
 
     // 5. Persist evaluation record

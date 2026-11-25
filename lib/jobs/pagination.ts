@@ -464,3 +464,90 @@ export function partitionResumePages(
   }));
 }
 
+export interface PageFitSummary {
+  totalPages: number;
+  pageOneFillPercent: number;
+  status: 'fits' | 'tight-overflow' | 'multi-page';
+  estimatedOverflowLines: number;
+  message: string;
+}
+
+/**
+ * Estimates how tightly the resume fits on Page 1 and whether only a few lines
+ * spill onto the final page so users can trim a line or bullet cleanly.
+ */
+export function estimatePageFitSummary(
+  doc: ResumeDocument,
+  pageSize: 'LETTER' | 'A4' = 'LETTER'
+): PageFitSummary {
+  const pages = partitionResumePages(doc, pageSize);
+  const pageCapacity = pageSize === 'A4' ? 920 : 880;
+  const totalPages = pages.length;
+
+  let totalUnits = 110; // Header & contact block
+  if (doc.summary && doc.summary.trim().length > 0) {
+    totalUnits += Math.ceil(doc.summary.length / 130) * 12 + 28;
+  }
+  if ((doc.skills || []).length > 0) {
+    totalUnits += 28 + doc.skills.length * 16;
+  }
+  for (const role of doc.experience || []) {
+    totalUnits += estimateRoleUnits(role);
+  }
+  if ((doc.education || []).length > 0) {
+    totalUnits += 28 + doc.education.length * 26;
+  }
+  if ((doc.projects || []).length > 0) {
+    totalUnits += 28 + doc.projects.reduce((s, p) => s + 24 + (p.bullets?.length || 0) * 14, 0);
+  }
+  if ((doc.certifications || []).length > 0) {
+    totalUnits += 28 + doc.certifications.length * 15;
+  }
+
+  if (totalPages <= 1) {
+    const fillPct = Math.min(100, Math.max(15, Math.round((totalUnits / pageCapacity) * 100)));
+    return {
+      totalPages: 1,
+      pageOneFillPercent: fillPct,
+      status: 'fits',
+      estimatedOverflowLines: 0,
+      message: `Fits cleanly on 1 page (${fillPct}% full)`,
+    };
+  }
+
+  const lastPage = pages[pages.length - 1];
+  let lastPageUnits = 0;
+  for (const seg of lastPage.roles) {
+    const bulletCount = Math.max(0, seg.bulletEndIndex - seg.bulletStartIndex + 1);
+    lastPageUnits += (seg.isContinuation ? 18 : 34) + bulletCount * 14;
+  }
+  if (lastPage.showEducation) {
+    lastPageUnits += 24 + (lastPage.educationIndices?.length || 1) * 24;
+  }
+  if (lastPage.showProjects) {
+    lastPageUnits += 24 + (lastPage.projectIndices?.length || 1) * 32;
+  }
+  if (lastPage.showCertifications) {
+    lastPageUnits += 24 + (lastPage.certificationIndices?.length || 1) * 15;
+  }
+
+  const estimatedOverflowLines = Math.max(1, Math.round(lastPageUnits / 13));
+  if (lastPageUnits <= 95) {
+    return {
+      totalPages,
+      pageOneFillPercent: 100,
+      status: 'tight-overflow',
+      estimatedOverflowLines,
+      message: `~${estimatedOverflowLines} ${estimatedOverflowLines === 1 ? 'line spills' : 'lines spill'} to Page ${totalPages} - trim a few words or 1 bullet to fit cleanly`,
+    };
+  }
+
+  return {
+    totalPages,
+    pageOneFillPercent: 100,
+    status: 'multi-page',
+    estimatedOverflowLines,
+    message: `Balanced across ${totalPages} pages`,
+  };
+}
+

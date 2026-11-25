@@ -65,6 +65,7 @@ export async function GET(request: Request) {
         : "";
     const explicitAllLocations = locationParam.trim().toLowerCase() === "all";
     let hasMasterResume = false;
+    let candidateExtractedProfile: any = null;
 
     try {
       const authCheck = await verifyJobsAccess(request);
@@ -96,6 +97,18 @@ export async function GET(request: Request) {
         if (latestResume?.document_schema) {
           hasMasterResume = true;
           const docSchema = latestResume.document_schema;
+          if (docSchema.extractedProfile) {
+            candidateExtractedProfile = docSchema.extractedProfile;
+            if (!candidateCurrentRole && docSchema.extractedProfile.currentJobTitle?.trim()) {
+              candidateCurrentRole = docSchema.extractedProfile.currentJobTitle.trim();
+            }
+            if (!candidateCurrentCompany && docSchema.extractedProfile.currentCompany?.trim()) {
+              candidateCurrentCompany = docSchema.extractedProfile.currentCompany.trim();
+            }
+            if (!explicitAllLocations && !candidateLocation && docSchema.extractedProfile.location?.trim() && isValidGeographicLocation(docSchema.extractedProfile.location)) {
+              candidateLocation = docSchema.extractedProfile.location.trim();
+            }
+          }
 
           // If location is still not set, fallback to resume contact location
           if (!explicitAllLocations && !candidateLocation && docSchema.contact?.location?.trim() && isValidGeographicLocation(docSchema.contact.location)) {
@@ -474,10 +487,11 @@ export async function GET(request: Request) {
           title: j.title,
           description: j.description,
           requirements: j.requirements,
-          experienceLevel: j.experience_level,
+          experienceLevel: j.experience_level || j.ai_extracted_metadata?.seniority,
           workplaceType,
           location: j.location,
           companyName: j.company_name,
+          aiExtractedMetadata: j.ai_extracted_metadata || null,
         },
         candidateSkills,
         detectedSeniority,
@@ -486,6 +500,7 @@ export async function GET(request: Request) {
           currentRole: candidateCurrentRole,
           currentCompany: candidateCurrentCompany,
           isStillWorking: isCurrentlyWorking,
+          extractedProfile: candidateExtractedProfile,
         }
       );
 

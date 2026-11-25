@@ -4,6 +4,8 @@ import {
   ResumeSuggestion,
   ResumeEvaluationSchema,
   ResumeDocumentSchema,
+  CandidateExtractedProfile,
+  CandidateExtractedProfileSchema,
 } from './types';
 import {
   evaluateResumeHeuristically,
@@ -11,6 +13,7 @@ import {
   detectResumeDomain,
   ResumeDomain,
 } from './xyz-evaluator';
+import { detectExperienceLevel } from './ats-client';
 import { recordAIUsage, checkAILlmRateLimit } from './cost-guard';
 
 export interface AIEvaluationOptions {
@@ -106,8 +109,8 @@ You MUST output strictly valid JSON conforming to the requested schema.
 const GEMINI_MODELS = Array.from(
   new Set(
     [
-      'gemini-flash-lite-latest',
       'gemini-3.5-flash-lite',
+      'gemini-flash-lite-latest',
       'gemini-3.1-flash-lite',
       process.env.GEMINI_MODEL,
       'gemini-3.8-flash',
@@ -118,98 +121,134 @@ const GEMINI_MODELS = Array.from(
 );
 
 /**
- * Parses raw extracted resume text into a canonical ResumeDocument schema.
+ * Derives a structured CandidateExtractedProfile deterministically from a ResumeDocument
+ * as a fallback when Gemini AI is unavailable.
  */
-export async function extractStructuredResume(
+export function deriveCandidateProfileFromDoc(doc: ResumeDocument): CandidateExtractedProfile {
+  const firstRole = doc.experience?.[0];
+  const allSkills = Array.from(
+    new Set((doc.skills || []).flatMap((s) => s.items || []).filter(Boolean))
+  );
+  const highestEdu = doc.education?.[0];
+  const fieldsOfStudy = Array.from(
+    new Set((doc.education || []).map((e) => e.fieldOfStudy || e.degree || '').filter(Boolean))
+  );
+
+  const years: number[] = [];
+  const currentYear = new Date().getFullYear();
+  (doc.experience || []).forEach((exp) => {
+    const sm = exp.startDate?.match(/\b(19\d{2}|20\d{2})\b/);
+    if (sm) years.push(parseInt(sm[1], 10));
+    if (exp.isCurrent || /present|current/i.test(exp.endDate || '')) {
+      years.push(currentYear);
+    } else {
+      const em = exp.endDate?.match(/\b(19\d{2}|20\d{2})\b/);
+      if (em) years.push(parseInt(em[1], 10));
+    }
+  });
+  const totalYearsExperience =
+    years.length >= 2 ? Math.max(0, Math.max(...years) - Math.min(...years)) : 0;
+
+  return {
+    fullName: doc.contact?.fullName || '',
+    location: doc.contact?.location || '',
+    currentJobTitle: firstRole?.roleTitle || '',
+    currentCompany: firstRole?.company || '',
+    totalYearsExperience,
+    seniorityLevel: detectExperienceLevel(firstRole?.roleTitle || ''),
+    workTypePreference: 'Any',
+    skills: allSkills.slice(0, 30),
+    toolsAndPlatforms: allSkills.slice(0, 20),
+    highestEducationLevel: highestEdu?.degree || '',
+    fieldsOfStudy,
+    certifications: doc.certifications || [],
+  };
+}
+
+/**
+ * AI-first extraction of both canonical ResumeDocument and CandidateExtractedProfile.
+ * Uses Gemini Flash-Lite with deterministic heuristic fallback.
+ */
+export async function extractResumeAndProfileWithAI(
   rawText: string,
   userId: string
-): Promise<ResumeDocument> {
-  // 1. Fast deterministic heuristic extraction (instant 15ms parse without LLM latency)
-  const fastDoc = parseRawTextToDocument(rawText);
-  const hasSubstantiveContent =
-    (fastDoc.experience && fastDoc.experience.length > 0) ||
-    (fastDoc.skills && fastDoc.skills.length > 0) ||
-    (fastDoc.education && fastDoc.education.length > 0);
-
-  if (hasSubstantiveContent) {
-    await recordAIUsage({
-      userId,
-      action: 'extract',
-      provider: 'heuristic',
-      inputChars: rawText.length,
-    });
-    return fastDoc;
-  }
-
+): Promise<{
+  document: ResumeDocument;
+  extractedProfile: CandidateExtractedProfile;
+  provider: 'gemini' | 'heuristic';
+}> {
   const geminiKey = process.env.GEMINI_API_KEY;
 
   if (geminiKey) {
-    // Enforce 1-time AI model rate limiter
-    const rateLimit = await checkAILlmRateLimit(userId, 'extract');
-    if (!rateLimit.allowed) {
-      console.warn(`[AI Rate Limiter] User ${userId} rate limited for AI extract. Using heuristic parser.`);
-      await recordAIUsage({
-        userId,
-        action: 'extract',
-        provider: 'heuristic',
-        inputChars: rawText.length,
-      });
-      return parseRawTextToDocument(rawText);
-    }
-
     const extractionPrompt = `You are a high-precision ATS & Resume Extractor.
 CRITICAL RULES:
 1. Extract ONLY information directly present in the raw resume text. DO NOT HALLUCINATE OR FABRICATE ANY DATA.
-2. DO NOT use generic placeholder companies (such as "Leading Tech Organization", "Distributed Real-Time Processing Engine", "San Francisco, CA / Remote") unless explicitly written in the resume.
-3. If a section or field (e.g. projects, certifications, phone, location) is not found in the resume, return an empty string or empty array.
-4. Extract all experience entries with their exact company name, role title, dates, location, and all bullet points.
-5. If there are Key Achievements or Awards and no separate projects section, map those achievements into the projects array.
-6. Return strictly valid JSON matching this schema:
+2. Separate wrapped bullet continuations cleanly so a wrapped line never becomes a job title or company name.
+3. For each experience entry where "Company  Date - Date" is on one line and the Role Title is on the next line, assign the exact Role Title to "roleTitle" and Company to "company".
+4. Ignore standalone inline sub-headings inside experience (like "AI and Automation:") instead of merging them into bullets.
+5. Return strictly valid JSON with TWO top-level keys: "document" and "extractedProfile":
 {
-  "contact": {
-    "fullName": "Candidate Full Name",
-    "email": "candidate@email.com",
-    "phone": "+1 ...",
-    "location": "City, Country",
-    "linkedinUrl": "https://linkedin.com/in/...",
-    "githubUrl": "https://github.com/...",
-    "portfolioUrl": ""
+  "document": {
+    "contact": {
+      "fullName": "Candidate Full Name",
+      "email": "candidate@email.com",
+      "phone": "+1 ...",
+      "location": "City, State/Country",
+      "linkedinUrl": "https://linkedin.com/in/...",
+      "githubUrl": "https://github.com/...",
+      "portfolioUrl": ""
+    },
+    "summary": "Full professional summary",
+    "skills": [
+      { "category": "Category Name", "items": ["Skill 1", "Skill 2"] }
+    ],
+    "experience": [
+      {
+        "id": "exp-1",
+        "company": "Exact Company Name",
+        "roleTitle": "Exact Job Title",
+        "location": "Job Location if listed",
+        "startDate": "MMM YYYY or YYYY",
+        "endDate": "Present or MMM YYYY",
+        "isCurrent": true,
+        "bullets": ["Complete bullet 1", "Complete bullet 2"]
+      }
+    ],
+    "education": [
+      {
+        "id": "edu-1",
+        "institution": "University / College",
+        "degree": "Degree Name",
+        "fieldOfStudy": "Field if stated",
+        "startDate": "YYYY",
+        "endDate": "YYYY",
+        "gpaOrHonors": "Distinction / GPA if stated"
+      }
+    ],
+    "projects": [
+      {
+        "id": "proj-1",
+        "title": "Project or Award Title",
+        "techStack": ["Tech1"],
+        "bullets": ["Detail 1"]
+      }
+    ],
+    "certifications": ["Cert 1"]
   },
-  "summary": "Full professional summary",
-  "skills": [
-    { "category": "Technical Skills", "items": ["Skill 1", "Skill 2"] }
-  ],
-  "experience": [
-    {
-      "id": "exp-1",
-      "company": "Company Name",
-      "roleTitle": "Exact Job Title",
-      "location": "Job Location",
-      "startDate": "MM/YYYY or YYYY",
-      "endDate": "Present or MM/YYYY",
-      "isCurrent": true,
-      "bullets": ["Bullet point 1", "Bullet point 2"]
-    }
-  ],
-  "education": [
-    {
-      "id": "edu-1",
-      "institution": "University / College",
-      "degree": "Degree Name",
-      "fieldOfStudy": "",
-      "startDate": "YYYY",
-      "endDate": "YYYY"
-    }
-  ],
-  "projects": [
-    {
-      "id": "proj-1",
-      "title": "Project or Achievement Title",
-      "techStack": ["Tech1", "Tech2"],
-      "bullets": ["Detail 1"]
-    }
-  ],
-  "certifications": []
+  "extractedProfile": {
+    "fullName": "Candidate Full Name",
+    "location": "City, State/Country",
+    "currentJobTitle": "Most recent job title",
+    "currentCompany": "Most recent company",
+    "totalYearsExperience": 5,
+    "seniorityLevel": "Entry" | "Mid" | "Senior" | "Staff" | "Lead" | "Principal",
+    "workTypePreference": "Remote" | "Hybrid" | "Onsite" | "Any",
+    "skills": ["All technical & domain skills"],
+    "toolsAndPlatforms": ["Specific tools, clouds, databases, frameworks"],
+    "highestEducationLevel": "e.g. Master of Computer Application (MCA) or B.Tech",
+    "fieldsOfStudy": ["e.g. Computer Applications", "Data Governance"],
+    "certifications": ["Cert 1"]
+  }
 }
 
 RAW RESUME TEXT:
@@ -231,7 +270,7 @@ ${rawText.slice(0, 14000)}
                 maxOutputTokens: 8192,
               },
             }),
-            signal: AbortSignal.timeout(5000),
+            signal: AbortSignal.timeout(12000),
           }
         );
 
@@ -241,51 +280,70 @@ ${rawText.slice(0, 14000)}
           if (content) {
             content = content.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
             const parsed = JSON.parse(content);
-            const validated = ResumeDocumentSchema.safeParse(parsed);
-            if (validated.success) {
-              const data = validated.data;
-              // Guard: If LLM returned a hollow/empty document with no contact, no experience, and no education
-              // even though rawText contains substantive content, fall back to robust heuristic parsing.
+            const rawDoc = parsed.document || parsed;
+            const validatedDoc = ResumeDocumentSchema.safeParse(rawDoc);
+
+            if (validatedDoc.success) {
+              const data = validatedDoc.data;
               const hasSubstantiveContent =
                 (data.experience && data.experience.length > 0) ||
                 (data.education && data.education.length > 0) ||
-                (data.skills && data.skills.length > 0) ||
-                (data.contact?.fullName && data.contact.fullName !== 'Candidate Profile');
+                (data.skills && data.skills.length > 0);
 
-              if (!hasSubstantiveContent && rawText.length > 100) {
-                console.warn('[AI Client] Gemini returned empty/hollow document structure, falling back to heuristic extraction.');
-                const heuristicDoc = parseRawTextToDocument(rawText);
-                return heuristicDoc;
+              if (hasSubstantiveContent) {
+                const validatedProfile = CandidateExtractedProfileSchema.safeParse(
+                  parsed.extractedProfile || {}
+                );
+                const extractedProfile = validatedProfile.success
+                  ? validatedProfile.data
+                  : deriveCandidateProfileFromDoc(data);
+
+                await recordAIUsage({
+                  userId,
+                  action: 'extract',
+                  provider: 'gemini',
+                  model,
+                  inputChars: rawText.length,
+                });
+
+                return {
+                  document: data,
+                  extractedProfile,
+                  provider: 'gemini',
+                };
               }
-
-              await recordAIUsage({
-                userId,
-                action: 'extract',
-                provider: 'gemini',
-                model,
-                inputChars: rawText.length,
-              });
-              return data;
             }
           }
-        } else {
-          console.warn(`[AI Client] Gemini structured extraction returned status ${response.status} for model ${model}. Trying next fallback model...`);
         }
       } catch (err: any) {
-        console.warn(`[AI Client] Gemini structured extraction failed or timed out with model ${model}:`, err?.message || err, '. Trying next fallback model...');
+        console.warn(`[AI Client] AI resume extraction failed for ${model}:`, err?.message || err);
       }
     }
   }
 
-  // Fallback heuristic extraction
+  const fallbackDoc = parseRawTextToDocument(rawText);
   await recordAIUsage({
     userId,
     action: 'extract',
     provider: 'heuristic',
     inputChars: rawText.length,
   });
+  return {
+    document: fallbackDoc,
+    extractedProfile: deriveCandidateProfileFromDoc(fallbackDoc),
+    provider: 'heuristic',
+  };
+}
 
-  return parseRawTextToDocument(rawText);
+/**
+ * Parses raw extracted resume text into a canonical ResumeDocument schema.
+ */
+export async function extractStructuredResume(
+  rawText: string,
+  userId: string
+): Promise<ResumeDocument> {
+  const result = await extractResumeAndProfileWithAI(rawText, userId);
+  return result.document;
 }
 
 /**
