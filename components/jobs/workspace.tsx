@@ -824,10 +824,9 @@ export function Workspace({
         `Opening ${job.companyName} portal. You can also view company insiders on the Jobs page to ask for a referral!`,
         {
           action: {
-            label: 'View in Jobs',
+            label: 'View job details',
             onClick: () => {
-              setMatchedJobsOpen(false);
-              router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+              window.open(`/jobs/${encodeURIComponent(job.id)}`, '_blank', 'noopener,noreferrer');
             },
           },
           duration: 6000,
@@ -860,10 +859,9 @@ export function Workspace({
         toast.success(`Application submitted to ${job.companyName} for ${job.title}!`, {
           id: toastId,
           action: {
-            label: 'View in Jobs',
+            label: 'View job details',
             onClick: () => {
-              setMatchedJobsOpen(false);
-              router.push(`/jobs?id=${encodeURIComponent(job.id)}&applied=true`);
+              window.open(`/jobs/${encodeURIComponent(job.id)}`, '_blank', 'noopener,noreferrer');
             },
           },
           duration: 5000,
@@ -875,10 +873,9 @@ export function Workspace({
         toast.info(`You have already applied for this role.`, {
           id: toastId,
           action: {
-            label: 'View in Jobs',
+            label: 'View job details',
             onClick: () => {
-              setMatchedJobsOpen(false);
-              router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+              window.open(`/jobs/${encodeURIComponent(job.id)}`, '_blank', 'noopener,noreferrer');
             },
           },
         });
@@ -886,21 +883,18 @@ export function Workspace({
         toast.error(data.error || 'Only verified Vouchins users can apply directly.', {
           id: toastId,
           action: {
-            label: 'Go to Jobs',
+            label: 'View job details',
             onClick: () => {
-              setMatchedJobsOpen(false);
-              router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+              window.open(`/jobs/${encodeURIComponent(job.id)}`, '_blank', 'noopener,noreferrer');
             },
           },
         });
       } else {
-        // Fallback: navigate to /jobs so candidate can review details and apply/request referral
-        setMatchedJobsOpen(false);
-        router.push(`/jobs?id=${encodeURIComponent(job.id)}&action=apply`);
+        // Fallback: open dedicated job details page so candidate can review details and apply/request referral
+        window.open(`/jobs/${encodeURIComponent(job.id)}`, '_blank', 'noopener,noreferrer');
       }
     } catch {
-      setMatchedJobsOpen(false);
-      router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+      window.open(`/jobs/${encodeURIComponent(job.id)}`, '_blank', 'noopener,noreferrer');
     } finally {
       setIsApplyingJobId(null);
     }
@@ -1194,13 +1188,12 @@ export function Workspace({
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setMatchedJobsOpen(false);
-                            router.push(`/jobs?id=${encodeURIComponent(job.id)}`);
+                            window.open(`/jobs/${encodeURIComponent(job.id)}`, '_blank', 'noopener,noreferrer');
                           }}
                           className="h-8 px-2.5 text-xs font-semibold text-neutral-700 hover:text-neutral-900 border-neutral-200 rounded-xl gap-1"
                         >
                           <ExternalLink className="h-3 w-3 text-neutral-500" />
-                          View in Jobs
+                          View job details
                         </Button>
 
                         <Button

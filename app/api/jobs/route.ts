@@ -27,6 +27,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const queryStr = searchParams.get("q") || "";
+    const targetJobId = searchParams.get("id")?.trim() || "";
     const category = searchParams.get("category") || "all";
     const jobType = searchParams.get("job_type") || "all";
     const experienceLevel = searchParams.get("experience_level") || "all";
@@ -62,6 +63,7 @@ export async function GET(request: Request) {
       locationParam && locationParam !== "all" && isValidGeographicLocation(locationParam)
         ? locationParam.trim()
         : "";
+    const explicitAllLocations = locationParam.trim().toLowerCase() === "all";
     let hasMasterResume = false;
 
     try {
@@ -74,7 +76,7 @@ export async function GET(request: Request) {
           .eq("id", authCheck.userId)
           .maybeSingle();
 
-        if (!candidateLocation && userData?.city?.trim() && isValidGeographicLocation(userData.city)) {
+        if (!explicitAllLocations && !candidateLocation && userData?.city?.trim() && isValidGeographicLocation(userData.city)) {
           candidateLocation = userData.city.trim();
         }
 
@@ -96,7 +98,7 @@ export async function GET(request: Request) {
           const docSchema = latestResume.document_schema;
 
           // If location is still not set, fallback to resume contact location
-          if (!candidateLocation && docSchema.contact?.location?.trim() && isValidGeographicLocation(docSchema.contact.location)) {
+          if (!explicitAllLocations && !candidateLocation && docSchema.contact?.location?.trim() && isValidGeographicLocation(docSchema.contact.location)) {
             candidateLocation = docSchema.contact.location.trim();
           }
 
@@ -340,6 +342,22 @@ export async function GET(request: Request) {
     }
     rawDbJobs = dbData || [];
     totalCount = typeof dbCount === "number" ? dbCount : rawDbJobs.length;
+
+    // If a specific job ?id= was requested on page 1 and isn't in the current page slice, fetch and include it
+    if (page === 1 && targetJobId && !rawDbJobs.some((j: any) => j.id === targetJobId)) {
+      try {
+        const { data: targetJob } = await supabaseAdmin
+          .from("jobs")
+          .select("*")
+          .eq("id", targetJobId)
+          .maybeSingle();
+        if (targetJob) {
+          rawDbJobs = [targetJob, ...rawDbJobs];
+        }
+      } catch (err) {
+        console.warn("Could not fetch target job by id:", err);
+      }
+    }
 
     // ========================================================================
     // Parallel Live ATS & Freehire Fetchers (Commented per user request)
@@ -766,6 +784,14 @@ export async function GET(request: Request) {
         const comp = (j.company_name || "").toLowerCase();
         return lowerComps.some((c) => comp.includes(c) || c.includes(comp));
       });
+    }
+
+    if (page === 1 && targetJobId) {
+      const targetIdx = finalCombined.findIndex((j) => j.id === targetJobId);
+      if (targetIdx > 0) {
+        const [targetItem] = finalCombined.splice(targetIdx, 1);
+        finalCombined.unshift(targetItem);
+      }
     }
 
     const finalJobs = finalCombined.slice(0, limit);

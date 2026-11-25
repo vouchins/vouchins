@@ -39,6 +39,8 @@ import {
   GraduationCap,
   BookOpen,
   Download,
+  MoreHorizontal,
+  Share2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { EnterpriseBuildingIcon } from '@/components/icons/enterprise-building-icon';
@@ -557,6 +559,19 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
 
     const cleanDomain = company.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
 
+    const resolvedMatchingSkills: string[] = Array.isArray(job.matching_skills)
+      ? job.matching_skills
+      : [];
+    const matchedNormalizedSet = new Set(
+      resolvedMatchingSkills.map((s) => canonicalizeSkill(s).toLowerCase())
+    );
+    const rawMissingSkills: string[] = Array.isArray(job.missing_skills)
+      ? job.missing_skills
+      : [];
+    const resolvedMissingSkills = rawMissingSkills.filter(
+      (s) => !matchedNormalizedSet.has(canonicalizeSkill(s).toLowerCase())
+    );
+
     return {
       id: job.id,
       title,
@@ -581,14 +596,8 @@ function transformDbJobToRecommendedJob(job: any): RecommendedJob {
       whyYouMatch:
         job.why_you_match ||
         `Your background in modern software engineering aligns with ${company}'s hiring bar for ${title}. Your core competencies in ${matchingSkills.slice(0, 3).join(', ')} directly support their current initiatives.`,
-      matchingSkills:
-        job.matching_skills && job.matching_skills.length > 0
-          ? job.matching_skills
-          : matchingSkills.slice(0, 6),
-      missingSkills:
-        job.missing_skills && job.missing_skills.length > 0
-          ? job.missing_skills
-          : ['OpenTelemetry / Datadog', 'Distributed Tracing'],
+      matchingSkills: resolvedMatchingSkills,
+      missingSkills: resolvedMissingSkills,
       insiderCount: typeof job.insider_count === 'number' ? job.insider_count : 0,
       verifiedInsiders: [],
       description: {
@@ -818,6 +827,7 @@ export function JobRecommendationsDashboard() {
   const companyInsidersCacheRef = React.useRef<Map<string, CompanyInsider[]>>(new Map());
   const detailScrollRef = React.useRef<HTMLDivElement>(null);
   const listScrollRef = React.useRef<HTMLDivElement>(null);
+  const loadMoreSentinelRef = React.useRef<HTMLDivElement>(null);
 
   // Resumes list for Apply on Vouchins modal
   const [userResumes, setUserResumes] = useState<any[]>([]);
@@ -985,6 +995,8 @@ export function JobRecommendationsDashboard() {
       const locQuery =
         selectedCity && selectedCity.toLowerCase() !== 'all' && isValidGeographicLocation(selectedCity)
           ? `&location=${encodeURIComponent(selectedCity)}`
+          : userCitySelectedManuallyRef.current
+          ? '&location=all'
           : '';
       const workModeQuery = workModeFilter !== 'all' ? `&work_mode=${workModeFilter}` : '';
       const skillsQuery =
@@ -999,9 +1011,10 @@ export function JobRecommendationsDashboard() {
       const compQuery = candidateCurrentCompany ? `&current_company=${encodeURIComponent(candidateCurrentCompany)}` : '';
       const workingQuery = `&is_working=${isCurrentlyWorking ? 'true' : 'false'}`;
       const searchParam = debouncedSearchQuery.trim() ? `&q=${encodeURIComponent(debouncedSearchQuery.trim())}` : '';
+      const targetIdParam = targetPage === 1 && initialJobId ? `&id=${encodeURIComponent(initialJobId)}` : '';
 
       const res = await fetch(
-        `/api/jobs?page=${targetPage}&limit=50${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${roleQuery}${compQuery}${workingQuery}${searchParam}`,
+        `/api/jobs?page=${targetPage}&limit=50${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${roleQuery}${compQuery}${workingQuery}${searchParam}${targetIdParam}`,
         { signal: controller.signal }
       );
       if (res.ok) {
@@ -1042,6 +1055,7 @@ export function JobRecommendationsDashboard() {
     candidateCurrentCompany,
     isCurrentlyWorking,
     debouncedSearchQuery,
+    initialJobId,
   ]);
 
   useEffect(() => {
@@ -1051,12 +1065,34 @@ export function JobRecommendationsDashboard() {
     loadJobs(1, false);
   }, [loadJobs, isLoadingProfile]);
 
-  const handleLoadMore = () => {
-    if (isLoadingMore || !hasMore) return;
+  const handleLoadMore = React.useCallback(() => {
+    if (isLoadingMore || isLoadingJobs || !hasMore) return;
     const nextPage = page + 1;
     setPage(nextPage);
     loadJobs(nextPage, true);
-  };
+  }, [isLoadingMore, isLoadingJobs, hasMore, page, loadJobs]);
+
+  // Infinite scroll: automatically load more roles when scrolling near the bottom of the list
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+    const scrollRoot = listScrollRef.current;
+    if (!sentinel || !hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          handleLoadMore();
+        }
+      },
+      {
+        root: scrollRoot,
+        rootMargin: '200px',
+      }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, handleLoadMore]);
 
   // Load user resumes for application modal
   const loadUserResumes = React.useCallback(async () => {
@@ -2507,7 +2543,16 @@ export function JobRecommendationsDashboard() {
             )}
 
             <div className="ml-auto text-xs font-medium text-neutral-500 shrink-0 hidden md:flex items-center gap-2">
-              <span>Found <span className="font-bold text-[#0A1B5C]">{filteredJobs.length}</span> verified roles ({allJobs.length} total)</span>
+              {activeChip === 'all' && activeListTab === 'all' && !(selectedCompanies.length > 0 && !selectedCompanies.includes('all')) && totalRolesCount != null && totalRolesCount > filteredJobs.length ? (
+                <span>
+                  Showing <span className="font-bold text-[#0A1B5C]">{filteredJobs.length.toLocaleString()}</span> of{' '}
+                  <span className="font-bold text-[#0A1B5C]">{totalRolesCount.toLocaleString()}</span> verified roles
+                </span>
+              ) : (
+                <span>
+                  Found <span className="font-bold text-[#0A1B5C]">{filteredJobs.length.toLocaleString()}</span> verified roles ({(totalRolesCount ?? allJobs.length).toLocaleString()} total)
+                </span>
+              )}
               <button
                 onClick={() => loadJobs()}
                 disabled={isLoadingJobs}
@@ -2540,13 +2585,7 @@ export function JobRecommendationsDashboard() {
                 <Briefcase className="h-3.5 w-3.5 shrink-0" />
                 <span>
                   <span className="hidden xl:inline">All Jobs</span>
-                  <span className="xl:hidden">All</span> ({
-                    filteredJobs.length === 0
-                      ? 0
-                      : (activeChip !== 'all' || activeListTab !== 'all' || (selectedCompanies.length > 0 && !selectedCompanies.includes('all')))
-                      ? filteredJobs.length
-                      : (totalRolesCount ?? filteredJobs.length)
-                  })
+                  <span className="xl:hidden">All</span> ({(totalRolesCount ?? allJobs.length).toLocaleString()})
                 </span>
               </button>
 
@@ -2614,7 +2653,7 @@ export function JobRecommendationsDashboard() {
                   }}
                   className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1"
                 >
-                  Unselect filter (View all {allJobs.length} jobs)
+                  Unselect filter (View all {(totalRolesCount ?? allJobs.length).toLocaleString()} jobs)
                 </button>
               </div>
             )}
@@ -2895,25 +2934,14 @@ export function JobRecommendationsDashboard() {
                     );
                   })}
 
-                  {hasMore && filteredJobs.length > 0 && totalRolesCount != null && totalRolesCount > filteredJobs.length && (
-                    <div className="pt-2 pb-6 text-center">
-                      <button
-                        type="button"
-                        onClick={handleLoadMore}
-                        disabled={isLoadingMore}
-                        className="px-5 py-2.5 rounded-xl bg-white border border-neutral-200 hover:border-neutral-300 text-[#0A1B5C] text-xs font-bold shadow-xs hover:bg-neutral-50 transition-all flex items-center gap-2 mx-auto disabled:opacity-50"
-                      >
-                        {isLoadingMore ? (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0A1B5C]" />
-                            <span>Loading more roles...</span>
-                          </>
-                        ) : (
-                          <span>
-                            Load more roles ({totalRolesCount - filteredJobs.length} remaining)
-                          </span>
-                        )}
-                      </button>
+                  {hasMore && filteredJobs.length > 0 && (
+                    <div ref={loadMoreSentinelRef} className="pt-2 pb-6 flex items-center justify-center min-h-[40px]">
+                      {isLoadingMore && (
+                        <div className="flex items-center gap-2 text-xs font-semibold text-[#0A1B5C]">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0A1B5C]" />
+                          <span>Loading more roles...</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -2987,13 +3015,25 @@ export function JobRecommendationsDashboard() {
                     <ChevronLeft className="h-4 w-4 text-[#0A1B5C]" />
                     <span>Back to Jobs</span>
                   </button>
-                  <div className="text-right min-w-0 pl-2">
-                    <span className="text-xs font-semibold text-neutral-900 truncate block max-w-[170px]">
-                      {selectedJob.companyName}
-                    </span>
-                    <span className="text-[10px] text-neutral-500 font-medium truncate block max-w-[170px]">
-                      {selectedJob.title}
-                    </span>
+                  <div className="flex items-center gap-2 min-w-0 pl-2">
+                    <div className="text-right min-w-0">
+                      <span className="text-xs font-semibold text-neutral-900 truncate block max-w-[140px]">
+                        {selectedJob.companyName}
+                      </span>
+                      <span className="text-[10px] text-neutral-500 font-medium truncate block max-w-[140px]">
+                        {selectedJob.title}
+                      </span>
+                    </div>
+                    <Link
+                      href={`/jobs/${encodeURIComponent(selectedJob.id)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Open job details in new tab"
+                      title="Open job details"
+                      className="p-1.5 rounded-lg border border-neutral-200 bg-white text-[#0A1B5C] hover:bg-neutral-50 shrink-0"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Link>
                   </div>
                 </div>
 
@@ -3153,6 +3193,53 @@ export function JobRecommendationsDashboard() {
                   >
                     <Bookmark className={`h-4 w-4 ${savedJobIds.includes(selectedJob.id) ? 'fill-amber-500 text-amber-500' : ''}`} />
                   </button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="p-2.5 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-600 transition-colors cursor-pointer"
+                        aria-label="More job actions"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 rounded-xl p-1">
+                      <DropdownMenuItem asChild className="rounded-lg text-xs font-semibold text-neutral-700 cursor-pointer">
+                        <Link
+                          href={`/jobs/${encodeURIComponent(selectedJob.id)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 w-full"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                          <span>View job details</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          if (typeof window === 'undefined') return;
+                          const jobUrl = `${window.location.origin}/jobs/${encodeURIComponent(selectedJob.id)}`;
+                          if (navigator.share) {
+                            navigator.share({
+                              title: `${selectedJob.title} at ${selectedJob.companyName}`,
+                              url: jobUrl,
+                            }).catch(() => {
+                              navigator.clipboard.writeText(jobUrl);
+                              toast.success('Job link copied to clipboard');
+                            });
+                          } else {
+                            navigator.clipboard.writeText(jobUrl);
+                            toast.success('Job link copied to clipboard');
+                          }
+                        }}
+                        className="rounded-lg text-xs font-semibold text-neutral-700 cursor-pointer flex items-center gap-2"
+                      >
+                        <Share2 className="h-3.5 w-3.5 text-[#0A1B5C]" />
+                        <span>Share</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -3286,9 +3373,13 @@ export function JobRecommendationsDashboard() {
                       <div className="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
                         <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1.5">
                           <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                          Matched Competencies ({selectedJob.matchingSkills.length})
+                          Matched Competencies ({candidateProfileSkills.length > 0 ? selectedJob.matchingSkills.length : 0})
                         </span>
-                        {selectedJob.matchingSkills.length > 0 ? (
+                        {candidateProfileSkills.length === 0 ? (
+                          <p className="text-xs text-neutral-500 font-medium">
+                            Upload your resume to see matching skills
+                          </p>
+                        ) : selectedJob.matchingSkills.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
                             {selectedJob.matchingSkills.map((s, idx) => (
                               <span
@@ -3310,9 +3401,13 @@ export function JobRecommendationsDashboard() {
                       <div className="p-4 rounded-2xl bg-white border border-neutral-200 space-y-3">
                         <span className="text-xs font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1.5">
                           <AlertTriangle className="h-4 w-4 text-amber-500" />
-                          Keywords Missing ({selectedJob.missingSkills.length})
+                          Keywords Missing ({candidateProfileSkills.length > 0 ? selectedJob.missingSkills.length : 0})
                         </span>
-                        {selectedJob.missingSkills.length > 0 ? (
+                        {candidateProfileSkills.length === 0 ? (
+                          <p className="text-xs text-neutral-500 font-medium">
+                            Upload your resume to see missing keywords
+                          </p>
+                        ) : selectedJob.missingSkills.length > 0 ? (
                           <div className="flex flex-wrap gap-1.5">
                             {selectedJob.missingSkills.map((s, idx) => (
                               <span
@@ -3328,34 +3423,36 @@ export function JobRecommendationsDashboard() {
                             ✓ Great alignment - No missing core keywords detected.
                           </p>
                         )}
-                        <div className="flex items-center gap-3 pt-1 flex-wrap">
-                          {selectedJob.missingSkills.length > 0 ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTailorSuccess(false);
-                                setTailorModalOpen(true);
-                              }}
-                              className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1"
+                        {candidateProfileSkills.length > 0 && (
+                          <div className="flex items-center gap-3 pt-1 flex-wrap">
+                            {selectedJob.missingSkills.length > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTailorSuccess(false);
+                                  setTailorModalOpen(true);
+                                }}
+                                className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1"
+                              >
+                                <SlidersHorizontal className="h-3 w-3 text-[#0A1B5C]" />
+                                <span>1-Click add missing keywords via Tailor Studio</span>
+                                <ArrowRight className="h-3 w-3" />
+                              </button>
+                            ) : (
+                              <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                <span>All target keywords matched</span>
+                              </span>
+                            )}
+                            <Link
+                              href={`/jobs/resume/studio${masterResumeId ? `?id=${masterResumeId}` : ''}`}
+                              className="text-[11px] font-medium text-neutral-500 hover:text-[#0A1B5C] hover:underline flex items-center gap-1"
                             >
-                              <SlidersHorizontal className="h-3 w-3 text-[#0A1B5C]" />
-                              <span>1-Click add missing keywords via Tailor Studio</span>
-                              <ArrowRight className="h-3 w-3" />
-                            </button>
-                          ) : (
-                            <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                              <span>All target keywords matched</span>
-                            </span>
-                          )}
-                          <Link
-                            href={`/jobs/resume/studio${masterResumeId ? `?id=${masterResumeId}` : ''}`}
-                            className="text-[11px] font-medium text-neutral-500 hover:text-[#0A1B5C] hover:underline flex items-center gap-1"
-                          >
-                            <span>Open Tailor Studio</span>
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </Link>
-                        </div>
+                              <span>Open Tailor Studio</span>
+                              <ExternalLink className="h-2.5 w-2.5" />
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     </div>
 
