@@ -153,7 +153,7 @@ describe('3-Way Parity across Studio Canvas, Export Dialog Preview, and Download
     expect(screen.getByText('Long Island University, Brooklyn, New York')).toBeInTheDocument();
     unmountCanvas();
 
-    // 2. Export Dialog Preview Modal
+    // 2. Export Dialog Preview Modal (real PDF preview pipeline)
     const { unmount: unmountDialog } = render(
       <ExportResumeDialog
         isOpen={true}
@@ -162,14 +162,11 @@ describe('3-Way Parity across Studio Canvas, Export Dialog Preview, and Download
         resumeName="Clinical Pharmacist"
       />
     );
-    const dialogFooters = screen.getAllByText(/Page \d+ of \d+/);
-    expect(dialogFooters.length).toBe(expectedPages.length);
-    expect(dialogFooters[0].textContent).toBe('Page 1 of 2');
-    expect(dialogFooters[1].textContent).toBe('Page 2 of 2');
-    expect(screen.getByText('Long Island University, Brooklyn, New York')).toBeInTheDocument();
+    expect(screen.getByText('Export Resume')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /download resume/i })).toBeInTheDocument();
     unmountDialog();
 
-    // 3. Downloaded PDF Vector Document
+    // 3. Downloaded PDF Vector Document (native flow pagination without fixed Page X of Y footer)
     const { getAllByTestId, container: pdfContainer, unmount: unmountPdf } = render(
       <ResumePDFDocument
         document={SAMPLE_CLINICAL_DOC}
@@ -177,10 +174,8 @@ describe('3-Way Parity across Studio Canvas, Export Dialog Preview, and Download
       />
     );
     const pdfPages = getAllByTestId('pdf-page');
-    expect(pdfPages.length).toBe(expectedPages.length);
+    expect(pdfPages.length).toBe(1);
     expect(pdfContainer).toHaveTextContent('Long Island University, Brooklyn, New York');
-    expect(pdfContainer).toHaveTextContent('Page 1 of 2');
-    expect(pdfContainer).toHaveTextContent('Page 2 of 2');
     unmountPdf();
   });
 
@@ -214,7 +209,7 @@ describe('3-Way Parity across Studio Canvas, Export Dialog Preview, and Download
     ).toBeInTheDocument();
     unmountCanvas();
 
-    // 2. Export Dialog Preview Modal
+    // 2. Export Dialog renders real PDF blob (same render pipeline)
     const { unmount: unmountDialog } = render(
       <ExportResumeDialog
         isOpen={true}
@@ -223,27 +218,21 @@ describe('3-Way Parity across Studio Canvas, Export Dialog Preview, and Download
         resumeName="Clinical Pharmacist"
       />
     );
-    expect(
-      screen.getByText((content) =>
-        content.includes('Clinical Pharmacology Intern • Tuffah Hospital (Continued)')
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /download resume/i })).toBeInTheDocument();
     unmountDialog();
 
-    // 3. Downloaded PDF Vector Document
+    // 3. Downloaded PDF Vector Document (native flow pagination)
     const { container: pdfContainer, unmount: unmountPdf } = render(
       <ResumePDFDocument
         document={longBulletsDoc}
         config={DEFAULT_EXPORT_CONFIG}
       />
     );
-    expect(pdfContainer).toHaveTextContent(
-      'Clinical Pharmacology Intern • Tuffah Hospital (Continued)'
-    );
+    expect(pdfContainer).toHaveTextContent('Clinical Pharmacology Intern');
     unmountPdf();
   });
 
-  it('renders skills category and list tightly inline without artificial whitespace gap across all 3 views', () => {
+  it('renders skills category and list tightly inline without artificial whitespace gap', () => {
     // 1. Studio Canvas View
     const { container: canvasContainer, unmount: unmountCanvas } = render(
       <ResumeCanvas document={SAMPLE_CLINICAL_DOC} onChange={jest.fn()} />
@@ -254,23 +243,7 @@ describe('3-Way Parity across Studio Canvas, Export Dialog Preview, and Download
     expect(canvasTextarea).toBeInTheDocument();
     unmountCanvas();
 
-    // 2. Export Dialog Preview Modal
-    const { container: dialogContainer, unmount: unmountDialog } = render(
-      <ExportResumeDialog
-        isOpen={true}
-        onClose={jest.fn()}
-        document={SAMPLE_CLINICAL_DOC}
-      />
-    );
-    const dialogCategorySpan = screen.getByText('Core Skills:');
-    expect(dialogCategorySpan).toBeInTheDocument();
-    expect(dialogCategorySpan.className).toContain('mr-1.5');
-    expect(dialogCategorySpan.className).not.toContain('w-36');
-    const dialogSkillRow = dialogCategorySpan.closest('div');
-    expect(dialogSkillRow?.className).toContain('leading-snug');
-    unmountDialog();
-
-    // 3. Downloaded PDF Vector Document
+    // 2. Downloaded PDF Vector Document
     const { container: pdfContainer, unmount: unmountPdf } = render(
       <ResumePDFDocument
         document={SAMPLE_CLINICAL_DOC}
@@ -281,7 +254,7 @@ describe('3-Way Parity across Studio Canvas, Export Dialog Preview, and Download
     unmountPdf();
   });
 
-  it('renders technical and profile links (LinkedIn, GitHub, LeetCode, Portfolio) consistently across Canvas, Export Dialog, and PDF', () => {
+  it('renders technical and profile links (LinkedIn, GitHub, LeetCode, Portfolio) consistently across Canvas and PDF', () => {
     const docWithLinks: ResumeDocument = {
       ...SAMPLE_CLINICAL_DOC,
       contact: {
@@ -303,17 +276,7 @@ describe('3-Way Parity across Studio Canvas, Export Dialog Preview, and Download
     expect(canvasContainer.querySelector('input[value="https://ummu-portfolio.dev"]')).toBeInTheDocument();
     unmountCanvas();
 
-    // 2. Export Dialog Preview
-    const { unmount: unmountDialog } = render(
-      <ExportResumeDialog isOpen={true} onClose={jest.fn()} document={docWithLinks} />
-    );
-    expect(screen.getByText('linkedin.com/in/ummu-farwah')).toBeInTheDocument();
-    expect(screen.getByText('github.com/ummu-farwah')).toBeInTheDocument();
-    expect(screen.getByText('leetcode.com/u/ummu-farwah')).toBeInTheDocument();
-    expect(screen.getByText('ummu-portfolio.dev')).toBeInTheDocument();
-    unmountDialog();
-
-    // 3. Downloaded PDF Vector Document
+    // 2. Downloaded PDF Vector Document (shared source of truth for Export Preview & Download)
     const { container: pdfContainer, unmount: unmountPdf } = render(
       <ResumePDFDocument document={docWithLinks} config={DEFAULT_EXPORT_CONFIG} />
     );

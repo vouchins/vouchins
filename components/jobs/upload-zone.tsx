@@ -37,7 +37,7 @@ export function UploadZone({
     }
     const timer = setInterval(() => {
       setPhraseIndex((prev) => (prev + 1) % AI_LOADING_PHRASES.length);
-    }, 2200);
+    }, 5000);
     return () => clearInterval(timer);
   }, [isLoading]);
 
@@ -105,13 +105,12 @@ export function UploadZone({
             fileInputRef.current?.click();
           }
         }}
-        className={`w-full flex flex-col items-center justify-center gap-4 p-8 sm:p-12 rounded-3xl border-2 border-dashed transition-all duration-300 text-center ${
-          isLoading
-            ? 'cursor-not-allowed border-[#0A1B5C]/30 bg-neutral-50/80 opacity-90'
-            : isDragOver
+        className={`w-full flex flex-col items-center justify-center gap-4 p-8 sm:p-12 rounded-3xl border-2 border-dashed transition-all duration-300 text-center ${isLoading
+          ? 'cursor-not-allowed border-[#0A1B5C]/30 bg-neutral-50/80 opacity-90'
+          : isDragOver
             ? 'cursor-pointer border-[#0A1B5C] bg-[#0A1B5C]/5 scale-[1.01]'
             : 'cursor-pointer border-neutral-300 hover:border-[#0A1B5C] bg-white hover:bg-neutral-50/50 shadow-sm'
-        }`}
+          }`}
       >
         <input
           ref={fileInputRef}
@@ -138,7 +137,6 @@ export function UploadZone({
           </span>
           {isLoading ? (
             <span className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-[#0A1B5C]">
-              <Sparkles className="h-3.5 w-3.5 text-[#4FD1C5] animate-pulse shrink-0" />
               <span>{AI_LOADING_PHRASES[phraseIndex]}</span>
             </span>
           ) : (

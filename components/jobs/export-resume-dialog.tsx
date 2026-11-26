@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,7 @@ import {
   ResumeDateFormat,
   ResumeBulletStyle,
 } from '@/lib/jobs/types';
-import { partitionResumePages, PaginatedRoleSegment } from '@/lib/jobs/pagination';
-import { detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
+import { getOrRenderPdf, loadPdfJsClient } from '@/lib/jobs/pdf-render-cache';
 import {
   CheckCircle2,
   Download,
@@ -36,6 +35,8 @@ import {
   Maximize2,
   X,
   HelpCircle,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -44,6 +45,16 @@ interface ExportResumeDialogProps {
   onClose: () => void;
   document: ResumeDocument;
   resumeName?: string;
+  exportConfig?: ResumeExportConfig;
+  onExportConfigChange?: (config: ResumeExportConfig) => void;
+  docVersion?: number | string;
+}
+
+interface RenderedPreviewPage {
+  pageNumber: number;
+  dataUrl: string;
+  widthPx: number;
+  heightPx: number;
 }
 
 const PRESET_COLORS = [
@@ -112,21 +123,126 @@ export function ExportResumeDialog({
   onClose,
   document,
   resumeName,
+  exportConfig,
+  onExportConfigChange,
+  docVersion = 0,
 }: ExportResumeDialogProps) {
-  const [config, setConfig] = useState<ResumeExportConfig>(DEFAULT_EXPORT_CONFIG);
+  const [internalConfig, setInternalConfig] = useState<ResumeExportConfig>(
+    exportConfig || DEFAULT_EXPORT_CONFIG
+  );
+  const config = exportConfig || internalConfig;
+  const setConfig = useCallback(
+    (updater: ResumeExportConfig | ((prev: ResumeExportConfig) => ResumeExportConfig)) => {
+      const next = typeof updater === 'function' ? updater(config) : updater;
+      if (onExportConfigChange) {
+        onExportConfigChange(next);
+      } else {
+        setInternalConfig(next);
+      }
+    },
+    [config, onExportConfigChange]
+  );
+
   const [isExporting, setIsExporting] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<number>(0.85);
+  const [renderedPages, setRenderedPages] = useState<RenderedPreviewPage[]>([]);
+  const [realPageCount, setRealPageCount] = useState<number | null>(null);
+  const [isPreviewRendering, setIsPreviewRendering] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const renderSeqRef = useRef(0);
+
+  const renderRealPreview = useCallback(async () => {
+    if (!isOpen) return;
+    const seq = ++renderSeqRef.current;
+    setIsPreviewRendering(true);
+    setPreviewError(null);
+
+    try {
+      const cached = await getOrRenderPdf(document, config, docVersion);
+      if (renderSeqRef.current !== seq) return;
+
+      setRealPageCount(cached.numPages);
+
+      const pdfjs = await loadPdfJsClient();
+      if (renderSeqRef.current !== seq) return;
+
+      const freshBuf = await cached.blob.arrayBuffer();
+      const pdfDoc = await pdfjs.getDocument({
+        data: new Uint8Array(freshBuf),
+        verbosity: 0,
+      }).promise;
+
+      try {
+        if (renderSeqRef.current !== seq) return;
+
+        const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio || 1, 2) : 1;
+        const baseWidth = 790;
+        const nextPages: RenderedPreviewPage[] = [];
+
+        for (let p = 1; p <= pdfDoc.numPages; p++) {
+          if (renderSeqRef.current !== seq) return;
+          const page = await pdfDoc.getPage(p);
+          const unscaledViewport = page.getViewport({ scale: 1 });
+          const cssScale = baseWidth / unscaledViewport.width;
+          const viewport = page.getViewport({ scale: cssScale * dpr });
+
+          if (typeof window !== 'undefined' && typeof window.document?.createElement === 'function') {
+            const canvas = window.document.createElement('canvas');
+            canvas.width = Math.floor(viewport.width);
+            canvas.height = Math.floor(viewport.height);
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
+              nextPages.push({
+                pageNumber: p,
+                dataUrl: canvas.toDataURL('image/png'),
+                widthPx: baseWidth,
+                heightPx: Math.round(unscaledViewport.height * cssScale),
+              });
+            }
+          }
+          page.cleanup();
+        }
+
+        if (renderSeqRef.current === seq) {
+          setRenderedPages(nextPages);
+        }
+      } finally {
+        await pdfDoc.destroy();
+      }
+    } catch (err: any) {
+      if (renderSeqRef.current === seq) {
+        console.warn('Real-PDF preview render error:', err);
+        setPreviewError(err?.message || 'Unable to render PDF preview.');
+      }
+    } finally {
+      if (renderSeqRef.current === seq) {
+        setIsPreviewRendering(false);
+      }
+    }
+  }, [isOpen, document, config, docVersion]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      renderRealPreview();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [isOpen, renderRealPreview]);
+
+  useEffect(() => {
+    return () => {
+      renderSeqRef.current++;
+    };
+  }, []);
 
   const handleDownload = async () => {
     setIsExporting(true);
-    const toastId = toast.loading('Generating vector ATS PDF with selectable text...');
+    const toastId = toast.loading('Preparing vector ATS PDF...');
 
     try {
-      const { pdf } = await import('@react-pdf/renderer');
-      const { ResumePDFDocument } = await import('./pdf-document');
-
-      const blob = await pdf(<ResumePDFDocument document={document} config={config} />).toBlob();
-      const url = URL.createObjectURL(blob);
+      const cached = await getOrRenderPdf(document, config, docVersion);
+      const url = URL.createObjectURL(cached.blob);
       const a = window.document.createElement('a');
       a.href = url;
       const safeName = (document.contact.fullName || resumeName || 'Candidate')
@@ -147,414 +263,6 @@ export function ExportResumeDialog({
       setIsExporting(false);
     }
   };
-
-  // Preview styling calculations
-  const nameColor =
-    config.accentScope === 'all' || config.accentScope === 'name'
-      ? config.accentColor
-      : '#111827';
-  const headingColor =
-    config.accentScope === 'all' || config.accentScope === 'titles'
-      ? config.accentColor
-      : '#111827';
-
-  const isCompact = config.template === 'compact';
-  const isCentered = config.template === 'centered';
-  const isStructured = config.template === 'structured';
-
-  const previewFontFamily =
-    config.fontFamily === 'Times-Roman'
-      ? '"Times New Roman", Times, serif'
-      : config.fontFamily === 'Georgia'
-      ? 'Georgia, serif'
-      : config.fontFamily === 'Garamond'
-      ? 'Garamond, "EB Garamond", serif'
-      : config.fontFamily === 'Cambria'
-      ? 'Cambria, Georgia, serif'
-      : config.fontFamily === 'Calibri'
-      ? 'Calibri, "Gill Sans", sans-serif'
-      : config.fontFamily === 'Verdana'
-      ? 'Verdana, Geneva, sans-serif'
-      : config.fontFamily === 'Arial'
-      ? 'Arial, Helvetica, sans-serif'
-      : config.fontFamily === 'Courier'
-      ? 'Courier, monospace'
-      : 'Helvetica, Arial, sans-serif';
-
-  const previewFontBold =
-    config.fontFamily === 'Times-Roman'
-      ? '"Times New Roman Bold", Times, serif'
-      : config.fontFamily === 'Georgia'
-      ? 'Georgia, serif'
-      : config.fontFamily === 'Garamond'
-      ? 'Garamond, "EB Garamond", serif'
-      : config.fontFamily === 'Cambria'
-      ? 'Cambria, Georgia, serif'
-      : config.fontFamily === 'Calibri'
-      ? 'Calibri, "Gill Sans", sans-serif'
-      : config.fontFamily === 'Verdana'
-      ? 'Verdana, Geneva, sans-serif'
-      : config.fontFamily === 'Arial'
-      ? 'Arial, Helvetica, sans-serif'
-      : config.fontFamily === 'Courier'
-      ? 'Courier, monospace'
-      : 'Helvetica, Arial, sans-serif';
-
-  const pages = partitionResumePages(document, config.pageSize, config.template);
-
-  const contactParts = [
-    document.contact.email,
-    document.contact.phone,
-    document.contact.location,
-    document.contact.linkedinUrl
-      ? document.contact.linkedinUrl.replace(/^https?:\/\//, '')
-      : '',
-    document.contact.githubUrl
-      ? document.contact.githubUrl.replace(/^https?:\/\//, '')
-      : '',
-    document.contact.leetcodeUrl
-      ? document.contact.leetcodeUrl.replace(/^https?:\/\//, '')
-      : '',
-    document.contact.portfolioUrl
-      ? document.contact.portfolioUrl.replace(/^https?:\/\//, '')
-      : '',
-  ].filter(Boolean);
-
-  const renderPreviewSummary = () =>
-    document.summary ? (
-      <div>
-        <h2
-          style={{
-            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-            color: headingColor,
-          }}
-          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-            isCentered && !isStructured ? 'text-center' : 'text-left'
-          }`}
-        >
-          Professional Summary
-        </h2>
-        <p
-          style={{ fontSize: `${config.fontSizes.bodyText * 0.95}pt` }}
-          className={`text-neutral-700 leading-relaxed font-normal ${
-            isCentered && !isStructured ? 'text-center' : 'text-left'
-          }`}
-        >
-          {document.summary}
-        </p>
-      </div>
-    ) : null;
-
-  const isHealthcare = detectResumeDomain('', document) === 'healthcare';
-  const skillsTitle = isHealthcare ? 'Core Skills' : 'Technical Skills';
-  const projectsTitle = isHealthcare ? 'Key Projects & Research' : 'Key Technical Projects';
-
-  const renderPreviewSkills = (inSidebar = false) =>
-    document.skills && document.skills.length > 0 ? (
-      <div>
-        <h2
-          style={{
-            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-            color: headingColor,
-          }}
-          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-            isCentered && !inSidebar ? 'text-center' : 'text-left'
-          }`}
-        >
-          {skillsTitle}
-        </h2>
-        {inSidebar ? (
-          <div className="space-y-2">
-            {document.skills.map((s, idx) => (
-              <div key={idx} className="space-y-0.5">
-                <span className="font-bold text-[11px] text-neutral-900 block">
-                  {s.category}
-                </span>
-                <span className="text-neutral-700 text-[10.5px] leading-tight block">
-                  {s.items.join(', ')}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className={`space-y-1 ${isCentered ? 'text-center' : 'text-left'}`}>
-            {document.skills.map((s, idx) => (
-              <div key={idx} className="text-xs leading-snug text-neutral-700">
-                <span className="font-bold text-neutral-900 mr-1.5">
-                  {s.category}:
-                </span>
-                <span>{s.items.join(', ')}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    ) : null;
-
-  const renderPreviewExperience = (roles: PaginatedRoleSegment[], isContinuationPage = false) =>
-    roles && roles.length > 0 ? (
-      <div>
-        <h2
-          style={{
-            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-            color: headingColor,
-          }}
-          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-            isCentered && !isStructured ? 'text-center' : 'text-left'
-          }`}
-        >
-          Work Experience {isContinuationPage ? '(Continued)' : ''}
-        </h2>
-        <div className="space-y-3">
-          {roles.map((roleSegment, idx) => {
-            const { role, bulletStartIndex = 0, bulletEndIndex, isContinuation } = roleSegment;
-            const bulletsToRender = role.bullets.slice(
-              bulletStartIndex,
-              bulletEndIndex !== undefined ? bulletEndIndex : role.bullets.length
-            );
-
-            return (
-              <div key={idx} className="space-y-1">
-                {isContinuation ? (
-                  <div className="border-b border-neutral-100 pb-1 mb-1">
-                    <span
-                      style={{ fontSize: `${config.fontSizes.subHeaders * 0.95}pt` }}
-                      className="font-bold text-neutral-700 text-xs"
-                    >
-                      {role.roleTitle} • {role.company} (Continued)
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <span
-                        style={{ fontSize: `${config.fontSizes.subHeaders}pt` }}
-                        className="font-bold text-neutral-900"
-                      >
-                        {role.roleTitle}
-                      </span>
-                      <span className="text-neutral-500 text-xs ml-1 font-medium">
-                        • {role.company}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-neutral-500 font-medium">
-                      {formatPreviewDate(role.startDate, config.dateFormat)} -{' '}
-                      {formatPreviewDate(role.endDate, config.dateFormat)}{' '}
-                      {role.location ? `| ${role.location}` : ''}
-                    </span>
-                  </div>
-                )}
-                <ul className="space-y-1 pl-2">
-                  {bulletsToRender.map((b, bIdx) => (
-                    <li
-                      key={bIdx}
-                      style={{ fontSize: `${config.fontSizes.bodyText * 0.92}pt` }}
-                      className="flex items-start gap-1.5 text-neutral-800 leading-snug font-normal"
-                    >
-                      <span
-                        style={{ color: headingColor }}
-                        className="font-bold shrink-0"
-                      >
-                        {config.bulletStyle}
-                      </span>
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    ) : null;
-
-  const renderPreviewEducation = (inSidebar = false, indices?: number[], isContinuation = false) => {
-    if (!document.education || document.education.length === 0) return null;
-    const itemsToRender = indices
-      ? indices.map((idx) => ({ edu: document.education[idx], idx })).filter((x) => x.edu)
-      : document.education.map((edu, idx) => ({ edu, idx }));
-
-    if (itemsToRender.length === 0) return null;
-
-    return (
-      <div>
-        <h2
-          style={{
-            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-            color: headingColor,
-          }}
-          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-            isCentered && !inSidebar ? 'text-center' : 'text-left'
-          }`}
-        >
-          Education {isContinuation ? '(Continued)' : ''}
-        </h2>
-        {inSidebar ? (
-          <div className="space-y-2">
-            {itemsToRender.map(({ edu, idx }) => (
-              <div key={idx} className="space-y-0.5">
-                <span className="font-bold text-[11px] text-neutral-900 block">
-                  {edu.institution}
-                </span>
-                <span className="text-neutral-600 text-[10.5px] block">
-                  {edu.degree}
-                  {edu.fieldOfStudy &&
-                  !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
-                    ? ` in ${edu.fieldOfStudy}`
-                    : ''}
-                </span>
-                {edu.endDate && (
-                  <span className="text-neutral-400 text-[10px] block">
-                    {formatPreviewDate(edu.endDate, config.dateFormat)}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            {itemsToRender.map(({ edu, idx }) => (
-              <div
-                key={idx}
-                className={`flex items-baseline ${
-                  isCentered && !isStructured
-                    ? 'justify-center gap-3 text-center'
-                    : 'justify-between'
-                }`}
-              >
-                <div>
-                  <span className="font-bold text-neutral-900 text-xs">
-                    {edu.institution}
-                  </span>
-                  <span className="text-neutral-600 text-xs ml-1">
-                    {edu.degree}
-                    {edu.fieldOfStudy &&
-                    !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
-                      ? ` in ${edu.fieldOfStudy}`
-                      : ''}
-                    {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
-                  </span>
-                </div>
-                {edu.endDate && (
-                  <span className="text-neutral-400 text-[11px]">
-                    {formatPreviewDate(edu.endDate, config.dateFormat)}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderPreviewProjects = (indices?: number[], isContinuation = false) => {
-    if (!document.projects || document.projects.length === 0) return null;
-    const itemsToRender = indices
-      ? indices.map((idx) => ({ proj: document.projects![idx], idx })).filter((x) => x.proj)
-      : document.projects.map((proj, idx) => ({ proj, idx }));
-
-    if (itemsToRender.length === 0) return null;
-
-    return (
-      <div>
-        <h2
-          style={{
-            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-            color: headingColor,
-          }}
-          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-            isCentered && !isStructured ? 'text-center' : 'text-left'
-          }`}
-        >
-          {projectsTitle} {isContinuation ? '(Continued)' : ''}
-        </h2>
-        <div className="space-y-2">
-          {itemsToRender.map(({ proj, idx }) => (
-            <div key={idx} className="space-y-0.5">
-              <div className="flex items-baseline justify-between">
-                <span className="font-bold text-neutral-900 text-xs">
-                  {proj.title}
-                </span>
-                <div className="flex items-center gap-2">
-                  {(proj.repoUrl || proj.liveUrl) && (
-                    <span className="text-[11px] text-neutral-500 font-mono">
-                      {proj.repoUrl || proj.liveUrl}
-                    </span>
-                  )}
-                  {proj.techStack && proj.techStack.length > 0 && (
-                    <span className="text-[11px] text-neutral-500">
-                      {proj.techStack.join(' • ')}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <ul className="space-y-0.5 pl-2">
-                {proj.bullets.map((b, bIdx) => (
-                  <li
-                    key={bIdx}
-                    style={{ fontSize: `${config.fontSizes.bodyText * 0.9}pt` }}
-                    className="flex items-start gap-1.5 text-neutral-700 leading-snug"
-                  >
-                    <span
-                      style={{ color: headingColor }}
-                      className="font-bold shrink-0"
-                    >
-                      {config.bulletStyle}
-                    </span>
-                    <span>{b}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderPreviewCertifications = (indices?: number[], isContinuation = false) => {
-    if (!document.certifications || document.certifications.length === 0) return null;
-    const itemsToRender = indices
-      ? indices.map((idx) => ({ cert: document.certifications![idx], idx })).filter((x) => x.cert)
-      : document.certifications.map((cert, idx) => ({ cert, idx }));
-
-    if (itemsToRender.length === 0) return null;
-
-    return (
-      <div>
-        <h2
-          style={{
-            fontSize: `${config.fontSizes.sectionHeaders}pt`,
-            color: headingColor,
-          }}
-          className={`font-bold uppercase tracking-wider border-b border-neutral-200 pb-1 mb-2 ${
-            isCentered && !isStructured ? 'text-center' : 'text-left'
-          }`}
-        >
-          Certifications & Credentials {isContinuation ? '(Continued)' : ''}
-        </h2>
-        <ul className="space-y-0.5 pl-2">
-          {itemsToRender.map(({ cert, idx }) => (
-            <li
-              key={idx}
-              style={{ fontSize: `${config.fontSizes.bodyText * 0.9}pt` }}
-              className="flex items-start gap-1.5 text-neutral-700 leading-snug"
-            >
-              <span
-                style={{ color: headingColor }}
-                className="font-bold shrink-0"
-              >
-                {config.bulletStyle}
-              </span>
-              <span>{cert}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  };
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[1220px] w-[96vw] h-[92vh] max-h-[940px] p-0 overflow-hidden flex flex-col bg-white rounded-2xl sm:rounded-3xl border border-neutral-200 shadow-2xl [&>button]:hidden">
@@ -974,8 +682,13 @@ export function ExportResumeDialog({
                 <span>·</span>
                 <span className="capitalize">{config.template} Layout</span>
                 <span>·</span>
-                <span className="text-neutral-500 font-bold">
-                  {pages.length} {pages.length === 1 ? 'Page' : 'Pages'}
+                <span className="text-neutral-500 font-bold inline-flex items-center gap-1.5">
+                  {realPageCount !== null
+                    ? `${realPageCount} ${realPageCount === 1 ? 'Page' : 'Pages'}`
+                    : 'Rendering...'}
+                  {isPreviewRendering && renderedPages.length > 0 && (
+                    <Loader2 className="h-3 w-3 animate-spin text-[#0A1B5C]" />
+                  )}
                 </span>
               </div>
 
@@ -1013,127 +726,48 @@ export function ExportResumeDialog({
               </div>
             </div>
 
-            {/* Scrollable Canvas Container */}
+            {/* Scrollable Real-PDF Preview Container */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 flex items-start justify-center">
-              {/* Scaled Multi-Sheet Paper Canvas */}
-              <div
-                style={{
-                  transform: `scale(${previewZoom})`,
-                  transformOrigin: 'top center',
-                  fontFamily: previewFontFamily,
-                }}
-                className="flex flex-col items-center gap-8 shrink-0 mb-12"
-              >
-                {pages.map((page, pageIdx) => (
-                  <div
-                    key={pageIdx}
-                    className={`w-[790px] ${
-                      config.pageSize === 'A4' ? 'min-h-[1115px]' : 'min-h-[1022px]'
-                    } bg-white rounded-sm shadow-[0_4px_30px_rgba(0,0,0,0.12)] p-10 transition-all select-text shrink-0 relative text-[#111827] flex flex-col justify-between`}
+              {previewError && renderedPages.length === 0 ? (
+                <div className="my-auto flex flex-col items-center gap-3 bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm max-w-sm text-center">
+                  <AlertCircle className="h-6 w-6 text-rose-600" />
+                  <p className="text-xs font-semibold text-neutral-700">{previewError}</p>
+                  <button
+                    type="button"
+                    onClick={renderRealPreview}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#0A1B5C] text-white text-xs font-bold hover:bg-[#11287e]"
                   >
-                    <div>
-                      {/* Page Continuation Header (Page 2+) */}
-                      {pageIdx > 0 && (
-                        <div className="border-b border-neutral-200 pb-2 mb-4 flex items-center justify-between text-xs text-neutral-500 select-none">
-                          <span
-                            style={{ color: headingColor }}
-                            className="font-bold uppercase tracking-wider text-[11px]"
-                          >
-                            {document.contact.fullName || 'Candidate'} -{' '}
-                            {page.roles.length > 0 && page.showEducation
-                              ? 'Professional Experience & Education (Continued)'
-                              : page.roles.length > 0
-                              ? 'Professional Experience (Continued)'
-                              : page.showEducation && page.showProjects
-                              ? isHealthcare
-                                ? 'Education & Clinical Projects'
-                                : 'Education & Technical Projects'
-                              : page.showProjects
-                              ? projectsTitle
-                              : page.showCertifications
-                              ? 'Certifications & Credentials'
-                              : 'Education (Continued)'}
-                          </span>
-                          <span className="text-[11px] text-neutral-400">
-                            Page {pageIdx + 1}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Header (Page 1) */}
-                      {page.showContact && (
-                        <div
-                          className={`border-b pb-3 mb-4 ${
-                            isCentered ? 'text-center border-transparent' : 'border-neutral-200 text-left'
-                          }`}
-                        >
-                          <h1
-                            style={{
-                              fontSize: `${config.fontSizes.name}pt`,
-                              color: nameColor,
-                              fontFamily: previewFontBold,
-                            }}
-                            className="font-black tracking-tight leading-tight mb-1"
-                          >
-                            {document.contact.fullName || 'Candidate Profile'}
-                          </h1>
-                          <div
-                            className={`flex flex-wrap items-center gap-2 text-xs text-neutral-500 font-medium ${
-                              isCentered ? 'justify-center' : 'justify-start'
-                            }`}
-                          >
-                            {contactParts.map((part, idx) => (
-                              <span key={idx} className="flex items-center gap-1.5">
-                                {idx > 0 && <span className="text-neutral-300">•</span>}
-                                <span>{part}</span>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Structured vs Linear Layout */}
-                      {isStructured ? (
-                        <div className="flex gap-6">
-                          {/* Left Column (65%) */}
-                          <div className="flex-[65] space-y-4">
-                            {page.showSummary && renderPreviewSummary()}
-                            {page.roles.length > 0 && renderPreviewExperience(page.roles, pageIdx > 0)}
-                            {page.showProjects && renderPreviewProjects(page.projectIndices, pageIdx > 0 && !page.isFirstPage)}
-                            {page.showCertifications && renderPreviewCertifications(page.certificationIndices, pageIdx > 0 && !page.isFirstPage)}
-                          </div>
-
-                          {/* Right Column (35%) */}
-                          <div className="flex-[35] border-l border-neutral-200 pl-5 space-y-4">
-                            {page.showSkills && renderPreviewSkills(true)}
-                            {page.showEducation && renderPreviewEducation(true, page.educationIndices, pageIdx > 0 && !page.isFirstPage)}
-                          </div>
-                        </div>
-                      ) : (
-                        /* Standard / Compact / Centered Linear Layout */
-                        <div className={`space-y-${isCompact ? '3' : '4'}`}>
-                          {page.showSummary && renderPreviewSummary()}
-                          {page.showSkills && renderPreviewSkills(false)}
-                          {page.roles.length > 0 && renderPreviewExperience(page.roles, pageIdx > 0)}
-                          {page.showEducation && renderPreviewEducation(false, page.educationIndices, pageIdx > 0 && !page.isFirstPage && (page.educationIndices?.[0] ?? 0) > 0)}
-                          {page.showProjects && renderPreviewProjects(page.projectIndices, pageIdx > 0 && !page.isFirstPage && (page.projectIndices?.[0] ?? 0) > 0)}
-                          {page.showCertifications && renderPreviewCertifications(page.certificationIndices, pageIdx > 0 && !page.isFirstPage && (page.certificationIndices?.[0] ?? 0) > 0)}
-                        </div>
-                      )}
+                    <RefreshCw className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                    <span>Retry Preview</span>
+                  </button>
+                </div>
+              ) : renderedPages.length === 0 ? (
+                <div className="my-auto flex flex-col items-center gap-2.5 text-neutral-500">
+                  <Loader2 className="h-7 w-7 animate-spin text-[#0A1B5C]" />
+                  <span className="text-xs font-semibold">Rendering exact PDF preview...</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-6 shrink-0 mb-12">
+                  {renderedPages.map((page) => (
+                    <div
+                      key={page.pageNumber}
+                      style={{
+                        width: `${Math.round(page.widthPx * previewZoom)}px`,
+                        height: `${Math.round(page.heightPx * previewZoom)}px`,
+                      }}
+                      className="bg-white rounded-sm shadow-[0_4px_30px_rgba(0,0,0,0.12)] overflow-hidden shrink-0 transition-opacity duration-200"
+                    >
+                      <img
+                        src={page.dataUrl}
+                        alt={`Resume PDF Page ${page.pageNumber}`}
+                        className={`w-full h-full object-contain select-none ${
+                          isPreviewRendering ? 'opacity-80' : 'opacity-100'
+                        }`}
+                      />
                     </div>
-
-                    {/* Authentic Document Page Footer */}
-                    <div className="pt-3 mt-4 border-t border-neutral-200 flex items-center justify-between text-[11px] text-neutral-400 select-none">
-                      <span className="font-medium text-neutral-500">
-                        {document.contact.fullName || 'Candidate'} - Resume
-                      </span>
-                      <span className="font-semibold px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200/80">
-                        Page {pageIdx + 1} of {pages.length}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Bottom Centered Action Bar (Matches Jobright Screenshot) */}

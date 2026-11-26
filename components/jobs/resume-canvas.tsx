@@ -8,12 +8,15 @@ import {
   ProjectItem,
   SkillCategory,
   CandidateExtractedProfile,
+  ResumeExportConfig,
+  DEFAULT_EXPORT_CONFIG,
 } from '@/lib/jobs/types';
 import {
   partitionResumePages,
   PaginatedResumePage,
   estimatePageFitSummary,
 } from '@/lib/jobs/pagination';
+import { getOrRenderPdf } from '@/lib/jobs/pdf-render-cache';
 import { EditableBullet } from './editable-bullet';
 import {
   Plus,
@@ -142,17 +145,60 @@ interface ResumeCanvasProps {
   document: ResumeDocument;
   highlightedCoordinate?: { roleIndex: number; bulletIndex: number } | null;
   onChange: (updated: ResumeDocument) => void;
+  exportConfig?: ResumeExportConfig;
+  docVersion?: number | string;
 }
 
 export function ResumeCanvas({
   document,
   highlightedCoordinate,
   onChange,
+  exportConfig = DEFAULT_EXPORT_CONFIG,
+  docVersion = 0,
 }: ResumeCanvasProps) {
   const isHealthcare = detectResumeDomain('', document) === 'healthcare';
   const skillsTitle = isHealthcare ? 'Core Skills' : 'Technical Skills';
   const projectsTitle = isHealthcare ? 'Key Projects & Research' : 'Key Technical Projects';
   const [profileExpanded, setProfileExpanded] = useState(false);
+  const [realPdfPageCount, setRealPdfPageCount] = useState<number | null>(null);
+  const [isCheckingFit, setIsCheckingFit] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let cancelled = false;
+    setIsCheckingFit(true);
+
+    const scheduleIdle = (cb: () => void) => {
+      if (typeof (window as any).requestIdleCallback === 'function') {
+        const id = (window as any).requestIdleCallback(cb, { timeout: 1500 });
+        return () => (window as any).cancelIdleCallback(id);
+      }
+      const id = setTimeout(cb, 250);
+      return () => clearTimeout(id);
+    };
+
+    let cancelIdle: (() => void) | null = null;
+    const debounceId = setTimeout(() => {
+      cancelIdle = scheduleIdle(async () => {
+        try {
+          const cached = await getOrRenderPdf(document, exportConfig, docVersion);
+          if (!cancelled) {
+            setRealPdfPageCount(cached.numPages);
+          }
+        } catch {
+          // Keep last known real page count or approximate fallback
+        } finally {
+          if (!cancelled) setIsCheckingFit(false);
+        }
+      });
+    }, 900);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceId);
+      if (cancelIdle) cancelIdle();
+    };
+  }, [document, exportConfig, docVersion]);
 
   const fallbackProfile: CandidateExtractedProfile = {
     fullName: document.contact.fullName || '',
@@ -454,15 +500,21 @@ export function ResumeCanvas({
       <div className="w-full max-w-[850px] bg-white border border-neutral-300 rounded-xl shadow-sm overflow-hidden shrink-0 print:hidden">
         <div className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 bg-neutral-50/80">
           <div className="flex items-center gap-2 text-xs">
-            {fitSummary.status === 'tight-overflow' ? (
+            {realPdfPageCount !== null ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0A1B5C]/5 text-[#0A1B5C] border border-[#0A1B5C]/15 font-semibold">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#4FD1C5]" />
+                {`PDF Output: ${realPdfPageCount} ${realPdfPageCount === 1 ? 'page' : 'pages'}`}
+                {isCheckingFit ? ' (Checking...)' : ''}
+              </span>
+            ) : fitSummary.status === 'tight-overflow' ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-semibold">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-                {fitSummary.message}
+                {`~${fitSummary.message}`}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#0A1B5C]/5 text-[#0A1B5C] border border-[#0A1B5C]/15 font-semibold">
                 <CheckCircle2 className="h-3.5 w-3.5 text-[#4FD1C5]" />
-                {fitSummary.message}
+                {`~${fitSummary.message}`}
               </span>
             )}
           </div>

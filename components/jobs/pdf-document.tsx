@@ -1,18 +1,34 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Font } from '@react-pdf/renderer';
 import {
   ResumeDocument,
   ResumeExportConfig,
   DEFAULT_EXPORT_CONFIG,
   ResumeDateFormat,
 } from '@/lib/jobs/types';
-import { partitionResumePages, PaginatedRoleSegment } from '@/lib/jobs/pagination';
+import {
+  getPdfLayoutTokens,
+  MAX_UNBREAKABLE_CHARS,
+  sanitizePdfText,
+  splitPathologicalToken,
+} from '@/lib/jobs/pdf-layout-tokens';
 import { detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
 import { isValidGeographicLocation } from '@/lib/jobs/ats-client';
 
-/**
- * Format resume date strings based on selected user preference.
- */
+// Disable mid-word hyphenation globally for react-pdf; only break pathological >45-char tokens
+let hyphenationRegistered = false;
+export function ensurePdfHyphenationDisabled() {
+  if (!hyphenationRegistered) {
+    try {
+      Font.registerHyphenationCallback((word: string) => splitPathologicalToken(word));
+      hyphenationRegistered = true;
+    } catch {
+      // Ignore if mocked in tests
+    }
+  }
+}
+ensurePdfHyphenationDisabled();
+
 function formatResumeDate(dateStr: string, format: ResumeDateFormat): string {
   if (!dateStr) return '';
   const trimmed = dateStr.trim();
@@ -20,13 +36,11 @@ function formatResumeDate(dateStr: string, format: ResumeDateFormat): string {
     return 'Present';
   }
 
-  // If already like "2021" or "2021 - 2023"
   const dateMatch = trimmed.match(/^([A-Za-z]+|\d{1,2})?[/-]?\s*(\d{4})$/);
   if (!dateMatch) return trimmed;
 
   const rawMonth = dateMatch[1];
   const year = dateMatch[2];
-
   if (!rawMonth) return year;
 
   const monthNames = [
@@ -80,6 +94,8 @@ export function ResumePDFDocument({
   document,
   config = DEFAULT_EXPORT_CONFIG,
 }: ResumePDFDocumentProps) {
+  ensurePdfHyphenationDisabled();
+
   const {
     pageSize = 'LETTER',
     template = 'standard',
@@ -91,7 +107,8 @@ export function ResumePDFDocument({
     bulletStyle = '•',
   } = config;
 
-  // Resolve ATS-safe standard PostScript fonts for @react-pdf
+  const tokens = getPdfLayoutTokens(config);
+
   const isSerif =
     fontFamily === 'Times-Roman' ||
     fontFamily === 'Georgia' ||
@@ -120,81 +137,49 @@ export function ResumePDFDocument({
   const headingColor =
     accentScope === 'all' || accentScope === 'titles' ? accentColor : '#111827';
 
-  // Dynamic Stylesheet based on user configuration
   const dynamicStyles = StyleSheet.create({
     page: {
-      paddingTop: isCompact ? 20 : isStructured ? 22 : 24,
-      paddingBottom: isCompact ? 22 : isStructured ? 24 : 24,
-      paddingLeft: isCompact ? 26 : isStructured ? 28 : 28,
-      paddingRight: isCompact ? 26 : isStructured ? 28 : 28,
+      paddingTop: tokens.paddingTop,
+      paddingBottom: tokens.paddingBottom,
+      paddingLeft: tokens.paddingLeft,
+      paddingRight: tokens.paddingRight,
       fontFamily: fontRegular,
       fontSize: fontSizes.bodyText,
-      lineHeight: isCompact || isStructured ? 1.22 : 1.25,
+      lineHeight: tokens.lineHeight,
       color: '#111827',
-      position: 'relative',
-    },
-    pageContinuationHeader: {
-      borderBottomWidth: 0.75,
-      borderBottomColor: '#E5E7EB',
-      paddingBottom: isCompact ? 2 : 2.5,
-      marginBottom: isCompact ? 5 : 6,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    pageContinuationTitle: {
-      fontSize: fontSizes.bodyText * 0.75,
-      fontFamily: fontBold,
-      color: headingColor,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
-    },
-    pageContinuationNumber: {
-      fontSize: fontSizes.bodyText * 0.75,
-      color: '#9CA3AF',
-    },
-    continuedRoleHeader: {
-      borderBottomWidth: 0.5,
-      borderBottomColor: '#F3F4F6',
-      paddingBottom: 2,
-      marginBottom: 2.5,
-    },
-    continuedRoleTitle: {
-      fontSize: fontSizes.bodyText * 0.9,
-      fontFamily: fontBold,
-      color: '#374151',
-    },
-    footer: {
-      position: 'absolute',
-      bottom: isCompact ? 10 : 12,
-      left: isCompact ? 26 : isStructured ? 28 : 28,
-      right: isCompact ? 26 : isStructured ? 28 : 28,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      borderTopWidth: 0.5,
-      borderTopColor: '#E5E7EB',
-      paddingTop: 2.5,
-    },
-    footerText: {
-      fontSize: 8,
-      color: '#9CA3AF',
     },
     header: {
       borderBottomWidth: 1,
       borderBottomColor: isCentered ? 'transparent' : '#E5E7EB',
-      paddingBottom: isCompact ? 6 : isStructured ? 6 : 7,
-      marginBottom: isCompact ? 7 : isStructured ? 7 : 8,
+      paddingBottom: isCompact ? 6 : 7,
+      marginBottom: isCompact ? 6 : 8,
       alignItems: isCentered ? 'center' : 'flex-start',
+    },
+    structuredHeaderBand: {
+      borderBottomWidth: 1.5,
+      borderBottomColor: headingColor,
+      paddingBottom: 7,
+      marginBottom: 8,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 12,
+    },
+    structuredHeaderLeft: {
+      flex: 1,
+    },
+    structuredHeaderRight: {
+      maxWidth: '45%',
+      alignItems: 'flex-end',
     },
     fullName: {
       fontSize: fontSizes.name,
       fontFamily: fontBold,
       color: nameColor,
       lineHeight: 1.15,
-      marginBottom: isCompact ? 3 : isStructured ? 3 : 4,
+      marginBottom: isCompact ? 3 : 4,
       textAlign: isCentered ? 'center' : 'left',
-      letterSpacing: -0.5,
+      letterSpacing: -0.4,
     },
     contactLine: {
       flexDirection: 'row',
@@ -210,10 +195,10 @@ export function ResumePDFDocument({
     },
     contactItem: {
       fontSize: fontSizes.bodyText * 0.88,
-      color: '#6B7280',
+      color: '#4B5563',
     },
     section: {
-      marginBottom: isCompact ? 5 : isStructured ? 5 : 6,
+      marginBottom: tokens.sectionMarginBottom,
     },
     sectionTitle: {
       fontSize: fontSizes.sectionHeaders,
@@ -223,18 +208,18 @@ export function ResumePDFDocument({
       letterSpacing: 0.5,
       borderBottomWidth: 0.75,
       borderBottomColor: '#E5E7EB',
-      paddingBottom: isCompact ? 1 : isStructured ? 1 : 1.5,
-      marginBottom: isCompact ? 3 : isStructured ? 3 : 3.5,
+      paddingBottom: isCompact ? 1 : 1.5,
+      marginBottom: isCompact ? 3 : 3.5,
       textAlign: isCentered && !isStructured ? 'center' : 'left',
     },
     summaryText: {
       fontSize: fontSizes.bodyText * 0.92,
-      lineHeight: isCompact || isStructured ? 1.22 : 1.26,
+      lineHeight: tokens.summaryLineHeight,
       color: '#374151',
       textAlign: isCentered ? 'center' : 'left',
     },
     roleContainer: {
-      marginBottom: isCompact ? 3.5 : isStructured ? 4 : 4.5,
+      marginBottom: tokens.roleMarginBottom,
     },
     roleHeader: {
       flexDirection: 'row',
@@ -250,7 +235,6 @@ export function ResumePDFDocument({
       fontSize: fontSizes.subHeaders,
       fontFamily: fontBold,
       color: '#111827',
-      textAlign: isCentered && !isStructured ? 'center' : 'left',
     },
     companyName: {
       fontSize: fontSizes.bodyText * 0.95,
@@ -272,23 +256,23 @@ export function ResumePDFDocument({
     },
     bulletRow: {
       flexDirection: 'row',
-      marginBottom: isCompact ? 1 : isStructured ? 1 : 1.5,
+      marginBottom: tokens.bulletMarginBottom,
       paddingLeft: 3,
     },
     bulletPoint: {
-      width: 9,
+      width: tokens.bulletIndent,
       fontSize: fontSizes.bodyText * 0.9,
       color: headingColor,
     },
     bulletText: {
       flex: 1,
       fontSize: fontSizes.bodyText * 0.9,
-      lineHeight: isCompact || isStructured ? 1.22 : 1.25,
+      lineHeight: tokens.lineHeight,
       color: '#1F2937',
     },
     skillLine: {
       fontSize: fontSizes.bodyText * 0.9,
-      lineHeight: isCompact || isStructured ? 1.18 : 1.22,
+      lineHeight: tokens.lineHeight,
       marginBottom: isCompact ? 1 : 1.5,
       textAlign: isCentered ? 'center' : 'left',
     },
@@ -300,20 +284,6 @@ export function ResumePDFDocument({
     skillItems: {
       fontSize: fontSizes.bodyText * 0.88,
       fontFamily: fontRegular,
-      color: '#374151',
-    },
-    structuredSkillGroup: {
-      marginBottom: isCompact ? 3 : 4,
-    },
-    structuredSkillCategory: {
-      fontSize: fontSizes.bodyText * 0.9,
-      fontFamily: fontBold,
-      color: '#111827',
-      marginBottom: 1,
-    },
-    structuredSkillItems: {
-      fontSize: fontSizes.bodyText * 0.85,
-      lineHeight: 1.22,
       color: '#374151',
     },
     eduContainer: {
@@ -328,360 +298,374 @@ export function ResumePDFDocument({
       fontSize: fontSizes.subHeaders * 0.95,
       fontFamily: fontBold,
       color: '#111827',
-      textAlign: isCentered && !isStructured ? 'center' : 'left',
     },
     eduDegree: {
       fontSize: fontSizes.bodyText * 0.9,
-      color: '#4B5563',
-      marginTop: 1,
-      textAlign: isCentered && !isStructured ? 'center' : 'left',
-    },
-    structuredEduGroup: {
-      marginBottom: isCompact ? 3 : 4,
-    },
-    structuredEduInstitution: {
-      fontSize: fontSizes.bodyText * 0.9,
-      fontFamily: fontBold,
-      color: '#111827',
-      marginBottom: 1,
-    },
-    structuredEduDegree: {
-      fontSize: fontSizes.bodyText * 0.85,
-      color: '#4B5563',
-      lineHeight: 1.22,
-    },
-    structuredEduDate: {
-      fontSize: fontSizes.bodyText * 0.8,
-      color: '#9CA3AF',
-      marginTop: 1,
-    },
-    structuredColumns: {
-      flexDirection: 'row',
-    },
-    structuredMainCol: {
-      width: '65%',
-      paddingRight: 12,
-    },
-    structuredSideCol: {
-      width: '35%',
-      paddingLeft: 12,
-      borderLeftWidth: 0.75,
-      borderLeftColor: '#E5E7EB',
+      color: '#374151',
     },
   });
 
-  const contactParts = [
-    document.contact.email,
-    document.contact.phone,
-    document.contact.location && isValidGeographicLocation(document.contact.location)
-      ? document.contact.location
-      : '',
-    document.contact.linkedinUrl
-      ? document.contact.linkedinUrl.replace(/^https?:\/\//, '')
-      : '',
-    document.contact.githubUrl
-      ? document.contact.githubUrl.replace(/^https?:\/\//, '')
-      : '',
-    document.contact.leetcodeUrl
-      ? document.contact.leetcodeUrl.replace(/^https?:\/\//, '')
-      : '',
-    document.contact.portfolioUrl
-      ? document.contact.portfolioUrl.replace(/^https?:\/\//, '')
-      : '',
-  ].filter(Boolean);
+  const cleanContactUrl = (url?: string) => {
+    if (!url) return '';
+    return sanitizePdfText(
+      url.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/+$/, '')
+    );
+  };
 
-  // Common Sections: Summary, Experience, Skills, Education, Projects
+  const contactParts: string[] = [];
+  if (document.contact.email) contactParts.push(sanitizePdfText(document.contact.email));
+  if (document.contact.phone) contactParts.push(sanitizePdfText(document.contact.phone));
+  if (document.contact.location && isValidGeographicLocation(document.contact.location)) {
+    contactParts.push(sanitizePdfText(document.contact.location));
+  }
+  if (document.contact.linkedinUrl) contactParts.push(cleanContactUrl(document.contact.linkedinUrl));
+  if (document.contact.githubUrl) contactParts.push(cleanContactUrl(document.contact.githubUrl));
+  if (document.contact.portfolioUrl) contactParts.push(cleanContactUrl(document.contact.portfolioUrl));
+  if (document.contact.leetcodeUrl) contactParts.push(cleanContactUrl(document.contact.leetcodeUrl));
+
   const isHealthcare = detectResumeDomain('', document) === 'healthcare';
   const skillsTitle = isHealthcare ? 'Core Skills' : 'Technical Skills';
   const projectsTitle = isHealthcare ? 'Key Projects & Research' : 'Key Technical Projects';
+  const safeBulletStyle = sanitizePdfText(bulletStyle) || '*';
 
-  const renderSummarySection = () =>
-    document.summary ? (
-      <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>Professional Summary</Text>
-        <Text style={dynamicStyles.summaryText}>{document.summary}</Text>
-      </View>
-    ) : null;
-
-  const renderSkillsSection = () =>
-    document.skills && document.skills.length > 0 ? (
-      <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>{skillsTitle}</Text>
-        {isStructured
-          ? document.skills.map((skillGroup, idx) => (
-              <View key={idx} style={dynamicStyles.structuredSkillGroup} wrap={false}>
-                <Text style={dynamicStyles.structuredSkillCategory}>{skillGroup.category}</Text>
-                <Text style={dynamicStyles.structuredSkillItems}>{skillGroup.items.join(', ')}</Text>
-              </View>
-            ))
-          : document.skills.map((skillGroup, idx) => (
-              <Text key={idx} style={dynamicStyles.skillLine}>
-                <Text style={dynamicStyles.skillCategory}>{skillGroup.category}: </Text>
-                <Text style={dynamicStyles.skillItems}>{skillGroup.items.join(', ')}</Text>
+  const renderHeaderBlock = () => {
+    if (isStructured) {
+      return (
+        <View style={dynamicStyles.structuredHeaderBand} wrap={false}>
+          <View style={dynamicStyles.structuredHeaderLeft}>
+            <Text style={dynamicStyles.fullName}>
+              {sanitizePdfText(document.contact.fullName || 'Candidate Profile')}
+            </Text>
+          </View>
+          <View style={dynamicStyles.structuredHeaderRight}>
+            {contactParts.map((part, idx) => (
+              <Text key={idx} style={dynamicStyles.contactItem}>
+                {part}
               </Text>
             ))}
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={dynamicStyles.header} wrap={false}>
+        <Text style={dynamicStyles.fullName}>
+          {sanitizePdfText(document.contact.fullName || 'Candidate Profile')}
+        </Text>
+        <View style={dynamicStyles.contactLine}>
+          {contactParts.map((part, idx) => (
+            <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }} wrap={false}>
+              {idx > 0 && <Text style={dynamicStyles.contactSeparator}>•</Text>}
+              <Text style={dynamicStyles.contactItem}>{part}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
+
+  const renderSummarySection = () =>
+    document.summary && document.summary.trim().length > 0 ? (
+      <View style={dynamicStyles.section}>
+        <Text style={dynamicStyles.sectionTitle} minPresenceAhead={45}>
+          Professional Summary
+        </Text>
+        <Text style={dynamicStyles.summaryText}>{sanitizePdfText(document.summary)}</Text>
       </View>
     ) : null;
 
-  const renderExperienceSection = (roles: PaginatedRoleSegment[], isContinuationPage = false) =>
-    roles && roles.length > 0 ? (
+  const renderSkillsSection = () => {
+    if (!document.skills || document.skills.length === 0) return null;
+    const firstSkill = document.skills[0];
+    const firstSkillText = `${firstSkill.category}: ${(firstSkill.items || []).join(', ')}`;
+    const canKeepHeadingWithFirst = firstSkillText.length <= MAX_UNBREAKABLE_CHARS;
+
+    return (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>
-          Work Experience {isContinuationPage ? '(Continued)' : ''}
-        </Text>
-        {roles.map((roleSegment, idx) => {
-          const { role, bulletStartIndex = 0, bulletEndIndex, isContinuation } = roleSegment;
-          const bulletsToRender = role.bullets.slice(
-            bulletStartIndex,
-            bulletEndIndex !== undefined ? bulletEndIndex : role.bullets.length
+        {canKeepHeadingWithFirst ? (
+          <View wrap={false}>
+            <Text style={dynamicStyles.sectionTitle}>{skillsTitle}</Text>
+            <Text style={dynamicStyles.skillLine}>
+              <Text style={dynamicStyles.skillCategory}>{sanitizePdfText(firstSkill.category)}: </Text>
+              <Text style={dynamicStyles.skillItems}>
+                {sanitizePdfText((firstSkill.items || []).join(', '))}
+              </Text>
+            </Text>
+          </View>
+        ) : (
+          <Text style={dynamicStyles.sectionTitle} minPresenceAhead={45}>
+            {skillsTitle}
+          </Text>
+        )}
+        {document.skills.slice(canKeepHeadingWithFirst ? 1 : 0).map((skillGroup, idx) => {
+          const groupText = `${skillGroup.category}: ${(skillGroup.items || []).join(', ')}`;
+          return (
+            <Text
+              key={idx}
+              style={dynamicStyles.skillLine}
+              wrap={groupText.length > MAX_UNBREAKABLE_CHARS}
+            >
+              <Text style={dynamicStyles.skillCategory}>{sanitizePdfText(skillGroup.category)}: </Text>
+              <Text style={dynamicStyles.skillItems}>
+                {sanitizePdfText((skillGroup.items || []).join(', '))}
+              </Text>
+            </Text>
           );
+        })}
+      </View>
+    );
+  };
+
+  const renderRoleHeader = (role: ResumeDocument['experience'][number]) => (
+    <View style={dynamicStyles.roleHeader} wrap={false}>
+      <View style={dynamicStyles.roleTitleContainer}>
+        <Text style={dynamicStyles.roleTitle}>
+          {sanitizePdfText(role.roleTitle)}{' '}
+          <Text style={dynamicStyles.companyName}>• {sanitizePdfText(role.company)}</Text>
+        </Text>
+      </View>
+      <Text style={dynamicStyles.dateLocation}>
+        {sanitizePdfText(formatDateRange(role.startDate, role.endDate, dateFormat))}
+        {role.location ? sanitizePdfText(` | ${role.location}`) : ''}
+      </Text>
+    </View>
+  );
+
+  const renderBulletRow = (bullet: string, key: number) => (
+    <View
+      key={key}
+      style={dynamicStyles.bulletRow}
+      wrap={bullet.length > MAX_UNBREAKABLE_CHARS}
+    >
+      <Text style={dynamicStyles.bulletPoint}>{safeBulletStyle}</Text>
+      <Text style={dynamicStyles.bulletText}>{sanitizePdfText(bullet)}</Text>
+    </View>
+  );
+
+  const renderExperienceSection = () => {
+    if (!document.experience || document.experience.length === 0) return null;
+    const firstRole = document.experience[0];
+    const firstRoleBullet = firstRole.bullets?.[0] || '';
+    const firstRoleHeaderPlusFirstBulletLen =
+      (firstRole.roleTitle?.length || 0) +
+      (firstRole.company?.length || 0) +
+      firstRoleBullet.length;
+    const keepSectionTitleWithFirstRole =
+      firstRoleHeaderPlusFirstBulletLen <= MAX_UNBREAKABLE_CHARS;
+
+    return (
+      <View style={dynamicStyles.section}>
+        {keepSectionTitleWithFirstRole ? (
+          <View style={dynamicStyles.roleContainer} wrap={false}>
+            <Text style={dynamicStyles.sectionTitle}>Work Experience</Text>
+            {renderRoleHeader(firstRole)}
+            {firstRoleBullet ? renderBulletRow(firstRoleBullet, 0) : null}
+          </View>
+        ) : (
+          <Text style={dynamicStyles.sectionTitle} minPresenceAhead={45}>
+            Work Experience
+          </Text>
+        )}
+
+        {document.experience.map((role, roleIdx) => {
+          if (roleIdx === 0 && keepSectionTitleWithFirstRole) {
+            return (
+              <View key={roleIdx} style={dynamicStyles.roleContainer}>
+                {(role.bullets || []).slice(firstRoleBullet ? 1 : 0).map((b, bIdx) =>
+                  renderBulletRow(b, bIdx + 1)
+                )}
+              </View>
+            );
+          }
+
+          const b0 = role.bullets?.[0] || '';
+          const groupLen =
+            (role.roleTitle?.length || 0) + (role.company?.length || 0) + b0.length;
+          const keepHeaderWithFirstBullet = Boolean(b0) && groupLen <= MAX_UNBREAKABLE_CHARS;
 
           return (
-            <View key={idx} style={dynamicStyles.roleContainer}>
-              {isContinuation ? (
-                <View style={dynamicStyles.continuedRoleHeader}>
-                  <Text style={dynamicStyles.continuedRoleTitle}>
-                    {role.roleTitle} • {role.company} (Continued)
-                  </Text>
+            <View key={roleIdx} style={dynamicStyles.roleContainer}>
+              {keepHeaderWithFirstBullet ? (
+                <View wrap={false}>
+                  {renderRoleHeader(role)}
+                  {renderBulletRow(b0, 0)}
                 </View>
               ) : (
-                <View style={dynamicStyles.roleHeader} wrap={false}>
-                  <View style={dynamicStyles.roleTitleContainer}>
-                    <Text style={dynamicStyles.roleTitle}>
-                      {role.roleTitle}{' '}
-                      <Text style={dynamicStyles.companyName}>• {role.company}</Text>
-                    </Text>
+                <>
+                  <View wrap={false} minPresenceAhead={45}>
+                    {renderRoleHeader(role)}
                   </View>
-                  <Text style={dynamicStyles.dateLocation}>
-                    {formatDateRange(role.startDate, role.endDate, dateFormat)}{' '}
-                    {role.location ? `| ${role.location}` : ''}
-                  </Text>
-                </View>
+                  {b0 ? renderBulletRow(b0, 0) : null}
+                </>
               )}
-              {bulletsToRender.map((bullet, bulletIdx) => (
-                <View key={bulletIdx} style={dynamicStyles.bulletRow} wrap={false}>
-                  <Text style={dynamicStyles.bulletPoint}>{bulletStyle}</Text>
-                  <Text style={dynamicStyles.bulletText}>{bullet}</Text>
-                </View>
-              ))}
+              {(role.bullets || []).slice(1).map((b, bIdx) => renderBulletRow(b, bIdx + 1))}
             </View>
           );
         })}
       </View>
-    ) : null;
+    );
+  };
 
-  const renderEducationSection = (indices?: number[], isContinuation = false) => {
+  const renderEducationSection = () => {
     if (!document.education || document.education.length === 0) return null;
-    const itemsToRender = indices
-      ? indices.map((idx) => ({ edu: document.education[idx], idx })).filter((x) => x.edu)
-      : document.education.map((edu, idx) => ({ edu, idx }));
+    const firstEdu = document.education[0];
+    const firstEduText = `${firstEdu.institution} ${firstEdu.degree} ${firstEdu.fieldOfStudy || ''}`;
+    const keepHeadingWithFirst = firstEduText.length <= MAX_UNBREAKABLE_CHARS;
 
-    if (itemsToRender.length === 0) return null;
+    const renderEduItem = (edu: ResumeDocument['education'][number], idx: number) => {
+      const combined = `${edu.institution} ${edu.degree} ${edu.fieldOfStudy || ''} ${edu.gpaOrHonors || ''}`;
+      return (
+        <View
+          key={idx}
+          style={dynamicStyles.eduContainer}
+          wrap={combined.length > MAX_UNBREAKABLE_CHARS}
+        >
+          <View style={dynamicStyles.eduHeader}>
+            <Text style={dynamicStyles.eduInstitution}>{sanitizePdfText(edu.institution)}</Text>
+            <Text style={dynamicStyles.dateLocation}>
+              {edu.endDate ? sanitizePdfText(formatResumeDate(edu.endDate, dateFormat)) : ''}
+            </Text>
+          </View>
+          <Text style={dynamicStyles.eduDegree}>
+            {sanitizePdfText(edu.degree)}
+            {edu.fieldOfStudy &&
+            !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
+              ? sanitizePdfText(` in ${edu.fieldOfStudy}`)
+              : ''}
+            {edu.gpaOrHonors ? sanitizePdfText(` - ${edu.gpaOrHonors}`) : ''}
+          </Text>
+        </View>
+      );
+    };
 
     return (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>
-          Education {isContinuation ? '(Continued)' : ''}
-        </Text>
-        {itemsToRender.map(({ edu, idx: eduIdx }) => (
-          <View
-            key={eduIdx}
-            style={isStructured ? dynamicStyles.structuredEduGroup : dynamicStyles.eduContainer}
-            wrap={false}
-          >
-            {isStructured ? (
-              <>
-                <Text style={dynamicStyles.structuredEduInstitution}>{edu.institution}</Text>
-                <Text style={dynamicStyles.structuredEduDegree}>
-                  {edu.degree}
-                  {edu.fieldOfStudy &&
-                  !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
-                    ? ` in ${edu.fieldOfStudy}`
-                    : ''}
-                  {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
-                </Text>
-                {edu.endDate ? (
-                  <Text style={dynamicStyles.structuredEduDate}>
-                    {formatResumeDate(edu.endDate, dateFormat)}
-                  </Text>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <View style={dynamicStyles.eduHeader}>
-                  <Text style={dynamicStyles.eduInstitution}>{edu.institution}</Text>
-                  <Text style={dynamicStyles.dateLocation}>
-                    {edu.endDate ? formatResumeDate(edu.endDate, dateFormat) : ''}
-                  </Text>
-                </View>
-                <Text style={dynamicStyles.eduDegree}>
-                  {edu.degree}
-                  {edu.fieldOfStudy &&
-                  !edu.degree.toLowerCase().includes(edu.fieldOfStudy.toLowerCase())
-                    ? ` in ${edu.fieldOfStudy}`
-                    : ''}
-                  {edu.gpaOrHonors ? ` - ${edu.gpaOrHonors}` : ''}
-                </Text>
-              </>
-            )}
+        {keepHeadingWithFirst ? (
+          <View wrap={false}>
+            <Text style={dynamicStyles.sectionTitle}>Education</Text>
+            {renderEduItem(firstEdu, 0)}
           </View>
-        ))}
+        ) : (
+          <Text style={dynamicStyles.sectionTitle} minPresenceAhead={45}>
+            Education
+          </Text>
+        )}
+        {document.education.slice(keepHeadingWithFirst ? 1 : 0).map((edu, idx) =>
+          renderEduItem(edu, keepHeadingWithFirst ? idx + 1 : idx)
+        )}
       </View>
     );
   };
 
-  const renderProjectsSection = (indices?: number[], isContinuation = false) => {
+  const renderProjectsSection = () => {
     if (!document.projects || document.projects.length === 0) return null;
-    const itemsToRender = indices
-      ? indices.map((idx) => ({ proj: document.projects![idx], idx })).filter((x) => x.proj)
-      : document.projects.map((proj, idx) => ({ proj, idx }));
+    const firstProj = document.projects[0];
+    const firstBullet = firstProj.bullets?.[0] || '';
+    const keepHeadingWithFirst =
+      (firstProj.title?.length || 0) + firstBullet.length <= MAX_UNBREAKABLE_CHARS;
 
-    if (itemsToRender.length === 0) return null;
+    const renderProjectHeader = (proj: NonNullable<ResumeDocument['projects']>[number]) => (
+      <View style={dynamicStyles.roleHeader} wrap={false}>
+        <View style={dynamicStyles.roleTitleContainer}>
+          <Text style={dynamicStyles.roleTitle}>{sanitizePdfText(proj.title)}</Text>
+        </View>
+        {(proj.repoUrl || proj.liveUrl) && (
+          <Text style={dynamicStyles.projectTechStack}>
+            {sanitizePdfText(proj.repoUrl || proj.liveUrl)}
+          </Text>
+        )}
+        {proj.techStack && proj.techStack.length > 0 && (
+          <Text style={dynamicStyles.projectTechStack}>
+            {sanitizePdfText(proj.techStack.join(' • '))}
+          </Text>
+        )}
+      </View>
+    );
 
     return (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>
-          {projectsTitle} {isContinuation ? '(Continued)' : ''}
-        </Text>
-        {itemsToRender.map(({ proj, idx: projIdx }) => (
-          <View key={projIdx} style={dynamicStyles.roleContainer}>
-            <View
-              style={dynamicStyles.roleHeader}
-              wrap={Boolean(proj.bullets && proj.bullets.length > 0 ? false : true)}
-            >
-              <View style={dynamicStyles.roleTitleContainer}>
-                <Text style={dynamicStyles.roleTitle}>{proj.title}</Text>
+        {keepHeadingWithFirst ? (
+          <View style={dynamicStyles.roleContainer} wrap={false}>
+            <Text style={dynamicStyles.sectionTitle}>{projectsTitle}</Text>
+            {renderProjectHeader(firstProj)}
+            {firstBullet ? renderBulletRow(firstBullet, 0) : null}
+          </View>
+        ) : (
+          <Text style={dynamicStyles.sectionTitle} minPresenceAhead={45}>
+            {projectsTitle}
+          </Text>
+        )}
+        {document.projects.map((proj, projIdx) => {
+          if (projIdx === 0 && keepHeadingWithFirst) {
+            return (
+              <View key={projIdx} style={dynamicStyles.roleContainer}>
+                {(proj.bullets || []).slice(firstBullet ? 1 : 0).map((b, bIdx) =>
+                  renderBulletRow(b, bIdx + 1)
+                )}
               </View>
-              {(proj.repoUrl || proj.liveUrl) && (
-                <Text style={dynamicStyles.projectTechStack}>
-                  {proj.repoUrl || proj.liveUrl}
-                </Text>
+            );
+          }
+          const b0 = proj.bullets?.[0] || '';
+          const keepHeader = Boolean(b0) && (proj.title?.length || 0) + b0.length <= MAX_UNBREAKABLE_CHARS;
+          return (
+            <View key={projIdx} style={dynamicStyles.roleContainer}>
+              {keepHeader ? (
+                <View wrap={false}>
+                  {renderProjectHeader(proj)}
+                  {renderBulletRow(b0, 0)}
+                </View>
+              ) : (
+                <>
+                  <View wrap={false} minPresenceAhead={45}>
+                    {renderProjectHeader(proj)}
+                  </View>
+                  {b0 ? renderBulletRow(b0, 0) : null}
+                </>
               )}
-              {proj.techStack && proj.techStack.length > 0 && (
-                <Text style={dynamicStyles.projectTechStack}>
-                  {proj.techStack.join(' • ')}
-                </Text>
-              )}
+              {(proj.bullets || []).slice(1).map((b, bIdx) => renderBulletRow(b, bIdx + 1))}
             </View>
-            {proj.bullets.map((b, bIdx) => (
-              <View key={bIdx} style={dynamicStyles.bulletRow} wrap={false}>
-                <Text style={dynamicStyles.bulletPoint}>{bulletStyle}</Text>
-                <Text style={dynamicStyles.bulletText}>{b}</Text>
-              </View>
-            ))}
-          </View>
-        ))}
+          );
+        })}
       </View>
     );
   };
 
-  const renderCertificationsSection = (indices?: number[], isContinuation = false) => {
+  const renderCertificationsSection = () => {
     if (!document.certifications || document.certifications.length === 0) return null;
-    const itemsToRender = indices
-      ? indices.map((idx) => ({ cert: document.certifications![idx], idx })).filter((x) => x.cert)
-      : document.certifications.map((cert, idx) => ({ cert, idx }));
-
-    if (itemsToRender.length === 0) return null;
+    const firstCert = document.certifications[0];
+    const keepHeadingWithFirst = (firstCert?.length || 0) <= MAX_UNBREAKABLE_CHARS;
 
     return (
       <View style={dynamicStyles.section}>
-        <Text style={dynamicStyles.sectionTitle}>
-          Certifications & Credentials {isContinuation ? '(Continued)' : ''}
-        </Text>
-        {itemsToRender.map(({ cert, idx: certIdx }) => (
-          <View key={certIdx} style={dynamicStyles.bulletRow} wrap={false}>
-            <Text style={dynamicStyles.bulletPoint}>{bulletStyle}</Text>
-            <Text style={dynamicStyles.bulletText}>{cert}</Text>
+        {keepHeadingWithFirst ? (
+          <View wrap={false}>
+            <Text style={dynamicStyles.sectionTitle}>Certifications & Credentials</Text>
+            {renderBulletRow(firstCert, 0)}
           </View>
-        ))}
+        ) : (
+          <Text style={dynamicStyles.sectionTitle} minPresenceAhead={45}>
+            Certifications & Credentials
+          </Text>
+        )}
+        {document.certifications
+          .slice(keepHeadingWithFirst ? 1 : 0)
+          .map((cert, idx) => renderBulletRow(cert, keepHeadingWithFirst ? idx + 1 : idx))}
       </View>
     );
   };
-
-  const pages = partitionResumePages(document, pageSize, template);
 
   return (
-    <Document title={`${document.contact.fullName || 'Candidate'} - Resume`}>
-      {pages.map((page, pageIdx) => (
-        <Page key={pageIdx} size={pageSize} style={dynamicStyles.page}>
-          {/* Page Continuation Header (Page 2+) */}
-          {pageIdx > 0 && (
-            <View style={dynamicStyles.pageContinuationHeader}>
-              <Text style={dynamicStyles.pageContinuationTitle}>
-                {document.contact.fullName || 'Candidate'} -{' '}
-                {page.roles.length > 0 && page.showEducation
-                  ? 'Professional Experience & Education (Continued)'
-                  : page.roles.length > 0
-                  ? 'Professional Experience (Continued)'
-                  : page.showEducation && page.showProjects
-                  ? isHealthcare
-                    ? 'Education & Clinical Projects'
-                    : 'Education & Technical Projects'
-                  : page.showProjects
-                  ? projectsTitle
-                  : page.showCertifications
-                  ? 'Certifications & Credentials'
-                  : 'Education (Continued)'}
-              </Text>
-              <Text style={dynamicStyles.pageContinuationNumber}>
-                Page {pageIdx + 1}
-              </Text>
-            </View>
-          )}
-
-          {/* Header Block (Page 1) */}
-          {page.showContact && (
-            <View style={dynamicStyles.header}>
-              <Text style={dynamicStyles.fullName}>
-                {document.contact.fullName || 'Candidate Profile'}
-              </Text>
-              <View style={dynamicStyles.contactLine}>
-                {contactParts.map((part, idx) => (
-                  <View key={idx} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {idx > 0 && <Text style={dynamicStyles.contactSeparator}>•</Text>}
-                    <Text style={dynamicStyles.contactItem}>{part}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Structured (2-Column) vs Linear Templates */}
-          {isStructured ? (
-            <View style={dynamicStyles.structuredColumns}>
-              <View style={dynamicStyles.structuredMainCol}>
-                {page.showSummary && renderSummarySection()}
-                {page.roles.length > 0 && renderExperienceSection(page.roles, pageIdx > 0)}
-                {page.showProjects && renderProjectsSection(page.projectIndices, pageIdx > 0 && !page.isFirstPage)}
-                {page.showCertifications && renderCertificationsSection(page.certificationIndices, pageIdx > 0 && !page.isFirstPage)}
-              </View>
-              <View style={dynamicStyles.structuredSideCol}>
-                {page.showSkills && renderSkillsSection()}
-                {page.showEducation && renderEducationSection(page.educationIndices, pageIdx > 0 && !page.isFirstPage)}
-              </View>
-            </View>
-          ) : (
-            <>
-              {page.showSummary && renderSummarySection()}
-              {page.showSkills && renderSkillsSection()}
-              {page.roles.length > 0 && renderExperienceSection(page.roles, pageIdx > 0)}
-              {page.showEducation && renderEducationSection(page.educationIndices, pageIdx > 0 && !page.isFirstPage && (page.educationIndices?.[0] ?? 0) > 0)}
-              {page.showProjects && renderProjectsSection(page.projectIndices, pageIdx > 0 && !page.isFirstPage && (page.projectIndices?.[0] ?? 0) > 0)}
-              {page.showCertifications && renderCertificationsSection(page.certificationIndices, pageIdx > 0 && !page.isFirstPage && (page.certificationIndices?.[0] ?? 0) > 0)}
-            </>
-          )}
-
-          {/* Authentic Document Page Footer */}
-          <View style={dynamicStyles.footer}>
-            <Text style={dynamicStyles.footerText}>
-              {document.contact.fullName || 'Candidate'} - Resume
-            </Text>
-            <Text style={dynamicStyles.footerText}>
-              Page {pageIdx + 1} of {pages.length}
-            </Text>
-          </View>
-        </Page>
-      ))}
+    <Document title={`${sanitizePdfText(document.contact.fullName || 'Candidate')} - Resume`}>
+      <Page size={pageSize} style={dynamicStyles.page}>
+        {renderHeaderBlock()}
+        {renderSummarySection()}
+        {renderSkillsSection()}
+        {renderExperienceSection()}
+        {renderEducationSection()}
+        {renderProjectsSection()}
+        {renderCertificationsSection()}
+      </Page>
     </Document>
   );
 }
