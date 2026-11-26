@@ -336,6 +336,178 @@ ${rawText.slice(0, 14000)}
 }
 
 /**
+ * Gemini-First 1-step multimodal PDF parser: extracts rawText, ResumeDocument,
+ * and CandidateExtractedProfile directly from the PDF buffer in a single call.
+ * Returns null if Gemini is unavailable or rate-limited so caller can fall back
+ * to local PDF text extraction + extractResumeAndProfileWithAI.
+ */
+export async function extractResumeFromPdfBufferWithAI(
+  pdfBuffer: Buffer,
+  userId: string
+): Promise<{
+  rawText: string;
+  document: ResumeDocument;
+  extractedProfile: CandidateExtractedProfile;
+  provider: 'gemini';
+} | null> {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey || pdfBuffer.length === 0 || pdfBuffer.length > 4.5 * 1024 * 1024) {
+    return null;
+  }
+
+  const prompt = `You are an expert ATS Resume Parser.
+Read the attached PDF resume visually and structurally (handling multi-column layouts, tables, or scanned text accurately).
+Return ONLY valid JSON matching this exact structure:
+{
+  "rawText": "Full readable plain text of the resume preserving reading order, headings, dates, and bullets",
+  "document": {
+    "contact": {
+      "fullName": "string",
+      "email": "string",
+      "phone": "string",
+      "location": "string",
+      "linkedinUrl": "string",
+      "githubUrl": "string",
+      "portfolioUrl": "string"
+    },
+    "summary": "string",
+    "skills": [{ "category": "string", "items": ["string"] }],
+    "experience": [{
+      "id": "exp-1",
+      "company": "string",
+      "roleTitle": "string",
+      "startDate": "string",
+      "endDate": "string",
+      "isCurrent": boolean,
+      "location": "string",
+      "bullets": ["string"]
+    }],
+    "education": [{
+      "id": "edu-1",
+      "institution": "string",
+      "degree": "string",
+      "fieldOfStudy": "string",
+      "startDate": "string",
+      "endDate": "string"
+    }],
+    "projects": [{
+      "id": "proj-1",
+      "title": "string",
+      "techStack": ["string"],
+      "bullets": ["string"]
+    }],
+    "certifications": ["string"]
+  },
+  "extractedProfile": {
+    "fullName": "string",
+    "location": "string",
+    "currentJobTitle": "string",
+    "currentCompany": "string",
+    "totalYearsExperience": number,
+    "seniorityLevel": "Entry" | "Mid" | "Senior" | "Staff" | "Lead" | "Principal",
+    "workTypePreference": "Remote" | "Hybrid" | "Onsite" | "Any",
+    "skills": ["string"],
+    "toolsAndPlatforms": ["string"],
+    "highestEducationLevel": "string",
+    "fieldsOfStudy": ["string"],
+    "certifications": ["string"]
+  }
+}`;
+
+  const base64Pdf = pdfBuffer.toString('base64');
+
+  for (const model of GEMINI_MODELS) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  { text: prompt },
+                  {
+                    inlineData: {
+                      mimeType: 'application/pdf',
+                      data: base64Pdf,
+                    },
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1,
+              maxOutputTokens: 8192,
+            },
+          }),
+          signal: AbortSignal.timeout(18000),
+        }
+      );
+
+      if (!response.ok) continue;
+
+      const json = await response.json();
+      let content = json.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!content) continue;
+
+      content = content.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+      const parsed = JSON.parse(content);
+      const rawDoc = parsed.document || parsed;
+      const validatedDoc = ResumeDocumentSchema.safeParse(rawDoc);
+      if (!validatedDoc.success) continue;
+
+      const data = validatedDoc.data;
+      const hasSubstantiveContent =
+        (data.experience && data.experience.length > 0) ||
+        (data.education && data.education.length > 0) ||
+        (data.skills && data.skills.length > 0);
+      if (!hasSubstantiveContent) continue;
+
+      const validatedProfile = CandidateExtractedProfileSchema.safeParse(
+        parsed.extractedProfile || {}
+      );
+      const extractedProfile = validatedProfile.success
+        ? validatedProfile.data
+        : deriveCandidateProfileFromDoc(data);
+
+      const rawText =
+        typeof parsed.rawText === 'string' && parsed.rawText.trim().length >= 50
+          ? parsed.rawText.trim()
+          : [
+              data.contact.fullName,
+              data.summary,
+              ...(data.experience || []).flatMap((e) => [e.roleTitle, e.company, ...(e.bullets || [])]),
+              ...(data.skills || []).flatMap((s) => s.items || []),
+            ]
+              .filter(Boolean)
+              .join('\n');
+
+      await recordAIUsage({
+        userId,
+        action: 'extract',
+        provider: 'gemini',
+        model,
+        inputChars: rawText.length,
+      });
+
+      return {
+        rawText,
+        document: data,
+        extractedProfile,
+        provider: 'gemini',
+      };
+    } catch (err: any) {
+      console.warn(`[AI Client] Gemini PDF extraction failed for ${model}:`, err?.message || err);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Parses raw extracted resume text into a canonical ResumeDocument schema.
  */
 export async function extractStructuredResume(

@@ -275,11 +275,17 @@ export async function POST(request: Request) {
     const isUuid = (id?: string | null): boolean =>
       Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
 
+    const idem = (await import('@/lib/jobs/entitlements')).resolveIdempotencyKey(request);
+    if (!idem.ok) {
+      return NextResponse.json({ error: idem.error }, { status: 400 });
+    }
+    const requestId = idem.key;
+
     let savedId = isUuid(resumeId) ? resumeId : null;
 
     if (savedId) {
-      // Update existing
-      const { error: updateErr } = await supabaseAdmin
+      // Atomic ownership-verified update: if 0 rows affected (stale/deleted/foreign), fall through to new-resume path with consume
+      const { data: updatedRow, error: updateErr } = await supabaseAdmin
         .from('job_resumes')
         .update({
           title: title || `${validatedDoc.data.contact.fullName || 'Candidate'} - Resume`,
@@ -287,61 +293,63 @@ export async function POST(request: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', savedId)
-        .eq('user_id', authCheck.userId);
+        .eq('user_id', authCheck.userId)
+        .select('id')
+        .maybeSingle();
 
       if (updateErr) throw updateErr;
 
-      // Create version snapshot
-      await supabaseAdmin.from('job_resume_versions').insert({
-        resume_id: savedId,
-        user_id: authCheck.userId,
-        document_schema: validatedDoc.data,
-        change_summary: changeSummary || 'Manual update via interactive editor',
-      });
+      if (!updatedRow) {
+        savedId = null;
+      } else {
+        // Create version snapshot
+        await supabaseAdmin.from('job_resume_versions').insert({
+          resume_id: savedId,
+          user_id: authCheck.userId,
+          document_schema: validatedDoc.data,
+          change_summary: changeSummary || 'Manual update via interactive editor',
+        });
 
-      // If user is explicitly setting this resume as primary, migrate any existing custom slug to it
-      if (changeSummary === 'Set as primary Master Resume') {
-        try {
-          const { data: previousSlugRows } = await supabaseAdmin
-            .from('job_resumes')
-            .select('id, custom_slug')
-            .eq('user_id', authCheck.userId)
-            .not('custom_slug', 'is', null);
-
-          const existingSlug = previousSlugRows?.find((r) => r.custom_slug)?.custom_slug;
-          if (existingSlug) {
-            await supabaseAdmin
+        // If user is explicitly setting this resume as primary, migrate any existing custom slug to it
+        if (changeSummary === 'Set as primary Master Resume') {
+          try {
+            const { data: previousSlugRows } = await supabaseAdmin
               .from('job_resumes')
-              .update({ custom_slug: null })
-              .eq('user_id', authCheck.userId);
+              .select('id, custom_slug')
+              .eq('user_id', authCheck.userId)
+              .not('custom_slug', 'is', null);
 
-            await supabaseAdmin
-              .from('job_resumes')
-              .update({ custom_slug: existingSlug })
-              .eq('id', savedId);
+            const existingSlug = previousSlugRows?.find((r) => r.custom_slug)?.custom_slug;
+            if (existingSlug) {
+              await supabaseAdmin
+                .from('job_resumes')
+                .update({ custom_slug: null })
+                .eq('user_id', authCheck.userId);
+
+              await supabaseAdmin
+                .from('job_resumes')
+                .update({ custom_slug: existingSlug })
+                .eq('id', savedId);
+            }
+          } catch {
+            // non-fatal
           }
-        } catch {
-          // non-fatal
         }
       }
-    } else {
-      // Enforce 2-resume upload limit for Free plan users
-      const isPro = await checkIsUserPro(authCheck.userId);
-      if (!isPro) {
-        const { count } = await supabaseAdmin
-          .from('job_resumes')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', authCheck.userId);
+    }
 
-        if ((count ?? 0) >= 2) {
-          return NextResponse.json(
-            {
-              error: 'Free plan is limited to 2 resume uploads. Upgrade to Jobs Pro for more resume slots.',
-              code: 'FREE_LIMIT_REACHED',
-            },
-            { status: 403 }
-          );
-        }
+    if (!savedId) {
+      // Enforce non-bypassable resume_upload quota before creating a new row
+      const {
+        consumeEntitlement,
+        markUsageCompleted,
+        quotaDeniedResponse,
+        refundEntitlement,
+      } = await import('@/lib/jobs/entitlements');
+
+      const uploadGate = await consumeEntitlement(authCheck.userId, 'resume_upload', requestId);
+      if (!uploadGate.allowed) {
+        return quotaDeniedResponse(uploadGate);
       }
 
       const extractedProfile = body.extractedProfile || deriveCandidateProfileFromDoc(validatedDoc.data);
@@ -371,8 +379,12 @@ export async function POST(request: Request) {
           .single();
       }
 
-      if (insertRes.error) throw insertRes.error;
+      if (insertRes.error) {
+        await refundEntitlement(authCheck.userId, 'resume_upload', requestId, 'db_insert_error');
+        throw insertRes.error;
+      }
       savedId = insertRes.data.id;
+      await markUsageCompleted(authCheck.userId, 'resume_upload', requestId);
 
       await supabaseAdmin.from('job_resume_versions').insert({
         resume_id: savedId,

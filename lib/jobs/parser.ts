@@ -13,9 +13,25 @@ export interface ExtractionResult {
  * Dynamic ESM loader for pdfjs-dist that works reliably across both
  * local development and serverless/bundled environments (Vercel, Next.js, Jest).
  */
+async function ensurePdfJsWorker() {
+  if (!(globalThis as any).pdfjsWorker) {
+    try {
+      // @ts-expect-error pdfjs-dist worker mjs does not ship a .d.ts file
+      (globalThis as any).pdfjsWorker = await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+    } catch {
+      // Ignore if worker module cannot be pre-loaded
+    }
+  }
+}
+
 async function getPdfJs() {
   try {
-    return await import('pdfjs-dist/legacy/build/pdf.mjs');
+    await ensurePdfJsWorker();
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    if (pdfjs?.GlobalWorkerOptions && !pdfjs.GlobalWorkerOptions.workerSrc) {
+      pdfjs.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/legacy/build/pdf.worker.mjs';
+    }
+    return pdfjs;
   } catch {
     return null;
   }
@@ -109,6 +125,7 @@ async function parsePdfBuffer(buffer: Buffer): Promise<{ rawText: string; pageCo
 }
 
 async function parseWithPdfParse(buffer: Buffer): Promise<{ rawText: string; pageCount: number }> {
+  await ensurePdfJsWorker();
   const { PDFParse } = await import('pdf-parse');
   const uint8Data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
   const parser = new (PDFParse as any)({ data: uint8Data });
@@ -117,6 +134,49 @@ async function parseWithPdfParse(buffer: Buffer): Promise<{ rawText: string; pag
     rawText: result.text || '',
     pageCount: result.pages?.length || 1,
   };
+}
+
+/**
+ * Tier-4 multimodal fallback using Gemini Flash-Lite when local PDF parsers
+ * fail in serverless or encounter scanned/non-standard font encodings.
+ */
+async function parsePdfWithGemini(buffer: Buffer): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || buffer.length === 0 || buffer.length > 4.5 * 1024 * 1024) {
+    return '';
+  }
+
+  try {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${apiKey}`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: 'Extract all readable text from this resume PDF verbatim, preserving headings, dates, bullet points, and line breaks. Output plain text only without markdown code fences.',
+              },
+              {
+                inlineData: {
+                  mimeType: 'application/pdf',
+                  data: buffer.toString('base64'),
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0 },
+      }),
+    });
+
+    if (!res.ok) return '';
+    const data = await res.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -295,6 +355,7 @@ export async function extractResumeText(
         throw new Error('parseWithPdfParse returned insufficient text');
       }
     } catch (pdfErr: any) {
+      console.warn('parseWithPdfParse failed, trying pdfjs-dist:', pdfErr?.message || pdfErr);
       try {
         const parsed = await parsePdfBuffer(buffer);
         if (parsed.rawText && parsed.rawText.trim().length >= 50) {
@@ -304,23 +365,29 @@ export async function extractResumeText(
           throw new Error('parsePdfBuffer returned insufficient text');
         }
       } catch (parseErr: any) {
+        console.warn('parsePdfBuffer failed, trying stream/Gemini fallback:', parseErr?.message || parseErr);
         const fallbackText = extractPdfStreamText(buffer);
         if (fallbackText && fallbackText.trim().length >= 50) {
           rawText = fallbackText;
         } else {
-          // If file might be a mislabeled docx, try mammoth
-          try {
-            const docxResult = await mammoth.extractRawText({ buffer });
-            if (docxResult.value && docxResult.value.trim().length > 50) {
-              rawText = docxResult.value;
-              detectedFormat = 'docx';
-            } else {
-              throw pdfErr;
+          const geminiText = await parsePdfWithGemini(buffer);
+          if (geminiText && geminiText.trim().length >= 50) {
+            rawText = geminiText;
+          } else {
+            // If file might be a mislabeled docx, try mammoth
+            try {
+              const docxResult = await mammoth.extractRawText({ buffer });
+              if (docxResult.value && docxResult.value.trim().length > 50) {
+                rawText = docxResult.value;
+                detectedFormat = 'docx';
+              } else {
+                throw pdfErr;
+              }
+            } catch {
+              throw new Error(
+                'Failed to extract text from PDF document. Please ensure the file contains selectable text and is not an image-only scan or password-protected.'
+              );
             }
-          } catch {
-            throw new Error(
-              'Failed to extract text from PDF document. Please ensure the file contains selectable text and is not an image-only scan or password-protected.'
-            );
           }
         }
       }

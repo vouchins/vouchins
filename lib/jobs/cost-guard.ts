@@ -294,3 +294,33 @@ export async function recordAIUsage(params: {
     console.error('Failed to log AI usage:', err);
   }
 }
+
+export const FREE_PLAN_RESUME_LIMIT = 2;
+
+/**
+ * Checks whether a Free-plan user has reached their 2-resume upload limit.
+ * Counts BOTH currently stored resumes AND permanent extraction usage logs
+ * so deleting a resume does not reset the free upload quota.
+ */
+export async function checkFreeResumeUploadLimit(
+  userId: string,
+  _limit: number = FREE_PLAN_RESUME_LIMIT
+): Promise<{
+  allowed: boolean;
+  usedCount: number;
+  activeCount: number;
+  reason?: string;
+}> {
+  if (!userId) {
+    return { allowed: false, usedCount: 0, activeCount: 0, reason: 'Authentication required.' };
+  }
+
+  const { checkEntitlement } = await import('./entitlements');
+  const check = await checkEntitlement(userId, 'resume_upload');
+  return {
+    allowed: check.allowed,
+    usedCount: check.used,
+    activeCount: check.used,
+    reason: check.reason,
+  };
+}

@@ -4,6 +4,14 @@ import { checkAICostGuard, computeContentHash, computeResumeContentHash } from '
 import { evaluateResumeAI } from '@/lib/jobs/ai-client';
 import { parseRawTextToDocument, evaluateResumeHeuristically, detectResumeDomain } from '@/lib/jobs/xyz-evaluator';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import {
+  consumeMultiEntitlements,
+  markUsageCompleted,
+  quotaDeniedResponse,
+  refundEntitlement,
+  resolveIdempotencyKey,
+  type FeatureKey,
+} from '@/lib/jobs/entitlements';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,6 +37,12 @@ export async function POST(request: Request) {
     }
 
     const userId = authCheck.userId!;
+    const idem = resolveIdempotencyKey(request);
+    if (!idem.ok) {
+      return NextResponse.json({ error: idem.error }, { status: 400 });
+    }
+    const requestId = idem.key;
+
     const body = await request.json();
     const { rawText, resumeId, title, forceHeuristic } = body;
     const existingDoc = body.existingDoc || body.document;
@@ -36,6 +50,19 @@ export async function POST(request: Request) {
     const isUuid = (id?: string | null): boolean =>
       Boolean(id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
     let targetResumeId = isUuid(resumeId) ? resumeId : null;
+
+    // Server-side ownership verification: prevent foreign/stale IDs from bypassing resume_upload gate
+    if (targetResumeId) {
+      const { data: ownedResume } = await supabaseAdmin
+        .from('job_resumes')
+        .select('id')
+        .eq('id', targetResumeId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!ownedResume?.id) {
+        targetResumeId = null;
+      }
+    }
 
     if (!rawText && !existingDoc) {
       return NextResponse.json(
@@ -216,6 +243,22 @@ export async function POST(request: Request) {
       }
     }
 
+    // 3b. Atomically consume all required gates BEFORE calling Gemini
+    const gatesToConsume: FeatureKey[] = [];
+    if (!targetResumeId) gatesToConsume.push('resume_upload');
+    if (!forceHeuristic) gatesToConsume.push('ai_evaluate');
+
+    let consumedUpload = false;
+    let consumedEvaluate = false;
+    if (gatesToConsume.length > 0) {
+      const gateRes = await consumeMultiEntitlements(userId, gatesToConsume, requestId);
+      if (!gateRes.allowed) {
+        return quotaDeniedResponse(gateRes);
+      }
+      consumedUpload = gatesToConsume.includes('resume_upload');
+      consumedEvaluate = gatesToConsume.includes('ai_evaluate');
+    }
+
     // 4. Execute AI evaluation calibrated against current document state
     let evalResult;
     try {
@@ -228,6 +271,12 @@ export async function POST(request: Request) {
         forceHeuristic,
       });
     } catch (evalErr: any) {
+      if (consumedUpload) {
+        await refundEntitlement(userId, 'resume_upload', requestId, 'llm_error');
+      }
+      if (consumedEvaluate) {
+        await refundEntitlement(userId, 'ai_evaluate', requestId, 'llm_error');
+      }
       if (evalErr.code === 'PRO_PLAN_REQUIRED' || evalErr.message?.includes('PRO_PLAN_REQUIRED')) {
         throw evalErr;
       }
@@ -276,6 +325,14 @@ export async function POST(request: Request) {
 
       if (!resumeErr && newResume) {
         targetResumeId = newResume.id;
+        // Row persisted: mark resume_upload completed immediately so it is never refunded
+        if (consumedUpload) {
+          await markUsageCompleted(userId, 'resume_upload', requestId);
+          consumedUpload = false;
+        }
+      } else if (consumedUpload) {
+        await refundEntitlement(userId, 'resume_upload', requestId, 'db_insert_error');
+        consumedUpload = false;
       }
     } else {
       const updatePayload: Record<string, any> = {
@@ -321,6 +378,10 @@ export async function POST(request: Request) {
         suggestions: evaluation.suggestions,
         job_match_vectors: evaluation.jobMatchVectors,
       });
+    }
+
+    if (consumedEvaluate) {
+      await markUsageCompleted(userId, 'ai_evaluate', requestId);
     }
 
     return NextResponse.json({

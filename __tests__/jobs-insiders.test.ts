@@ -27,6 +27,14 @@ jest.mock('next/headers', () => ({
   }),
 }));
 
+jest.mock('@/lib/jobs/entitlements', () => ({
+  resolveIdempotencyKey: jest.fn(() => ({ ok: true, key: 'test-idem-key', clientProvided: false })),
+  consumeEntitlement: jest.fn().mockResolvedValue({ allowed: true, feature: 'referral_request', limit: 2, used: 1, remaining: 1 }),
+  markUsageCompleted: jest.fn().mockResolvedValue(undefined),
+  refundEntitlement: jest.fn().mockResolvedValue(true),
+  quotaDeniedResponse: jest.fn(),
+}));
+
 jest.mock('@/lib/supabase/admin', () => ({
   supabaseAdmin: {
     from: jest.fn((table: string) => {

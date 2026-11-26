@@ -1,15 +1,28 @@
 import { NextResponse } from 'next/server';
-import { verifyJobsAccess, checkIsUserPro } from '@/lib/jobs/auth-guard';
+import { verifyJobsAccess } from '@/lib/jobs/auth-guard';
 import { extractResumeText } from '@/lib/jobs/parser';
-import { extractResumeAndProfileWithAI } from '@/lib/jobs/ai-client';
+import {
+  extractResumeAndProfileWithAI,
+  extractResumeFromPdfBufferWithAI,
+} from '@/lib/jobs/ai-client';
+import {
+  checkEntitlement,
+  consumeEntitlement,
+  markUsageCompleted,
+  quotaDeniedResponse,
+  refundEntitlement,
+  resolveIdempotencyKey,
+} from '@/lib/jobs/entitlements';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const FREE_PLAN_RESUME_LIMIT = 2;
-
 export async function POST(request: Request) {
+  let userId = '';
+  let requestId = '';
+  let extractConsumed = false;
+
   try {
     const authCheck = await verifyJobsAccess(request);
     if (!authCheck.allowed || !authCheck.userId) {
@@ -19,27 +32,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const userId = authCheck.userId;
-    const isPro = await checkIsUserPro(userId);
-    if (!isPro) {
-      const { count } = await supabaseAdmin
-        .from('job_resumes')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId);
+    userId = authCheck.userId;
 
-      if ((count ?? 0) >= FREE_PLAN_RESUME_LIMIT) {
-        return NextResponse.json(
-          {
-            error: `Free plan is limited to ${FREE_PLAN_RESUME_LIMIT} resume uploads. Upgrade to Jobs Pro to upload more resumes.`,
-            code: 'FREE_LIMIT_REACHED',
-          },
-          { status: 403 }
-        );
-      }
+    const idem = resolveIdempotencyKey(request);
+    if (!idem.ok) {
+      return NextResponse.json({ error: idem.error }, { status: 400 });
     }
+    requestId = idem.key;
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
+    const rawTargetResumeId = formData.get('targetResumeId') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -52,12 +55,67 @@ export async function POST(request: Request) {
       );
     }
 
+    // Verify ownership of targetResumeId if provided; only verified updates bypass new-slot pre-check
+    let isVerifiedUpdate = false;
+    if (rawTargetResumeId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawTargetResumeId)) {
+      const { data: ownedRow } = await supabaseAdmin
+        .from('job_resumes')
+        .select('id')
+        .eq('id', rawTargetResumeId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      isVerifiedUpdate = Boolean(ownedRow?.id);
+    }
+
+    if (!isVerifiedUpdate) {
+      const uploadCheck = await checkEntitlement(userId, 'resume_upload');
+      if (!uploadCheck.allowed) {
+        return quotaDeniedResponse(uploadCheck);
+      }
+    }
+
+    // Meter LLM PDF/text extraction before invoking Gemini
+    const extractGate = await consumeEntitlement(userId, 'resume_extract', requestId);
+    if (!extractGate.allowed) {
+      return quotaDeniedResponse(extractGate);
+    }
+    extractConsumed = true;
+
     const buffer = Buffer.from(await file.arrayBuffer());
+    const lowerName = (file.name || '').toLowerCase();
+    const isPdf = file.type === 'application/pdf' || lowerName.endsWith('.pdf');
+
+    // Gemini-First for PDFs (accurate reading order on multi-column/Canva/scanned PDFs)
+    if (isPdf) {
+      const geminiResult = await extractResumeFromPdfBufferWithAI(buffer, userId);
+      if (geminiResult) {
+        await markUsageCompleted(userId, 'resume_extract', requestId);
+        extractConsumed = false;
+        const wordCount = geminiResult.rawText.split(/\s+/).filter(Boolean).length;
+        return NextResponse.json({
+          success: true,
+          fileName: file.name,
+          fileSize: file.size,
+          rawText: geminiResult.rawText,
+          wordCount,
+          characterCount: geminiResult.rawText.length,
+          detectedFormat: 'pdf',
+          document: geminiResult.document,
+          extractedProfile: geminiResult.extractedProfile,
+          provider: geminiResult.provider,
+        });
+      }
+    }
+
+    // Resilient fallback (also primary path for DOCX / TXT)
     const extraction = await extractResumeText(buffer, file.type, file.name);
     const { document, extractedProfile, provider } = await extractResumeAndProfileWithAI(
       extraction.rawText,
       userId
     );
+
+    await markUsageCompleted(userId, 'resume_extract', requestId);
+    extractConsumed = false;
 
     return NextResponse.json({
       success: true,
@@ -75,6 +133,10 @@ export async function POST(request: Request) {
       error.message?.includes('meaningful text') ||
       error.message?.includes('image-only') ||
       error.message?.includes('File size');
+
+    if (extractConsumed && userId && requestId && !isClientError) {
+      await refundEntitlement(userId, 'resume_extract', requestId, 'extract_error');
+    }
 
     return NextResponse.json(
       { error: error.message || 'Failed to extract text from resume file' },

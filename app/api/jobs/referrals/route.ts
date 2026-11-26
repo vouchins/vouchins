@@ -3,6 +3,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyJobsAccess } from "@/lib/jobs/auth-guard";
+import {
+  consumeEntitlement,
+  markUsageCompleted,
+  quotaDeniedResponse,
+  refundEntitlement,
+  resolveIdempotencyKey,
+} from "@/lib/jobs/entitlements";
 
 export async function POST(request: Request) {
   try {
@@ -79,6 +86,42 @@ export async function POST(request: Request) {
       );
     }
 
+    const idem = resolveIdempotencyKey(request);
+    if (!idem.ok) {
+      return NextResponse.json({ error: idem.error }, { status: 400 });
+    }
+    const requestId = idem.key;
+
+    // Duplicate-job / insider referral check before consuming quota
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(insiderId);
+    if (isUuid && jobId) {
+      const msgQuery = supabaseAdmin.from("messages") as any;
+      if (typeof msgQuery?.select === "function") {
+        const { data: existingReq } = await msgQuery
+          .select("id")
+          .eq("sender_id", callingUserId)
+          .eq("receiver_id", insiderId)
+          .ilike("text", `%Job ID / Requisition: ${jobId}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingReq?.id) {
+          return NextResponse.json(
+            {
+              error: "You have already requested a referral from this insider for this role.",
+              code: "DUPLICATE_REFERRAL",
+            },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
+    const refGate = await consumeEntitlement(callingUserId, "referral_request", requestId);
+    if (!refGate.allowed) {
+      return quotaDeniedResponse(refGate);
+    }
+
     // 3. Resolve candidate's verified resume URL
     let resumeUrl = '';
     try {
@@ -115,18 +158,23 @@ export async function POST(request: Request) {
     const fullMessageText = messageLines.join('\n');
 
     // 4. Dispatch connection / message to insider if registered
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(insiderId);
     if (isUuid) {
       try {
-        await supabaseAdmin.from("messages").insert({
+        const { error: msgErr } = await supabaseAdmin.from("messages").insert({
           sender_id: callingUserId,
           receiver_id: insiderId,
           text: fullMessageText,
         });
+        if (msgErr) {
+          await refundEntitlement(callingUserId, "referral_request", requestId, "db_insert_error");
+          throw msgErr;
+        }
       } catch (msgErr) {
         console.warn("Could not insert message directly into messages table:", msgErr);
       }
     }
+
+    await markUsageCompleted(callingUserId, "referral_request", requestId);
 
     return NextResponse.json({
       success: true,
