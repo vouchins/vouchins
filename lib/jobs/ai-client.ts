@@ -109,13 +109,11 @@ You MUST output strictly valid JSON conforming to the requested schema.
 const GEMINI_MODELS = Array.from(
   new Set(
     [
-      'gemini-3.5-flash-lite',
-      'gemini-flash-lite-latest',
-      'gemini-3.1-flash-lite',
-      process.env.GEMINI_MODEL,
-      'gemini-3.8-flash',
-      'gemini-3.7-flash',
-      'gemini-3.5-flash',
+      process.env.GEMINI_MODEL,   // 1. Your .env choice ('gemini-3.5-flash-lite')
+      'gemini-flash-lite-latest', // 2. Auto-updating Lite pointer
+      'gemini-3.1-flash-lite',    // 3. Separate low-cost Lite pool (supported May 2027+)
+      'gemini-3.8-flash',         // 4. Higher-intelligence Flash backup (supported Sept 2027+)
+      'gemini-4-hydrogen',
     ].filter(Boolean) as string[]
   )
 );
@@ -255,7 +253,7 @@ RAW RESUME TEXT:
 ${rawText.slice(0, 14000)}
 `;
 
-    for (const model of GEMINI_MODELS) {
+    for (const model of GEMINI_MODELS.slice(0, 2)) {
       try {
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
@@ -270,10 +268,13 @@ ${rawText.slice(0, 14000)}
                 maxOutputTokens: 8192,
               },
             }),
-            signal: AbortSignal.timeout(12000),
+            signal: AbortSignal.timeout(8000),
           }
         );
 
+        if (response.status === 429 || response.status >= 500) {
+          break;
+        }
         if (response.ok) {
           const json = await response.json();
           let content = json.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -415,8 +416,9 @@ Return ONLY valid JSON matching this exact structure:
 }`;
 
   const base64Pdf = pdfBuffer.toString('base64');
+  const fastPdfModels = GEMINI_MODELS.slice(0, 2);
 
-  for (const model of GEMINI_MODELS) {
+  for (const model of fastPdfModels) {
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
@@ -443,10 +445,13 @@ Return ONLY valid JSON matching this exact structure:
               maxOutputTokens: 8192,
             },
           }),
-          signal: AbortSignal.timeout(18000),
+          signal: AbortSignal.timeout(25000),
         }
       );
 
+      if (response.status === 429 || response.status >= 500) {
+        break; // Immediately fall back to fast local parser instead of compounding latency
+      }
       if (!response.ok) continue;
 
       const json = await response.json();
@@ -477,13 +482,13 @@ Return ONLY valid JSON matching this exact structure:
         typeof parsed.rawText === 'string' && parsed.rawText.trim().length >= 50
           ? parsed.rawText.trim()
           : [
-              data.contact.fullName,
-              data.summary,
-              ...(data.experience || []).flatMap((e) => [e.roleTitle, e.company, ...(e.bullets || [])]),
-              ...(data.skills || []).flatMap((s) => s.items || []),
-            ]
-              .filter(Boolean)
-              .join('\n');
+            data.contact.fullName,
+            data.summary,
+            ...(data.experience || []).flatMap((e) => [e.roleTitle, e.company, ...(e.bullets || [])]),
+            ...(data.skills || []).flatMap((s) => s.items || []),
+          ]
+            .filter(Boolean)
+            .join('\n');
 
       await recordAIUsage({
         userId,
@@ -636,10 +641,10 @@ CRITICAL INSTRUCTIONS FOR RE-ANALYZING THIS RESUME:
   const targetCompanies = domain === 'healthcare'
     ? 'Top Healthcare Systems, Clinical Research Organizations, and Pharmaceutical Leaders'
     : domain === 'data'
-    ? 'Top Enterprise Data Organizations (Snowflake, Databricks, Amazon, EY, Big 4)'
-    : domain === 'business'
-    ? 'Top Global Enterprise & Consulting Organizations'
-    : 'Google, Meta, Amazon, Uber, Salesforce';
+      ? 'Top Enterprise Data Organizations (Snowflake, Databricks, Amazon, EY, Big 4)'
+      : domain === 'business'
+        ? 'Top Global Enterprise & Consulting Organizations'
+        : 'Google, Meta, Amazon, Uber, Salesforce';
 
   const prompt = `
 Evaluate this structured resume JSON.

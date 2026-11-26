@@ -17,6 +17,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   let userId = '';
@@ -89,6 +90,11 @@ export async function POST(request: Request) {
     if (isPdf) {
       const geminiResult = await extractResumeFromPdfBufferWithAI(buffer, userId);
       if (geminiResult) {
+        if (request.signal?.aborted) {
+          await refundEntitlement(userId, 'resume_extract', requestId, 'client_aborted');
+          extractConsumed = false;
+          return NextResponse.json({ error: 'Request aborted by client' }, { status: 499 });
+        }
         await markUsageCompleted(userId, 'resume_extract', requestId);
         extractConsumed = false;
         const wordCount = geminiResult.rawText.split(/\s+/).filter(Boolean).length;
@@ -113,6 +119,12 @@ export async function POST(request: Request) {
       extraction.rawText,
       userId
     );
+
+    if (request.signal?.aborted) {
+      await refundEntitlement(userId, 'resume_extract', requestId, 'client_aborted');
+      extractConsumed = false;
+      return NextResponse.json({ error: 'Request aborted by client' }, { status: 499 });
+    }
 
     await markUsageCompleted(userId, 'resume_extract', requestId);
     extractConsumed = false;

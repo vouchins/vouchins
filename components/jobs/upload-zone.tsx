@@ -1,8 +1,16 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { UploadCloud, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { UploadCloud, AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+const AI_LOADING_PHRASES = [
+  'Reading resume layout & sections...',
+  'Extracting skills, tools & years of experience...',
+  'Structuring career timeline for ATS parity...',
+  'Running Google XYZ impact & brevity audit...',
+  'Calibrating seniority & job match signals...',
+];
 
 interface UploadZoneProps {
   onFileUpload: (file: File) => Promise<void>;
@@ -19,10 +27,23 @@ export function UploadZone({
 }: UploadZoneProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [phraseIndex, setPhraseIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setPhraseIndex(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setPhraseIndex((prev) => (prev + 1) % AI_LOADING_PHRASES.length);
+    }, 2200);
+    return () => clearInterval(timer);
+  }, [isLoading]);
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    if (isLoading) return;
     setIsDragOver(false);
     setErrorMsg(null);
 
@@ -33,14 +54,17 @@ export function UploadZone({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isLoading) return;
     setErrorMsg(null);
     const file = e.target.files?.[0];
     if (file) {
       validateAndProcess(file);
     }
+    e.target.value = '';
   };
 
   const validateAndProcess = async (file: File) => {
+    if (isLoading) return;
     const validExtensions = ['.pdf', '.docx'];
     const hasValidExt = validExtensions.some((ext) =>
       file.name.toLowerCase().endsWith(ext)
@@ -63,27 +87,42 @@ export function UploadZone({
     <div className="flex flex-col items-center justify-center p-6 sm:p-12 w-full max-w-2xl mx-auto">
       {/* Upload Drop Container */}
       <div
+        role="button"
+        tabIndex={isLoading ? -1 : 0}
+        aria-disabled={isLoading}
         onDragOver={(e) => {
           e.preventDefault();
-          setIsDragOver(true);
+          if (!isLoading) setIsDragOver(true);
         }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`w-full cursor-pointer flex flex-col items-center justify-center gap-4 p-8 sm:p-12 rounded-3xl border-2 border-dashed transition-all duration-300 text-center ${isDragOver
-            ? 'border-[#0A1B5C] bg-[#0A1B5C]/5 scale-[1.01]'
-            : 'border-neutral-300 hover:border-[#0A1B5C] bg-white hover:bg-neutral-50/50 shadow-sm'
-          }`}
+        onClick={() => {
+          if (!isLoading) fileInputRef.current?.click();
+        }}
+        onKeyDown={(e) => {
+          if (!isLoading && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
+        className={`w-full flex flex-col items-center justify-center gap-4 p-8 sm:p-12 rounded-3xl border-2 border-dashed transition-all duration-300 text-center ${
+          isLoading
+            ? 'cursor-not-allowed border-[#0A1B5C]/30 bg-neutral-50/80 opacity-90'
+            : isDragOver
+            ? 'cursor-pointer border-[#0A1B5C] bg-[#0A1B5C]/5 scale-[1.01]'
+            : 'cursor-pointer border-neutral-300 hover:border-[#0A1B5C] bg-white hover:bg-neutral-50/50 shadow-sm'
+        }`}
       >
         <input
           ref={fileInputRef}
           type="file"
+          disabled={isLoading}
           accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           onChange={handleFileChange}
           className="hidden"
         />
 
-        <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-neutral-100 text-[#0A1B5C] shadow-inner">
+        <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-[#0A1B5C]/5 text-[#0A1B5C] shadow-inner">
           {isLoading ? (
             <Loader2 className="h-8 w-8 animate-spin text-[#0A1B5C]" />
           ) : (
@@ -91,17 +130,22 @@ export function UploadZone({
           )}
         </div>
 
-        <div className="flex flex-col gap-1 max-w-sm">
+        <div className="flex flex-col gap-1.5 max-w-sm">
           <span className="text-base font-bold text-neutral-900">
             {isLoading
-              ? (loadingMessage || 'Auditing and persisting to database...')
+              ? (loadingMessage || 'Processing your resume with AI...')
               : 'Upload your resume for AI intelligence'}
           </span>
-          <span className="text-xs text-neutral-500">
-            {isLoading
-              ? 'Analyzing ATS keywords and calculating Google XYZ metrics'
-              : 'Drag and drop your PDF or DOCX file here, or click to browse. Max 5MB.'}
-          </span>
+          {isLoading ? (
+            <span className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-[#0A1B5C]">
+              <Sparkles className="h-3.5 w-3.5 text-[#4FD1C5] animate-pulse shrink-0" />
+              <span>{AI_LOADING_PHRASES[phraseIndex]}</span>
+            </span>
+          ) : (
+            <span className="text-xs text-neutral-500">
+              Drag and drop your PDF or DOCX file here, or click to browse. Max 5MB.
+            </span>
+          )}
         </div>
 
         {errorMsg && (
