@@ -929,6 +929,11 @@ export function detectTargetRole(corpus: string, doc: ResumeDocument): string {
     if (/\b(ai engineering|machine learning|deep learning|data scientist|data science|nlp|llm|pytorch)\b/i.test(corpus)) {
       return 'Junior AI / Machine Learning Engineer';
     }
+    if (/\b(dba|database\s+admin(?:istrator)?|sql\s+server\s+dba)\b/i.test(corpus)) {
+      return /\b([5-9]|\d{2})\+?\s*years?\b|senior/i.test(corpus)
+        ? 'Senior SQL Server / Azure DBA'
+        : 'Database Administrator';
+    }
     if (/\b(devops|cloud|aws|azure|gcp|docker|kubernetes|sre)\b/i.test(corpus)) {
       return 'Junior Cloud / DevOps Engineer';
     }
@@ -1110,7 +1115,10 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     }
 
     if (!l || l.includes('@') || l.includes('.com') || /\d{5,}/.test(l)) continue;
-    if (/^(summary|experience|skills|education|projects|certifications|resume|cv|profile|contact)/i.test(l)) continue;
+    if (
+      /^(summary|experience|skills|education|projects|certifications|resume|cv|profile|contact|tools|achievements|accomplishments|languages)/i.test(l) ||
+      /^(?:key\s+achievements|key\s+skills|professional\s+summary|executive\s+summary|professional\s+experience|work\s+experience|technical\s+skills|core\s+skills)\b/i.test(l)
+    ) continue;
 
     // If line matches title keywords, check if name precedes title
     if (TITLE_KEYWORD_REGEX.test(l)) {
@@ -1223,7 +1231,7 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
     },
     {
       type: 'skills',
-      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:programming\s+skills|core\s+skills|top\s+skills|technical\s+skills|key\s+skills|skills\s*(?:&|and)\s*technologies|skills|technologies|core\s+competencies|competencies|areas\s+of\s+expertise|professional\s+skills|clinical\s+skills|regulatory\s+skills|tools\s*(?:&|and)\s*technologies)[\s:\-–—/]*$/i,
+      regex: /^[\s•\-\*▪\uF0B7\u25AA\d\.\)]*(?:programming\s+skills|core\s+skills|top\s+skills|technical\s+skills|key\s+skills|skills\s*(?:&|and)\s*technologies|skills|technologies|tools|core\s+competencies|competencies|areas\s+of\s+expertise|professional\s+skills|clinical\s+skills|regulatory\s+skills|tools\s*(?:&|and)\s*technologies)[\s:\-–—/]*$/i,
     },
     {
       type: 'languages',
@@ -1390,6 +1398,24 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
                 lineTitle = parts[0];
               } else {
                 lineCompany = parts[0];
+              }
+            }
+          } else if (/\s+-\s+/.test(cleanPrefix)) {
+            const dashParts = cleanPrefix
+              .replace(/\(\s*$/, '')
+              .split(/\s+-\s+/)
+              .map((s) => s.trim())
+              .filter(Boolean);
+            if (dashParts.length >= 2) {
+              if (TITLE_KEYWORD_REGEX.test(dashParts[0]) && !TITLE_KEYWORD_REGEX.test(dashParts[1])) {
+                lineTitle = dashParts[0];
+                lineCompany = dashParts.slice(1).join(' - ');
+              } else if (TITLE_KEYWORD_REGEX.test(dashParts[1])) {
+                lineCompany = dashParts[0];
+                lineTitle = dashParts.slice(1).join(' - ');
+              } else {
+                lineCompany = dashParts[0];
+                lineTitle = dashParts.slice(1).join(' - ');
               }
             }
           } else if (TITLE_KEYWORD_REGEX.test(cleanPrefix)) {
@@ -1745,7 +1771,16 @@ export function parseRawTextToDocument(rawText: string): ResumeDocument {
 
   // 4. Skills & Languages
   const skills: ResumeDocument['skills'] = [];
-  const skillsBlock = sectionBlocks.find((b) => b.type === 'skills');
+  const skillBlocks = sectionBlocks.filter((b) => b.type === 'skills');
+  const skillsBlock =
+    skillBlocks.length > 0
+      ? {
+          type: 'skills' as const,
+          lines: skillBlocks.flatMap((b, idx) =>
+            idx > 0 && b.lines.length > 0 ? [', ', ...b.lines] : b.lines
+          ),
+        }
+      : undefined;
   const langBlock = sectionBlocks.find((b) => b.type === 'languages');
 
   const knownMultiWords = [

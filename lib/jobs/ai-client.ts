@@ -106,6 +106,106 @@ You MUST output strictly valid JSON conforming to the requested schema.
 `;
 }
 
+function normalizeGeminiResumeDoc(raw: any): any {
+  const c = raw?.contact || {};
+  const str = (v: any, fallback = '') => (typeof v === 'string' ? v.trim() : fallback);
+  const emailRaw = str(c.email);
+  const safeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)
+    ? emailRaw
+    : 'candidate@example.com';
+
+  return {
+    contact: {
+      fullName: str(c.fullName, 'Candidate') || 'Candidate',
+      email: safeEmail,
+      phone: str(c.phone),
+      location: str(c.location),
+      linkedinUrl: str(c.linkedinUrl),
+      githubUrl: str(c.githubUrl),
+      portfolioUrl: str(c.portfolioUrl),
+      ...(str(c.leetcodeUrl) ? { leetcodeUrl: str(c.leetcodeUrl) } : {}),
+    },
+    summary: str(raw?.summary),
+    skills: Array.isArray(raw?.skills)
+      ? raw.skills
+          .filter((s: any) => s && (str(s.category) || Array.isArray(s.items)))
+          .map((s: any) => ({
+            category: str(s.category, 'Skills') || 'Skills',
+            items: Array.isArray(s.items) ? s.items.map((x: any) => str(x)).filter(Boolean) : [],
+          }))
+      : [],
+    experience: Array.isArray(raw?.experience)
+      ? raw.experience
+          .filter((e: any) => e && (str(e.company) || str(e.roleTitle) || (Array.isArray(e.bullets) && e.bullets.length > 0)))
+          .map((e: any, idx: number) => {
+            const bullets = Array.isArray(e.bullets)
+              ? e.bullets.map((b: any) => str(b)).filter(Boolean)
+              : [];
+            return {
+              id: str(e.id) || `exp-${idx + 1}`,
+              company: str(e.company, 'Organization') || 'Organization',
+              roleTitle: str(e.roleTitle, 'Role') || 'Role',
+              ...(str(e.location) ? { location: str(e.location) } : {}),
+              startDate: str(e.startDate),
+              endDate: str(e.endDate, 'Present') || 'Present',
+              isCurrent: Boolean(e.isCurrent),
+              bullets: bullets.length > 0 ? bullets : ['Delivered key engineering and operational outcomes.'],
+            };
+          })
+      : [],
+    education: Array.isArray(raw?.education)
+      ? raw.education
+          .filter((ed: any) => ed && (str(ed.institution) || str(ed.degree)))
+          .map((ed: any, idx: number) => ({
+            id: str(ed.id) || `edu-${idx + 1}`,
+            institution: str(ed.institution, 'Institution') || 'Institution',
+            degree: str(ed.degree, 'Degree') || 'Degree',
+            ...(str(ed.fieldOfStudy) ? { fieldOfStudy: str(ed.fieldOfStudy) } : {}),
+            ...(str(ed.startDate) ? { startDate: str(ed.startDate) } : {}),
+            endDate: str(ed.endDate),
+            ...(str(ed.gpaOrHonors) ? { gpaOrHonors: str(ed.gpaOrHonors) } : {}),
+          }))
+      : [],
+    projects: Array.isArray(raw?.projects)
+      ? raw.projects
+          .filter((p: any) => p && str(p.title))
+          .map((p: any, idx: number) => ({
+            id: str(p.id) || `proj-${idx + 1}`,
+            title: str(p.title, 'Project') || 'Project',
+            techStack: Array.isArray(p.techStack) ? p.techStack.map((t: any) => str(t)).filter(Boolean) : [],
+            ...(str(p.liveUrl) ? { liveUrl: str(p.liveUrl) } : {}),
+            ...(str(p.repoUrl) ? { repoUrl: str(p.repoUrl) } : {}),
+            bullets: Array.isArray(p.bullets) ? p.bullets.map((b: any) => str(b)).filter(Boolean) : [],
+          }))
+      : [],
+    certifications: Array.isArray(raw?.certifications)
+      ? raw.certifications.map((cert: any) => str(cert)).filter(Boolean)
+      : [],
+  };
+}
+
+function normalizeGeminiProfile(raw: any): Record<string, any> {
+  if (!raw || typeof raw !== 'object') return {};
+  const str = (v: any) => (typeof v === 'string' ? v.trim() : '');
+  const strArr = (v: any) => (Array.isArray(v) ? v.map((x) => str(x)).filter(Boolean) : []);
+  const validSeniority = ['Entry', 'Mid', 'Senior', 'Staff', 'Lead', 'Principal'];
+  const validWorkType = ['Remote', 'Hybrid', 'Onsite', 'Any'];
+  return {
+    fullName: str(raw.fullName),
+    location: str(raw.location),
+    currentJobTitle: str(raw.currentJobTitle),
+    currentCompany: str(raw.currentCompany),
+    totalYearsExperience: Math.max(0, Number(raw.totalYearsExperience) || 0),
+    seniorityLevel: validSeniority.includes(raw.seniorityLevel) ? raw.seniorityLevel : 'Mid',
+    workTypePreference: validWorkType.includes(raw.workTypePreference) ? raw.workTypePreference : 'Any',
+    skills: strArr(raw.skills),
+    toolsAndPlatforms: strArr(raw.toolsAndPlatforms),
+    highestEducationLevel: str(raw.highestEducationLevel),
+    fieldsOfStudy: strArr(raw.fieldsOfStudy),
+    certifications: strArr(raw.certifications),
+  };
+}
+
 const GEMINI_MODELS = Array.from(
   new Set(
     [
@@ -281,7 +381,7 @@ ${rawText.slice(0, 14000)}
           if (content) {
             content = content.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
             const parsed = JSON.parse(content);
-            const rawDoc = parsed.document || parsed;
+            const rawDoc = normalizeGeminiResumeDoc(parsed.document || parsed);
             const validatedDoc = ResumeDocumentSchema.safeParse(rawDoc);
 
             if (validatedDoc.success) {
@@ -293,7 +393,7 @@ ${rawText.slice(0, 14000)}
 
               if (hasSubstantiveContent) {
                 const validatedProfile = CandidateExtractedProfileSchema.safeParse(
-                  parsed.extractedProfile || {}
+                  normalizeGeminiProfile(parsed.extractedProfile)
                 );
                 const extractedProfile = validatedProfile.success
                   ? validatedProfile.data
@@ -460,9 +560,12 @@ Return ONLY valid JSON matching this exact structure:
 
       content = content.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
       const parsed = JSON.parse(content);
-      const rawDoc = parsed.document || parsed;
+      const rawDoc = normalizeGeminiResumeDoc(parsed.document || parsed);
       const validatedDoc = ResumeDocumentSchema.safeParse(rawDoc);
-      if (!validatedDoc.success) continue;
+      if (!validatedDoc.success) {
+        console.warn('[AI Client] Gemini PDF ResumeDocumentSchema validation failed:', validatedDoc.error.issues);
+        continue;
+      }
 
       const data = validatedDoc.data;
       const hasSubstantiveContent =
@@ -472,7 +575,7 @@ Return ONLY valid JSON matching this exact structure:
       if (!hasSubstantiveContent) continue;
 
       const validatedProfile = CandidateExtractedProfileSchema.safeParse(
-        parsed.extractedProfile || {}
+        normalizeGeminiProfile(parsed.extractedProfile)
       );
       const extractedProfile = validatedProfile.success
         ? validatedProfile.data

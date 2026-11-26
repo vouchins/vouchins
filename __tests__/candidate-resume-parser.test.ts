@@ -238,4 +238,48 @@ describe('Heuristic Evaluation for Specialized Healthcare Resume', () => {
     expect(evaluation.overallScore).toBeGreaterThan(60);
     expect(evaluation.detectedSeniority).toContain('Software Engineer');
   });
+
+  it('parses and evaluates SQL Server / Azure DBA resume with KEY SKILLS, TOOLS, and KEY ACHIEVEMENTS heuristically', () => {
+    const janyRawText = `PATHAN JANY BASHA
+Hyderabad | +91-9100821703 | janybasha1709@gmail.com
+
+PROFESSIONAL SUMMARY
+SQL Server DBA with 7+ years of experience in On-Premise and Microsoft Azure environments, specializing in Performance Tuning, High Availability (HA/DR) and Database Administration.
+
+KEY SKILLS
+SQL Server, Azure SQL Database, Azure Infra Services, HA/DR, Performance Tuning, Query Optimization, Indexing, PowerShell, T-SQL
+
+TOOLS
+SSMS, SQL Profiler, Query Analyzer, PSSDIAG, SQL Nexus, SQL Idera, ServiceNow, Commvault, Zabbix
+
+PROFESSIONAL EXPERIENCE
+Accenture – Database Admin Analyst (Aug 2021 – Present)
+• Managed SQL Server environments (On-Premise & Azure) for 130+ global clients.
+• Performed performance tuning, query optimization and improving execution time by up to 30%.
+
+Mindtree – Senior Engineer (Feb 2020 – Jul 2021)
+• Administered production SQL Server clusters and automated backups via PowerShell.
+
+KEY ACHIEVEMENTS
+• Managed 1100+ SQL Servers and databases ranging from 2GB to 20TB.
+
+EDUCATION
+B.E – Osmania University (2016) – 80%
+
+CERTIFICATIONS
+Azure Administrator Associate (AZ-104)
+Azure Database Administrator Associate (DP-300)`;
+
+    const doc = parseRawTextToDocument(janyRawText);
+    expect(doc.contact.fullName).toBe('PATHAN JANY BASHA');
+    expect(doc.contact.fullName).not.toBe('KEY ACHIEVEMENTS');
+    expect(doc.contact.email).toBe('janybasha1709@gmail.com');
+    expect(doc.experience.length).toBeGreaterThanOrEqual(2);
+    expect(doc.experience[0].company).toContain('Accenture');
+    expect(doc.skills.flatMap((s) => s.items)).toEqual(expect.arrayContaining(['SQL Server', 'SSMS']));
+    expect(doc.certifications).toContain('Azure Administrator Associate (AZ-104)');
+
+    const evaluation = evaluateResumeHeuristically(doc, janyRawText);
+    expect(evaluation.targetRole).not.toContain('Junior Cloud');
+  });
 });
