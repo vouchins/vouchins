@@ -4118,9 +4118,9 @@ export function JobRecommendationsDashboard() {
                 </div>
 
                 <div className="p-3.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl max-w-sm mx-auto flex items-center justify-between text-xs">
-                  <span className="font-medium text-emerald-900">New ATS Readiness Score:</span>
-                  <span className="font-bold text-emerald-700 text-base">
-                    {selectedJob.matchScore}% Match
+                  <span className="font-medium text-emerald-900">Master Resume Updated:</span>
+                  <span className="font-bold text-emerald-700 text-sm">
+                    {selectedJob.matchingSkills.length} / {selectedJob.matchingSkills.length} Skills Aligned
                   </span>
                 </div>
 
@@ -4179,9 +4179,15 @@ export function JobRecommendationsDashboard() {
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-neutral-100 text-xs text-neutral-600 flex items-center justify-between">
-                    <span>Predicted ATS Score Increase:</span>
+                    <span>Job Keyword Coverage:</span>
                     <span className="font-bold text-emerald-700 text-sm">
-                      {selectedJob.matchScore || 85}% ➔ {Math.min(99, (selectedJob.matchScore || 85) + 8)}% / 100
+                      {(() => {
+                        const matched = selectedJob.matchingSkills.length;
+                        const total = matched + selectedJob.missingSkills.length;
+                        return total > 0
+                          ? `${matched}/${total} ➔ ${total}/${total} skills`
+                          : '1 tailored bullet ready';
+                      })()}
                     </span>
                   </div>
                 </div>
