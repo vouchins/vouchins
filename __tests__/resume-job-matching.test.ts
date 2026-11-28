@@ -13,6 +13,9 @@ import {
   candidateHasSkill,
   isValidGeographicLocation,
   buildPostgrestLocationFilter,
+  extractCanonicalResumeSkills,
+  hasExplicitResumeSkills,
+  getCanonicalSkillKey,
 } from '@/lib/jobs/ats-client';
 import { parseRawTextToDocument } from '@/lib/jobs/xyz-evaluator';
 import { GET } from '@/app/api/jobs/route';
@@ -47,6 +50,9 @@ describe('Resume to Database Job Matching Engine', () => {
       expect(candidateHasSkill('JavaScript', resumeSkills)).toBe(true);
       expect(candidateHasSkill('React', resumeSkills)).toBe(true);
       expect(candidateHasSkill('TypeScript', resumeSkills)).toBe(false);
+      expect(candidateHasSkill('Java', ['JavaScript', 'JavaScript ES6'])).toBe(false);
+      expect(candidateHasSkill('Core Java', ['JavaScript'])).toBe(false);
+      expect(candidateHasSkill('JavaScript', ['Java', 'Core Java', 'Java 17'])).toBe(false);
 
       const jobPosting = {
         title: 'Software Developer II (Front-end)',
@@ -251,6 +257,54 @@ Built and enhanced storefront framework with React and Node.js.
         expect(topJob.why_you_match).toBeDefined();
         expect(topJob.external_apply_url).toBeDefined();
       }
+    });
+  });
+
+  describe('extractCanonicalResumeSkills & Normalization', () => {
+    it('prevents empty-key collision for non-taxonomy unknown skills', () => {
+      const skills = extractCanonicalResumeSkills({
+        skills: [
+          { category: 'Domain', items: ['ProprietaryEngineX', 'CustomProtocolY'] },
+        ],
+      });
+      expect(skills).toEqual(['ProprietaryEngineX', 'CustomProtocolY']);
+      expect(getCanonicalSkillKey('ProprietaryEngineX')).toBe('proprietaryenginex');
+      expect(getCanonicalSkillKey('CustomProtocolY')).toBe('customprotocoly');
+    });
+
+    it('deduplicates case and alias variants canonically', () => {
+      const skills = extractCanonicalResumeSkills({
+        skills: [
+          { category: 'Technical', items: ['react', 'ReactJS', 'nodejs', 'Node.js', 'TypeScript', 'ts'] },
+        ],
+      });
+      expect(skills).toEqual(['React', 'Node.js', 'TypeScript']);
+    });
+
+    it('enforces the 150-skill cap boundary cleanly', () => {
+      const manySkills = Array.from({ length: 155 }, (_, i) => `Skill_${i + 1}`);
+      const extracted = extractCanonicalResumeSkills({
+        skills: [{ category: 'Technical', items: manySkills }],
+      });
+      expect(extracted).toHaveLength(150);
+      expect(extracted).toContain('Skill_150');
+      expect(extracted).not.toContain('Skill_151');
+    });
+
+    it('reads extractedProfile.skills only when docSchema.skills has no items', () => {
+      const legacyOnlyDoc = {
+        skills: [{ category: 'Technical', items: [] }],
+        extractedProfile: { skills: ['Kafka', 'Go'] },
+      };
+      expect(hasExplicitResumeSkills(legacyOnlyDoc)).toBe(false);
+      expect(extractCanonicalResumeSkills(legacyOnlyDoc)).toEqual(['Kafka', 'Go']);
+
+      const explicitDoc = {
+        skills: [{ category: 'Technical', items: ['Python'] }],
+        extractedProfile: { skills: ['Python', 'DeletedLegacySkill'] },
+      };
+      expect(hasExplicitResumeSkills(explicitDoc)).toBe(true);
+      expect(extractCanonicalResumeSkills(explicitDoc)).toEqual(['Python']);
     });
   });
 });

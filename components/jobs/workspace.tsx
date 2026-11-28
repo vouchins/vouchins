@@ -905,9 +905,9 @@ export function Workspace({
       {/* ================================================================== */}
       {/* Unified Resume Studio Header (Navigation, Metadata & Studio Actions) */}
       {/* ================================================================== */}
-      <header className="h-16 shrink-0 border-b border-neutral-200/90 bg-white px-4 sm:px-6 flex items-center justify-between gap-3 sticky top-0 z-20 shadow-xs select-none">
+      <header className="h-16 shrink-0 border-b border-neutral-200/90 bg-white px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 sticky top-0 z-20 shadow-xs select-none overflow-x-auto no-scrollbar">
         {/* Left: Back Button + Breadcrumbs + Resume Title + Target Role */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 md:min-w-0">
           {onBack && (
             <button
               type="button"
@@ -1007,7 +1007,7 @@ export function Workspace({
                 }
               }}
               disabled={isReanalyzing}
-              className="h-8 text-xs font-semibold text-neutral-700 hover:text-neutral-900 border-neutral-200 gap-1.5 hidden lg:inline-flex"
+              className="h-8 text-xs font-semibold text-neutral-700 hover:text-neutral-900 border-neutral-200 gap-1.5 inline-flex shrink-0"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${isReanalyzing ? 'animate-spin text-[#0A1B5C]' : ''}`} />
               Re-analyze
@@ -1018,7 +1018,7 @@ export function Workspace({
             variant="outline"
             size="sm"
             onClick={handleFetchMatchedJobs}
-            className="h-8 text-xs font-semibold text-neutral-700 hover:text-neutral-900 border-neutral-200 gap-1.5 hidden sm:inline-flex"
+            className="h-8 text-xs font-semibold text-neutral-700 hover:text-neutral-900 border-neutral-200 gap-1.5 inline-flex shrink-0"
           >
             <Briefcase className="h-3.5 w-3.5 text-[#0A1B5C]" />
             Matched Jobs
@@ -1028,7 +1028,7 @@ export function Workspace({
             size="sm"
             onClick={handleSave}
             disabled={isSaving}
-            className="h-8 text-xs font-semibold bg-[#0A1B5C] hover:bg-[#0c2277] text-white gap-1.5 shadow-xs"
+            className="h-8 text-xs font-semibold bg-[#0A1B5C] hover:bg-[#0c2277] text-white gap-1.5 shadow-xs shrink-0"
           >
             <Save className="h-3.5 w-3.5" />
             {isSaving ? 'Saving...' : 'Save'}

@@ -84,7 +84,7 @@ export function UploadZone({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 sm:p-12 w-full max-w-2xl mx-auto">
+    <div className="flex flex-col items-center justify-center p-2 sm:p-8 w-full max-w-2xl mx-auto">
       {/* Upload Drop Container */}
       <div
         role="button"
@@ -105,7 +105,7 @@ export function UploadZone({
             fileInputRef.current?.click();
           }
         }}
-        className={`w-full flex flex-col items-center justify-center gap-4 p-8 sm:p-12 rounded-3xl border-2 border-dashed transition-all duration-300 text-center ${isLoading
+        className={`w-full flex flex-col items-center justify-center gap-3 sm:gap-4 p-5 sm:p-10 rounded-2xl sm:rounded-3xl border-2 border-dashed transition-all duration-300 text-center ${isLoading
           ? 'cursor-not-allowed border-[#0A1B5C]/30 bg-neutral-50/80 opacity-90'
           : isDragOver
             ? 'cursor-pointer border-[#0A1B5C] bg-[#0A1B5C]/5 scale-[1.01]'
@@ -155,7 +155,7 @@ export function UploadZone({
       </div>
 
       {/* Zero-friction sample action */}
-      <div className="mt-8 flex flex-col sm:flex-row items-center gap-3 text-center">
+      <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3 text-center">
         <span className="text-xs text-neutral-400">or explore instantly with sample data:</span>
         <Button
           type="button"

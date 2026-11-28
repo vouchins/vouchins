@@ -5,10 +5,10 @@ import {
   evaluateJobMatch,
   detectExperienceLevel,
   detectWorkMode,
-  COMMON_TECH_TAXONOMY,
-  containsSkill,
   isValidGeographicLocation,
+  extractCanonicalResumeSkills,
 } from "@/lib/jobs/ats-client";
+import { getActiveResumeRow } from "@/lib/jobs/active-resume";
 import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
 import { cleanJobApplyUrl } from "@/lib/jobs/url-cleaner";
 
@@ -64,13 +64,14 @@ export async function GET(
           candidateCurrentCompany = registeredCompany;
         }
 
-        const { data: latestResume } = await supabaseAdmin
-          .from("job_resumes")
-          .select("document_schema")
-          .eq("user_id", authCheck.userId)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const { row: latestResume, error: resumeErr } = await getActiveResumeRow(
+          supabaseAdmin,
+          authCheck.userId
+        );
+        if (resumeErr) {
+          console.error("Active resume lookup error in /api/jobs/[id]:", resumeErr);
+          return NextResponse.json({ error: "Failed to load active resume" }, { status: 500 });
+        }
 
         if (latestResume?.document_schema) {
           hasMasterResume = true;
@@ -98,28 +99,7 @@ export async function GET(
             }
           }
 
-          if (Array.isArray(docSchema.skills)) {
-            candidateSkills = docSchema.skills.flatMap((c: any) => c.items || []).slice(0, 30);
-          }
-          if (Array.isArray(docSchema.projects)) {
-            const projectTech = docSchema.projects.flatMap((p: any) => p.techStack || []);
-            candidateSkills = Array.from(new Set([...candidateSkills, ...projectTech])).slice(0, 30);
-          }
-          if (Array.isArray(docSchema.experience)) {
-            const expTech: string[] = [];
-            for (const exp of docSchema.experience) {
-              const bulletsText = Array.isArray(exp.bullets) ? exp.bullets.join(" ") : "";
-              const fullExpText = `${exp.roleTitle || ""} ${bulletsText}`;
-              for (const tech of COMMON_TECH_TAXONOMY) {
-                if (containsSkill(fullExpText, tech)) {
-                  expTech.push(tech);
-                }
-              }
-            }
-            if (expTech.length > 0) {
-              candidateSkills = Array.from(new Set([...candidateSkills, ...expTech])).slice(0, 30);
-            }
-          }
+          candidateSkills = extractCanonicalResumeSkills(docSchema, 150);
 
           const roleForSeniority = candidateCurrentRole || docSchema.experience?.[0]?.roleTitle;
           if (roleForSeniority) {

@@ -65,7 +65,7 @@ import { JobsSidebar } from './jobs-sidebar';
 import { JobsNavbar } from './jobs-navbar';
 import { useUser } from '@/components/user-provider';
 import { supabase } from '@/lib/supabase/browser';
-import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch, containsSkill, COMMON_TECH_TAXONOMY, canonicalizeSkill, isValidGeographicLocation } from '@/lib/jobs/ats-client';
+import { isLocationMatch, LOCATION_ALIASES, evaluateJobMatch, containsSkill, COMMON_TECH_TAXONOMY, canonicalizeSkill, isValidGeographicLocation, getCanonicalSkillKey, extractCanonicalResumeSkills } from '@/lib/jobs/ats-client';
 import { cleanJobApplyUrl, isValidJobUrl } from '@/lib/jobs/url-cleaner';
 import { CompanyLogo } from './company-logo';
 import { getGoogleFaviconUrl } from '@/lib/utils';
@@ -840,8 +840,31 @@ export function JobRecommendationsDashboard() {
   const [masterResumeId, setMasterResumeId] = useState<string | null>(null);
   const [isTailoring, setIsTailoring] = useState(false);
   const [tailorSuccess, setTailorSuccess] = useState(false);
+  const [selectedSkillsToAdd, setSelectedSkillsToAdd] = useState<string[]>([]);
+  const [tailorSummary, setTailorSummary] = useState<{
+    matched: number;
+    total: number;
+    addedSkills: string[];
+    unmatchedAfterSave: string[];
+    detailSyncPending: boolean;
+  } | null>(null);
   const [isDownloadingTailoredPdf, setIsDownloadingTailoredPdf] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
+  const candidateProfileSkillsRef = React.useRef<string[]>([]);
+  candidateProfileSkillsRef.current = candidateProfileSkills;
+  const masterResumeIdRef = React.useRef<string | null>(null);
+  masterResumeIdRef.current = masterResumeId;
+  const dbJobsRef = React.useRef<RecommendedJob[]>([]);
+  const isTailoringRef = React.useRef(false);
+  const loadJobsSeqRef = React.useRef(0);
+  const lastSaveSeqRef = React.useRef(0);
+  const feedStaleRef = React.useRef(false);
+  const staleStorageKey = React.useMemo(
+    () => `vouchins_jobs_feed_stale_${user?.id || 'anon'}`,
+    [user?.id]
+  );
+  const guestSkillsKey = masterResumeId ? null : candidateProfileSkills.join(',');
 
   // Fetch candidate profile & master resume skills
   useEffect(() => {
@@ -970,6 +993,7 @@ export function JobRecommendationsDashboard() {
 
   // Real Database Jobs State (Server-Side Paginated)
   const [dbJobs, setDbJobs] = useState<RecommendedJob[]>([]);
+  dbJobsRef.current = dbJobs;
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [page, setPage] = useState<number>(1);
@@ -977,7 +1001,7 @@ export function JobRecommendationsDashboard() {
   const [totalRolesCount, setTotalRolesCount] = useState<number | null>(null);
 
   // Fetch real jobs from database & live ATS sources with server-side pagination & exact count
-  const loadJobs = React.useCallback(async (targetPage = 1, append = false) => {
+  const loadJobs = React.useCallback(async (targetPage = 1, append = false, overrideLimit?: number): Promise<boolean> => {
     if (append) {
       setIsLoadingMore(true);
     } else {
@@ -990,6 +1014,8 @@ export function JobRecommendationsDashboard() {
     }
     const controller = new AbortController();
     searchAbortControllerRef.current = controller;
+    const reqSeq = ++loadJobsSeqRef.current;
+    const saveSeqAtStart = lastSaveSeqRef.current;
 
     try {
       const locQuery =
@@ -1000,8 +1026,10 @@ export function JobRecommendationsDashboard() {
           : '';
       const workModeQuery = workModeFilter !== 'all' ? `&work_mode=${workModeFilter}` : '';
       const skillsQuery =
-        candidateProfileSkills.length > 0 && !debouncedSearchQuery.trim()
-          ? `&skills=${encodeURIComponent(candidateProfileSkills.slice(0, 10).join(','))}`
+        !masterResumeIdRef.current &&
+        candidateProfileSkillsRef.current.length > 0 &&
+        !debouncedSearchQuery.trim()
+          ? `&skills=${encodeURIComponent(candidateProfileSkillsRef.current.slice(0, 10).join(','))}`
           : '';
       const companiesQuery =
         selectedCompanies.length > 0 && !selectedCompanies.includes('all')
@@ -1012,13 +1040,21 @@ export function JobRecommendationsDashboard() {
       const workingQuery = `&is_working=${isCurrentlyWorking ? 'true' : 'false'}`;
       const searchParam = debouncedSearchQuery.trim() ? `&q=${encodeURIComponent(debouncedSearchQuery.trim())}` : '';
       const targetIdParam = targetPage === 1 && initialJobId ? `&id=${encodeURIComponent(initialJobId)}` : '';
+      const effectiveLimit = overrideLimit ? Math.min(100, Math.max(50, overrideLimit)) : 50;
 
       const res = await fetch(
-        `/api/jobs?page=${targetPage}&limit=50${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${roleQuery}${compQuery}${workingQuery}${searchParam}${targetIdParam}`,
-        { signal: controller.signal }
+        `/api/jobs?page=${targetPage}&limit=${effectiveLimit}${locQuery}${workModeQuery}${skillsQuery}${companiesQuery}${roleQuery}${compQuery}${workingQuery}${searchParam}${targetIdParam}`,
+        { signal: controller.signal, cache: 'no-store' }
       );
       if (res.ok) {
         const json = await res.json();
+        // Discard stale responses superseded by a newer loadJobs or a resume save
+        if (reqSeq !== loadJobsSeqRef.current || lastSaveSeqRef.current !== saveSeqAtStart) {
+          if (lastSaveSeqRef.current !== saveSeqAtStart) {
+            feedStaleRef.current = true;
+          }
+          return false;
+        }
         if (json.jobs && Array.isArray(json.jobs)) {
           const transformed = json.jobs.map(transformDbJobToRecommendedJob);
           if (append) {
@@ -1034,11 +1070,14 @@ export function JobRecommendationsDashboard() {
             setTotalRolesCount(json.totalCount);
           }
           setHasMore(Boolean(json.hasMore));
+          return true;
         }
       }
+      return false;
     } catch (err: any) {
-      if (err.name === 'AbortError') return;
+      if (err.name === 'AbortError') return false;
       console.error('Failed to load live jobs:', err);
+      return false;
     } finally {
       // Only mark loading as finished if this request wasn't superseded by another in-flight controller
       if (searchAbortControllerRef.current === controller) {
@@ -1049,7 +1088,7 @@ export function JobRecommendationsDashboard() {
   }, [
     selectedCity,
     workModeFilter,
-    candidateProfileSkills,
+    guestSkillsKey,
     selectedCompanies,
     candidateCurrentRole,
     candidateCurrentCompany,
@@ -1061,9 +1100,20 @@ export function JobRecommendationsDashboard() {
   useEffect(() => {
     // Wait until initial candidate profile check has completed to prevent firing an uncontextualized request that immediately gets cancelled
     if (isLoadingProfile) return;
+    let persistedStale = false;
+    try {
+      persistedStale = sessionStorage.getItem(staleStorageKey) === '1';
+    } catch {}
     setPage(1);
-    loadJobs(1, false);
-  }, [loadJobs, isLoadingProfile]);
+    loadJobs(1, false).then((ok) => {
+      if (ok && persistedStale) {
+        feedStaleRef.current = false;
+        try {
+          sessionStorage.removeItem(staleStorageKey);
+        } catch {}
+      }
+    });
+  }, [loadJobs, isLoadingProfile, staleStorageKey]);
 
   const handleLoadMore = React.useCallback(() => {
     if (isLoadingMore || isLoadingJobs || !hasMore) return;
@@ -1301,6 +1351,43 @@ export function JobRecommendationsDashboard() {
 
   // Interactive Modals
   const [tailorModalOpen, setTailorModalOpen] = useState(false);
+
+  const openTailorModal = () => {
+    setTailorSuccess(false);
+    setTailorSummary(null);
+    setSelectedSkillsToAdd([]);
+    setTailorModalOpen(true);
+  };
+
+  const handleTailorModalOpenChange = (open: boolean) => {
+    setTailorModalOpen(open);
+    if (!open) {
+      setTailorSuccess(false);
+      setTailorSummary(null);
+      setSelectedSkillsToAdd([]);
+      if (feedStaleRef.current) {
+        const prevScroll = listScrollRef.current?.scrollTop ?? 0;
+        const loadedCount = dbJobsRef.current.length;
+        loadJobs(1, false, loadedCount).then((ok) => {
+          if (ok) {
+            feedStaleRef.current = false;
+            try {
+              sessionStorage.removeItem(staleStorageKey);
+            } catch {}
+            requestAnimationFrame(() => {
+              if (listScrollRef.current) {
+                const maxScroll = Math.max(
+                  0,
+                  listScrollRef.current.scrollHeight - listScrollRef.current.clientHeight
+                );
+                listScrollRef.current.scrollTop = Math.min(prevScroll, maxScroll);
+              }
+            });
+          }
+        });
+      }
+    }
+  };
   const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [verificationModalOpen, setVerificationModalOpen] = useState(false);
   const [selectedInsider, setSelectedInsider] = useState<any>(null);
@@ -1772,13 +1859,19 @@ export function JobRecommendationsDashboard() {
     }
   };
 
-  // 1-Click Tailor Studio: Ingest missing keywords & tailored bullet into Master Resume
+  // Tailor Studio: Confirm & add selected missing keywords into Master Resume via narrow add-skills endpoint
   const handleApplyMissingKeywords = async () => {
-    if (!selectedJob) return;
+    if (isTailoringRef.current || !selectedJob) return;
     const currentJob = selectedJob;
     const missing = currentJob.missingSkills;
     if (!missing || missing.length === 0) {
       toast.info('No missing keywords detected for this role.');
+      return;
+    }
+
+    const skillsToSubmit = selectedSkillsToAdd.slice(0, 20);
+    if (skillsToSubmit.length === 0) {
+      toast.info('Select at least one skill you have before applying.');
       return;
     }
 
@@ -1788,146 +1881,129 @@ export function JobRecommendationsDashboard() {
       return;
     }
 
+    isTailoringRef.current = true;
     setIsTailoring(true);
     try {
-      // 1. Obtain current document from state or fetch freshly
-      let doc = candidateDocument;
-      let activeResId = masterResumeId;
-      if (!doc) {
-        const profileRes = await fetch('/api/jobs/profile');
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          doc = profileData.document || null;
-          if (profileData.resumeId) {
-            activeResId = profileData.resumeId;
-            setMasterResumeId(profileData.resumeId);
-          }
-        }
-      }
-
-      // If still no document, create a clean default document schema for user
-      if (!doc) {
-        doc = {
-          contact: {
-            fullName: user.full_name || '',
-            email: user.email || '',
-            phone: (user as any).phone_number || '',
-            location: user.city || selectedCity || '',
-            linkedinUrl: (user as any).linkedin_url || '',
-            githubUrl: '',
-            portfolioUrl: '',
-          },
-          summary: `Experienced ${candidateCurrentRole || selectedJob.title} specialized in scalable software architecture and high-impact engineering solutions.`,
-          skills: [
-            {
-              category: 'Core Technical Competencies',
-              items: Array.from(new Set([...candidateProfileSkills, ...selectedJob.matchingSkills])),
-            },
-          ],
-          experience: candidateCurrentRole
-            ? [
-                {
-                  id: `exp-${Date.now()}`,
-                  company: candidateCurrentCompany || 'Technology Company',
-                  roleTitle: candidateCurrentRole,
-                  location: selectedCity || 'Remote',
-                  startDate: '2022',
-                  endDate: isCurrentlyWorking ? 'Present' : '2024',
-                  isCurrent: isCurrentlyWorking,
-                  bullets: [
-                    selectedJob.tailoredBulletSuggestion?.tailored ||
-                      'Architected and optimized high-performance systems utilizing modern engineering standards.',
-                  ],
-                },
-              ]
-            : [],
-          education: [],
-          projects: [],
-          certifications: [],
-        };
-      }
-
-      // 2. Clone document and inject missing skills into skills array
-      const updatedDoc: ResumeDocument = JSON.parse(JSON.stringify(doc));
-      if (!Array.isArray(updatedDoc.skills)) {
-        updatedDoc.skills = [];
-      }
-
-      // Add missing keywords into the first category or create one
-      if (updatedDoc.skills.length === 0) {
-        updatedDoc.skills.push({
-          category: 'Core Technical Competencies',
-          items: [...missing],
-        });
-      } else {
-        const targetCategory = updatedDoc.skills[0];
-        if (!Array.isArray(targetCategory.items)) {
-          targetCategory.items = [];
-        }
-        const existingItemsLower = new Set(targetCategory.items.map((i: string) => i.toLowerCase()));
-        for (const kw of missing) {
-          if (!existingItemsLower.has(kw.toLowerCase())) {
-            targetCategory.items.push(kw);
-            existingItemsLower.add(kw.toLowerCase());
-          }
-        }
-      }
-
-      // 3. Inject tailored bullet into experience if available
-      if (
-        selectedJob.tailoredBulletSuggestion?.tailored &&
-        Array.isArray(updatedDoc.experience) &&
-        updatedDoc.experience.length > 0
-      ) {
-        const currentOrFirstExp = updatedDoc.experience[0];
-        if (Array.isArray(currentOrFirstExp.bullets)) {
-          const newBullet = selectedJob.tailoredBulletSuggestion.tailored;
-          if (!currentOrFirstExp.bullets.includes(newBullet)) {
-            currentOrFirstExp.bullets.unshift(newBullet);
-          }
-        }
-      }
-
-      // 4. Save to server via /api/jobs/profile
       const saveRes = await fetch('/api/jobs/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ document: updatedDoc }),
+        body: JSON.stringify({
+          action: 'add-skills',
+          resumeId: masterResumeIdRef.current || undefined,
+          skills: skillsToSubmit,
+        }),
       });
 
+      const saveJson = await saveRes.json().catch(() => ({}));
+
       if (!saveRes.ok) {
-        throw new Error('Failed to save tailored resume to profile');
+        if (saveRes.status === 403) {
+          toast.error('You do not have permission to update this resume.');
+        } else if (saveRes.status === 404) {
+          toast.error('No Master Resume found. Please upload a resume in Resume Studio first.');
+        } else if (saveRes.status === 409) {
+          toast.error('Your resume was updated in another tab - click Add again to merge.');
+        } else {
+          toast.error(saveJson.error || 'Failed to update Master Resume. Please try again.');
+        }
+        return;
       }
 
-      const saveJson = await saveRes.json();
-      if (saveJson.resumeId && !activeResId) {
+      lastSaveSeqRef.current += 1;
+
+      if (saveJson.resumeId) {
+        masterResumeIdRef.current = saveJson.resumeId;
         setMasterResumeId(saveJson.resumeId);
       }
-
-      // 5. Update local state
-      setCandidateDocument(updatedDoc);
-      const newSkills = Array.from(new Set([...candidateProfileSkills, ...missing]));
-      setCandidateProfileSkills(newSkills);
-
-      // Update selectedJob in place: move missing skills to matching skills!
-      const newlyMatched = [...missing];
-      currentJob.matchingSkills = Array.from(new Set([...currentJob.matchingSkills, ...newlyMatched]));
-      currentJob.missingSkills = [];
-      currentJob.matchScore = Math.min(99, Math.max(95, (currentJob.matchScore || 85) + 8));
-      if (currentJob.matchBreakdown) {
-        currentJob.matchBreakdown.skillsScore = Math.min(99, Math.max(96, currentJob.matchBreakdown.skillsScore + 10));
-        currentJob.matchBreakdown.stackScore = Math.min(99, Math.max(96, currentJob.matchBreakdown.stackScore + 8));
+      if (saveJson.document) {
+        setCandidateDocument(saveJson.document);
+        setCandidateProfileSkills(extractCanonicalResumeSkills(saveJson.document, 150));
       }
-      currentJob.isRecommended = true;
 
+      const addedSkills: string[] = Array.isArray(saveJson.addedSkills) && saveJson.addedSkills.length > 0
+        ? saveJson.addedSkills
+        : skillsToSubmit;
+
+      feedStaleRef.current = true;
+      try {
+        sessionStorage.setItem(staleStorageKey, '1');
+      } catch {}
+
+      // Fetch server-computed match for this job so modal & detail view match /api/jobs
+      let detailSyncPending = false;
+      let serverMatching = currentJob.matchingSkills;
+      let serverMissing = currentJob.missingSkills;
+      let unmatchedAfterSave: string[] = [];
+
+      try {
+        const detailRes = await fetch(`/api/jobs/${encodeURIComponent(currentJob.id)}`, {
+          cache: 'no-store',
+        });
+        if (detailRes.ok) {
+          const detailJson = await detailRes.json();
+          if (detailJson?.job) {
+            const refreshed = transformDbJobToRecommendedJob(detailJson.job);
+            serverMatching = refreshed.matchingSkills;
+            serverMissing = refreshed.missingSkills;
+
+            const matchedKeys = new Set(serverMatching.map((s) => getCanonicalSkillKey(s)));
+            unmatchedAfterSave = addedSkills.filter(
+              (added) => !matchedKeys.has(getCanonicalSkillKey(added))
+            );
+            if (unmatchedAfterSave.length > 0) {
+              console.warn('Tailor add-skills unmatched by server job matcher:', {
+                jobId: currentJob.id,
+                unmatchedAfterSave,
+              });
+            }
+
+            setDbJobs((prev) =>
+              prev.map((j) =>
+                j.id === currentJob.id
+                  ? {
+                      ...j,
+                      matchingSkills: refreshed.matchingSkills,
+                      missingSkills: refreshed.missingSkills,
+                      matchScore: refreshed.matchScore,
+                      matchBreakdown: refreshed.matchBreakdown,
+                      whyYouMatch: refreshed.whyYouMatch,
+                      isRecommended: refreshed.isRecommended,
+                    }
+                  : j
+              )
+            );
+          } else {
+            detailSyncPending = true;
+          }
+        } else {
+          detailSyncPending = true;
+        }
+      } catch {
+        detailSyncPending = true;
+      }
+
+      setTailorSummary({
+        matched: serverMatching.length,
+        total: serverMatching.length + serverMissing.length,
+        addedSkills,
+        unmatchedAfterSave,
+        detailSyncPending,
+      });
+      setSelectedSkillsToAdd([]);
       setTailorSuccess(true);
-      toast.success(
-        `Added ${missing.length} ${missing.length === 1 ? 'keyword' : 'keywords'} to your Master Resume!`
-      );
+
+      if (detailSyncPending) {
+        toast.success('Skills saved to your Master Resume. Job scores will refresh shortly.');
+      } else {
+        toast.success(
+          `Added ${addedSkills.length} ${addedSkills.length === 1 ? 'keyword' : 'keywords'} to your Master Resume!`
+        );
+      }
     } catch (err: any) {
       console.error('Tailor resume error:', err);
       toast.error('Failed to update Master Resume. Please try again.');
     } finally {
+      isTailoringRef.current = false;
       setIsTailoring(false);
     }
   };
@@ -3179,7 +3255,7 @@ export function JobRecommendationsDashboard() {
                   )}
 
                   <button
-                    onClick={() => setTailorModalOpen(true)}
+                    onClick={openTailorModal}
                     className="px-4 py-2.5 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white text-neutral-800 text-xs font-bold flex items-center gap-1.5 transition-colors"
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5 text-neutral-700" />
@@ -3428,10 +3504,7 @@ export function JobRecommendationsDashboard() {
                             {selectedJob.missingSkills.length > 0 ? (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setTailorSuccess(false);
-                                  setTailorModalOpen(true);
-                                }}
+                                onClick={openTailorModal}
                                 className="text-[11px] font-semibold text-[#0A1B5C] hover:underline flex items-center gap-1"
                               >
                                 <SlidersHorizontal className="h-3 w-3 text-[#0A1B5C]" />
@@ -3994,7 +4067,7 @@ export function JobRecommendationsDashboard() {
               {/* Tailor Resume Button */}
               <button
                 type="button"
-                onClick={() => setTailorModalOpen(true)}
+                onClick={openTailorModal}
                 className="h-11 px-2.5 sm:px-3 rounded-xl border border-neutral-300 hover:border-neutral-900 bg-white text-neutral-800 text-xs font-bold flex items-center justify-center gap-1 shrink-0 active:scale-95 shadow-xs"
               >
                 <SlidersHorizontal className="h-3.5 w-3.5 text-neutral-700" />
@@ -4091,7 +4164,7 @@ export function JobRecommendationsDashboard() {
         </main>
 
         {/* TAILOR RESUME MODAL */}
-        <Dialog open={tailorModalOpen && Boolean(selectedJob)} onOpenChange={setTailorModalOpen}>
+        <Dialog open={tailorModalOpen && Boolean(selectedJob)} onOpenChange={handleTailorModalOpenChange}>
           <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold text-neutral-900 flex items-center gap-2">
@@ -4099,7 +4172,7 @@ export function JobRecommendationsDashboard() {
                 Tailor Resume for {selectedJob?.title || 'Selected Role'}
               </DialogTitle>
               <DialogDescription className="text-xs text-neutral-500">
-                Align your Master Resume with {selectedJob?.companyName || 'Target Company'}&apos;s target keywords in 1-click without manual rewriting.
+                Confirm the missing skills you already possess to add them to your Master Resume for {selectedJob?.companyName || 'Target Company'}.
               </DialogDescription>
             </DialogHeader>
 
@@ -4110,19 +4183,50 @@ export function JobRecommendationsDashboard() {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg text-neutral-900">
-                    Keywords Ingested Successfully!
+                    Keywords Added to Master Resume!
                   </h3>
                   <p className="text-xs text-neutral-600 mt-1 max-w-md mx-auto leading-relaxed">
-                    Your Master Resume has been updated with {selectedJob.title}&apos;s target keywords and the Google XYZ tailored bullet point.
+                    {tailorSummary?.detailSyncPending
+                      ? 'Skills saved to your Master Resume. Job scores will refresh shortly.'
+                      : `Your Master Resume has been updated with the confirmed skills for ${selectedJob.title}.`}
                   </p>
                 </div>
 
                 <div className="p-3.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl max-w-sm mx-auto flex items-center justify-between text-xs">
                   <span className="font-medium text-emerald-900">Master Resume Updated:</span>
                   <span className="font-bold text-emerald-700 text-sm">
-                    {selectedJob.matchingSkills.length} / {selectedJob.matchingSkills.length} Skills Aligned
+                    {tailorSummary
+                      ? tailorSummary.detailSyncPending
+                        ? `${tailorSummary.addedSkills.length} Added`
+                        : `${tailorSummary.matched} / ${tailorSummary.total} Skills Aligned`
+                      : `${selectedJob.matchingSkills.length} / ${selectedJob.matchingSkills.length + selectedJob.missingSkills.length} Skills Aligned`}
                   </span>
                 </div>
+
+                {tailorSummary && tailorSummary.addedSkills.length > 0 && (
+                  <div className="max-w-sm mx-auto text-left space-y-1.5">
+                    <span className="text-[11px] font-semibold text-neutral-600 block">
+                      Added to your Master Resume:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tailorSummary.addedSkills.map((s, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-medium"
+                        >
+                          ✓ {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tailorSummary && tailorSummary.unmatchedAfterSave.length > 0 && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-2.5 max-w-sm mx-auto text-left">
+                    Added to your resume, though not matched to this job&apos;s wording:{' '}
+                    {tailorSummary.unmatchedAfterSave.join(', ')}
+                  </p>
+                )}
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
                   <button
@@ -4138,12 +4242,12 @@ export function JobRecommendationsDashboard() {
                     href={`/jobs/resume/studio${masterResumeId ? `?id=${masterResumeId}` : ''}`}
                     className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-neutral-300 hover:bg-neutral-50 text-neutral-800 text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
                   >
-                    <span>Open in Tailor Studio</span>
+                    <span>Review in Tailor Studio</span>
                     <ExternalLink className="h-3.5 w-3.5 text-neutral-500" />
                   </Link>
                   <button
                     type="button"
-                    onClick={() => setTailorModalOpen(false)}
+                    onClick={() => handleTailorModalOpenChange(false)}
                     className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-colors"
                   >
                     Done
@@ -4153,28 +4257,61 @@ export function JobRecommendationsDashboard() {
             ) : (
               <>
                 <div className="space-y-4 py-3">
-                  <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs space-y-1.5">
-                    <span className="font-semibold text-neutral-700 block">Target Role Keyword Ingestion</span>
+                  <div className="p-4 rounded-2xl bg-neutral-50 border border-neutral-200 text-xs space-y-2.5">
+                    <span className="font-semibold text-neutral-700 block">Already Matched Skills</span>
                     <div className="flex flex-wrap gap-1.5">
                       {selectedJob.matchingSkills.map((s, idx) => (
                         <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-medium">
                           ✓ {s}
                         </span>
                       ))}
-                      {selectedJob.missingSkills.map((s, idx) => (
-                        <span key={idx} className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-medium">
-                          + {s}
-                        </span>
-                      ))}
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <span className="text-xs font-semibold text-neutral-800 block">
-                      Targeted Bullet Point Transformation:
-                    </span>
-                    <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-950 font-medium leading-relaxed">
-                      &ldquo;{selectedJob.tailoredBulletSuggestion.tailored}&rdquo;
+                    <div className="pt-2 border-t border-neutral-200/80 space-y-2">
+                      <span className="font-semibold text-neutral-800 block">
+                        I confirm I have these selected skills (max 20):
+                      </span>
+                      {selectedJob.missingSkills.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedJob.missingSkills.map((s, idx) => {
+                            const isChecked = selectedSkillsToAdd.includes(s);
+                            const atLimit = !isChecked && selectedSkillsToAdd.length >= 20;
+                            return (
+                              <label
+                                key={idx}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-medium cursor-pointer transition-colors ${
+                                  isChecked
+                                    ? 'bg-[#0A1B5C]/10 border-[#0A1B5C] text-[#0A1B5C]'
+                                    : atLimit
+                                      ? 'bg-neutral-100 border-neutral-200 text-neutral-400 cursor-not-allowed'
+                                      : 'bg-white border-neutral-300 text-neutral-700 hover:border-[#0A1B5C]/50'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  disabled={atLimit}
+                                  onChange={() => {
+                                    setSelectedSkillsToAdd((prev) =>
+                                      prev.includes(s)
+                                        ? prev.filter((item) => item !== s)
+                                        : prev.length >= 20
+                                          ? prev
+                                          : [...prev, s]
+                                    );
+                                  }}
+                                  className="h-3.5 w-3.5 accent-[#0A1B5C] rounded"
+                                />
+                                <span>{s}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-emerald-700 font-medium">
+                          All target keywords for this role are already in your Master Resume.
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -4184,12 +4321,19 @@ export function JobRecommendationsDashboard() {
                       {(() => {
                         const matched = selectedJob.matchingSkills.length;
                         const total = matched + selectedJob.missingSkills.length;
+                        const nextMatched = matched + selectedSkillsToAdd.length;
                         return total > 0
-                          ? `${matched}/${total} ➔ ${total}/${total} skills`
-                          : '1 tailored bullet ready';
+                          ? `${matched}/${total} ➔ ${nextMatched}/${total} skills`
+                          : 'All target skills matched';
                       })()}
                     </span>
                   </div>
+
+                  {selectedJob.missingSkills.length > 0 && selectedSkillsToAdd.length === 0 && (
+                    <p className="text-[11px] text-neutral-500">
+                      Select at least one skill you have to enable applying.
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-2 border-t border-neutral-100">
@@ -4204,7 +4348,7 @@ export function JobRecommendationsDashboard() {
                   <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
                     <button
                       type="button"
-                      onClick={() => setTailorModalOpen(false)}
+                      onClick={() => handleTailorModalOpenChange(false)}
                       className="px-4 py-2.5 rounded-xl border border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 transition-colors"
                     >
                       Cancel
@@ -4212,18 +4356,25 @@ export function JobRecommendationsDashboard() {
                     <button
                       type="button"
                       onClick={handleApplyMissingKeywords}
-                      disabled={isTailoring || selectedJob.missingSkills.length === 0}
+                      disabled={
+                        isTailoring ||
+                        selectedJob.missingSkills.length === 0 ||
+                        selectedSkillsToAdd.length === 0
+                      }
                       className="px-5 py-2.5 rounded-xl bg-[#0A1B5C] hover:bg-[#11287e] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs active:scale-95 disabled:opacity-50"
                     >
                       {isTailoring ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin text-[#4FD1C5]" />
-                          <span>Ingesting Keywords...</span>
+                          <span>Adding Skills...</span>
                         </>
                       ) : (
                         <>
                           <SlidersHorizontal className="h-3.5 w-3.5 text-[#4FD1C5]" />
-                          <span>1-Click Apply to Master Resume</span>
+                          <span>
+                            Add {selectedSkillsToAdd.length}{' '}
+                            {selectedSkillsToAdd.length === 1 ? 'skill' : 'skills'} to Master Resume
+                          </span>
                         </>
                       )}
                     </button>

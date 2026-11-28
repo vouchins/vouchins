@@ -17,7 +17,9 @@ import {
   detectRoleDomain,
   isSameCompany,
   buildPostgrestLocationFilter,
+  extractCanonicalResumeSkills,
 } from "@/lib/jobs/ats-client";
+import { getActiveResumeRow } from "@/lib/jobs/active-resume";
 import { getCuratedInsiders } from "@/lib/jobs/corporate-insiders";
 import { cleanJobApplyUrl, isValidJobUrl } from "@/lib/jobs/url-cleaner";
 
@@ -86,13 +88,14 @@ export async function GET(request: Request) {
           candidateCurrentCompany = userRegisteredCompany;
         }
 
-        const { data: latestResume } = await supabaseAdmin
-          .from("job_resumes")
-          .select("document_schema")
-          .eq("user_id", authCheck.userId)
-          .order("updated_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const { row: latestResume, error: resumeErr } = await getActiveResumeRow(
+          supabaseAdmin,
+          authCheck.userId
+        );
+        if (resumeErr) {
+          console.error("Active resume lookup error in /api/jobs:", resumeErr);
+          return NextResponse.json({ error: "Failed to load active resume" }, { status: 500 });
+        }
 
         if (latestResume?.document_schema) {
           hasMasterResume = true;
@@ -145,36 +148,8 @@ export async function GET(request: Request) {
             candidateCurrentRole = docSchema.targetJobTitle.trim();
           }
 
-          // Extract candidate skills from resume skills categories
-          if (Array.isArray(docSchema.skills) && candidateSkills.length === 0) {
-            const docSkills = docSchema.skills.flatMap((c: any) => c.items || []);
-            if (docSkills.length > 0) {
-              candidateSkills = docSkills.slice(0, 30);
-            }
-          }
-
-          // Also pull from project tech stacks if available
-          if (Array.isArray(docSchema.projects)) {
-            const projectTech = docSchema.projects.flatMap((p: any) => p.techStack || []);
-            candidateSkills = Array.from(new Set([...candidateSkills, ...projectTech])).slice(0, 30);
-          }
-
-          // Extract tech keywords from experience bullets and roles
-          if (Array.isArray(docSchema.experience)) {
-            const expTech: string[] = [];
-            for (const exp of docSchema.experience) {
-              const bulletsText = Array.isArray(exp.bullets) ? exp.bullets.join(" ") : "";
-              const fullExpText = `${exp.roleTitle || ""} ${bulletsText}`;
-              for (const tech of COMMON_TECH_TAXONOMY) {
-                if (containsSkill(fullExpText, tech)) {
-                  expTech.push(tech);
-                }
-              }
-            }
-            if (expTech.length > 0) {
-              candidateSkills = Array.from(new Set([...candidateSkills, ...expTech])).slice(0, 30);
-            }
-          }
+          // Database Master Resume is authoritative for authenticated users; ignore ?skills=
+          candidateSkills = extractCanonicalResumeSkills(docSchema, 150);
 
           // Automatically detect candidate seniority from current role, latest job title, or experience breadth
           if (experienceLevel === "all") {

@@ -610,6 +610,98 @@ export function canonicalizeSkill(skill: string): string {
 }
 
 /**
+ * Computes the canonical deduplication key for a skill string.
+ * Falls back to trimmed lowercase raw text so unrecognised non-taxonomy
+ * skills never collapse onto an empty key.
+ */
+export function getCanonicalSkillKey(rawSkill: string): string {
+  const trimmed = (rawSkill || '').trim();
+  if (!trimmed) return '';
+  const canon = canonicalizeSkill(trimmed);
+  return (canon || trimmed).toLowerCase();
+}
+
+/**
+ * Shared predicate for both the read extractor and `add-skills` seeding:
+ * returns true only when `docSchema.skills` contains at least one non-empty item.
+ */
+export function hasExplicitResumeSkills(docSchema: any): boolean {
+  if (!Array.isArray(docSchema?.skills)) return false;
+  return docSchema.skills.some(
+    (cat: any) =>
+      Array.isArray(cat?.items) &&
+      cat.items.some((item: unknown) => typeof item === 'string' && item.trim().length > 0)
+  );
+}
+
+/**
+ * Extracts and canonically deduplicates resume skills once per request,
+ * bounded at `maxSkills` (default 150).
+ * Reads `extractedProfile.skills` only when `docSchema.skills` has no items.
+ */
+export function extractCanonicalResumeSkills(docSchema: any, maxSkills = 150): string[] {
+  if (!docSchema || typeof docSchema !== 'object') return [];
+
+  const deduped = new Map<string, string>();
+  const addSkill = (raw: unknown) => {
+    if (deduped.size >= maxSkills || typeof raw !== 'string') return;
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    const key = getCanonicalSkillKey(trimmed);
+    if (!key || deduped.has(key)) return;
+    const canon = canonicalizeSkill(trimmed);
+    deduped.set(key, canon || trimmed);
+  };
+
+  const explicitPresent = hasExplicitResumeSkills(docSchema);
+
+  // 1. Explicit skills categories (highest priority)
+  if (Array.isArray(docSchema.skills)) {
+    for (const cat of docSchema.skills) {
+      if (Array.isArray(cat?.items)) {
+        for (const item of cat.items) {
+          addSkill(item);
+        }
+      }
+    }
+  }
+
+  // 2. Project tech stacks
+  if (Array.isArray(docSchema.projects)) {
+    for (const proj of docSchema.projects) {
+      if (Array.isArray(proj?.techStack)) {
+        for (const tech of proj.techStack) {
+          addSkill(tech);
+        }
+      }
+    }
+  }
+
+  // 3. Experience roles and bullets matched against taxonomy
+  if (Array.isArray(docSchema.experience)) {
+    for (const exp of docSchema.experience) {
+      const bulletsText = Array.isArray(exp?.bullets) ? exp.bullets.join(' ') : '';
+      const fullExpText = `${exp?.roleTitle || ''} ${bulletsText}`;
+      for (const tech of COMMON_TECH_TAXONOMY) {
+        if (deduped.size >= maxSkills) break;
+        if (containsSkill(fullExpText, tech)) {
+          addSkill(tech);
+        }
+      }
+    }
+  }
+
+  // 4. Legacy fallback: read extractedProfile.skills only when docSchema.skills has no items
+  if (!explicitPresent && Array.isArray(docSchema.extractedProfile?.skills)) {
+    for (const legacySkill of docSchema.extractedProfile.skills) {
+      addSkill(legacySkill);
+    }
+  }
+
+  return Array.from(deduped.values());
+}
+
+/**
  * Checks whether the candidate possesses a given technical skill,
  * taking into account canonical skill names, parenthetical versions, and synonyms.
  */
@@ -621,9 +713,17 @@ export function candidateHasSkill(tech: string, candidateSkills: string[]): bool
     if (!cs) return false;
     const normCs = canonicalizeSkill(cs).toLowerCase();
     if (normCs === normTech) return true;
-    if (normCs.length >= 4 && normTech.length >= 4 && (normCs === normTech || normCs.includes(normTech) || normTech.includes(normCs))) {
-      // Prevent "java" from matching "javascript"
-      if ((normCs === 'java' && normTech === 'javascript') || (normCs === 'javascript' && normTech === 'java')) {
+    if (
+      normCs.length >= 4 &&
+      normTech.length >= 4 &&
+      (rawSkillMatch(normCs, normTech) || rawSkillMatch(normTech, normCs))
+    ) {
+      // Never allow Java and JavaScript variants (e.g. "Core Java" vs "JavaScript") to cross-match
+      const csHasJs = /\b(javascript|js)\b/i.test(normCs);
+      const techHasJs = /\b(javascript|js)\b/i.test(normTech);
+      const csHasJavaOnly = /\bjava\b/i.test(normCs) && !csHasJs;
+      const techHasJavaOnly = /\bjava\b/i.test(normTech) && !techHasJs;
+      if ((csHasJavaOnly && techHasJs) || (csHasJs && techHasJavaOnly)) {
         return false;
       }
       return true;

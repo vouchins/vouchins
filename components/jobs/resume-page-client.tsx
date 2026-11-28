@@ -828,7 +828,7 @@ export function ResumePageClient() {
 
       {/* Add Resume Dialog */}
       <Dialog open={addResumeOpen} onOpenChange={setAddResumeOpen}>
-        <DialogContent className="sm:max-w-xl bg-white border border-neutral-200 rounded-3xl p-6 shadow-2xl">
+        <DialogContent className="w-[95vw] sm:w-full max-w-[calc(100vw-1rem)] sm:max-w-xl max-h-[90dvh] overflow-y-auto overflow-x-hidden bg-white border border-neutral-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-neutral-900 flex items-center gap-2">
               Add ATS Master Resume
